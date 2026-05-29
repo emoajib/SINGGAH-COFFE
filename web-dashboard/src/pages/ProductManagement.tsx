@@ -111,6 +111,7 @@ const ProductManagement: React.FC = () => {
                 await api.post('/ingredients', payload);
             }
             fetchIngredients();
+            fetchProducts(); // Refresh products to show updated HPP
             setIsIdModalOpen(false);
             setEditingIngredient(null);
         } catch (error) {
@@ -595,17 +596,41 @@ const ProductManagement: React.FC = () => {
                                 </div>
                                 <div className="border-t pt-4">
                                     <div className="flex justify-between items-center mb-4"><h3 className="font-bold">Komposisi Resep</h3><button type="button" onClick={handleAddRecipeItem} className="text-blue-600 text-sm flex items-center gap-1 font-semibold"><Plus size={16} /> Tambah Bahan Ke Resep</button></div>
-                                    <div className="space-y-3">
-                                        {formData.recipe.map((item, idx) => (
-                                            <div key={idx} className="flex gap-3 animate-in fade-in">
-                                                <select className="flex-1 border rounded-lg px-3 py-2" value={item.ingredient_id} onChange={e => handleRecipeChange(idx, 'ingredient_id', parseInt(e.target.value))} required>
-                                                    <option value={0}>Pilih Bahan</option>
-                                                    {ingredients.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
-                                                </select>
-                                                <input type="number" step="0.01" className="w-32 border rounded-lg px-3 py-2" placeholder="Jumlah" value={item.quantity} onChange={e => handleRecipeChange(idx, 'quantity', parseFloat(e.target.value))} required />
-                                                <button type="button" onClick={() => handleRemoveRecipeItem(idx)} className="text-red-500 px-2"><Trash2 size={20} /></button>
-                                            </div>
-                                        ))}
+                                    <div className="space-y-4">
+                                        {formData.recipe.map((item, idx) => {
+                                            const ing = ingredients.find(i => i.id === item.ingredient_id);
+                                            const itemCost = ing ? (ing.cost_per_unit * item.quantity) : 0;
+                                            
+                                            return (
+                                                <div key={idx} className="flex gap-3 animate-in fade-in items-start">
+                                                    <div className="flex-1">
+                                                        <select 
+                                                            className="w-full border rounded-lg px-3 py-2 text-sm" 
+                                                            value={item.ingredient_id} 
+                                                            onChange={e => handleRecipeChange(idx, 'ingredient_id', parseInt(e.target.value))} 
+                                                            required
+                                                        >
+                                                            <option value={0}>Pilih Bahan</option>
+                                                            {ingredients.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+                                                        </select>
+                                                        {ing && <p className="text-[10px] text-gray-400 mt-1 ml-1">Harga master: Rp {ing.cost_per_unit.toLocaleString()}/{ing.unit}</p>}
+                                                    </div>
+                                                    <div className="w-32">
+                                                        <input 
+                                                            type="number" 
+                                                            step="0.01" 
+                                                            className="w-full border rounded-lg px-3 py-2 text-sm" 
+                                                            placeholder="Jumlah" 
+                                                            value={item.quantity} 
+                                                            onChange={e => handleRecipeChange(idx, 'quantity', parseFloat(e.target.value))} 
+                                                            required 
+                                                        />
+                                                        {ing && <p className="text-[10px] text-blue-600 font-bold mt-1 text-right">Rp {itemCost.toLocaleString()}</p>}
+                                                    </div>
+                                                    <button type="button" onClick={() => handleRemoveRecipeItem(idx)} className="text-red-500 pt-2"><Trash2 size={20} /></button>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                                 {formData.recipe.length > 0 && (

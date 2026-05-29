@@ -25,7 +25,7 @@ func (h *InventoryHandler) GetIngredients(c *gin.Context) {
 	}
 
 	// Data Privacy: Only Owner and Manager can see Purchase Cost
-	role, _ := c.Get("role")
+	role, _ := c.Get("user_role")
 	if role != "owner" && role != "manager" {
 		for i := range ingredients {
 			ingredients[i].CostPerUnit = 0

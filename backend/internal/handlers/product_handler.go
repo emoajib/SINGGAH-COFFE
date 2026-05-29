@@ -25,7 +25,7 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 	h.DB.Preload("Recipe").Preload("Recipe.Ingredient").Find(&products)
 
 	// Data Privacy: Only Owner and Manager can see COGS/Cost
-	role, _ := c.Get("role")
+	role, _ := c.Get("user_role")
 	if role != "owner" && role != "manager" {
 		for i := range products {
 			products[i].Cost = 0
