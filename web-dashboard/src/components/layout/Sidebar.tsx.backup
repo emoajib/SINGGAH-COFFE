@@ -106,17 +106,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                     <p className="text-xs text-gray-500 mb-3">Buka dokumentasi sistem.</p>
                     <Button variant="outline" size="sm" className="w-full text-xs h-8">Pusat Bantuan</Button>
                 </div>
-                
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                    <button
-                        onClick={() => window.open('https://github.com/emoajib/SINGGAH-COFFE/releases/latest/download/singgah-pos-android.apk', '_blank')}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border border-gray-300 hover:bg-gray-50"
-                    >
-                        <Monitor className="w-5 h-5 text-gray-400" />
-                        Download Android App
-                    </button>
-                </div>
-                
                 <div className="flex items-center gap-3 px-2">
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary border border-primary/20">
                         {user ? getInitials(user.name) : "U"}
