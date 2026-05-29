@@ -35,8 +35,8 @@ func (s *InventoryService) GetStockHistory(ingredientID string) ([]models.StockM
 	return mutations, result.Error
 }
 
-// CreateStockMutation handles stock adjustments (manual mutations)
-func (s *InventoryService) CreateStockMutation(mutation *models.StockMutation) error {
+// CreateStockMutation handles stock adjustments (manual mutations) with optional expense and price update
+func (s *InventoryService) CreateStockMutation(mutation *models.StockMutation, isPurchase bool, updateMasterPrice bool, newCost float64) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		// 1. Create Mutation Record
 		if err := tx.Create(mutation).Error; err != nil {
@@ -44,7 +44,51 @@ func (s *InventoryService) CreateStockMutation(mutation *models.StockMutation) e
 		}
 
 		// 2. Update Ingredient Stock
-		return s.updateIngredientStock(tx, mutation.IngredientID, mutation.Type, mutation.Quantity)
+		if err := s.updateIngredientStock(tx, mutation.IngredientID, mutation.Type, mutation.Quantity); err != nil {
+			return err
+		}
+
+		// 3. Handle Expense Creation (if it's a purchase and type is IN)
+		if isPurchase && mutation.Type == "IN" {
+			var ingredient models.Ingredient
+			if err := tx.First(&ingredient, mutation.IngredientID).Error; err != nil {
+				return err
+			}
+
+			// Determine cost to use for expense
+			costToUse := ingredient.CostPerUnit
+			if updateMasterPrice && newCost > 0 {
+				costToUse = newCost
+			}
+
+			expense := models.Expense{
+				Title:       "Pembelian: " + ingredient.Name,
+				Amount:      mutation.Quantity * costToUse,
+				Category:    "Operasional",
+				Date:        mutation.Date,
+				Description: "Auto-generated from Stock In",
+				Notes:       mutation.Notes,
+			}
+			if expense.Date.IsZero() {
+				expense.Date = mutation.CreatedAt
+			}
+
+			if err := tx.Create(&expense).Error; err != nil {
+				return err
+			}
+		}
+
+		// 4. Update Master Price and Recalculate HPP if requested
+		if updateMasterPrice && newCost > 0 {
+			if err := tx.Model(&models.Ingredient{}).Where("id = ?", mutation.IngredientID).Update("cost_per_unit", newCost).Error; err != nil {
+				return err
+			}
+			if err := s.recalculateCostsForIngredient(tx, mutation.IngredientID); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	})
 }
 
@@ -62,6 +106,35 @@ func (s *InventoryService) updateIngredientStock(tx *gorm.DB, ingredientID uint,
 	}
 
 	return tx.Save(&ingredient).Error
+}
+
+// recalculateCostsForIngredient is a helper to update HPP for products using a specific ingredient
+func (s *InventoryService) recalculateCostsForIngredient(tx *gorm.DB, ingredientID uint) error {
+	var recipeItems []models.RecipeItem
+	if err := tx.Where("ingredient_id = ?", ingredientID).Find(&recipeItems).Error; err != nil {
+		return err
+	}
+
+	productIDs := make(map[uint]bool)
+	for _, item := range recipeItems {
+		productIDs[item.ProductID] = true
+	}
+
+	for productID := range productIDs {
+		var totalCost float64
+		if err := tx.Table("recipe_items").
+			Select("SUM(recipe_items.quantity * ingredients.cost_per_unit) as total_cost").
+			Joins("JOIN ingredients ON ingredients.id = recipe_items.ingredient_id").
+			Where("recipe_items.product_id = ?", productID).
+			Scan(&totalCost).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&models.Product{}).Where("id = ?", productID).Update("cost", totalCost).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeductStockForRecipe is used by OrderService/Handler inside a transaction to deduct ingredients
@@ -115,40 +188,13 @@ func (s *InventoryService) UpdateIngredient(id string, name string, unit string,
 			return err
 		}
 
-		// 2. Recalculate costs for all products using this ingredient
-		var recipeItems []models.RecipeItem
-		if err := tx.Where("ingredient_id = ?", id).Find(&recipeItems).Error; err != nil {
+		// 2. Recalculate costs
+		// Convert id string to uint
+		var ing models.Ingredient
+		if err := tx.First(&ing, id).Error; err != nil {
 			return err
 		}
-
-		// Get unique product IDs
-		productIDs := make(map[uint]bool)
-		for _, item := range recipeItems {
-			productIDs[item.ProductID] = true
-		}
-
-		// Recalculate cost for each affected product
-		for productID := range productIDs {
-			var totalCost float64
-
-			// Sum up all ingredient costs for this product
-			if err := tx.Table("recipe_items").
-				Select("SUM(recipe_items.quantity * ingredients.cost_per_unit) as total_cost").
-				Joins("JOIN ingredients ON ingredients.id = recipe_items.ingredient_id").
-				Where("recipe_items.product_id = ?", productID).
-				Scan(&totalCost).Error; err != nil {
-				return err
-			}
-
-			// Update product cost
-			if err := tx.Model(&models.Product{}).
-				Where("id = ?", productID).
-				Update("cost", totalCost).Error; err != nil {
-				return err
-			}
-		}
-
-		return nil
+		return s.recalculateCostsForIngredient(tx, ing.ID)
 	})
 }
 

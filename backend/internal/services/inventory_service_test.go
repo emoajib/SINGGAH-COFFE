@@ -16,10 +16,11 @@ func setupTestDB() (*gorm.DB, error) {
 	}
 	// Migrate necessary tables
 	err = db.AutoMigrate(
-		&models.Ingredient{}, 
-		&models.StockMutation{}, 
-		&models.Product{}, 
+		&models.Ingredient{},
+		&models.StockMutation{},
+		&models.Product{},
 		&models.RecipeItem{},
+		&models.Expense{},
 	)
 	return db, err
 }
@@ -59,8 +60,8 @@ func TestStockMutation_Add(t *testing.T) {
 		Quantity:     500,
 		Notes:        "Restock from Supplier",
 	}
-	
-	if err := service.CreateStockMutation(&mutation); err != nil {
+
+	if err := service.CreateStockMutation(&mutation, false, false, 0); err != nil {
 		t.Fatalf("Mutation failed: %v", err)
 	}
 
@@ -90,8 +91,8 @@ func TestStockMutation_Deduct(t *testing.T) {
 		Quantity:     100,
 		Notes:        "Spilled",
 	}
-	
-	if err := service.CreateStockMutation(&mutation); err != nil {
+
+	if err := service.CreateStockMutation(&mutation, false, false, 0); err != nil {
 		t.Fatalf("Mutation failed: %v", err)
 	}
 
@@ -100,6 +101,61 @@ func TestStockMutation_Deduct(t *testing.T) {
 	db.First(&check, milk.ID)
 	if check.CurrentStock != 900 {
 		t.Errorf("Expected stock 900, got %f", check.CurrentStock)
+	}
+}
+
+func TestStockMutation_IntegratedPurchase(t *testing.T) {
+	db, err := setupTestDB()
+	if err != nil {
+		t.Fatalf("Failed to setup DB: %v", err)
+	}
+	service := services.NewInventoryService(db)
+
+	// 1. Initial State: Coffee Beans at 100g, cost 15/g
+	coffee := models.Ingredient{Name: "Coffee", Unit: "gram", CurrentStock: 100, CostPerUnit: 15}
+	service.CreateIngredient(&coffee)
+
+	// Setup a product that uses this coffee
+	product := models.Product{Name: "Black Coffee", Price: 15000}
+	db.Create(&product)
+	recipe := models.RecipeItem{ProductID: product.ID, IngredientID: coffee.ID, Quantity: 10}
+	db.Create(&recipe)
+
+	// 2. Perform Mutation (IN - Purchase) with Expense and Price Update
+	mutation := models.StockMutation{
+		IngredientID: coffee.ID,
+		Type:         "IN",
+		Quantity:     1000,
+		Notes:        "Buy 1kg coffee",
+	}
+
+	// New price is 20/g
+	if err := service.CreateStockMutation(&mutation, true, true, 20); err != nil {
+		t.Fatalf("Integrated mutation failed: %v", err)
+	}
+
+	// 3. Verify Stock: 100 + 1000 = 1100
+	var checkIng models.Ingredient
+	db.First(&checkIng, coffee.ID)
+	if checkIng.CurrentStock != 1100 {
+		t.Errorf("Expected stock 1100, got %f", checkIng.CurrentStock)
+	}
+	if checkIng.CostPerUnit != 20 {
+		t.Errorf("Expected cost 20, got %f", checkIng.CostPerUnit)
+	}
+
+	// 4. Verify Expense: 1000 * 20 = 20000
+	var expense models.Expense
+	db.Where("title LIKE ?", "%Coffee%").First(&expense)
+	if expense.Amount != 20000 {
+		t.Errorf("Expected expense 20000, got %f", expense.Amount)
+	}
+
+	// 5. Verify Product Cost (HPP) recalculation: 10g * 20 = 200
+	var checkProd models.Product
+	db.First(&checkProd, product.ID)
+	if checkProd.Cost != 200 {
+		t.Errorf("Expected product cost 200, got %f", checkProd.Cost)
 	}
 }
 

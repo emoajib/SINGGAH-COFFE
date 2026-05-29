@@ -60,16 +60,22 @@ func (h *InventoryHandler) CreateIngredient(c *gin.Context) {
 	c.JSON(http.StatusCreated, item)
 }
 
-// UpdateStock handles stock adjustments (mutations)
+// UpdateStock handles stock adjustments (mutations) with optional integrated expense/price update
 func (h *InventoryHandler) UpdateStock(c *gin.Context) {
-	var mutation models.StockMutation
-	if err := c.ShouldBindJSON(&mutation); err != nil {
+	var input struct {
+		models.StockMutation
+		IsPurchase        bool    `json:"is_purchase"`
+		UpdateMasterPrice bool    `json:"update_master_price"`
+		NewCostPerUnit    float64 `json:"new_cost_per_unit"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.Service.CreateStockMutation(&mutation); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
+	if err := h.Service.CreateStockMutation(&input.StockMutation, input.IsPurchase, input.UpdateMasterPrice, input.NewCostPerUnit); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock and related records"})
 		return
 	}
 

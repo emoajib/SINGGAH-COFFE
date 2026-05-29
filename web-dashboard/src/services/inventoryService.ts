@@ -16,6 +16,9 @@ export interface StockMutation {
     type: MutationType;
     quantity: number;
     notes?: string;
+    is_purchase?: boolean;
+    update_master_price?: boolean;
+    new_cost_per_unit?: number;
 }
 
 export interface StockMutationWithMeta extends StockMutation {

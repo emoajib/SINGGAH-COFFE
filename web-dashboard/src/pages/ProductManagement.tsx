@@ -7,6 +7,8 @@ import { Dialog } from "../components/ui/dialog"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card"
 import { Input } from "../components/ui/input"
+import { InventoryService } from '../services/inventoryService';
+import { StockAdjustmentDialog } from '../components/inventory/StockAdjustmentDialog';
 
 interface Ingredient {
     id: number;
@@ -49,10 +51,6 @@ const ProductManagement: React.FC = () => {
     // Stock Adjustment States
     const [restockModal, setRestockModal] = useState({ isOpen: false, itemId: 0, type: 'IN' as 'IN' | 'OUT' });
     const [historyModal, setHistoryModal] = useState({ isOpen: false, ingredient: null as Ingredient | null, history: [] as any[] });
-    const [adjustmentQty, setAdjustmentQty] = useState(0);
-    const [adjustmentPrice, setAdjustmentPrice] = useState(0);
-    const [isPurchase, setIsPurchase] = useState(true);
-    const [updateMasterPrice, setUpdateMasterPrice] = useState(false);
 
     // Form Data for Product
     const [formData, setFormData] = useState({
@@ -117,53 +115,6 @@ const ProductManagement: React.FC = () => {
             setEditingIngredient(null);
         } catch (error) {
             alert('Gagal menyimpan bahan');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleStockAdjustment = async () => {
-        if (adjustmentQty <= 0) return;
-        setLoading(true);
-        try {
-            const ingredient = ingredients.find(i => i.id === restockModal.itemId);
-            if (!ingredient) return;
-
-            // 1. Update Stock Mutation
-            await api.post('/inventory/mutation', {
-                ingredient_id: restockModal.itemId,
-                type: restockModal.type,
-                quantity: adjustmentQty,
-                notes: restockModal.type === 'IN' ? (isPurchase ? "Pembelian Bahan" : "Koreksi Stok Masuk") : "Koreksi Stok Keluar/Limbah"
-            });
-
-            // 2. Sync with Expenses if it's a purchase
-            if (restockModal.type === 'IN' && isPurchase) {
-                await api.post('/expenses', {
-                    title: `Pembelian: ${ingredient.name}`,
-                    amount: adjustmentQty * (updateMasterPrice ? adjustmentPrice : ingredient.cost_per_unit),
-                    category: "Operasional",
-                    description: `Auto-generated from Stock In (${adjustmentQty} ${ingredient.unit})`,
-                    date: new Date().toISOString()
-                });
-            }
-
-            // 3. Update Master Price if requested
-            if (restockModal.type === 'IN' && updateMasterPrice && adjustmentPrice > 0) {
-                await api.put(`/ingredients/${ingredient.id}`, {
-                    ...ingredient,
-                    cost_per_unit: adjustmentPrice
-                });
-            }
-
-            setRestockModal({ ...restockModal, isOpen: false });
-            setAdjustmentQty(0);
-            setAdjustmentPrice(0);
-            setUpdateMasterPrice(false);
-            fetchIngredients();
-            fetchProducts(); // Refresh products in case HPP changed
-        } catch (error) {
-            alert('Gagal memperbarui stok');
         } finally {
             setLoading(false);
         }
@@ -236,9 +187,6 @@ const ProductManagement: React.FC = () => {
 
     const handleOpenRestock = (ing: Ingredient, type: 'IN' | 'OUT') => {
         setRestockModal({ isOpen: true, itemId: ing.id, type });
-        setAdjustmentQty(0);
-        setAdjustmentPrice(ing.cost_per_unit);
-        setUpdateMasterPrice(false);
     };
 
     const handleOpenHistory = async (ing: Ingredient) => {
@@ -551,92 +499,35 @@ const ProductManagement: React.FC = () => {
             </Dialog>
 
             {/* Stock Adjustment Modal */}
-            <Dialog
+            <StockAdjustmentDialog
                 isOpen={restockModal.isOpen}
                 onClose={() => setRestockModal({ ...restockModal, isOpen: false })}
-                title={restockModal.type === 'IN' ? "Input Stok Masuk" : "Catat Stok Keluar"}
-            >
-                <div className="space-y-6 py-4">
-                    <div className="p-4 bg-gray-50 rounded-2xl border flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Bahan Terpilih</p>
-                            <p className="text-lg font-bold text-gray-900">{ingredients.find(i => i.id === restockModal.itemId)?.name || 'N/A'}</p>
-                        </div>
-                        <Badge variant="outline" className="bg-white">{ingredients.find(i => i.id === restockModal.itemId)?.unit}</Badge>
-                    </div>
+                ingredient={ingredients.find(i => i.id === restockModal.itemId) || null}
+                type={restockModal.type}
+                isLoading={loading}
+                onConfirm={async (data) => {
+                    setLoading(true);
+                    try {
+                        await InventoryService.mutateStock({
+                            ingredient_id: restockModal.itemId,
+                            type: restockModal.type,
+                            quantity: data.qty,
+                            notes: restockModal.type === 'IN' ? (data.isPurchase ? "Pembelian Bahan" : "Koreksi Stok Masuk") : "Koreksi Stok Keluar/Limbah",
+                            is_purchase: data.isPurchase,
+                            update_master_price: data.updateMasterPrice,
+                            new_cost_per_unit: data.newPrice
+                        });
+                        setRestockModal({ ...restockModal, isOpen: false });
+                        fetchIngredients();
+                        fetchProducts();
+                    } catch (error) {
+                        alert('Gagal memperbarui stok');
+                    } finally {
+                        setLoading(false);
+                    }
+                }}
+            />
 
-                    <div className="space-y-2 text-center">
-                        <label className="text-xs font-bold uppercase tracking-widest text-gray-400">Jumlah {restockModal.type === 'IN' ? 'Masuk' : 'Keluar'}</label>
-                        <Input
-                            type="number"
-                            placeholder="0"
-                            className="h-16 text-3xl font-black text-center rounded-2xl bg-gray-50 focus:bg-white transition-colors border-2 focus:border-primary"
-                            value={adjustmentQty || ''}
-                            onChange={(e) => setAdjustmentQty(Number(e.target.value))}
-                        />
-                    </div>
-
-                    {restockModal.type === 'IN' && (
-                        <div className="space-y-3">
-                            <div className="flex items-start gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
-                                <input
-                                    type="checkbox"
-                                    id="isPurchase"
-                                    className="mt-1 w-4 h-4 rounded text-primary focus:ring-primary"
-                                    checked={isPurchase}
-                                    onChange={(e) => setIsPurchase(e.target.checked)}
-                                />
-                                <label htmlFor="isPurchase" className="text-xs font-medium text-blue-900 cursor-pointer">
-                                    <strong>Catat sebagai Pengeluaran</strong><br />
-                                    <span className="text-blue-700 opacity-80">
-                                        Total biaya: Rp {(adjustmentQty * (updateMasterPrice ? adjustmentPrice : (ingredients.find(i => i.id === restockModal.itemId)?.cost_per_unit || 0))).toLocaleString()}
-                                    </span>
-                                </label>
-                            </div>
-
-                            <div className="flex items-start gap-3 p-4 bg-amber-50/50 rounded-xl border border-amber-100">
-                                <input
-                                    type="checkbox"
-                                    id="updateMasterPrice"
-                                    className="mt-1 w-4 h-4 rounded text-amber-600 focus:ring-amber-600"
-                                    checked={updateMasterPrice}
-                                    onChange={(e) => setUpdateMasterPrice(e.target.checked)}
-                                />
-                                <div className="flex-1">
-                                    <label htmlFor="updateMasterPrice" className="text-xs font-medium text-amber-900 cursor-pointer block mb-2">
-                                        <strong>Update Harga Master Bahan</strong><br />
-                                        <span className="text-amber-700 opacity-80">Simpan harga baru ini ke database (Rp {adjustmentPrice.toLocaleString()})</span>
-                                    </label>
-                                    {updateMasterPrice && (
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-2 text-xs font-bold text-gray-400">Rp</span>
-                                            <Input
-                                                type="number"
-                                                className="pl-9 h-8 text-sm font-bold"
-                                                value={adjustmentPrice || ''}
-                                                onChange={(e) => setAdjustmentPrice(Number(e.target.value) || 0)}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="pt-2 flex gap-3">
-                        <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setRestockModal({ ...restockModal, isOpen: false })}>Batal</Button>
-                        <Button
-                            className={`flex-1 h-12 rounded-xl font-bold ${restockModal.type === 'IN' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}
-                            onClick={handleStockAdjustment}
-                            disabled={loading || adjustmentQty <= 0}
-                        >
-                            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Konfirmasi Transaksi"}
-                        </Button>
-                    </div>
-                </div>
-            </Dialog>
-
-            {/* Product Modal */}
             {/* History Modal */}
             <Dialog
                 isOpen={historyModal.isOpen}
