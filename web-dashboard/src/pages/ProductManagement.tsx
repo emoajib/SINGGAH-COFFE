@@ -221,7 +221,11 @@ const ProductManagement: React.FC = () => {
 
     const handleRecipeChange = (index: number, field: 'ingredient_id' | 'quantity', value: number) => {
         const newRecipe = [...formData.recipe];
-        newRecipe[index][field] = value;
+        if (field === 'ingredient_id') {
+            newRecipe[index][field] = Number(value);
+        } else {
+            newRecipe[index][field] = value;
+        }
         setFormData({ ...formData, recipe: newRecipe });
     };
 
@@ -598,7 +602,8 @@ const ProductManagement: React.FC = () => {
                                     <div className="flex justify-between items-center mb-4"><h3 className="font-bold">Komposisi Resep</h3><button type="button" onClick={handleAddRecipeItem} className="text-blue-600 text-sm flex items-center gap-1 font-semibold"><Plus size={16} /> Tambah Bahan Ke Resep</button></div>
                                     <div className="space-y-4">
                                         {formData.recipe.map((item, idx) => {
-                                            const ing = ingredients.find(i => i.id === item.ingredient_id);
+                                            // Find the latest ingredient data from state to get the cost
+                                            const ing = ingredients.find(i => i.id === Number(item.ingredient_id));
                                             const itemCost = ing ? (ing.cost_per_unit * item.quantity) : 0;
                                             
                                             return (
