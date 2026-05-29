@@ -1,0 +1,4 @@
+module(
+    name = "singgah_coffee_pos",
+    version = "0.0.1",
+)

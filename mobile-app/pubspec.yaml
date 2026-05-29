@@ -1,0 +1,33 @@
+name: singgah_pos_mobile
+description: A new Flutter project for Singgah Coffee POS.
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.5 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management
+  provider: ^6.0.5
+  
+  # Networking
+  http: ^1.1.0
+  flutter_secure_storage: ^9.0.0 # For storing JWT securely
+  
+  # UI
+  google_fonts: ^6.1.0
+  cached_network_image: ^3.3.0
+  intl: ^0.18.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true

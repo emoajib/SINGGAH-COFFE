@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # 1. Database Service (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: singgah_postgres_prod
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-securepassword}
+      POSTGRES_DB: singgah_pos
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - singgah_network
+
+  # 2. Backend API Service (Go)
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: singgah_api_prod
+    environment:
+      PORT: 8080
+      DATABASE_URL: "host=db user=${DB_USER:-postgres} password=${DB_PASSWORD:-securepassword} dbname=singgah_pos port=5432 sslmode=disable"
+    depends_on:
+      - db
+    restart: always
+    networks:
+      - singgah_network
+
+  # 3. Frontend Web Dashboard (React + Nginx)
+  web:
+    build: 
+      context: ./web-dashboard
+      dockerfile: Dockerfile
+    container_name: singgah_web_prod
+    ports:
+      - "80:80" # Exposed to the internet
+    depends_on:
+      - api
+    restart: always
+    networks:
+      - singgah_network
+
+networks:
+  singgah_network:
+    driver: bridge
+
+volumes:
+  postgres_prod_data:

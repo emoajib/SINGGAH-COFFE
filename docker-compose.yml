@@ -1,0 +1,50 @@
+services:
+  # Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: singgah_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: singgah_pos
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  # Backend API Service
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: singgah_api
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DATABASE_URL: "host=db user=postgres password=password dbname=singgah_pos port=5432 sslmode=disable"
+      JWT_SECRET: "singgah-coffee-jwt-secret-key-change-this-in-prod-2026"
+    depends_on:
+      - db
+    restart: always
+
+  # Web Dashboard Service
+  web:
+    build:
+      context: ./web-dashboard
+      dockerfile: Dockerfile
+    container_name: singgah_web
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web-dashboard:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    depends_on:
+      - api
+    restart: always
+
+volumes:
+  postgres_data:

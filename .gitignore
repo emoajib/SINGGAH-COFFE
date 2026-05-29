@@ -1,0 +1,48 @@
+# Backend
+backend/backend.log
+backend/uploads/products/*
+backend/uploads/logo/*
+backend/.env
+
+# Mobile
+mobile-app/.dart_tool/
+mobile-app/build/
+mobile-app/.flutter-plugins-dependencies
+mobile-app/.packages
+mobile-app/.pub/
+mobile-app/android/.gradle/
+mobile-app/android/app/build/
+mobile-app/ios/Pods/
+mobile-app/ios/.symlinks/
+mobile-app/ios/Flutter/Flutter.framework
+mobile-app/ios/Flutter/Flutter.podspec
+mobile-app/macos/Pods/
+mobile-app/macos/Flutter/ephemeral/
+mobile-app/.flutter-plugins
+mobile-app/.metadata
+
+# Web
+web-dashboard/node_modules/
+web-dashboard/dist/
+web-dashboard/.env
+web-dashboard/.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+postgres_data/
+
+# Logs
+*.log
+
+# SQL Backups
+backup_before_cleanup_*.sql
