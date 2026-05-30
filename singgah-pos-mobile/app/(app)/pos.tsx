@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
+  Modal,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -16,6 +17,8 @@ import { useCreateOrder } from '../../src/hooks/useOrders'
 import { useCartStore } from '../../src/stores/cartStore'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useToastStore } from '../../src/stores/toastStore'
+import Receipt from '../../src/components/pos/Receipt'
+import { formatNumber } from '../../src/lib/utils'
 import type { Product } from '../../src/types'
 
 export default function PosScreen() {
@@ -29,9 +32,13 @@ export default function PosScreen() {
   const { showToast } = useToastStore()
   const [paymentMethod, setPaymentMethod] = useState('Cash')
   const [isProcessing, setIsProcessing] = useState(false)
+  
+  // Receipt State
+  const [showReceipt, setShowReceipt] = useState(false)
+  const [lastOrderNumber, setLastOrderNumber] = useState('')
 
-  const serviceCharge = parseFloat(settings?.find((s) => s.key === 'service_charge')?.value || '0') || 0
-  const taxPercentage = parseFloat(settings?.find((s) => s.key === 'tax_percentage')?.value || '0') || 0
+  const serviceCharge = parseFloat(settings?.service_charge || '0') || 0
+  const taxPercentage = parseFloat(settings?.tax_percentage || '0') || 0
 
   const subtotal = items.reduce((sum, item) => {
     const product = products?.find((p) => p.id === item.productId)
@@ -41,6 +48,16 @@ export default function PosScreen() {
   const serviceFee = subtotal * (serviceCharge / 100)
   const tax = (subtotal + serviceFee) * (taxPercentage / 100)
   const total = subtotal + serviceFee + tax
+
+  const handlePrint = () => {
+    if (settings?.printer_ip) {
+      showToast(`Sending to printer at ${settings.printer_ip}...`, 'info')
+    }
+    // Web fallback
+    if (typeof window !== 'undefined') {
+      window.print()
+    }
+  }
 
   const handleCheckout = async () => {
     if (items.length === 0 || isProcessing) return
@@ -56,7 +73,14 @@ export default function PosScreen() {
         items: items.map((i) => ({ product_id: i.productId, quantity: i.quantity })),
       })
 
-      clearCart()
+      setLastOrderNumber(orderNumber)
+      
+      // Auto-print if enabled in settings
+      if (settings?.auto_print === 'true') {
+        handlePrint()
+      }
+
+      setShowReceipt(true)
       showToast('Transaction completed!', 'success')
     } catch (err: any) {
       const message = err.response?.data?.error || err.message || 'Transaction failed'
@@ -66,12 +90,19 @@ export default function PosScreen() {
     }
   }
 
+  const closeReceipt = () => {
+    setShowReceipt(false)
+    clearCart()
+    setLastOrderNumber('')
+  }
+
   const renderProduct = ({ item }: { item: Product }) => (
     <TouchableOpacity style={styles.productCard} onPress={() => addItem(item.id)} activeOpacity={0.7}>
       <Text style={styles.productIcon}>☕</Text>
       <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-      <Text style={styles.productPrice}>Rp {(item.price || 0).toLocaleString('id-ID')}</Text>
-      <Text style={styles.productStock}>Stock: {item.stock}</Text>
+      <Text style={styles.productPrice}>Rp {formatNumber(item.price || 0)}</Text>
+      <Text style={styles.productStock}>{item.stock} in stock</Text>
+
     </TouchableOpacity>
   )
 
@@ -80,8 +111,9 @@ export default function PosScreen() {
     return (
       <View style={styles.cartItem}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.cartItemName}>{product?.name || 'Unknown'}</Text>
-          <Text style={styles.cartItemPrice}>Rp {(product?.price || 0).toLocaleString('id-ID')}</Text>
+          <Text style={styles.cartItemName}>{product?.name}</Text>
+          <Text style={styles.cartItemPrice}>Rp {formatNumber(product?.price || 0)}</Text>
+
         </View>
         <View style={styles.cartQtyRow}>
           <TouchableOpacity onPress={() => removeItem(item.productId)} style={styles.qtyBtn}>
@@ -96,10 +128,18 @@ export default function PosScreen() {
     )
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace('/(app)/dashboard')
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Cashier Terminal</Text>
@@ -143,21 +183,25 @@ export default function PosScreen() {
             />
 
             <View style={styles.summary}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Subtotal</Text>
+                <Text style={styles.summaryValue}>Rp {formatNumber(subtotal)}</Text>
+              </View>
               {serviceCharge > 0 && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Service ({serviceCharge}%)</Text>
-                  <Text style={styles.summaryValue}>Rp {serviceFee.toLocaleString('id-ID')}</Text>
+                  <Text style={styles.summaryValue}>Rp {formatNumber(serviceFee)}</Text>
                 </View>
               )}
               {taxPercentage > 0 && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Tax ({taxPercentage}%)</Text>
-                  <Text style={styles.summaryValue}>Rp {tax.toLocaleString('id-ID')}</Text>
+                  <Text style={styles.summaryValue}>Rp {formatNumber(tax)}</Text>
                 </View>
               )}
               <View style={[styles.summaryRow, styles.totalRow]}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>Rp {total.toLocaleString('id-ID')}</Text>
+                <Text style={styles.totalValue}>Rp {formatNumber(total)}</Text>
               </View>
 
               <View style={styles.paymentRow}>
@@ -189,6 +233,40 @@ export default function PosScreen() {
           </View>
         </View>
       )}
+
+      <Modal visible={showReceipt} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Transaction Successful</Text>
+            
+            <View style={styles.receiptPreview}>
+              <Receipt 
+                orderNumber={lastOrderNumber}
+                items={items}
+                products={products || []}
+                subtotal={subtotal}
+                serviceFee={serviceFee}
+                tax={tax}
+                total={total}
+                paymentMethod={paymentMethod}
+                cashierName={user?.name || 'Cashier'}
+                outletName={settings?.outlet_name}
+                outletAddress={settings?.outlet_address}
+                logoUrl={settings?.outlet_logo_url}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.printBtn]} onPress={handlePrint}>
+                <Text style={styles.printBtnText}>PRINT RECEIPT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.newOrderBtn]} onPress={closeReceipt}>
+                <Text style={styles.newOrderBtnText}>NEW ORDER</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -251,4 +329,16 @@ const styles = StyleSheet.create({
   checkoutBtn: { backgroundColor: '#4B3621', padding: 14, borderRadius: 10, alignItems: 'center' },
   checkoutBtnDisabled: { opacity: 0.4 },
   checkoutText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 20, width: '100%', maxWidth: 400, padding: 20, alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: '#1A1109', marginBottom: 16 },
+  receiptPreview: { backgroundColor: '#F9FAFB', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 20, width: '100%' },
+  modalActions: { width: '100%', gap: 10 },
+  modalBtn: { padding: 16, borderRadius: 12, alignItems: 'center', width: '100%' },
+  printBtn: { backgroundColor: '#4B3621' },
+  printBtnText: { color: '#FFFFFF', fontWeight: 'bold' },
+  newOrderBtn: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+  newOrderBtnText: { color: '#4B3621', fontWeight: 'bold' },
 })

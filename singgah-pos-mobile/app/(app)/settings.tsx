@@ -22,10 +22,18 @@ export default function SettingsScreen() {
     ])
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace('/(app)/dashboard')
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>← Back</Text></TouchableOpacity>
+        <TouchableOpacity onPress={handleBack}><Text style={styles.back}>← Back</Text></TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
         <View style={{ width: 60 }} />
       </View>

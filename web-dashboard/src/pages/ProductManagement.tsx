@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, X, ImagePlus, ArrowUpCircle, ArrowDownCircle, AlertTriangle, Package, History, Info } from 'lucide-react';
 import api from '../lib/api';
-import { getImageUrl } from '../lib/utils';
+import { getImageUrl, formatNumber } from '../lib/utils';
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
 import { Button } from "../components/ui/button"
@@ -345,7 +345,7 @@ const ProductManagement: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`text-lg font-black ${ing.current_stock <= ing.min_stock ? 'text-red-600' : 'text-gray-900'}`}>
-                                                    {ing.current_stock.toLocaleString()}
+                                                    {formatNumber(ing.current_stock)}
                                                 </span>
                                                 <span className="text-[10px] text-gray-400 ml-1 font-bold">{ing.unit}</span>
                                             </td>
@@ -355,7 +355,7 @@ const ProductManagement: React.FC = () => {
                                                 </Badge>
                                             </td>
                                             <td className="px-6 py-4 text-right font-bold text-primary">
-                                                Rp {ing.cost_per_unit.toLocaleString()}
+                                                Rp {formatNumber(ing.cost_per_unit)}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-center gap-2">
@@ -440,12 +440,12 @@ const ProductManagement: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="space-y-1 text-xs border-t pt-2">
-                                        <div className="flex justify-between"><span>Harga Jual:</span><span className="font-bold">Rp {product.price.toLocaleString()}</span></div>
-                                        <div className="flex justify-between"><span>Modal (HPP):</span><span className="font-bold text-blue-600">Rp {product.cost.toLocaleString()}</span></div>
-                                        <div className="flex justify-between border-t mt-1 pt-1 font-semibold"><span>Profit:</span><span className="text-green-600">Rp {(product.price - product.cost).toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Harga Jual:</span><span className="font-bold">Rp {formatNumber(product.price)}</span></div>
+                                        <div className="flex justify-between"><span>Modal (HPP):</span><span className="font-bold text-blue-600">Rp {formatNumber(product.cost)}</span></div>
+                                        <div className="flex justify-between border-t mt-1 pt-1 font-semibold"><span>Profit:</span><span className="text-green-600">Rp {formatNumber(product.price - product.cost)}</span></div>
                                     </div>
                                     {product.recipe && product.recipe.length > 0 && (
-                                        <div className="mt-2 text-[10px] text-gray-400">Resep: {product.recipe.map(r => r.ingredient?.name).join(', ')}</div>
+                                        <div className="mt-2 text-[10px] text-gray-400">Resep: {product.recipe?.map(r => r.ingredient?.name).join(', ') || 'N/A'}</div>
                                     )}
                                 </div>
                             </div>
@@ -541,7 +541,7 @@ const ProductManagement: React.FC = () => {
                                                 {item.type === 'IN' ? 'MASUK' : item.type === 'OUT' ? 'KELUAR' : item.type}
                                             </Badge>
                                             <span className="font-bold text-sm">
-                                                {item.type === 'IN' || item.type === 'ADJ_ADD' ? '+' : '-'}{Number(item.quantity).toLocaleString()} {historyModal.ingredient?.unit}
+                                                {item.type === 'IN' || item.type === 'ADJ_ADD' ? '+' : '-'}{formatNumber(Number(item.quantity))} {historyModal.ingredient?.unit}
                                             </span>
                                         </div>
                                         <p className="text-xs text-gray-500 mt-1">{item.notes || '-'}</p>
@@ -607,7 +607,7 @@ const ProductManagement: React.FC = () => {
                                                             <option value={0}>Pilih Bahan</option>
                                                             {ingredients.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
                                                         </select>
-                                                        {ing && <p className="text-[10px] text-gray-400 mt-1 ml-1">Harga master: Rp {ing.cost_per_unit.toLocaleString()}/{ing.unit}</p>}
+                                                        {ing && <p className="text-[10px] text-gray-400 mt-1 ml-1">Harga master: Rp {formatNumber(ing.cost_per_unit)}/{ing.unit}</p>}
                                                     </div>
                                                     <div className="w-32">
                                                         <input 
@@ -619,7 +619,7 @@ const ProductManagement: React.FC = () => {
                                                             onChange={e => handleRecipeChange(idx, 'quantity', parseFloat(e.target.value))} 
                                                             required 
                                                         />
-                                                        {ing && <p className="text-[10px] text-blue-600 font-bold mt-1 text-right">Rp {itemCost.toLocaleString()}</p>}
+                                                        {ing && <p className="text-[10px] text-blue-600 font-bold mt-1 text-right">Rp {formatNumber(itemCost)}</p>}
                                                     </div>
                                                     <button type="button" onClick={() => handleRemoveRecipeItem(idx)} className="text-red-500 pt-2"><Trash2 size={20} /></button>
                                                 </div>
@@ -629,8 +629,8 @@ const ProductManagement: React.FC = () => {
                                 </div>
                                 {formData.recipe.length > 0 && (
                                     <div className="bg-gray-900 text-white p-4 rounded-xl flex justify-between items-center">
-                                        <div><p className="text-xs opacity-60">Total HPP Produk</p><p className="text-lg font-bold">Rp {estimatedCost.toLocaleString()}</p></div>
-                                        <div className="text-right"><p className="text-xs opacity-60">Estimasi Laba</p><p className={`text-lg font-bold ${estimatedProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>Rp {estimatedProfit.toLocaleString()} ({profitMargin}%)</p></div>
+                                        <div><p className="text-xs opacity-60">Total HPP Produk</p><p className="text-lg font-bold">Rp {formatNumber(estimatedCost)}</p></div>
+                                        <div className="text-right"><p className="text-xs opacity-60">Estimasi Laba</p><p className={`text-lg font-bold ${estimatedProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>Rp {formatNumber(estimatedProfit)} ({profitMargin}%)</p></div>
                                     </div>
                                 )}
                                 <div className="flex justify-end gap-4"><button type="button" onClick={handleCloseModal} className="font-semibold underline">Batal</button><button type="submit" className="bg-blue-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200" disabled={loading}>{loading ? 'Menyimpan...' : 'Simpan Produk'}</button></div>

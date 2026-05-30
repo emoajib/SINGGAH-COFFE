@@ -9,7 +9,7 @@ export default {
     	extend: {
     		fontFamily: {
     			sans: [
-    				'Outfit"',
+    				'Outfit',
     				'sans-serif'
     			]
     		},

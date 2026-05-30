@@ -37,7 +37,11 @@ func (r *ingredientRepository) FindAll() ([]entity.Ingredient, error) {
 
 func (r *ingredientRepository) Create(ingredient *entity.Ingredient) error {
 	m := toModelIngredient(ingredient)
-	return r.db.Create(m).Error
+	if err := r.db.Create(m).Error; err != nil {
+		return err
+	}
+	ingredient.ID = m.ID
+	return nil
 }
 
 func (r *ingredientRepository) Update(ingredient *entity.Ingredient) error {

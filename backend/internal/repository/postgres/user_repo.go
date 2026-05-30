@@ -31,6 +31,15 @@ func (r *userRepository) FindByEmail(email string) (*entity.User, error) {
 	return toDomainUser(&m), nil
 }
 
+func (r *userRepository) FindByIdentifier(identifier string) (*entity.User, error) {
+	var m models.User
+	// Search by email OR name (case insensitive)
+	if err := r.db.Where("LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)", identifier, identifier).First(&m).Error; err != nil {
+		return nil, err
+	}
+	return toDomainUser(&m), nil
+}
+
 func (r *userRepository) FindAll() ([]entity.User, error) {
 	var ms []models.User
 	if err := r.db.Find(&ms).Error; err != nil {

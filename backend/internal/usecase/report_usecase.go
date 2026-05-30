@@ -100,3 +100,28 @@ func (uc *ReportUsecase) GetDashboardSummary() (*entity.DashboardSummary, error)
 	}
 	return summary, nil
 }
+
+func (uc *ReportUsecase) GetProfitLossReport(start, end string) (*entity.ProfitLossReport, error) {
+	revenue, _ := uc.orderRepo.GetTotalSalesRange(start, end)
+	cogs, _ := uc.orderItemRepo.GetTotalCogsRange(start, end)
+	expenses, _ := uc.expenseRepo.GetBreakdownRange(start, end)
+
+	var totalExpenses float64
+	for _, e := range expenses {
+		totalExpenses += e.Amount
+	}
+
+	grossProfit := revenue - cogs
+	netProfit := grossProfit - totalExpenses
+
+	return &entity.ProfitLossReport{
+		StartDate:     start,
+		EndDate:       end,
+		Revenue:       revenue,
+		Cogs:          cogs,
+		GrossProfit:   grossProfit,
+		Expenses:      expenses,
+		TotalExpenses: totalExpenses,
+		NetProfit:     netProfit,
+	}, nil
+}

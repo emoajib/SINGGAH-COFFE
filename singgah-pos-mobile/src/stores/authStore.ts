@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import api, { TOKEN_KEY } from '../lib/api'
-import * as SecureStore from 'expo-secure-store'
+import { storage } from '../lib/storage'
+import { Platform } from 'react-native'
 import type { User, LoginRequest } from '../types'
 import base64Decode from '../lib/base64'
 
@@ -25,11 +26,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   init: async () => {
     try {
-      const token = await SecureStore.getItemAsync(TOKEN_KEY)
+      const token = await storage.getItem(TOKEN_KEY)
+
       if (token) {
         const parts = token.split('.')
         if (parts.length === 3) {
-          const payload = JSON.parse(base64Decode(parts[1]))
+          const payload = JSON.parse(base64Decode(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
           const expiry = payload.exp
           if (expiry && expiry * 1000 > Date.now()) {
             set({
@@ -42,12 +44,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               token,
             })
           } else {
-            await SecureStore.deleteItemAsync(TOKEN_KEY)
+            await storage.deleteItem(TOKEN_KEY)
           }
         }
       }
     } catch {
-      await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {})
+      await storage.deleteItem(TOKEN_KEY).catch(() => {})
     } finally {
       set({ isInitializing: false })
     }
@@ -58,7 +60,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await api.post<{ token: string; user: User }>('/auth/login', data)
       const { token, user } = response.data
-      await SecureStore.setItemAsync(TOKEN_KEY, token)
+      
+      await storage.setItem(TOKEN_KEY, token)
+      
       set({ user, token, isLoading: false })
       return true
     } catch (err: any) {
@@ -69,7 +73,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    await SecureStore.deleteItemAsync(TOKEN_KEY)
+    await storage.deleteItem(TOKEN_KEY)
     set({ user: null, token: null, error: null })
   },
 

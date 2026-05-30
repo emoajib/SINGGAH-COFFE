@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"singgah-pos-backend/internal/usecase"
 
@@ -14,6 +15,16 @@ type WebhookHandler struct {
 
 func NewWebhookHandler(webhookUsecase *usecase.WebhookUsecase) *WebhookHandler {
 	return &WebhookHandler{webhookUsecase: webhookUsecase}
+}
+
+func (h *WebhookHandler) GetWebhookLogs(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	logs, err := h.webhookUsecase.GetWebhookLogs(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch logs"})
+		return
+	}
+	c.JSON(http.StatusOK, logs)
 }
 
 func (h *WebhookHandler) HandleXenditWebhook(c *gin.Context) {

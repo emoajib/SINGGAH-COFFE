@@ -3,7 +3,7 @@ import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../components/ui/card"
 import { Badge } from "../components/ui/badge"
-import { Store, Printer, Percent, Bell, Save, Loader2, User as UserIcon, Users, Plus, Trash2, Pencil, Shield, Eye, EyeOff, Lock, FileText, Camera, CreditCard, Smartphone, Zap } from "lucide-react"
+import { Store, Printer, Percent, Bell, Save, Loader2, User as UserIcon, Users, Plus, Trash2, Pencil, Shield, Eye, EyeOff, Lock, FileText, Camera, CreditCard, Smartphone, Zap, AlertCircle, Info } from "lucide-react"
 import { getImageUrl } from "../lib/utils"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
@@ -30,7 +30,13 @@ export default function Settings() {
         outlet_description: "",
         outlet_logo_url: "",
         sop_manager: "",
-        sop_cashier: ""
+        sop_cashier: "",
+        printer_ip: "",
+        printer_connection: "network",
+        printer_width: "80mm",
+        auto_print: "false",
+        xendit_api_key: "",
+        xendit_callback_token: ""
     })
 
     // User profile state
@@ -124,7 +130,7 @@ export default function Settings() {
             setSaving(true)
             await Promise.all(
                 Object.entries(settings).map(([key, value]) =>
-                    updateSetting.mutateAsync({ key, value })
+                    updateSetting.mutateAsync({ key, value: value || "" })
                 )
             )
             alert("Outlet settings saved successfully!")
@@ -604,16 +610,20 @@ export default function Settings() {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Policy & Standard Operating Procedures</CardTitle>
-                                <CardDescription>Define operational guidelines for your team members.</CardDescription>
+                                <CardDescription>Definisikan panduan operasional untuk anggota tim Anda.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg flex gap-3 text-blue-800 text-xs italic">
+                                    <Info className="w-5 h-5 shrink-0" />
+                                    <p>SOP yang Anda tulis di sini akan muncul di Dashboard utama aplikasi Mobile POS sebagai referensi cepat bagi staf.</p>
+                                </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium flex items-center gap-2">
                                         <Shield className="w-4 h-4 text-primary" /> Manager SOP
                                     </label>
                                     <textarea
                                         className="w-full min-h-[150px] border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                                        placeholder="1. Open store at 07:00 AM&#10;2. Check morning inventory..."
+                                        placeholder="1. Buka toko jam 07:00&#10;2. Cek stok pagi..."
                                         value={settings.sop_manager}
                                         onChange={(e) => handleInputChange("sop_manager", e.target.value)}
                                     />
@@ -667,7 +677,7 @@ export default function Settings() {
                             <CardFooter className="justify-end border-t border-gray-100 p-4">
                                 <Button className="gap-2" onClick={handleSaveSettings} disabled={saving}>
                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    Save Settings
+                                    Simpan Pengaturan
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -677,31 +687,31 @@ export default function Settings() {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Printer Configuration</CardTitle>
-                                <CardDescription>Configure your receipt and kitchen thermal printers.</CardDescription>
+                                <CardDescription>Konfigurasi printer thermal untuk struk dan dapur.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="p-4 bg-orange-50 border border-orange-100 rounded-lg flex gap-3 text-orange-800 text-sm">
                                     <Printer className="w-5 h-5 shrink-0" />
-                                    <p>Settings here will be synchronized with your Mobile POS devices. Ensure your printers are on the same network as your POS tablet.</p>
+                                    <p>Pengaturan ini akan disinkronkan dengan aplikasi Mobile POS. Pastikan printer berada di jaringan (WiFi) yang sama dengan tablet Anda.</p>
                                 </div>
 
                                 <div className="space-y-4">
-                                    <h3 className="text-sm font-semibold border-b pb-2">Primary Receipt Printer</h3>
+                                    <h3 className="text-sm font-semibold border-b pb-2">Printer Struk Utama</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Connection Type</label>
+                                            <label className="text-sm font-medium">Tipe Koneksi</label>
                                             <select
                                                 className="w-full h-10 border rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                                 value={settings.printer_connection || "network"}
                                                 onChange={(e) => handleInputChange("printer_connection", e.target.value)}
                                             >
-                                                <option value="network">LAN / Network (Recommended)</option>
-                                                <option value="bluetooth">Bluetooth (Mobile Only)</option>
+                                                <option value="network">LAN / Network (Direkomendasikan)</option>
+                                                <option value="bluetooth">Bluetooth (Khusus Mobile)</option>
                                                 <option value="usb">USB</option>
                                             </select>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">IP Address</label>
+                                            <label className="text-sm font-medium">Alamat IP</label>
                                             <Input
                                                 placeholder="e.g. 192.168.1.100"
                                                 value={settings.printer_ip}
@@ -710,18 +720,18 @@ export default function Settings() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Paper Width</label>
+                                            <label className="text-sm font-medium">Lebar Kertas</label>
                                             <select
                                                 className="w-full h-10 border rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                                 value={settings.printer_width || "80mm"}
                                                 onChange={(e) => handleInputChange("printer_width", e.target.value)}
                                             >
-                                                <option value="58mm">58mm (Small)</option>
-                                                <option value="80mm">80mm (Standard)</option>
+                                                <option value="58mm">58mm (Kecil)</option>
+                                                <option value="80mm">80mm (Standar)</option>
                                             </select>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Auto-Print Receipt</label>
+                                            <label className="text-sm font-medium">Cetak Otomatis</label>
                                             <div className="flex items-center gap-2 h-10">
                                                 <input
                                                     type="checkbox"
@@ -729,7 +739,7 @@ export default function Settings() {
                                                     checked={settings.auto_print === "true"}
                                                     onChange={(e) => handleInputChange("auto_print", e.target.checked ? "true" : "false")}
                                                 />
-                                                <span className="text-sm">Print after every transaction</span>
+                                                <span className="text-sm">Cetak struk setiap transaksi selesai</span>
                                             </div>
                                         </div>
                                     </div>
@@ -738,7 +748,7 @@ export default function Settings() {
                             <CardFooter className="justify-end border-t border-gray-100 p-4">
                                 <Button className="gap-2" onClick={handleSaveSettings} disabled={saving}>
                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    Save Printer Settings
+                                    Simpan Pengaturan Printer
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -747,15 +757,15 @@ export default function Settings() {
                     {activeSection === "notif" && (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Notifications</CardTitle>
-                                <CardDescription>Configure alerts for sales, inventory, and system events.</CardDescription>
+                                <CardTitle>Notifikasi & Alert</CardTitle>
+                                <CardDescription>Konfigurasi peringatan stok dan laporan sistem.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="space-y-4">
                                     <div className="p-4 border rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors">
                                         <div className="space-y-0.5">
-                                            <p className="font-medium">Stock Alerts</p>
-                                            <p className="text-sm text-gray-500">Notify when ingredients fall below minimum stock level.</p>
+                                            <p className="font-medium">Peringatan Stok Habis</p>
+                                            <p className="text-sm text-gray-500">Munculkan notifikasi di dashboard jika bahan baku di bawah stok minim.</p>
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             <input
@@ -767,39 +777,34 @@ export default function Settings() {
                                         </div>
                                     </div>
 
-                                    <div className="p-4 border rounded-lg space-y-4 hover:bg-gray-50 transition-colors">
+                                    <div className="p-4 border rounded-lg space-y-4 bg-gray-50 opacity-70 cursor-not-allowed">
                                         <div className="flex items-center justify-between">
                                             <div className="space-y-0.5">
-                                                <p className="font-medium">Daily Sales Summary</p>
-                                                <p className="text-sm text-gray-500">Receive an email recap of daily transactions and top-selling products.</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">Ringkasan Penjualan Harian (Email)</p>
+                                                    <Badge variant="outline" className="text-[8px] uppercase">Coming Soon</Badge>
+                                                </div>
+                                                <p className="text-sm text-gray-500">Terima rekap harian melalui email otomatis.</p>
                                             </div>
                                             <div className="flex items-center space-x-2">
                                                 <input
                                                     type="checkbox"
-                                                    className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
-                                                    checked={settings.enable_daily_summary === "true"}
-                                                    onChange={(e) => handleInputChange("enable_daily_summary", e.target.checked ? "true" : "false")}
+                                                    disabled
+                                                    className="w-5 h-5 rounded border-gray-300 text-primary opacity-50"
+                                                    checked={false}
                                                 />
                                             </div>
                                         </div>
-                                        {settings.enable_daily_summary === "true" && (
-                                            <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                <label className="text-xs font-semibold text-gray-500 uppercase">Reporting Email</label>
-                                                <Input
-                                                    type="email"
-                                                    placeholder="reports@singgah.coffee"
-                                                    className="mt-1"
-                                                    value={settings.notification_email}
-                                                    onChange={(e) => handleInputChange("notification_email", e.target.value)}
-                                                />
-                                            </div>
-                                        )}
+                                        <div className="p-3 bg-white border border-gray-200 rounded-xl flex gap-2 text-[10px] text-gray-500 font-bold italic">
+                                            <AlertCircle size={14} className="shrink-0" />
+                                            <span>Fitur ini memerlukan konfigurasi SMTP Server pada backend. Hubungi IT Support.</span>
+                                        </div>
                                     </div>
 
-                                    <div className="p-4 border rounded-lg flex items-center justify-between opacity-60">
+                                    <div className="p-4 border rounded-lg flex items-center justify-between opacity-50 grayscale">
                                         <div className="space-y-0.5">
-                                            <p className="font-medium">Direct WhatsApp Notification</p>
-                                            <p className="text-sm text-gray-500">Send purchase notifications directly to owner WhatsApp.</p>
+                                            <p className="font-medium text-gray-400">Notifikasi WhatsApp Langsung</p>
+                                            <p className="text-sm text-gray-400">Kirim struk digital ke WhatsApp pelanggan.</p>
                                         </div>
                                         <Badge variant="secondary">Enterprise Only</Badge>
                                     </div>
@@ -808,16 +813,16 @@ export default function Settings() {
                             <CardFooter className="justify-end border-t border-gray-100 p-4">
                                 <Button className="gap-2" onClick={handleSaveSettings} disabled={saving}>
                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    Save Notification Settings
+                                    Simpan Pengaturan Notifikasi
                                 </Button>
                             </CardFooter>
                         </Card>
                     )}
-{activeSection === "integrations" && user?.role === 'owner' && (
+                    {activeSection === "integrations" && user?.role === 'owner' && (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Integration API</CardTitle>
-                                <CardDescription>Configure keys for third-party service connections.</CardDescription>
+                                <CardTitle>API Integrasi</CardTitle>
+                                <CardDescription>Konfigurasi kunci akses untuk layanan pihak ketiga.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="p-4 bg-gray-50 border rounded-lg space-y-4">
@@ -835,27 +840,27 @@ export default function Settings() {
                                             value={settings.xendit_api_key || ""}
                                             onChange={(e) => handleInputChange("xendit_api_key", e.target.value)}
                                         />
-                                        <p className="text-[10px] text-gray-500">Required for automated QRIS invoices and payments.</p>
+                                        <p className="text-[10px] text-gray-500">Wajib diisi untuk mengaktifkan pembayaran QRIS otomatis.</p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-xs font-black uppercase text-gray-400">Callback Verification Token</label>
                                         <Input
                                             type="password"
-                                            placeholder="Set a unique token for security"
+                                            placeholder="Gunakan token unik untuk keamanan"
                                             value={settings.xendit_callback_token || ""}
                                             onChange={(e) => handleInputChange("xendit_callback_token", e.target.value)}
                                         />
-                                        <p className="text-[10px] text-gray-500 italic">Match this with 'Callback Token' in Xendit Dashboard Settings.</p>
+                                        <p className="text-[10px] text-gray-500 italic">Samakan dengan 'Callback Token' di Dashboard Xendit Anda.</p>
                                     </div>
                                 </div>
 
-                                <div className="p-4 border border-dashed rounded-lg opacity-60">
+                                <div className="p-4 border border-dashed rounded-lg opacity-50 grayscale">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
                                                 <Smartphone className="w-4 h-4" />
                                             </div>
-                                            <h3 className="font-bold text-sm">GoFood / GrabFood Bridge</h3>
+                                            <h3 className="font-bold text-sm text-gray-400">GoFood / GrabFood Bridge</h3>
                                         </div>
                                         <Badge variant="outline">Enterprise</Badge>
                                     </div>
@@ -864,50 +869,9 @@ export default function Settings() {
                             <CardFooter className="justify-end border-t border-gray-100 p-4">
                                 <Button className="gap-2" onClick={handleSaveSettings} disabled={saving}>
                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    Save API Keys
+                                    Simpan Kunci API
                                 </Button>
                             </CardFooter>
-                        </Card>
-                    )}
-                    {activeSection === "mobile" && user?.role === 'owner' && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Mobile App</CardTitle>
-                                <CardDescription>Upload and manage Android APK for POS terminals.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg flex gap-3 text-blue-800 text-sm">
-                                    <Smartphone className="w-5 h-5 shrink-0" />
-                                    <p>Upload the latest APK file. Users can download via the sidebar "Download Android App" button.</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">APK File</label>
-                                    <Input
-                                        type="file"
-                                        accept=".apk"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0]
-                                            if (!file) return
-                                            try {
-                                                setSaving(true)
-                                                const formData = new FormData()
-                                                formData.append("apk", file)
-                                                await fetch("/api/settings/upload-apk", {
-                                                    method: "POST",
-                                                    headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
-                                                    body: formData
-                                                })
-                                                alert("APK uploaded successfully!")
-                                            } catch (err) {
-                                                alert("Failed to upload APK")
-                                            } finally {
-                                                setSaving(false)
-                                            }
-                                        }}
-                                        disabled={saving}
-                                    />
-                                </div>
-                            </CardContent>
                         </Card>
                     )}
                 </div>

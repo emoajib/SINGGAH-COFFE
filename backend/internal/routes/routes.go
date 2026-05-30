@@ -61,6 +61,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers) {
 
 			// Reports & Dashboard
 			protected.GET("/dashboard/summary", h.Report.GetDashboardSummary)
+			protected.GET("/reports/profit-loss", h.Report.GetProfitLoss)
+			protected.GET("/integrations/logs", h.Webhook.GetWebhookLogs)
 
 			// Settings
 			protected.GET("/settings", h.Settings.GetSettings)
@@ -74,6 +76,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers) {
 			// Expenses
 			protected.GET("/expenses", h.Expense.GetExpenses)
 			protected.POST("/expenses", middleware.RoleMiddleware("owner", "manager"), h.Expense.CreateExpense)
+			protected.PUT("/expenses/:id", middleware.RoleMiddleware("owner", "manager"), h.Expense.UpdateExpense)
 			protected.DELETE("/expenses/:id", middleware.RoleMiddleware("owner"), h.Expense.DeleteExpense)
 		}
 	}

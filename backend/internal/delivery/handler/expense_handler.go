@@ -54,6 +54,37 @@ func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 	c.JSON(http.StatusCreated, result)
 }
 
+func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid expense ID"})
+		return
+	}
+
+	var req request.CreateExpenseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	expense := &entity.Expense{
+		Title:       req.Title,
+		Amount:      req.Amount,
+		Category:    req.Category,
+		Date:        parseDate(req.Date),
+		Description: req.Description,
+		Notes:       req.Notes,
+	}
+
+	result, err := h.expenseUsecase.Update(uint(id), expense)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update expense"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *ExpenseHandler) DeleteExpense(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

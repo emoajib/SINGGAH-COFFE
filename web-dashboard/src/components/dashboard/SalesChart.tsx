@@ -1,6 +1,8 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 
+import { formatNumber } from "../../lib/utils"
+
 interface SalesChartProps {
     data: { name: string, total: number }[]
 }
@@ -39,7 +41,7 @@ export function SalesChart({ data }: SalesChartProps) {
                             <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-gray-200" />
                             <Tooltip
                                 contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                formatter={(value: number) => [`Rp ${value.toLocaleString()}`, 'Total Sales']}
+                                formatter={(value: number) => [`Rp ${formatNumber(value)}`, 'Total Sales']}
                             />
                             <Area
                                 type="monotone"

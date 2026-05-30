@@ -64,6 +64,7 @@ func main() {
 	// CORS Middleware
 	allowedOrigins := map[string]bool{
 		"http://localhost:3000": true,
+		"http://localhost:8081": true,
 		"http://localhost:5173": true,
 		"http://localhost:8080": true,
 	}

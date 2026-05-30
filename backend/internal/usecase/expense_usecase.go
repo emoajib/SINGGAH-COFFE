@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
+	domainErrors "singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 
@@ -40,6 +41,28 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense) (*entity.ExpenseRespon
 		return nil, err
 	}
 	resp := expense.ToResponse()
+	return &resp, nil
+}
+
+func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.ExpenseResponse, error) {
+	existing, err := uc.expenseRepo.FindByID(id)
+	if err != nil {
+		return nil, domainErrors.NewNotFoundError("expense not found")
+	}
+
+	existing.Title = expense.Title
+	existing.Amount = expense.Amount
+	existing.Category = expense.Category
+	if !expense.Date.IsZero() {
+		existing.Date = expense.Date
+	}
+	existing.Description = expense.Description
+	existing.Notes = expense.Notes
+
+	if err := uc.expenseRepo.Update(existing); err != nil {
+		return nil, err
+	}
+	resp := existing.ToResponse()
 	return &resp, nil
 }
 

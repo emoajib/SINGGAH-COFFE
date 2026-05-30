@@ -6,6 +6,7 @@ import { useOrders, useVoidOrder } from '../../src/hooks/useOrders'
 import { useToastStore } from '../../src/stores/toastStore'
 import type { Order } from '../../src/types'
 import OrderCardSkeleton from '../../src/components/OrderCardSkeleton'
+import { formatNumber } from '../../src/lib/utils'
 
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets()
@@ -22,7 +23,7 @@ export default function OrdersScreen() {
   }
 
   const formatCurrency = (amount: number) => {
-    return `Rp ${amount.toLocaleString('id-ID')}`
+    return `Rp ${formatNumber(amount)}`
   }
 
   const getStatusStyle = (status: string) => {
@@ -117,10 +118,18 @@ export default function OrdersScreen() {
     )
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace('/(app)/dashboard')
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Orders History</Text>

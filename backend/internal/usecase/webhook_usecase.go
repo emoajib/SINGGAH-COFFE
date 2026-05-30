@@ -33,6 +33,13 @@ type XenditCallback struct {
 	PaidAmount float64 `json:"paid_amount"`
 }
 
+func (uc *WebhookUsecase) GetWebhookLogs(limit int) ([]entity.ProcessedWebhook, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return uc.webhookRepo.FindAll(limit)
+}
+
 // ProcessXenditWebhook processes an incoming Xendit payment callback.
 // It verifies the callback token, ensures idempotency, and updates the
 // corresponding order's payment status.

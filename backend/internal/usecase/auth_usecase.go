@@ -32,7 +32,7 @@ type LoginResponse struct {
 }
 
 func (uc *AuthUsecase) Login(req LoginRequest) (*LoginResponse, error) {
-	user, err := uc.userRepo.FindByEmail(req.Email)
+	user, err := uc.userRepo.FindByIdentifier(req.Email)
 	if err != nil {
 		return nil, domainErrors.NewUnauthorizedError("invalid credentials")
 	}

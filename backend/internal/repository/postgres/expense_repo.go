@@ -17,23 +17,23 @@ func NewExpenseRepository(db *gorm.DB) *expenseRepository {
 
 func (r *expenseRepository) FindAll() ([]entity.Expense, error) {
 	var ms []models.Expense
-	if err := r.db.Order("date desc").Find(&ms).Error; err != nil {
+	err := r.db.Order("date desc, id desc").Find(&ms).Error
+	if err != nil {
 		return nil, err
 	}
 	result := make([]entity.Expense, len(ms))
 	for i, m := range ms {
-		result[i] = entity.Expense{
-			ID:          m.ID,
-			Title:       m.Title,
-			Amount:      m.Amount,
-			Category:    m.Category,
-			Date:        m.Date,
-			Description: m.Description,
-			Notes:       m.Notes,
-			CreatedAt:   m.CreatedAt,
-		}
+		result[i] = *toDomainExpense(&m)
 	}
 	return result, nil
+}
+
+func (r *expenseRepository) FindByID(id uint) (*entity.Expense, error) {
+	var m models.Expense
+	if err := r.db.First(&m, id).Error; err != nil {
+		return nil, err
+	}
+	return toDomainExpense(&m), nil
 }
 
 func (r *expenseRepository) Create(expense *entity.Expense) error {
@@ -45,7 +45,22 @@ func (r *expenseRepository) Create(expense *entity.Expense) error {
 		Description: expense.Description,
 		Notes:       expense.Notes,
 	}
-	return r.db.Create(m).Error
+	if err := r.db.Create(m).Error; err != nil {
+		return err
+	}
+	expense.ID = m.ID
+	return nil
+}
+
+func (r *expenseRepository) Update(expense *entity.Expense) error {
+	return r.db.Model(&models.Expense{}).Where("id = ?", expense.ID).Updates(map[string]interface{}{
+		"title":       expense.Title,
+		"amount":      expense.Amount,
+		"category":    expense.Category,
+		"date":        expense.Date,
+		"description": expense.Description,
+		"notes":       expense.Notes,
+	}).Error
 }
 
 func (r *expenseRepository) Delete(id uint) error {
@@ -58,4 +73,26 @@ func (r *expenseRepository) GetTotal() (float64, error) {
 		Select("COALESCE(SUM(amount), 0)").
 		Row().Scan(&total)
 	return total, err
+}
+
+func (r *expenseRepository) GetBreakdownRange(start, end string) ([]entity.ExpenseDetail, error) {
+	var results []entity.ExpenseDetail
+	err := r.db.Model(&models.Expense{}).
+		Where("date BETWEEN ? AND ?", start, end).
+		Select("category, SUM(amount) as amount").
+		Group("category").
+		Scan(&results).Error
+	return results, err
+}
+
+func toDomainExpense(m *models.Expense) *entity.Expense {
+	return &entity.Expense{
+		ID:          m.ID,
+		Title:       m.Title,
+		Amount:      m.Amount,
+		Category:    m.Category,
+		Date:        m.Date,
+		Description: m.Description,
+		Notes:       m.Notes,
+	}
 }

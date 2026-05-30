@@ -7,6 +7,7 @@ import { useAuthStore } from '../../src/stores/authStore'
 import type { Ingredient } from '../../src/types'
 import { Skeleton } from '../../src/components/Skeleton'
 import StockFormModal from '../../src/components/StockFormModal'
+import { formatNumber } from '../../src/lib/utils'
 
 export default function IngredientsScreen() {
   const insets = useSafeAreaInsets()
@@ -49,7 +50,7 @@ export default function IngredientsScreen() {
           </View>
           <View style={styles.stat}>
             <Text style={styles.statLabel}>Cost/Unit</Text>
-            <Text style={styles.statValue}>Rp {item.cost_per_unit.toLocaleString('id-ID')}</Text>
+            <Text style={styles.statValue}>Rp {formatNumber(item.cost_per_unit)}</Text>
           </View>
         </View>
       </TouchableOpacity>

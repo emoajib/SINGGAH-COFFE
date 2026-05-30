@@ -10,12 +10,22 @@ interface AuthState {
 
 export type { User }
 
-// Helper to get initial state from localStorage
-const storedUser = localStorage.getItem('user')
+// Helper to get initial state from localStorage safely
+const getStoredUser = () => {
+    try {
+        const storedUser = localStorage.getItem('user')
+        return storedUser ? JSON.parse(storedUser) : null
+    } catch (e) {
+        console.error("Failed to parse stored user", e)
+        localStorage.removeItem('user')
+        return null
+    }
+}
+
 const storedToken = localStorage.getItem('token')
 
 const initialState: AuthState = {
-    user: storedUser ? JSON.parse(storedUser) : null,
+    user: getStoredUser(),
     isAuthenticated: !!storedToken,
     isLoading: false,
     error: null,

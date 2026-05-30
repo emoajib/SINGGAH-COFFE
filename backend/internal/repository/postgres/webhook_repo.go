@@ -24,7 +24,26 @@ func (r *webhookRepository) FindByWebhookID(webhookID string) (*entity.Processed
 		ID:        m.ID,
 		WebhookID: m.WebhookID,
 		Status:    m.Status,
+		CreatedAt: m.CreatedAt,
 	}, nil
+}
+
+func (r *webhookRepository) FindAll(limit int) ([]entity.ProcessedWebhook, error) {
+	var ms []models.ProcessedWebhook
+	err := r.db.Order("id desc").Limit(limit).Find(&ms).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make([]entity.ProcessedWebhook, len(ms))
+	for i, m := range ms {
+		result[i] = entity.ProcessedWebhook{
+			ID:        m.ID,
+			WebhookID: m.WebhookID,
+			Status:    m.Status,
+			CreatedAt: m.CreatedAt,
+		}
+	}
+	return result, nil
 }
 
 func (r *webhookRepository) Create(webhook *entity.ProcessedWebhook) error {

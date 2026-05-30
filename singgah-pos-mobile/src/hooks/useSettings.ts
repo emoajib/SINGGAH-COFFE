@@ -5,7 +5,7 @@ import type { Setting } from '../types'
 export function useSettings() {
   return useQuery({
     queryKey: ['settings'],
-    queryFn: () => api.get<Setting[]>('/settings').then((r) => r.data),
+    queryFn: () => api.get<Record<string, string>>('/settings').then((r) => r.data),
   })
 }
 

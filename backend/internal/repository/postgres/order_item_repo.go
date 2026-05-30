@@ -39,6 +39,16 @@ func (r *orderItemRepository) GetTotalCogsByStatus(status string) (float64, erro
 	return total, err
 }
 
+func (r *orderItemRepository) GetTotalCogsRange(start, end string) (float64, error) {
+	var total float64
+	err := r.db.Model(&models.OrderItem{}).
+		Joins("JOIN orders ON orders.id = order_items.order_id").
+		Where("orders.created_at BETWEEN ? AND ? AND orders.status = ?", start, end, "Completed").
+		Select("COALESCE(SUM(order_items.cost * order_items.quantity), 0)").
+		Row().Scan(&total)
+	return total, err
+}
+
 func (r *orderItemRepository) GetCategoryBreakdown() ([]entity.CatBreakdown, error) {
 	var results []entity.CatBreakdown
 	err := r.db.Raw(`

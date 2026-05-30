@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Info, Loader2 } from 'lucide-react';
+import { formatNumber } from '../../lib/utils';
 import { Dialog } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -122,7 +123,7 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
                             <label htmlFor="isPurchase" className="text-xs font-medium text-blue-900 cursor-pointer select-none flex-1">
                                 <strong>Catat sebagai Pengeluaran</strong><br />
                                 <span className="text-blue-700 opacity-80">
-                                    Total biaya: Rp {totalExpense.toLocaleString()}
+                                    Total biaya: Rp {formatNumber(totalExpense)}
                                 </span>
                             </label>
                         </div>

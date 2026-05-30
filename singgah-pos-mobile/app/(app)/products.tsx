@@ -8,6 +8,7 @@ import { useToastStore } from '../../src/stores/toastStore'
 import type { Product } from '../../src/types'
 import ProductCardSkeleton from '../../src/components/ProductCardSkeleton'
 import ProductFormModal from '../../src/components/ProductFormModal'
+import { formatNumber } from '../../src/lib/utils'
 
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets()
@@ -25,7 +26,7 @@ export default function ProductsScreen() {
     p.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString('id-ID')}`
+  const formatCurrency = (amount: number) => `Rp ${formatNumber(amount)}`
 
   const handleDelete = (item: Product) => {
     deleteProduct.mutateAsync(item.id).then(() => {

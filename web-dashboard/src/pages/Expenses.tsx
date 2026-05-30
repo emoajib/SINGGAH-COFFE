@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Receipt } from "lucide-react"
-import { useExpenses, useCreateExpense, useDeleteExpense } from "../hooks/useExpenses"
+import { Search, Plus, Loader2, Trash2, Receipt, Pencil } from "lucide-react"
+import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } from "../hooks/useExpenses"
 import { useToast } from "../hooks/use-toast"
+import { formatNumber } from "../lib/utils"
 
 export default function Expenses() {
     const [search, setSearch] = useState("")
@@ -18,10 +19,11 @@ export default function Expenses() {
     const canEdit = user?.role === 'owner' || user?.role === 'manager'
 
     // Modals
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
 
     // Form State
-    const [newExpense, setNewExpense] = useState<Partial<Expense>>({
+    const [formData, setFormData] = useState<Partial<Expense>>({
         title: "",
         amount: 0,
         category: "Operational",
@@ -32,21 +34,49 @@ export default function Expenses() {
     const { toast } = useToast()
     const { data: expenses = [], isFetching: isLoading, refetch } = useExpenses()
     const createExpense = useCreateExpense()
+    const updateExpense = useUpdateExpense()
     const deleteExpense = useDeleteExpense()
 
-    const handleCreateExpense = async () => {
+    const handleOpenAdd = () => {
+        setEditingExpense(null)
+        setFormData({
+            title: "",
+            amount: 0,
+            category: "Operational",
+            description: "",
+            date: new Date().toISOString().split('T')[0]
+        })
+        setIsModalOpen(true)
+    }
+
+    const handleOpenEdit = (exp: Expense) => {
+        setEditingExpense(exp)
+        setFormData({
+            title: exp.title,
+            amount: exp.amount,
+            category: exp.category,
+            description: exp.description,
+            date: new Date(exp.date).toISOString().split('T')[0]
+        })
+        setIsModalOpen(true)
+    }
+
+    const handleSave = async () => {
         try {
-            await createExpense.mutateAsync(newExpense)
-            setIsAddModalOpen(false)
-            setNewExpense({
-                title: "",
-                amount: 0,
-                category: "Operational",
-                description: "",
-                date: new Date().toISOString().split('T')[0]
+            if (editingExpense) {
+                await updateExpense.mutateAsync({ id: editingExpense.ID, ...formData })
+                toast({ title: "Success", description: "Expense updated", variant: "success" })
+            } else {
+                await createExpense.mutateAsync(formData)
+                toast({ title: "Success", description: "Expense created", variant: "success" })
+            }
+            setIsModalOpen(false)
+        } catch (e: any) {
+            toast({ 
+                title: "Error", 
+                description: e.response?.data?.error || "Failed to save expense", 
+                variant: "error" 
             })
-        } catch (e) {
-            toast({ title: "Error", description: "Failed to create expense", variant: "error" })
         }
     }
 
@@ -55,8 +85,12 @@ export default function Expenses() {
         try {
             await deleteExpense.mutateAsync(id)
             toast({ title: "Success", description: "Expense deleted", variant: "success" })
-        } catch (e) {
-            toast({ title: "Error", description: "Failed to delete expense", variant: "error" })
+        } catch (e: any) {
+            toast({ 
+                title: "Error", 
+                description: e.response?.data?.error || "Failed to delete expense", 
+                variant: "error" 
+            })
         }
     }
 
@@ -79,7 +113,7 @@ export default function Expenses() {
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Segarkan"}
                     </Button>
                     {canEdit && (
-                        <Button className="gap-2" onClick={() => setIsAddModalOpen(true)}>
+                        <Button className="gap-2" onClick={handleOpenAdd}>
                             <Plus className="w-4 h-4" /> Tambah Pengeluaran
                         </Button>
                     )}
@@ -94,7 +128,7 @@ export default function Expenses() {
                         <Receipt className="w-4 h-4 text-gray-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600">Rp {totalExpenseAmount.toLocaleString()}</div>
+                        <div className="text-2xl font-bold text-red-600">Rp {formatNumber(totalExpenseAmount)}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -145,19 +179,31 @@ export default function Expenses() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 font-bold text-red-600">
-                                            Rp {exp.amount.toLocaleString()}
+                                            Rp {formatNumber(exp.amount)}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {user?.role === 'owner' && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => handleDeleteExpense(exp.ID)}
-                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            )}
+                                            <div className="flex justify-end gap-2">
+                                                {canEdit && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleOpenEdit(exp)}
+                                                        className="text-primary hover:bg-primary/5"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </Button>
+                                                )}
+                                                {user?.role === 'owner' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleDeleteExpense(exp.ID)}
+                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -172,15 +218,17 @@ export default function Expenses() {
                 </CardContent>
             </Card>
 
-            {/* Add Expense Modal */}
+            {/* Expense Modal (Add/Edit) */}
             <Dialog
-                isOpen={isAddModalOpen}
-                onClose={() => setIsAddModalOpen(false)}
-                title="Tambah Pengeluaran Baru"
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                title={editingExpense ? "Edit Pengeluaran" : "Tambah Pengeluaran Baru"}
                 footer={
                     <>
-                        <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>Batal</Button>
-                        <Button onClick={handleCreateExpense}>Simpan Pengeluaran</Button>
+                        <Button variant="outline" onClick={() => setIsModalOpen(false)}>Batal</Button>
+                        <Button onClick={handleSave}>
+                            {editingExpense ? "Simpan Perubahan" : "Simpan Pengeluaran"}
+                        </Button>
                     </>
                 }
             >
@@ -189,8 +237,8 @@ export default function Expenses() {
                         <label className="text-sm font-medium">Judul</label>
                         <Input
                             placeholder="cth. Tagihan Listrik, Sewa, Wi-Fi"
-                            value={newExpense.title}
-                            onChange={(e) => setNewExpense({ ...newExpense, title: e.target.value })}
+                            value={formData.title}
+                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -198,16 +246,16 @@ export default function Expenses() {
                             <label className="text-sm font-medium">Jumlah (Rp)</label>
                             <Input
                                 type="number"
-                                value={newExpense.amount || ''}
-                                onChange={(e) => setNewExpense({ ...newExpense, amount: Number(e.target.value) || 0 })}
+                                value={formData.amount || ''}
+                                onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) || 0 })}
                             />
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Kategori</label>
                             <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                value={newExpense.category}
-                                onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+                                value={formData.category}
+                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                             >
                                 <option value="Operational">Operasional</option>
                                 <option value="Marketing">Pemasaran</option>
@@ -221,16 +269,16 @@ export default function Expenses() {
                         <label className="text-sm font-medium">Tanggal</label>
                         <Input
                             type="date"
-                            value={newExpense.date}
-                            onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
+                            value={formData.date}
+                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                         />
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Deskripsi</label>
                         <Input
                             placeholder="Detail opsional..."
-                            value={newExpense.description}
-                            onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         />
                     </div>
                 </div>

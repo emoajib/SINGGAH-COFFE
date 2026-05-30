@@ -7,8 +7,12 @@ import { Dialog } from "../components/ui/dialog"
 import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2 } from "lucide-react"
 import { useOrders, useVoidOrder } from "../hooks/useOrders"
 import { useToast } from "../hooks/use-toast"
+import { useSelector } from "react-redux"
+import { RootState } from "../store"
+import { formatNumber } from "../lib/utils"
 
 export default function Sales() {
+    const { user } = useSelector((state: RootState) => state.auth)
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedTx, setSelectedTx] = useState<any | null>(null)
     const { toast } = useToast()
@@ -27,11 +31,7 @@ export default function Sales() {
     }
 
     const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0
-        }).format(value)
+        return `Rp ${formatNumber(value)}`
     }
 
     const formatDate = (dateStr: string) => {
@@ -127,9 +127,11 @@ export default function Sales() {
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </Button>
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8">
-                                                        <Printer className="w-4 h-4" />
-                                                    </Button>
+                                                    {user?.role === 'owner' && (
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 opacity-50 cursor-not-allowed" title="Driver thermal coming soon">
+                                                            <Printer className="w-4 h-4" />
+                                                        </Button>
+                                                    )}
                                                     {order.status !== 'Void' && (
                                                         <Button
                                                             size="icon"
@@ -163,9 +165,11 @@ export default function Sales() {
                 footer={
                     <>
                         <Button variant="outline" className="w-full sm:w-auto" onClick={() => setSelectedTx(null)}>Tutup</Button>
-                        <Button variant="default" className="w-full sm:w-auto gap-2">
-                            <Printer className="w-4 h-4" /> Cetak Struk Fisik
-                        </Button>
+                        {user?.role === 'owner' && (
+                            <Button variant="default" className="w-full sm:w-auto gap-2 opacity-50 cursor-not-allowed">
+                                <Printer className="w-4 h-4" /> Cetak Struk Fisik
+                            </Button>
+                        )}
                     </>
                 }
             >

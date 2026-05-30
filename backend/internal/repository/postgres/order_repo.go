@@ -45,7 +45,11 @@ func (r *orderRepository) FindAll(limit, offset int) ([]entity.Order, error) {
 
 func (r *orderRepository) Create(order *entity.Order) error {
 	m := toModelOrder(order)
-	return r.db.Create(m).Error
+	if err := r.db.Create(m).Error; err != nil {
+		return err
+	}
+	order.ID = m.ID
+	return nil
 }
 
 func (r *orderRepository) Update(order *entity.Order) error {
@@ -60,6 +64,15 @@ func (r *orderRepository) GetTotalSalesSince(since string) (float64, error) {
 	var total float64
 	err := r.db.Model(&models.Order{}).
 		Where("created_at >= ? AND status = ?", since, "Completed").
+		Select("COALESCE(SUM(total_amount), 0)").
+		Row().Scan(&total)
+	return total, err
+}
+
+func (r *orderRepository) GetTotalSalesRange(start, end string) (float64, error) {
+	var total float64
+	err := r.db.Model(&models.Order{}).
+		Where("created_at BETWEEN ? AND ? AND status = ?", start, end, "Completed").
 		Select("COALESCE(SUM(total_amount), 0)").
 		Row().Scan(&total)
 	return total, err

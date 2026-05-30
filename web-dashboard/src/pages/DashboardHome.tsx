@@ -4,19 +4,23 @@ import { TopSellingItems } from "../components/dashboard/TopSellingItems"
 import { useEffect, useState } from "react"
 import { fetchSettings } from "../services/settingsService"
 import { Loader2 } from "lucide-react"
-import { getImageUrl } from "../lib/utils"
+import { getImageUrl, formatNumber } from "../lib/utils"
 import { useDashboard } from "../hooks/useDashboard"
+import { Button } from "../components/ui/button"
+import { useSelector } from "react-redux"
+import { RootState } from "../store"
 
-export default function DashboardHome() {
+interface DashboardHomeProps {
+    setActiveTab: (tab: string) => void
+}
+
+export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
+    const { user } = useSelector((state: RootState) => state.auth)
     const [logoUrl, setLogoUrl] = useState("")
     const [outletName, setOutletName] = useState("Singgah Coffee")
 
     const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0
-        }).format(value)
+        return `Rp ${formatNumber(value)}`
     }
 
     const { data: _summary, isLoading: statsLoading } = useDashboard()
@@ -62,8 +66,12 @@ export default function DashboardHome() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline">Ekspor Data</Button>
-                    <Button>Pesanan Baru</Button>
+                    {user?.role === 'owner' && (
+                        <>
+                            <Button variant="outline" className="opacity-50 cursor-not-allowed" title="Feature coming soon">Ekspor Data</Button>
+                            <Button onClick={() => setActiveTab('pos')}>Pesanan Baru</Button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -125,5 +133,3 @@ export default function DashboardHome() {
         </div>
     )
 }
-
-import { Button } from "../components/ui/button"

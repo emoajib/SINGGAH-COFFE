@@ -112,32 +112,78 @@
     @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
 }
 
-/* Receipt Print Styles */
+/* Receipt & Report Print Styles */
 @media print {
-    body * {
-        visibility: hidden;
+    /* RESET GLOBAL LAYOUT FOR PRINT */
+    html, body, #root {
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+        background: white !important;
     }
 
+    /* Target specific wrappers that might have h-screen or overflow-hidden */
+    div.flex.min-h-screen, 
+    div.flex-1.flex.flex-col.h-screen,
+    main.overflow-y-auto {
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+        position: static !important;
+    }
+
+    /* Hide EVERYTHING by default */
+    body * {
+        visibility: hidden !important;
+    }
+
+    /* Target specific containers to show */
     #receipt-print,
-    #receipt-print * {
-        visibility: visible;
+    #receipt-print *,
+    #printable-pl,
+    #printable-pl * {
+        visibility: visible !important;
+    }
+
+    /* Positioning for the printed content */
+    #receipt-print,
+    #printable-pl {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 5mm !important;
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+        border: none !important;
+        display: block !important;
     }
 
     #receipt-print {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 5mm;
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 12px;
-        line-height: 1.2;
-        color: black;
-        background: white;
+        font-family: 'Courier New', Courier, monospace !important;
+        font-size: 12px !important;
     }
 
-    .no-print {
+    #printable-pl {
+        font-family: 'Outfit', 'Inter', sans-serif !important;
+    }
+
+    /* Explicitly hide the "no-print" elements */
+    .no-print,
+    .no-print * {
         display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Force background colors to print */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }

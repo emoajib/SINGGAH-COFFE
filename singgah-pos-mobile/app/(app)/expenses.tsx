@@ -7,6 +7,7 @@ import { useToastStore } from '../../src/stores/toastStore'
 import { useAuthStore } from '../../src/stores/authStore'
 import type { Expense } from '../../src/types'
 import ExpenseFormModal from '../../src/components/ExpenseFormModal'
+import { formatNumber } from '../../src/lib/utils'
 
 export default function ExpensesScreen() {
   const insets = useSafeAreaInsets()
@@ -18,7 +19,7 @@ export default function ExpensesScreen() {
   const [showForm, setShowForm] = useState(false)
   const canEdit = user?.role === 'owner' || user?.role === 'manager'
 
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString('id-ID')}`
+  const formatCurrency = (amount: number) => `Rp ${formatNumber(amount)}`
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })

@@ -1,4 +1,5 @@
 import { MenuItem } from "../../services/productService"
+import { formatNumber } from "../../lib/utils"
 
 interface ReceiptProps {
     orderNumber: string
@@ -54,10 +55,10 @@ export default function Receipt({
                     <div key={idx}>
                         <div className="flex justify-between">
                             <span className="font-bold">{item.product.name}</span>
-                            <span>{(item.product.price * item.qty).toLocaleString()}</span>
+                            <span>{formatNumber(item.product.price * item.qty)}</span>
                         </div>
                         <div className="text-[9px] text-gray-600">
-                            {item.qty} x {item.product.price.toLocaleString()}
+                            {item.qty} x {formatNumber(item.product.price)}
                         </div>
                     </div>
                 ))}
@@ -67,23 +68,23 @@ export default function Receipt({
             <div className="text-[10px] space-y-1">
                 <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>{subtotal.toLocaleString()}</span>
+                    <span>{formatNumber(subtotal)}</span>
                 </div>
                 {service > 0 && (
                     <div className="flex justify-between">
                         <span>Service Charge:</span>
-                        <span>{service.toLocaleString()}</span>
+                        <span>{formatNumber(service)}</span>
                     </div>
                 )}
                 {tax > 0 && (
                     <div className="flex justify-between">
                         <span>PB1 (Tax):</span>
-                        <span>{tax.toLocaleString()}</span>
+                        <span>{formatNumber(tax)}</span>
                     </div>
                 )}
                 <div className="flex justify-between font-bold text-sm mt-2 border-t border-black pt-1">
                     <span>TOTAL:</span>
-                    <span>Rp {total.toLocaleString()}</span>
+                    <span>Rp {formatNumber(total)}</span>
                 </div>
                 <div className="flex justify-between mt-1">
                     <span>Payment:</span>

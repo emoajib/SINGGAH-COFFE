@@ -31,10 +31,10 @@ cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 ./start_web_dashboard.sh
 ```
 
-**Terminal 3 - Flutter App:**
+**Terminal 3 - Mobile POS (React Native):**
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
-./start_flutter_app.sh
+cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/singgah-pos-mobile"
+npm install && npx expo start --web
 ```
 
 ### Option B: Manual
@@ -53,8 +53,8 @@ npm run dev
 
 **Terminal 3:**
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/mobile-app"
-flutter run -d chrome
+cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/singgah-pos-mobile"
+npx expo start --web
 ```
 
 ---
@@ -63,14 +63,14 @@ flutter run -d chrome
 
 - Backend: http://localhost:8080
 - Web Dashboard: http://localhost:5173
-- Flutter App: Opens in Chrome automatically
+- Mobile POS: http://localhost:8081 (Expo Web)
 
 ---
 
 ## 🛑 Stop All Services
 
 ```bash
-# Stop web dashboard & flutter: Ctrl+C in their terminals
+# Stop web dashboard & mobile POS: Ctrl+C in their terminals
 
 # Stop Docker:
 cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"

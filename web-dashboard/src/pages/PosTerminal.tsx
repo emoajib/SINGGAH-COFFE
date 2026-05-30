@@ -12,7 +12,7 @@ import {
 import { Button } from "../components/ui/button"
 import { Dialog } from "../components/ui/dialog"
 import Receipt from "../components/pos/Receipt"
-import { getImageUrl } from "../lib/utils"
+import { getImageUrl, formatNumber } from "../lib/utils"
 import { useProducts } from '../hooks/useProducts'
 import { useCreateOrder } from '../hooks/useOrders'
 import { useSettings } from '../hooks/useSettings'
@@ -184,7 +184,8 @@ const PosTerminal: React.FC = () => {
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
-                                        <span className="text-xs font-black text-primary">Rp {product.price.toLocaleString()}</span>
+                                        <div className="text-lg font-black text-primary">Rp {formatNumber(product.price)}</div>
+
                                     </div>
                                 </div>
                                 <div className="p-5">
@@ -234,7 +235,7 @@ const PosTerminal: React.FC = () => {
                                                 <span className="w-8 text-center text-xs font-bold">{item.quantity}</span>
                                                 <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 flex items-center justify-center hover:bg-white rounded-md shadow-sm">+</button>
                                             </div>
-                                            <span className="text-xs font-black text-gray-900">Rp {(item.price * item.quantity).toLocaleString()}</span>
+                                            <span className="text-xs font-black text-gray-900">Rp {formatNumber(item.price * item.quantity)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -243,12 +244,12 @@ const PosTerminal: React.FC = () => {
                     </div>
 
                     <div className="mt-8 space-y-3 pt-6 border-t border-gray-100">
-                        <div className="flex justify-between text-sm text-gray-400 font-medium"><span>Subtotal</span><span className="text-gray-900">Rp {subtotal.toLocaleString()}</span></div>
-                        <div className="flex justify-between text-sm text-gray-400 font-medium"><span>Layanan ({(serviceRate * 100).toFixed(0)}%)</span><span className="text-gray-900">Rp {serviceFee.toLocaleString()}</span></div>
-                        <div className="flex justify-between text-sm text-gray-400 font-medium"><span>Pajak ({(taxRate * 100).toFixed(0)}%)</span><span className="text-gray-900">Rp {tax.toLocaleString()}</span></div>
+                        <div className="flex justify-between text-sm text-gray-400 font-medium"><span>Subtotal</span><span className="text-gray-900">Rp {formatNumber(subtotal)}</span></div>
+                        <div className="flex justify-between text-sm text-gray-400 font-medium"><span>Layanan ({(serviceRate * 100).toFixed(0)}%)</span><span className="text-gray-900">Rp {formatNumber(serviceFee)}</span></div>
+                        <div className="flex justify-between text-sm text-gray-400 font-medium"><span>Pajak ({(taxRate * 100).toFixed(0)}%)</span><span className="text-gray-900">Rp {formatNumber(tax)}</span></div>
                         <div className="flex justify-between pt-4 border-t-2 border-dashed border-gray-100 items-baseline">
                             <span className="text-sm font-black text-gray-400 uppercase tracking-widest">Total Bayar</span>
-                            <span className="text-3xl font-black text-primary">Rp {total.toLocaleString()}</span>
+                            <span className="text-3xl font-black text-primary">Rp {formatNumber(total)}</span>
                         </div>
                     </div>
 

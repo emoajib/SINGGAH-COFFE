@@ -49,20 +49,16 @@ Seluruh sistem kini telah melewati fase **Backend System Audit** dan **Integrati
     *   **Settings System**: Pengaturan profil toko, pajak/service charge rill, dan upload logo.
 
 #### **C. Mobile App (Cashier Tablet)**
-*   **Tech Stack**: Flutter (Android/iOS).
+*   **Tech Stack**: React Native (Expo).
 *   **Status**: ✅ **Operational & Connected**.
 *   **Fitur**:
-    *   **POS Interface**: Layout tablet (Split View) untuk efisiensi kasir.
+    *   **POS Interface**: Layout mobile-first untuk efisiensi kasir.
     *   **Checkout Flow**: Pengiriman order memicu kalkulasi pajak/service di backend dan pemotongan stok bahan baku.
 *   **Verification**: Lolos **System Integration Test** rill (Login -> Order -> Stock Deduction Verification).
 
 ---
 
 ### ⏳ TERHAMBAT & BELUM SELESAI
-
-#### **⚠️ KRITIS: Disk Space (Flutter Installation)**
-*   **Masalah**: Instalasi Flutter SDK di mesin gagal (Disk Full). Hanya tersisa **1.5 GB** sedangkan ekstraksi Flutter butuh ~10 GB.
-*   **Tindakan Dibutuhkan**: User perlu membersihkan ruang penyimpanan di drive utama sebelum instalasi bisa dilanjutkan.
 
 #### **A. Fitur Advanced (Phase 3)**
 1.  **Laporan Mendalam**: API Real-time untuk Laba Rugi (P&L) berdasarkan HPP.
@@ -77,7 +73,7 @@ Seluruh sistem kini telah melewati fase **Backend System Audit** dan **Integrati
 graph TD
     subgraph Clients ["Client Layer"]
         WEB["🖥️ Web Dashboard (React)"]
-        MOBILE["📱 Mobile POS (Flutter)"]
+        MOBILE["📱 Mobile POS (React Native)"]
     end
 
     subgraph Backend ["Backend Layer (Golang)"]
@@ -103,54 +99,8 @@ graph TD
 *   **Database Admin**: `owner@singgah.coffee` / `admin`.
 
 **Dokumen ini disimpan di:** `PROJECT_STATUS.md`
-Berikut langkah cepat (macOS, zsh) untuk menjalankan backend (localhost) dan aplikasi Flutter — pilih salah satu target Flutter (iOS Simulator, Android emulator, atau Web). Mau saya jalankan sekarang? Jika ya: pilih target.
-
-Ringkasan singkat (direktori workspace = root project)
-
-Backend API: http://localhost:8080 (API root biasanya /api)
-Database lokal (docker-compose) memetakan Postgres ke localhost:5434
-Flutter app mengarah ke http://localhost:8080/api
-Perintah (jalankan di Terminal — satu per terminal atau saya bisa jalankan untuk Anda)
-
-Cara cepat — gunakan Docker (direkomendasikan)
-Start PostgreSQL:
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
-docker-compose up -d db
-Jalankan backend di container:
-docker-compose up --build -d api
-Verifikasi:
-curl http://localhost:8080/api || curl http://localhost:8080
-Jalankan backend secara lokal (hot-reload selama development) — pastikan Docker berjalan untuk DB
-Start DB:
-docker-compose up -d db
-Jalankan server Go (dari folder backend):
-cd backend
-go run ./cmd/server
-Verifikasi:
-curl http://localhost:8080/api
-Jalankan Flutter (pilih salah satu)
-Siapkan:
-cd mobile-app
-flutter pub get
-iOS Simulator (macOS):
-open -a Simulator
-flutter devices
-flutter run -d <device-id> # atau hanya flutter run untuk device default
-Android emulator:
-(jalankan emulator terlebih dahulu dengan Android Studio)
-flutter run -d emulator-5554
-Web (Chrome):
-flutter run -d chrome
-Jalankan web-server (akses dari browser di device lain):
-flutter run -d web-server --web-port=5000
-Menjalankan semuanya bersamaan (contoh — backend lokal + Flutter di simulator)
-
-Terminal A (DB + backend):
-cd <project-root> && docker-compose up -d db && cd backend && go run ./cmd/server
-Terminal B (Flutter):
-cd mobile-app && flutter run
-Troubleshoot cepat
-
-Jika Flutter tidak menemukan perangkat: jalankan flutter doctor dan open -a Simulator
-Jika backend gagal konek DB: pastikan Docker aktif dan Postgres jalan pada port 5434 (docker ps), atau sesuaikan .env
-Android emulator gunakan 10.0.2.2 untuk mengakses localhost (project sudah menangani ini di constants)
+Mobile App kini menggunakan React Native (Expo). Jalankan dengan:
+```bash
+cd singgah-pos-mobile
+npm install && npx expo start --web
+```

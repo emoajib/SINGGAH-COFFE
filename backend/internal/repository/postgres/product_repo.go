@@ -52,7 +52,11 @@ func (r *productRepository) FindAll(limit, offset int) ([]entity.Product, error)
 
 func (r *productRepository) Create(product *entity.Product) error {
 	m := toModelProduct(product)
-	return r.db.Create(m).Error
+	if err := r.db.Create(m).Error; err != nil {
+		return err
+	}
+	product.ID = m.ID
+	return nil
 }
 
 func (r *productRepository) Update(product *entity.Product) error {

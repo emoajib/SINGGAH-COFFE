@@ -92,15 +92,17 @@ echo "   ✅ Web Dashboard started (PID: $WEB_PID)"
 echo ""
 
 # ──────────────────────────────────────────────
-# Step 4: Flutter Mobile App
+# Step 4: React Native Mobile App (Expo)
 # ──────────────────────────────────────────────
-echo "Step 4: Flutter Mobile App..."
-cd "$BASE_DIR/mobile-app"
-echo "   📦 Getting Flutter dependencies..."
-flutter pub get > "$LOG_DIR/flutter-pub.log" 2>&1
-flutter run -d chrome > "$LOG_DIR/flutter-app.log" 2>&1 &
-FLUTTER_PID=$!
-echo "   ✅ Flutter App started (PID: $FLUTTER_PID)"
+echo "Step 4: React Native Mobile App..."
+cd "$BASE_DIR/singgah-pos-mobile"
+if [ ! -d "node_modules" ]; then
+    echo "   📦 Installing npm dependencies..."
+    npm install
+fi
+npx expo start --web > "$LOG_DIR/react-native.log" 2>&1 &
+MOBILE_PID=$!
+echo "   ✅ React Native App started in web mode (PID: $MOBILE_PID)"
 
 echo ""
 echo "======================================================"
@@ -108,8 +110,8 @@ echo "  ✅ All services started!"
 echo ""
 echo "  📍 Service URLs:"
 echo "     Backend API:    http://localhost:8080"
-echo "     Web Dashboard:  http://localhost:5173"
-echo "     Flutter App:    Opening in Chrome..."
+echo "     Web Dashboard:  http://localhost:3000"
+echo "     Mobile POS:     http://localhost:8081 (Expo Web)"
 echo "     PostgreSQL:     localhost:5432"
 echo ""
 echo "  📁 Log files: $LOG_DIR"

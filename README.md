@@ -1,6 +1,6 @@
 # ☕ Singgah Coffee POS System
 
-A modern Point of Sale (POS) system built with **React**, **Flutter**, and **Go** for Singgah Coffee.
+A modern Point of Sale (POS) system built with **React**, **React Native**, and **Go** for Singgah Coffee.
 
 ![System Architecture](/.gemini/antigravity/brain/ebe4928a-8907-4448-aa9d-958424e63ef7/system_architecture_1770115419027.png)
 
@@ -8,7 +8,7 @@ A modern Point of Sale (POS) system built with **React**, **Flutter**, and **Go*
 
 ### Tech Stack
 - **Frontend Web**: React + TypeScript + Vite + Tailwind CSS
-- **Mobile App**: Flutter (Dart)
+- **Mobile App**: React Native (Expo)
 - **Backend API**: Go (Golang) + Gin Framework
 - **Database**: PostgreSQL 15
 - **Containerization**: Docker + Docker Compose
@@ -17,7 +17,7 @@ A modern Point of Sale (POS) system built with **React**, **Flutter**, and **Go*
 ```
 .
 ├── web-dashboard/       # React web dashboard (Port 5173)
-├── mobile-app/          # Flutter mobile app
+├── singgah-pos-mobile/  # React Native mobile app
 ├── backend/             # Go backend API (Port 8080)
 ├── docker-compose.yml   # Docker orchestration
 ├── STARTUP_GUIDE.md     # Detailed startup instructions
@@ -64,10 +64,10 @@ cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 ./start_web_dashboard.sh
 ```
 
-### Terminal 3: Flutter Mobile App
+### Terminal 3: Mobile App (React Native)
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
-./start_flutter_app.sh
+cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/singgah-pos-mobile"
+npm install && npx expo start --web
 ```
 
 ---
@@ -80,7 +80,7 @@ Once all services are running:
 |---------|-----|-------------|
 | **Backend API** | http://localhost:8080 | REST API endpoints |
 | **Web Dashboard** | http://localhost:5173 | Admin dashboard |
-| **Flutter App** | Auto-opens in Chrome | Mobile POS interface |
+| **Mobile POS** | http://localhost:8081 | Mobile POS (Expo Web) |
 | **PostgreSQL** | localhost:5434 | Database |
 
 ---
@@ -90,7 +90,6 @@ Once all services are running:
 - **macOS** (Intel or Apple Silicon)
 - **Docker Desktop** (latest version)
 - **Node.js** 18+ and npm
-- **Flutter SDK** 3.1.5+
 - **Go** 1.21+ (for backend development)
 - **SIP Disabled** (for development)
 
@@ -114,11 +113,11 @@ npm install
 npm run dev
 ```
 
-### 3. Flutter Mobile App
+### 3. React Native Mobile App
 ```bash
-cd mobile-app
-flutter pub get
-flutter run -d chrome
+cd singgah-pos-mobile
+npm install
+npx expo start --web
 ```
 
 ---

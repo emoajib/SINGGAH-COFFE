@@ -8,6 +8,7 @@ import (
 type UserRepository interface {
 	FindByID(id uint) (*entity.User, error)
 	FindByEmail(email string) (*entity.User, error)
+	FindByIdentifier(identifier string) (*entity.User, error)
 	FindAll() ([]entity.User, error)
 	Create(user *entity.User) error
 	Update(user *entity.User) error
@@ -53,6 +54,7 @@ type OrderRepository interface {
 	Create(order *entity.Order) error
 	Update(order *entity.Order) error
 	GetTotalSalesSince(since string) (float64, error)
+	GetTotalSalesRange(start, end string) (float64, error)
 	CountSince(since string) (int64, error)
 	CountByStatus(status string) (int64, error)
 	GetSumByStatusSince(status, since, timeFormat string) ([]entity.TrendPoint, error)
@@ -62,6 +64,7 @@ type OrderRepository interface {
 type OrderItemRepository interface {
 	Create(items []entity.OrderItem) error
 	GetTotalCogsByStatus(status string) (float64, error)
+	GetTotalCogsRange(start, end string) (float64, error)
 	GetCategoryBreakdown() ([]entity.CatBreakdown, error)
 	GetTopProducts(limit int) ([]entity.TopProduct, error)
 }
@@ -69,9 +72,12 @@ type OrderItemRepository interface {
 // ExpenseRepository defines data access for expenses
 type ExpenseRepository interface {
 	FindAll() ([]entity.Expense, error)
+	FindByID(id uint) (*entity.Expense, error)
 	Create(expense *entity.Expense) error
+	Update(expense *entity.Expense) error
 	Delete(id uint) error
 	GetTotal() (float64, error)
+	GetBreakdownRange(start, end string) ([]entity.ExpenseDetail, error)
 }
 
 // SettingRepository defines data access for settings
@@ -87,4 +93,5 @@ type WebhookRepository interface {
 	FindByWebhookID(webhookID string) (*entity.ProcessedWebhook, error)
 	Create(webhook *entity.ProcessedWebhook) error
 	Update(order *entity.Order) error
+	FindAll(limit int) ([]entity.ProcessedWebhook, error)
 }

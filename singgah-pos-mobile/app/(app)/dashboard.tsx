@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAuthStore } from '../../src/stores/authStore'
 
@@ -6,6 +6,7 @@ const modules = [
   { key: 'pos', title: 'New Order', icon: '🛒', roles: ['owner', 'manager', 'cashier'] as const },
   { key: 'orders', title: 'Orders History', icon: '📋', roles: ['owner', 'manager', 'cashier'] as const },
   { key: 'ingredients', title: 'Inventory', icon: '📦', roles: ['owner', 'manager'] as const },
+  { key: 'sop', title: 'SOP Guide', icon: '📜', roles: ['owner', 'manager', 'cashier'] as const },
   { key: 'settings', title: 'Settings', icon: '⚙️', roles: ['owner', 'manager', 'cashier'] as const },
   { key: 'reports', title: 'Reports', icon: '📊', roles: ['owner'] as const },
 ]
@@ -22,10 +23,16 @@ export default function DashboardScreen() {
       router.push('/(app)/orders')
     } else if (key === 'ingredients') {
       router.push('/(app)/ingredients')
+    } else if (key === 'sop') {
+      router.push('/(app)/sop')
     } else if (key === 'settings') {
       router.push('/(app)/settings')
     } else if (key === 'reports') {
-      // Coming soon - no stub screen yet
+      Alert.alert(
+        "Gunakan Dashboard Web",
+        "Laporan detail dan ekspor akuntansi saat ini hanya tersedia melalui Dashboard Web untuk tampilan yang lebih maksimal.",
+        [{ text: "OK" }]
+      )
     }
   }
 
