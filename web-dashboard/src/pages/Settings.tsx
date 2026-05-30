@@ -4,15 +4,13 @@ import { Input } from "../components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../components/ui/card"
 import { Badge } from "../components/ui/badge"
 import { Store, Printer, Percent, Bell, Save, Loader2, User as UserIcon, Users, Plus, Trash2, Pencil, Shield, Eye, EyeOff, Lock, FileText, Camera, CreditCard, Smartphone, Zap } from "lucide-react"
-import { fetchSettings, updateSettings, updateProfileApi, changePasswordApi, uploadLogoApi } from "../services/settingsService"
-import { fetchUsers, createUser, updateUser, deleteUser as deleteUserApi } from "../services/userService"
 import { getImageUrl } from "../lib/utils"
-import { useDispatch, useSelector } from "react-redux"
+import { useSelector } from "react-redux"
 import { RootState } from "../store"
-import { updateProfile } from "../store/authSlice"
+import { useSettings, useUpdateSetting, useUploadLogo } from '../hooks/useSettings'
+import { useUpdateProfile, useChangePassword, useUsers } from '../hooks/useAuth'
 
 export default function Settings() {
-    const dispatch = useDispatch()
     const { user } = useSelector((state: RootState) => state.auth)
 
     const [loading, setLoading] = useState(true)
@@ -45,7 +43,12 @@ export default function Settings() {
     const [staffList, setStaffList] = useState<any[]>([])
     const [showStaffModal, setShowStaffModal] = useState(false)
     const [editingStaff, setEditingStaff] = useState<any>(null)
-    const [staffForm, setStaffForm] = useState({
+    const [staffForm, setStaffForm] = useState<{
+        name: string;
+        email: string;
+        password: string;
+        role: 'owner' | 'manager' | 'cashier';
+    }>({
         name: "",
         email: "",
         password: "",
@@ -61,16 +64,51 @@ export default function Settings() {
     const [showPassword, setShowPassword] = useState(false)
     const [showStaffPass, setShowStaffPass] = useState(false)
 
+    // React Query hooks
+    const { data: settingsArr } = useSettings()
+    const updateSetting = useUpdateSetting()
+    const uploadLogoMutation = useUploadLogo()
+    const updateProfileMutation = useUpdateProfile()
+    const changePasswordMutation = useChangePassword()
+    const usersManager = useUsers()
+
+    // Populate local settings state from React Query data
+    useEffect(() => {
+        if (settingsArr) {
+            if (Array.isArray(settingsArr)) {
+                const mapped = (settingsArr as Array<{ key: string; value: string }>).reduce(
+                    (acc, s) => ({ ...acc, [s.key]: s.value }),
+                    {} as Record<string, string>
+                )
+                setSettings(prev => ({ ...prev, ...mapped }))
+            } else {
+                setSettings(prev => ({ ...prev, ...(settingsArr as any) }))
+            }
+            setLoading(false)
+        }
+    }, [settingsArr])
+
+    // Load users for owner
+    useEffect(() => {
+        if (user?.role === 'owner') {
+            usersManager.list().then(setStaffList)
+        }
+    }, [])
+
+    const handleInputChange = (key: string, value: string) => {
+        setSettings(prev => ({ ...prev, [key]: value }))
+    }
+
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
 
         try {
             setSaving(true)
-            const response = await uploadLogoApi(file)
+            const response = await uploadLogoMutation.mutateAsync(file)
             setSettings({
                 ...settings,
-                outlet_logo_url: response.url
+                outlet_logo_url: (response as any).url
             })
             alert("Logo uploaded successfully! Don't forget to save changes.")
         } catch (error: any) {
@@ -81,34 +119,14 @@ export default function Settings() {
         }
     }
 
-    useEffect(() => {
-        loadData()
-    }, [])
-
-    const loadData = async () => {
-        try {
-            setLoading(true)
-            const [settingsData, usersData] = await Promise.all([
-                fetchSettings(),
-                user?.role === 'owner' ? fetchUsers() : Promise.resolve([])
-            ])
-            setSettings(prev => ({ ...prev, ...settingsData }))
-            setStaffList(usersData)
-        } catch (error) {
-            console.error("Failed to load data", error)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleInputChange = (key: string, value: string) => {
-        setSettings(prev => ({ ...prev, [key]: value }))
-    }
-
     const handleSaveSettings = async () => {
         try {
             setSaving(true)
-            await updateSettings(settings)
+            await Promise.all(
+                Object.entries(settings).map(([key, value]) =>
+                    updateSetting.mutateAsync({ key, value })
+                )
+            )
             alert("Outlet settings saved successfully!")
         } catch (error) {
             console.error("Failed to save settings", error)
@@ -121,8 +139,7 @@ export default function Settings() {
     const handleSaveProfile = async () => {
         try {
             setSaving(true)
-            const updatedUser = await updateProfileApi(profile)
-            dispatch(updateProfile(updatedUser))
+            await updateProfileMutation.mutateAsync(profile)
             alert("Admin profile updated successfully!")
         } catch (error) {
             console.error("Failed to update profile", error)
@@ -136,16 +153,17 @@ export default function Settings() {
         try {
             setSaving(true)
             if (editingStaff) {
-                await updateUser(editingStaff.id, staffForm)
+                await usersManager.update.mutateAsync({ id: String(editingStaff.id), ...staffForm })
                 alert("Staff updated successfully!")
             } else {
-                await createUser(staffForm)
+                await usersManager.create.mutateAsync(staffForm)
                 alert("New staff added successfully!")
             }
             setShowStaffModal(false)
             setEditingStaff(null)
             setStaffForm({ name: "", email: "", password: "", role: "cashier" })
-            loadData()
+            const users = await usersManager.list()
+            setStaffList(users)
         } catch (error: any) {
             console.error("Failed to save staff", error)
             const errorMsg = error.response?.data?.error || "Email might already be taken or invalid data."
@@ -166,7 +184,7 @@ export default function Settings() {
         }
         try {
             setSaving(true)
-            await changePasswordApi({
+            await changePasswordMutation.mutateAsync({
                 current_password: passwordForm.current_password,
                 new_password: passwordForm.new_password
             })
@@ -183,8 +201,9 @@ export default function Settings() {
     const handleDeleteStaff = async (id: number) => {
         if (!confirm("Are you sure you want to remove this staff?")) return
         try {
-            await deleteUserApi(id)
-            loadData()
+            await usersManager.remove.mutateAsync(String(id))
+            const users = await usersManager.list()
+            setStaffList(users)
         } catch (error) {
             console.error("Failed to delete staff", error)
         }
@@ -562,7 +581,7 @@ export default function Settings() {
                                         <select
                                             className="w-full h-10 border rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                             value={staffForm.role}
-                                            onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
+                                            onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value as 'owner' | 'manager' | 'cashier' })}
                                         >
                                             <option value="cashier">Kasir</option>
                                             <option value="manager">Manajer</option>
@@ -794,7 +813,7 @@ export default function Settings() {
                             </CardFooter>
                         </Card>
                     )}
-                    {activeSection === "integrations" && user?.role === 'owner' && (
+{activeSection === "integrations" && user?.role === 'owner' && (
                         <Card>
                             <CardHeader>
                                 <CardTitle>Integration API</CardTitle>
@@ -848,6 +867,47 @@ export default function Settings() {
                                     Save API Keys
                                 </Button>
                             </CardFooter>
+                        </Card>
+                    )}
+                    {activeSection === "mobile" && user?.role === 'owner' && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Mobile App</CardTitle>
+                                <CardDescription>Upload and manage Android APK for POS terminals.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg flex gap-3 text-blue-800 text-sm">
+                                    <Smartphone className="w-5 h-5 shrink-0" />
+                                    <p>Upload the latest APK file. Users can download via the sidebar "Download Android App" button.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">APK File</label>
+                                    <Input
+                                        type="file"
+                                        accept=".apk"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0]
+                                            if (!file) return
+                                            try {
+                                                setSaving(true)
+                                                const formData = new FormData()
+                                                formData.append("apk", file)
+                                                await fetch("/api/settings/upload-apk", {
+                                                    method: "POST",
+                                                    headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+                                                    body: formData
+                                                })
+                                                alert("APK uploaded successfully!")
+                                            } catch (err) {
+                                                alert("Failed to upload APK")
+                                            } finally {
+                                                setSaving(false)
+                                            }
+                                        }}
+                                        disabled={saving}
+                                    />
+                                </div>
+                            </CardContent>
                         </Card>
                     )}
                 </div>

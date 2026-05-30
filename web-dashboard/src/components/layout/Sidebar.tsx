@@ -1,13 +1,13 @@
 import {
     LayoutDashboard,
-    Package,
     CreditCard,
     BarChart3,
     Settings,
     Puzzle,
     Monitor,
     Coffee,
-    Wallet
+    Wallet,
+    Smartphone
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { useSelector } from "react-redux"
@@ -100,7 +100,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 })}
             </nav>
 
-            <div className="p-4 border-t border-gray-100">
+<div className="p-4 border-t border-gray-100">
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                     <h4 className="font-semibold text-sm mb-1">Butuh Bantuan?</h4>
                     <p className="text-xs text-gray-500 mb-3">Buka dokumentasi sistem.</p>
@@ -109,10 +109,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                     <button
-                        onClick={() => window.open('https://github.com/emoajib/SINGGAH-COFFE/releases/latest/download/singgah-pos-android.apk', '_blank')}
+                        onClick={() => window.open('/api/mobile/download', '_blank')}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border border-gray-300 hover:bg-gray-50"
                     >
-                        <Monitor className="w-5 h-5 text-gray-400" />
+                        <Smartphone className="w-5 h-5 text-gray-400" />
                         Download Android App
                     </button>
                 </div>
