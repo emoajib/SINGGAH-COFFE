@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Singgah Coffee POS",
+    "slug": "singgah-pos-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4B3621"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "coffee.singgah.pos"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F5F0E6"
+      },
+      "package": "coffee.singgah.pos"
+    },
+    "scheme": "singgah-pos",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9f36e26c-785d-42bd-ba18-c67d7f7d2fcf"
+      }
+    },
+    "owner": "emoajib"
+  }
+}
