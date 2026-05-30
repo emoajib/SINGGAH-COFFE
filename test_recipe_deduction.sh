@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}Step 1: Login as cashier...${NC}"
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"kasir@singgah.coffee","password":"admin321"}' \
+  -d '{"email":"kasir","password":"12345"}' \
   | grep -o '"token":"[^"]*' | sed 's/"token":"//')
 
 if [ -z "$TOKEN" ]; then
@@ -33,7 +33,7 @@ echo ""
 
 # Check stock BEFORE transaction
 echo -e "${BLUE}Step 2: Check ingredient stock BEFORE transaction...${NC}"
-docker exec -i singgah_postgres psql -U postgres -d singgah_pos -c "
+psql -U postgres -h localhost -d singgah_pos -c "
 SELECT 
     name, 
     current_stock, 
@@ -74,7 +74,7 @@ echo ""
 
 # Check stock AFTER transaction
 echo -e "${BLUE}Step 4: Check ingredient stock AFTER transaction...${NC}"
-docker exec -i singgah_postgres psql -U postgres -d singgah_pos -c "
+psql -U postgres -h localhost -d singgah_pos -c "
 SELECT 
     name, 
     current_stock, 
