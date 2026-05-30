@@ -1,15 +1,11 @@
-import { useNavigate } from "react-router-dom"
-import { useDispatch, useSelector } from "react-redux"
-import { loginStart, loginSuccess, loginFailure, User } from "../store/authSlice"
-import { RootState } from "../store"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../components/ui/card"
 import { Coffee, Loader2, Eye, EyeOff } from "lucide-react"
-import api from "../lib/api"
 import { useEffect, useState } from "react"
 import { fetchSettings } from "../services/settingsService"
 import { getImageUrl } from "../lib/utils"
+import { useLogin } from "../hooks/useAuth"
 
 export default function Login() {
     const [email, setEmail] = useState("")
@@ -18,9 +14,7 @@ export default function Login() {
     const [logoUrl, setLogoUrl] = useState("")
     const [outletName, setOutletName] = useState("Singgah Coffee")
 
-    const dispatch = useDispatch()
-    const navigate = useNavigate()
-    const { isLoading, error } = useSelector((state: RootState) => state.auth)
+    const loginMutation = useLogin()
 
     useEffect(() => {
         const loadBranding = async () => {
@@ -37,38 +31,15 @@ export default function Login() {
         loadBranding()
     }, [])
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = (e: React.FormEvent) => {
         e.preventDefault()
-        dispatch(loginStart())
-
-        try {
-            const response = await api.post('/auth/login', {
-                email,
-                password
-            })
-
-            const { token, user } = response.data
-
-            // Map backend user to frontend user
-            const userData: User = {
-                id: String(user.id),
-                name: user.name,
-                email: user.email,
-                role: user.role as any // 'owner' | 'manager' | 'cashier'
-            }
-
-            // Save token and STANDARDIZED user data
-            localStorage.setItem('token', token)
-            localStorage.setItem('user', JSON.stringify(userData))
-
-            dispatch(loginSuccess(userData))
-            navigate("/")
-        } catch (err: any) {
-            console.error("Login failed", err)
-            const errorMessage = err.response?.data?.error || "Login failed. Please check your credentials."
-            dispatch(loginFailure(errorMessage))
-        }
+        loginMutation.mutate({ email, password })
     }
+
+    const isLoading = loginMutation.isPending
+    const error = loginMutation.error
+        ? (loginMutation.error as any)?.response?.data?.error || loginMutation.error.message
+        : null
 
     return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">

@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Calculator, ImagePlus, ArrowUpCircle, ArrowDownCircle, AlertTriangle, Package, Loader2, History, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, X, ImagePlus, ArrowUpCircle, ArrowDownCircle, AlertTriangle, Package, History, Info } from 'lucide-react';
 import api from '../lib/api';
 import { getImageUrl } from '../lib/utils';
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
 import { Button } from "../components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
-import { InventoryService } from '../services/inventoryService';
 import { StockAdjustmentDialog } from '../components/inventory/StockAdjustmentDialog';
+import { useProducts, useCreateProduct, useDeleteProduct } from '../hooks/useProducts'
+import { useIngredients, useCreateIngredient, useDeleteIngredient, useCreateStockMutation } from '../hooks/useIngredients'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface Ingredient {
     id: number;
@@ -40,8 +42,6 @@ interface Product {
 
 const ProductManagement: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'products' | 'ingredients'>('ingredients');
-    const [products, setProducts] = useState<Product[]>([]);
-    const [ingredients, setIngredients] = useState<Ingredient[]>([]);
     const [isIdModalOpen, setIsIdModalOpen] = useState(false); // For Ingredient Modal
     const [isModalOpen, setIsModalOpen] = useState(false); // For Product Modal
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -72,28 +72,17 @@ const ProductManagement: React.FC = () => {
         min_stock: 0 as number | string,
     });
 
-    useEffect(() => {
-        fetchProducts();
-        fetchIngredients();
-    }, []);
-
-    const fetchProducts = async () => {
-        try {
-            const response = await api.get('/products');
-            setProducts(response.data);
-        } catch (error) {
-            console.error('Failed to fetch products:', error);
-        }
-    };
-
-    const fetchIngredients = async () => {
-        try {
-            const response = await api.get('/ingredients');
-            setIngredients(response.data);
-        } catch (error) {
-            console.error('Failed to fetch ingredients:', error);
-        }
-    };
+    // React Query hooks
+    const productsQuery = useProducts();
+    const ingredientsQuery = useIngredients();
+    const products = (productsQuery.data ?? []) as unknown as Product[];
+    const ingredients = (ingredientsQuery.data ?? []) as unknown as Ingredient[];
+    const createProduct = useCreateProduct();
+    const deleteProduct = useDeleteProduct();
+    const createIngredient = useCreateIngredient();
+    const deleteIngredient = useDeleteIngredient();
+    const createStockMutation = useCreateStockMutation();
+    const queryClient = useQueryClient();
 
     const handleSaveIngredient = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -108,10 +97,10 @@ const ProductManagement: React.FC = () => {
             if (editingIngredient) {
                 await api.put(`/ingredients/${editingIngredient.id}`, payload);
             } else {
-                await api.post('/ingredients', payload);
+                await createIngredient.mutateAsync(payload as any);
             }
-            fetchIngredients();
-            fetchProducts(); // Refresh products to show updated HPP
+            queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+            queryClient.invalidateQueries({ queryKey: ['products'] });
             setIsIdModalOpen(false);
             setEditingIngredient(null);
         } catch (error) {
@@ -124,8 +113,7 @@ const ProductManagement: React.FC = () => {
     const handleDeleteIngredient = async (id: number) => {
         if (!confirm('Hapus bahan ini? Tindakan ini akan menghapus semua penggunaan bahan ini di resep produk.')) return;
         try {
-            await api.delete(`/ingredients/${id}`);
-            fetchIngredients();
+            await deleteIngredient.mutateAsync(id);
         } catch (error) {
             alert('Gagal menghapus bahan');
         }
@@ -193,8 +181,11 @@ const ProductManagement: React.FC = () => {
     const handleOpenHistory = async (ing: Ingredient) => {
         setLoading(true);
         try {
-            const response = await api.get(`/ingredients/${ing.id}/history`);
-            setHistoryModal({ isOpen: true, ingredient: ing, history: response.data });
+            const data = await queryClient.fetchQuery({
+                queryKey: ['stock-mutations', ing.id],
+                queryFn: () => api.get(`/ingredients/${ing.id}/history`).then(r => r.data),
+            });
+            setHistoryModal({ isOpen: true, ingredient: ing, history: data as any[] });
         } catch (error) {
             alert('Gagal mengambil riwayat stok');
         } finally {
@@ -237,9 +228,9 @@ const ProductManagement: React.FC = () => {
             if (editingProduct) {
                 await api.put(`/products/${editingProduct.id}`, formData);
             } else {
-                await api.post('/products', formData);
+                await createProduct.mutateAsync(formData as any);
             }
-            fetchProducts();
+            queryClient.invalidateQueries({ queryKey: ['products'] });
             handleCloseModal();
         } catch (error: any) {
             alert('Failed to save product: ' + (error.response?.data?.error || error.message));
@@ -251,8 +242,7 @@ const ProductManagement: React.FC = () => {
     const handleDelete = async (id: number) => {
         if (!confirm('Are you sure you want to delete this product?')) return;
         try {
-            await api.delete(`/products/${id}`);
-            fetchProducts();
+            await deleteProduct.mutateAsync(id);
         } catch (error) {
             alert('Failed to delete product');
         }
@@ -513,7 +503,7 @@ const ProductManagement: React.FC = () => {
                 onConfirm={async (data) => {
                     setLoading(true);
                     try {
-                        await InventoryService.mutateStock({
+                        await createStockMutation.mutateAsync({
                             ingredient_id: restockModal.itemId,
                             type: restockModal.type,
                             quantity: data.qty,
@@ -523,8 +513,7 @@ const ProductManagement: React.FC = () => {
                             new_cost_per_unit: data.newPrice
                         });
                         setRestockModal({ ...restockModal, isOpen: false });
-                        fetchIngredients();
-                        fetchProducts();
+                        queryClient.invalidateQueries({ queryKey: ['products'] });
                     } catch (error) {
                         alert('Gagal memperbarui stok');
                     } finally {

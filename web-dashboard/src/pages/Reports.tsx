@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react"
-import api from "../lib/api"
+import React, { useState } from "react"
+import { useDashboard } from '../hooks/useDashboard'
 import {
     DollarSign,
     Package,
@@ -9,7 +9,6 @@ import {
     BarChart3,
     AlertTriangle,
     Monitor,
-    Plus,
     ShoppingBag,
     PieChart as PieChartIcon
 } from "lucide-react"
@@ -29,43 +28,13 @@ import {
     Cell
 } from 'recharts';
 
-interface DashboardSummary {
-    total_sales: number;
-    total_cogs: number;
-    total_expenses: number;
-    net_profit: number;
-    cumulative_net_profit: number;
-    low_stock_count: number;
-    transactions_today: number;
-    sales_trend: { name: string; total: number }[];
-    weekly_trend: { name: string; total: number }[];
-    category_breakdown: { category: string; total: number }[];
-    top_products: { name: string; category: string; sales: number }[];
-}
-
 const COLORS = ['#8b4513', '#d2691e', '#A0522D', '#DEB887', '#F4A460'];
 
 const Dashboard: React.FC = () => {
-    const [summary, setSummary] = useState<DashboardSummary | null>(null);
-    const [loading, setLoading] = useState(true);
     const [trendType, setTrendType] = useState<'hourly' | 'weekly'>('hourly');
+    const { data: summary, isLoading } = useDashboard();
 
-    useEffect(() => {
-        const fetchSummary = async () => {
-            try {
-                const response = await api.get('/dashboard/summary');
-                setSummary(response.data);
-            } catch (error) {
-                console.error('Failed to fetch dashboard summary:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchSummary();
-    }, []);
-
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="p-6 flex justify-center items-center h-full min-h-[400px]">
                 <Loader2 className="w-12 h-12 animate-spin text-primary" />
@@ -233,7 +202,7 @@ const Dashboard: React.FC = () => {
                                             dataKey="total"
                                             nameKey="category"
                                         >
-                                            {(summary?.category_breakdown || []).map((entry, index) => (
+                                            {(summary?.category_breakdown || []).map((_entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>

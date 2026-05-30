@@ -4,22 +4,12 @@ import { TopSellingItems } from "../components/dashboard/TopSellingItems"
 import { useEffect, useState } from "react"
 import { fetchSettings } from "../services/settingsService"
 import { Loader2 } from "lucide-react"
-import api from "../lib/api"
 import { getImageUrl } from "../lib/utils"
+import { useDashboard } from "../hooks/useDashboard"
 
 export default function DashboardHome() {
     const [logoUrl, setLogoUrl] = useState("")
     const [outletName, setOutletName] = useState("Singgah Coffee")
-    const [summary, setSummary] = useState({
-        total_sales: 0,
-        active_orders: 0,
-        low_stock_count: 0,
-        transactions_today: 0,
-        sales_trend: [] as { name: string, total: number }[],
-        category_breakdown: [] as { category: string, total: number }[],
-        top_products: [] as { name: string, category: string, sales: number }[]
-    })
-    const [statsLoading, setStatsLoading] = useState(true)
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('id-ID', {
@@ -27,6 +17,17 @@ export default function DashboardHome() {
             currency: 'IDR',
             minimumFractionDigits: 0
         }).format(value)
+    }
+
+    const { data: _summary, isLoading: statsLoading } = useDashboard()
+    const summary: any = _summary ?? {
+        total_sales: 0,
+        active_orders: 0,
+        low_stock_count: 0,
+        transactions_today: 0,
+        sales_trend: [] as { name: string; total: number }[],
+        category_breakdown: [] as { category: string; total: number }[],
+        top_products: [] as { name: string; category: string; sales: number }[]
     }
 
     useEffect(() => {
@@ -40,18 +41,6 @@ export default function DashboardHome() {
             }
         }
         loadBranding()
-
-        const loadSummary = async () => {
-            try {
-                const response = await api.get('/dashboard/summary')
-                setSummary(response.data)
-            } catch (error) {
-                console.error("Failed to load dashboard summary:", error)
-            } finally {
-                setStatsLoading(false)
-            }
-        }
-        loadSummary()
     }, [])
 
     return (

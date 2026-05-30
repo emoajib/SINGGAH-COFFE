@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
-import { ExpenseService, Expense } from "../services/expenseService"
+import type { Expense } from "../types"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
 import { Search, Plus, Loader2, Trash2, Receipt } from "lucide-react"
+import { useExpenses, useCreateExpense, useDeleteExpense } from "../hooks/useExpenses"
+import { useToast } from "../hooks/use-toast"
 
 export default function Expenses() {
-    const [expenses, setExpenses] = useState<Expense[]>([])
-    const [isLoading, setIsLoading] = useState(true)
     const [search, setSearch] = useState("")
 
     // Auth Check
@@ -29,27 +29,15 @@ export default function Expenses() {
         date: new Date().toISOString().split('T')[0]
     })
 
-    useEffect(() => {
-        loadExpenses()
-    }, [])
-
-    const loadExpenses = async () => {
-        setIsLoading(true)
-        try {
-            const data = await ExpenseService.getAll()
-            setExpenses(data)
-        } catch (e) {
-            console.error("Failed to load expenses", e)
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    const { toast } = useToast()
+    const { data: expenses = [], isFetching: isLoading, refetch } = useExpenses()
+    const createExpense = useCreateExpense()
+    const deleteExpense = useDeleteExpense()
 
     const handleCreateExpense = async () => {
         try {
-            await ExpenseService.create(newExpense)
+            await createExpense.mutateAsync(newExpense)
             setIsAddModalOpen(false)
-            loadExpenses()
             setNewExpense({
                 title: "",
                 amount: 0,
@@ -58,17 +46,17 @@ export default function Expenses() {
                 date: new Date().toISOString().split('T')[0]
             })
         } catch (e) {
-            alert("Failed to create expense")
+            toast({ title: "Error", description: "Failed to create expense", variant: "error" })
         }
     }
 
     const handleDeleteExpense = async (id: number) => {
         if (!window.confirm("Are you sure you want to delete this expense?")) return
         try {
-            await ExpenseService.delete(id)
-            loadExpenses()
+            await deleteExpense.mutateAsync(id)
+            toast({ title: "Success", description: "Expense deleted", variant: "success" })
         } catch (e) {
-            alert("Failed to delete expense")
+            toast({ title: "Error", description: "Failed to delete expense", variant: "error" })
         }
     }
 
@@ -87,7 +75,7 @@ export default function Expenses() {
                     <p className="text-gray-500">Kelola biaya operasional dan pengeluaran Anda.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={loadExpenses} disabled={isLoading}>
+                    <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Segarkan"}
                     </Button>
                     {canEdit && (

@@ -1,31 +1,8 @@
 import api from '../lib/api';
+import type { Ingredient, CreateIngredientRequest, CreateStockMutationRequest, StockMutation } from '../types';
 
-export interface Ingredient {
-    ID: number;
-    name: string;
-    unit: string;
-    current_stock: number;
-    min_stock: number;
-    cost_per_unit: number;
-}
-
+export type { Ingredient };
 export type MutationType = 'IN' | 'OUT' | 'ADJ_ADD' | 'ADJ_SUB';
-
-export interface StockMutation {
-    ingredient_id: number;
-    type: MutationType;
-    quantity: number;
-    notes?: string;
-    is_purchase?: boolean;
-    update_master_price?: boolean;
-    new_cost_per_unit?: number;
-}
-
-export interface StockMutationWithMeta extends StockMutation {
-    id: number;
-    created_at: string;
-    reference_id?: string;
-}
 
 export const InventoryService = {
     // Get all ingredients
@@ -35,18 +12,18 @@ export const InventoryService = {
     },
 
     // Create new ingredient
-    create: async (item: Omit<Ingredient, 'ID'>): Promise<Ingredient> => {
+    create: async (item: CreateIngredientRequest): Promise<Ingredient> => {
         const response = await api.post('/ingredients', item);
         return response.data;
     },
 
     // Update stock (Mutation)
-    mutateStock: async (mutation: StockMutation): Promise<void> => {
+    mutateStock: async (mutation: CreateStockMutationRequest): Promise<void> => {
         await api.post('/inventory/mutation', mutation);
     },
 
     // Get Stock History
-    getHistory: async (id: number): Promise<StockMutationWithMeta[]> => {
+    getHistory: async (id: number): Promise<StockMutation[]> => {
         const response = await api.get(`/ingredients/${id}/history`);
         return response.data;
     }

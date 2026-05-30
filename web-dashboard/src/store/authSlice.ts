@@ -1,11 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-
-export interface User {
-    id: string
-    name: string
-    email: string
-    role: 'owner' | 'manager' | 'cashier'
-}
+import type { User } from '../types'
 
 interface AuthState {
     user: User | null
@@ -13,6 +7,8 @@ interface AuthState {
     isLoading: boolean
     error: string | null
 }
+
+export type { User }
 
 // Helper to get initial state from localStorage
 const storedUser = localStorage.getItem('user')

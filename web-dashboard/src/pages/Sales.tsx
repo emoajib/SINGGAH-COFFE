@@ -1,42 +1,28 @@
-import { useState, useEffect } from "react"
-import { OrderService } from "../services/orderService"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
 import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2 } from "lucide-react"
+import { useOrders, useVoidOrder } from "../hooks/useOrders"
+import { useToast } from "../hooks/use-toast"
 
 export default function Sales() {
-    const [orders, setOrders] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedTx, setSelectedTx] = useState<any | null>(null)
+    const { toast } = useToast()
 
-    useEffect(() => {
-        loadOrders()
-    }, [])
-
-    const loadOrders = async () => {
-        setLoading(true)
-        try {
-            const data = await OrderService.getAll()
-            setOrders(data)
-        } catch (error) {
-            console.error("Failed to load orders:", error)
-        } finally {
-            setLoading(false)
-        }
-    }
+    const { data: orders = [], isLoading: loading, refetch } = useOrders()
+    const voidOrder = useVoidOrder()
 
     const handleVoid = async (id: number) => {
         if (!window.confirm("Are you sure you want to void this transaction? This cannot be undone.")) return
         try {
-            await OrderService.void(id)
-            alert("Transaction voided successfully")
-            loadOrders()
+            await voidOrder.mutateAsync(id)
+            toast({ title: "Success", description: "Transaction voided successfully", variant: "success" })
         } catch (error: any) {
-            alert(error.response?.data?.error || "Failed to void transaction")
+            toast({ title: "Error", description: error.response?.data?.error || "Failed to void transaction", variant: "error" })
         }
     }
 
@@ -68,7 +54,7 @@ export default function Sales() {
                     <p className="text-gray-500">Pantau semua pembayaran yang berhasil dan tertunda.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" className="gap-2" onClick={loadOrders}>
+                    <Button variant="outline" className="gap-2" onClick={() => refetch()}>
                         <Calendar className="w-4 h-4" /> Segarkan
                     </Button>
                     <Button variant="secondary" className="gap-2 text-primary border-primary">
@@ -116,7 +102,7 @@ export default function Sales() {
                                     {filteredOrders.map((order) => {
                                         const dt = formatDate(order.created_at)
                                         return (
-                                            <tr key={order.id} className="bg-white border-b hover:bg-gray-50/50 transition-colors">
+                                            <tr key={order.ID} className="bg-white border-b hover:bg-gray-50/50 transition-colors">
                                                 <td className="px-6 py-4 font-bold text-primary">{order.order_number}</td>
                                                 <td className="px-6 py-4">
                                                     <div>{dt.time}</div>

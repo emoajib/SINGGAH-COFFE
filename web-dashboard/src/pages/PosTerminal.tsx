@@ -12,8 +12,10 @@ import {
 import { Button } from "../components/ui/button"
 import { Dialog } from "../components/ui/dialog"
 import Receipt from "../components/pos/Receipt"
-import api from "../lib/api"
 import { getImageUrl } from "../lib/utils"
+import { useProducts } from '../hooks/useProducts'
+import { useCreateOrder } from '../hooks/useOrders'
+import { useSettings } from '../hooks/useSettings'
 
 interface Product {
     id: number;
@@ -29,7 +31,6 @@ interface CartItem extends Product {
 }
 
 const PosTerminal: React.FC = () => {
-    const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -38,25 +39,41 @@ const PosTerminal: React.FC = () => {
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastOrder, setLastOrder] = useState<any>(null);
 
+    const productsQuery = useProducts();
+    const products = (productsQuery.data ?? []) as unknown as Product[];
+    const isLoadingProducts = productsQuery.isLoading;
+    const { data: settingsArr } = useSettings();
+    const createOrder = useCreateOrder();
+
+    // Convert Setting[] to Record<string, string> for the expected shape
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [prodRes, settRes] = await Promise.all([
-                    api.get('/products'),
-                    api.get('/settings')
-                ]);
-                setProducts(prodRes.data);
-                setSettings(settRes.data);
-                const cats = ['All', ...new Set(prodRes.data.map((p: Product) => p.category))] as string[];
-                setCategories(cats);
-            } catch (error) {
-                console.error('Failed to fetch POS data:', error);
-            } finally {
-                setLoading(false);
+        if (settingsArr) {
+            if (Array.isArray(settingsArr)) {
+                const mapped = (settingsArr as Array<{ key: string; value: string }>).reduce(
+                    (acc, s) => ({ ...acc, [s.key]: s.value }),
+                    {} as Record<string, string>
+                );
+                setSettings(mapped);
+            } else {
+                setSettings(settingsArr);
             }
-        };
-        fetchData();
-    }, []);
+        }
+    }, [settingsArr]);
+
+    // Derive categories from products
+    useEffect(() => {
+        if (products.length > 0) {
+            const cats = ['All', ...new Set(products.map(p => p.category))] as string[];
+            setCategories(cats);
+        }
+    }, [products]);
+
+    // Set loading to false when both data sources are ready
+    useEffect(() => {
+        if (!isLoadingProducts && settingsArr) {
+            setLoading(false);
+        }
+    }, [isLoadingProducts, settingsArr]);
 
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const serviceRate = (parseFloat(settings?.service_charge) || 0) / 100;
@@ -100,10 +117,9 @@ const PosTerminal: React.FC = () => {
                 payment_method: method,
                 customer_email: "customer@example.com" // Default or could be input
             };
-            const response = await api.post('/orders', orderData);
+            const data = await createOrder.mutateAsync(orderData) as any;
 
             // Backend returns { order: {...}, invoice_url: "..." }
-            const data = response.data;
             setLastOrder(data.order || data);
             setInvoiceUrl(data.invoice_url || null);
             setCart([]);

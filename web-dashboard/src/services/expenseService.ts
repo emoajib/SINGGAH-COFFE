@@ -1,14 +1,7 @@
 import api from '../lib/api';
+import type { Expense } from '../types';
 
-export interface Expense {
-    ID: number
-    title: string
-    amount: number
-    category: string
-    date: string
-    description: string
-    notes: string
-}
+export type { Expense };
 
 export const ExpenseService = {
     getAll: async (): Promise<Expense[]> => {
@@ -24,4 +17,4 @@ export const ExpenseService = {
     delete: async (id: number): Promise<void> => {
         await api.delete(`/expenses/${id}`);
     }
-}
+};

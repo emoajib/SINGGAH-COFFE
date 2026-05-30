@@ -1,44 +1,35 @@
 import api from '../lib/api';
-import { MenuItem } from '../data/mockMenu';
-export type { MenuItem };
+import type { Product, CreateProductRequest } from '../types';
 
-export interface RecipeItem {
-    ingredient_id: number;
-    quantity: number;
-}
-
-export interface CreateProductRequest extends Omit<MenuItem, 'id'> {
-    recipe?: RecipeItem[];
-}
+export type MenuItem = Product;
 
 export const ProductService = {
     // Get all products
-    getAll: async (): Promise<MenuItem[]> => {
+    getAll: async (): Promise<Product[]> => {
         const response = await api.get('/products');
         // Map Backend (ID: uint) to Frontend (id: string)
         return response.data.map((item: any) => ({
             ...item,
-            id: String(item.id || item.ID), // Backend bisa return id atau ID
+            id: String(item.id || item.ID),
             sku: item.sku || item.Sku,
             description: item.description || item.Description,
         }));
     },
 
     // Create new product
-    create: async (product: CreateProductRequest): Promise<MenuItem> => {
+    create: async (product: CreateProductRequest): Promise<Product> => {
         const response = await api.post('/products', product);
         return response.data;
     },
 
     // Update product
-    update: async (id: string, product: Partial<MenuItem>): Promise<MenuItem> => {
-        // ID dari frontend adalah string, tapi backend butuh number di URL
+    update: async (id: string | number, product: Partial<Product>): Promise<Product> => {
         const response = await api.put(`/products/${id}`, product);
         return response.data;
     },
 
     // Delete product
-    delete: async (id: string): Promise<void> => {
+    delete: async (id: string | number): Promise<void> => {
         await api.delete(`/products/${id}`);
     },
 

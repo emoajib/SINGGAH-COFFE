@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
 import {
     RefreshCw,
     CheckCircle,
-    XCircle,
     Settings,
     Zap,
     ShieldCheck,
@@ -15,11 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
 import { Input } from "../components/ui/input"
-import api from "../lib/api"
 
 const Integration: React.FC = () => {
     const [isSyncing, setIsSyncing] = useState(false);
-    const [configs, setConfigs] = useState({
+    const [configs] = useState({
         xendit_key: 'xnd_production_************************',
         gofood_active: true,
         grabfood_active: true
