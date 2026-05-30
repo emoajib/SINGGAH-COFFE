@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -5,6 +6,7 @@ import { useExpenses, useDeleteExpense } from '../../src/hooks/useExpenses'
 import { useToastStore } from '../../src/stores/toastStore'
 import { useAuthStore } from '../../src/stores/authStore'
 import type { Expense } from '../../src/types'
+import ExpenseFormModal from '../../src/components/ExpenseFormModal'
 
 export default function ExpensesScreen() {
   const insets = useSafeAreaInsets()
@@ -13,7 +15,8 @@ export default function ExpensesScreen() {
   const deleteExpense = useDeleteExpense()
   const { showToast } = useToastStore()
   const { user } = useAuthStore()
-  const canDelete = user?.role === 'owner' || user?.role === 'manager'
+  const [showForm, setShowForm] = useState(false)
+  const canEdit = user?.role === 'owner' || user?.role === 'manager'
 
   const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString('id-ID')}`
   const formatDate = (dateStr: string) => {
@@ -42,7 +45,7 @@ export default function ExpensesScreen() {
       </View>
       <View style={styles.cardFooter}>
         <Text style={styles.date}>{formatDate(item.date)}</Text>
-        {canDelete && (
+        {canEdit && (
           <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>
             <Text style={styles.deleteText}>Delete</Text>
           </TouchableOpacity>
@@ -56,7 +59,9 @@ export default function ExpensesScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>← Back</Text></TouchableOpacity>
         <Text style={styles.title}>Expenses</Text>
-        <View style={{ width: 60 }} />
+        {canEdit && (
+          <TouchableOpacity onPress={() => setShowForm(true)}><Text style={styles.addBtn}>+ Add</Text></TouchableOpacity>
+        )}
       </View>
 
       {isLoading ? (
@@ -76,6 +81,7 @@ export default function ExpensesScreen() {
           }
         />
       )}
+      <ExpenseFormModal visible={showForm} onClose={() => setShowForm(false)} />
     </SafeAreaView>
   )
 }
@@ -85,6 +91,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   back: { fontSize: 16, color: '#4B3621', fontWeight: '600' },
   title: { fontSize: 18, fontWeight: 'bold', color: '#4B3621' },
+  addBtn: { fontSize: 16, color: '#4B3621', fontWeight: '600' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   emptyIcon: { fontSize: 48 },
   emptyText: { fontSize: 16, color: '#6B7280', marginTop: 12 },

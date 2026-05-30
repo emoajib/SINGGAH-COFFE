@@ -2,21 +2,38 @@ import { useState } from 'react'
 import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useProducts } from '../../src/hooks/useProducts'
+import { useProducts, useDeleteProduct } from '../../src/hooks/useProducts'
+import { useAuthStore } from '../../src/stores/authStore'
+import { useToastStore } from '../../src/stores/toastStore'
 import type { Product } from '../../src/types'
 import ProductCardSkeleton from '../../src/components/ProductCardSkeleton'
+import ProductFormModal from '../../src/components/ProductFormModal'
 
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { data: products, isLoading, refetch, isRefetching } = useProducts()
+  const deleteProduct = useDeleteProduct()
+  const { user } = useAuthStore()
+  const { showToast } = useToastStore()
   const [search, setSearch] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const canEdit = user?.role === 'owner' || user?.role === 'manager'
 
   const filtered = (products || []).filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase())
   )
 
   const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString('id-ID')}`
+
+  const handleDelete = (item: Product) => {
+    deleteProduct.mutateAsync(item.id).then(() => {
+      showToast('Product deleted', 'success')
+    }).catch(() => {
+      showToast('Failed to delete', 'error')
+    })
+  }
 
   const renderProduct = ({ item }: { item: Product }) => (
     <View style={styles.card}>
@@ -35,6 +52,12 @@ export default function ProductsScreen() {
         <Text style={styles.costLabel}>Cost</Text>
         <Text style={styles.costValue}>{formatCurrency(item.cost)}</Text>
       </View>
+      {canEdit && (
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => { setEditingProduct(item); setShowForm(true) }}><Text style={styles.editBtn}>Edit</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDelete(item)}><Text style={styles.deleteBtn}>Delete</Text></TouchableOpacity>
+        </View>
+      )}
     </View>
   )
 
@@ -43,7 +66,9 @@ export default function ProductsScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>← Back</Text></TouchableOpacity>
         <Text style={styles.title}>Products</Text>
-        <View style={{ width: 60 }} />
+        {canEdit && (
+          <TouchableOpacity onPress={() => { setEditingProduct(null); setShowForm(true) }}><Text style={styles.addBtn}>+ Add</Text></TouchableOpacity>
+        )}
       </View>
 
       <TextInput
@@ -73,6 +98,7 @@ export default function ProductsScreen() {
           }
         />
       )}
+      <ProductFormModal visible={showForm} onClose={() => setShowForm(false)} product={editingProduct} />
     </SafeAreaView>
   )
 }
@@ -82,6 +108,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   back: { fontSize: 16, color: '#4B3621', fontWeight: '600' },
   title: { fontSize: 18, fontWeight: 'bold', color: '#4B3621' },
+  addBtn: { fontSize: 16, color: '#4B3621', fontWeight: '600' },
   searchInput: { margin: 16, padding: 12, backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 14, color: '#1A1109' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   emptyIcon: { fontSize: 48 },
@@ -108,4 +135,7 @@ const styles = StyleSheet.create({
   priceValue: { fontSize: 15, fontWeight: '700', color: '#4B3621' },
   costLabel: { fontSize: 12, color: '#9CA3AF' },
   costValue: { fontSize: 15, fontWeight: '600', color: '#6B7280' },
+  actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12, gap: 16 },
+  editBtn: { color: '#4B3621', fontWeight: '600' },
+  deleteBtn: { color: '#EF4444', fontWeight: '600' },
 })

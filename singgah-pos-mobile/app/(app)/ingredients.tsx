@@ -3,14 +3,20 @@ import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, Activ
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useIngredients } from '../../src/hooks/useIngredients'
+import { useAuthStore } from '../../src/stores/authStore'
 import type { Ingredient } from '../../src/types'
 import { Skeleton } from '../../src/components/Skeleton'
+import StockFormModal from '../../src/components/StockFormModal'
 
 export default function IngredientsScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { data: ingredients, isLoading, refetch, isRefetching } = useIngredients()
+  const { user } = useAuthStore()
   const [search, setSearch] = useState('')
+  const [showStockForm, setShowStockForm] = useState(false)
+  const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null)
+  const canEdit = user?.role === 'owner' || user?.role === 'manager'
 
   const filtered = (ingredients || []).filter((i) =>
     i.name.toLowerCase().includes(search.toLowerCase())
@@ -25,7 +31,7 @@ export default function IngredientsScreen() {
   const renderItem = ({ item }: { item: Ingredient }) => {
     const status = getStockStatus(item)
     return (
-      <View style={styles.card}>
+      <TouchableOpacity style={styles.card} onPress={() => { setSelectedIngredient(item); setShowStockForm(true) }}>
         <View style={styles.cardHeader}>
           <Text style={styles.name}>{item.name}</Text>
           <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
@@ -46,7 +52,7 @@ export default function IngredientsScreen() {
             <Text style={styles.statValue}>Rp {item.cost_per_unit.toLocaleString('id-ID')}</Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     )
   }
 
@@ -97,6 +103,7 @@ export default function IngredientsScreen() {
           }
         />
       )}
+      <StockFormModal visible={showStockForm} onClose={() => setShowStockForm(false)} ingredient={selectedIngredient} />
     </SafeAreaView>
   )
 }
