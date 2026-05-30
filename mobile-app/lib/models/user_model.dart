@@ -20,7 +20,7 @@ class User {
     // We get the user object from the outer map or passed manually.
     // For simplicity, let's assume the json passed here is the 'user' object from backend response.
     return User(
-      id: json['ID'] ?? 0,
+      id: json['id'] ?? json['ID'] ?? 0,
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       role: json['role'] ?? '',

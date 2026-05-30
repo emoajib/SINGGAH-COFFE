@@ -57,7 +57,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('${Constants.baseUrl}/auth/login'),
+        Uri.parse('${Constants.apiBaseUrl}/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,

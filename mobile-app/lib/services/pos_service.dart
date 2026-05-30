@@ -16,7 +16,7 @@ class PosService {
     final token = await _getToken();
     final response = await _client
         .get(
-          Uri.parse('${Constants.baseUrl}/settings'),
+          Uri.parse('${Constants.apiBaseUrl}/settings'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',
@@ -34,7 +34,7 @@ class PosService {
     final token = await _getToken();
     final response = await _client
         .get(
-          Uri.parse('${Constants.baseUrl}/products'),
+          Uri.parse('${Constants.apiBaseUrl}/products'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',
@@ -53,7 +53,7 @@ class PosService {
     final token = await _getToken();
     final response = await _client
         .post(
-          Uri.parse('${Constants.baseUrl}/orders'),
+          Uri.parse('${Constants.apiBaseUrl}/orders'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',

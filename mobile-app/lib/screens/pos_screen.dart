@@ -166,7 +166,7 @@ class _PosScreenState extends State<PosScreen> {
                                   ? Image.network(
                                       product.imageUrl!.startsWith('http')
                                           ? product.imageUrl!
-                                          : '${Constants.baseUrl}/../$product.imageUrl',
+                                          : '${Constants.apiBaseUrl}/../$product.imageUrl',
                                       height: 48, width: 48, fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) => const Icon(Icons.coffee, size: 48, color: Colors.brown),
                                     )
@@ -203,7 +203,7 @@ class _PosScreenState extends State<PosScreen> {
                       itemBuilder: (context, index) {
                         final productId = _cart.keys.elementAt(index);
                         final qty = _cart[productId]!;
-                        final product = _products.firstWhere((p) => p.id == productId, orElse: () => Product(id: productId, name: 'Unknown', category: '', price: 0, stock: 0, sku: '', description: ''));
+                        final product = _products.firstWhere((p) => p.id == productId, orElse: () => Product(id: productId, name: 'Unknown', category: '', price: 0, cost: 0, stock: 0, sku: '', description: ''));
                         
                         return ListTile(
                           title: Text(product.name),

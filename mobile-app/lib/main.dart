@@ -21,16 +21,16 @@ class SinggahPosApp extends StatelessWidget {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         if (auth.isInitializing) {
-          return MaterialApp(
+          return const MaterialApp(
             debugShowCheckedModeBanner: false,
             home: Scaffold(
               body: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.coffee, size: 64, color: Color(0xFF4B3621)),
-                    const SizedBox(height: 16),
-                    const CircularProgressIndicator(),
+                    Icon(Icons.coffee, size: 64, color: Color(0xFF4B3621)),
+                    SizedBox(height: 16),
+                    CircularProgressIndicator(),
                   ],
                 ),
               ),
