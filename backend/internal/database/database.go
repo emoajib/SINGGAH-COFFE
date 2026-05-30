@@ -2,9 +2,9 @@ package database
 
 import (
 	"log"
-	"singgah-pos-backend/internal/auth"
 	"singgah-pos-backend/internal/config"
 	"singgah-pos-backend/internal/models"
+	"singgah-pos-backend/internal/pkg/password"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -42,7 +42,7 @@ func Connect(cfg config.Config) *gorm.DB {
 	var userCount int64
 	db.Model(&models.User{}).Count(&userCount)
 	if userCount == 0 {
-		hashedPassword, _ := auth.HashPassword("admin")
+		hashedPassword, _ := password.HashPassword("admin")
 		admin := models.User{
 			Name:     "Owner Singgah",
 			Email:    "owner@singgah.coffee",

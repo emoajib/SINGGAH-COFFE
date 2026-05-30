@@ -9,7 +9,7 @@ import (
 // BaseModel overrides gorm.Model to provide lowercase JSON tags for ID and other fields
 type BaseModel struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
+	CreatedAt time.Time      `gorm:"index" json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
@@ -54,7 +54,7 @@ type RecipeItem struct {
 
 type StockMutation struct {
 	BaseModel
-	IngredientID uint      `json:"ingredient_id"`
+	IngredientID uint      `json:"ingredient_id" gorm:"index"`
 	Type         string    `json:"type"` // IN (Purchase), OUT (Sales), ADJ (Audit)
 	Quantity     float64   `json:"quantity"`
 	ReferenceID  string    `json:"reference_id"` // PO Number or Order Number
@@ -79,7 +79,7 @@ type Order struct {
 	PaymentMethod string      `json:"payment_method"` // Cash, QRIS, Transfer
 	PaymentStatus string      `json:"payment_status"` // Unpaid, Paid, Cancelled
 	PaymentRef    string      `json:"payment_ref"`    // ID from Xendit/Midtrans
-	Status        string      `json:"status"`         // Completed, Pending, Void
+	Status        string      `json:"status" gorm:"index"` // Completed, Pending, Void
 	UserID        uint        `json:"user_id"`
 	CashierName   string      `json:"cashier_name"`
 	OrderItems    []OrderItem `json:"items" gorm:"foreignKey:OrderID"`
@@ -88,7 +88,7 @@ type Order struct {
 
 type OrderItem struct {
 	BaseModel
-	OrderID   uint    `json:"order_id"`
+	OrderID   uint    `json:"order_id" gorm:"index"`
 	ProductID uint    `json:"product_id"`
 	Product   Product `json:"product"`
 	Quantity  int     `json:"quantity"`
@@ -107,7 +107,7 @@ type Expense struct {
 	Title       string    `json:"title"`
 	Amount      float64   `json:"amount"`
 	Category    string    `json:"category"` // Operational, Marketing, Maintenance
-	Date        time.Time `json:"date"`
+	Date        time.Time `json:"date" gorm:"index"`
 	Description string    `json:"description"`
 	Notes       string    `json:"notes"`
 }
