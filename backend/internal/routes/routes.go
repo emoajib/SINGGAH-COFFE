@@ -1,81 +1,80 @@
 package routes
 
 import (
-	"singgah-pos-backend/internal/handlers"
-	"singgah-pos-backend/internal/middleware"
-	"singgah-pos-backend/internal/services" // Import Services
+	"singgah-pos-backend/internal/delivery/handler"
+	"singgah-pos-backend/internal/delivery/middleware"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-func SetupRoutes(r *gin.Engine, db *gorm.DB) {
-	// Services
-	inventoryService := services.NewInventoryService(db)
-	paymentService := services.NewPaymentService()
+type Handlers struct {
+	Auth      *handler.AuthHandler
+	Product   *handler.ProductHandler
+	Order     *handler.OrderHandler
+	Inventory *handler.InventoryHandler
+	Report    *handler.ReportHandler
+	Expense   *handler.ExpenseHandler
+	Settings  *handler.SettingsHandler
+	Webhook   *handler.WebhookHandler
+}
 
-	// Handlers
-	authHandler := handlers.NewAuthHandler(db)
-	productHandler := handlers.NewProductHandler(db)
-	orderHandler := handlers.NewOrderHandler(db, inventoryService, paymentService) // Inject Payment Service
-	inventoryHandler := handlers.NewInventoryHandler(inventoryService)
-	webhookHandler := handlers.NewWebhookHandler(db)
-
+func SetupRoutes(r *gin.Engine, h *Handlers) {
 	api := r.Group("/api")
 	{
 		// Public Routes
-		api.POST("/auth/login", authHandler.Login)
-		api.POST("/webhooks/xendit", webhookHandler.HandleXenditWebhook)
+		api.POST("/auth/login", h.Auth.Login)
+		api.POST("/webhooks/xendit", h.Webhook.HandleXenditWebhook)
 
 		// Protected Routes
 		protected := api.Group("/")
 		protected.Use(middleware.AuthMiddleware())
 		{
 			// Auth
-			protected.PUT("/auth/profile", middleware.RoleMiddleware("owner"), authHandler.UpdateProfile)
-			protected.POST("/auth/change-password", middleware.RoleMiddleware("owner"), authHandler.ChangePassword)
+			protected.PUT("/auth/profile", middleware.RoleMiddleware("owner"), h.Auth.UpdateProfile)
+			protected.POST("/auth/change-password", middleware.RoleMiddleware("owner"), h.Auth.ChangePassword)
 
-			// User Management (Owner Only)
-			protected.GET("/users", middleware.RoleMiddleware("owner"), authHandler.GetUsers)
-			protected.POST("/users", middleware.RoleMiddleware("owner"), authHandler.Register)
-			protected.PUT("/users/:id", middleware.RoleMiddleware("owner"), authHandler.UpdateUser)
-			protected.DELETE("/users/:id", middleware.RoleMiddleware("owner"), authHandler.DeleteUser)
+			// User Management
+			protected.GET("/users", middleware.RoleMiddleware("owner"), h.Auth.GetUsers)
+			protected.POST("/users", middleware.RoleMiddleware("owner"), h.Auth.Register)
+			protected.PUT("/users/:id", middleware.RoleMiddleware("owner"), h.Auth.UpdateUser)
+			protected.DELETE("/users/:id", middleware.RoleMiddleware("owner"), h.Auth.DeleteUser)
 
 			// Products
-			protected.GET("/products", productHandler.GetProducts)
-			protected.POST("/products", middleware.RoleMiddleware("owner", "manager"), productHandler.CreateProduct)
-			protected.PUT("/products/:id", middleware.RoleMiddleware("owner", "manager"), productHandler.UpdateProduct)
-			protected.DELETE("/products/:id", middleware.RoleMiddleware("owner", "manager"), productHandler.DeleteProduct)
-			protected.POST("/products/upload-image", middleware.RoleMiddleware("owner", "manager"), productHandler.UploadProductImage)
+			protected.GET("/products", h.Product.GetProducts)
+			protected.POST("/products", middleware.RoleMiddleware("owner", "manager"), h.Product.CreateProduct)
+			protected.PUT("/products/:id", middleware.RoleMiddleware("owner", "manager"), h.Product.UpdateProduct)
+			protected.DELETE("/products/:id", middleware.RoleMiddleware("owner", "manager"), h.Product.DeleteProduct)
+			protected.POST("/products/upload-image", middleware.RoleMiddleware("owner", "manager"), h.Product.UploadProductImage)
 
 			// Orders
-			protected.GET("/orders", orderHandler.GetOrders)
-			protected.POST("/orders", orderHandler.CreateOrder)
-			protected.POST("/orders/:id/void", middleware.RoleMiddleware("owner", "manager"), orderHandler.VoidOrder)
+			protected.GET("/orders", h.Order.GetOrders)
+			protected.POST("/orders", h.Order.CreateOrder)
+			protected.POST("/orders/:id/void", middleware.RoleMiddleware("owner", "manager"), h.Order.VoidOrder)
 
 			// Inventory
-			protected.GET("/ingredients", inventoryHandler.GetIngredients)
-			protected.POST("/ingredients", middleware.RoleMiddleware("owner", "manager"), inventoryHandler.CreateIngredient)
-			protected.PUT("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), inventoryHandler.UpdateIngredient)
-			protected.DELETE("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), inventoryHandler.DeleteIngredient)
-			protected.GET("/ingredients/:id/history", inventoryHandler.GetStockHistory) // New Endpoint
-			protected.POST("/inventory/mutation", middleware.RoleMiddleware("owner", "manager"), inventoryHandler.UpdateStock)
+			protected.GET("/ingredients", h.Inventory.GetIngredients)
+			protected.POST("/ingredients", middleware.RoleMiddleware("owner", "manager"), h.Inventory.CreateIngredient)
+			protected.PUT("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), h.Inventory.UpdateIngredient)
+			protected.DELETE("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), h.Inventory.DeleteIngredient)
+			protected.GET("/ingredients/:id/history", h.Inventory.GetStockHistory)
+			protected.POST("/inventory/mutation", middleware.RoleMiddleware("owner", "manager"), h.Inventory.UpdateStock)
 
 			// Reports & Dashboard
-			reportHandler := handlers.NewReportHandler(db)
-			protected.GET("/dashboard/summary", reportHandler.GetDashboardSummary)
+			protected.GET("/dashboard/summary", h.Report.GetDashboardSummary)
 
 			// Settings
-			settingsHandler := handlers.NewSettingsHandler(db)
-			protected.GET("/settings", settingsHandler.GetSettings)
-			protected.POST("/settings", middleware.RoleMiddleware("owner"), settingsHandler.UpdateSettings)
-			protected.POST("/settings/upload-logo", middleware.RoleMiddleware("owner"), settingsHandler.UploadLogo)
+			protected.GET("/settings", h.Settings.GetSettings)
+			protected.POST("/settings", middleware.RoleMiddleware("owner"), h.Settings.UpdateSettings)
+			protected.POST("/settings/upload-logo", middleware.RoleMiddleware("owner"), h.Settings.UploadLogo)
+			protected.POST("/settings/upload-apk", middleware.RoleMiddleware("owner"), h.Settings.UploadMobileApp)
+
+			// Mobile App Download
+			protected.GET("/mobile/download", h.Settings.DownloadMobileApp)
 
 			// Expenses
-			expenseHandler := handlers.NewExpenseHandler(db)
-			protected.GET("/expenses", expenseHandler.GetExpenses)
-			protected.POST("/expenses", middleware.RoleMiddleware("owner", "manager"), expenseHandler.CreateExpense)
-			protected.DELETE("/expenses/:id", middleware.RoleMiddleware("owner"), expenseHandler.DeleteExpense)
+			protected.GET("/expenses", h.Expense.GetExpenses)
+			protected.POST("/expenses", middleware.RoleMiddleware("owner", "manager"), h.Expense.CreateExpense)
+			protected.DELETE("/expenses/:id", middleware.RoleMiddleware("owner"), h.Expense.DeleteExpense)
 		}
 	}
 
