@@ -106,6 +106,29 @@ func (r *orderRepository) GetSumByStatusSince(status, since, timeFormat string) 
 	return results, err
 }
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *orderRepository) GetDailySalesRange(start, end string) ([]entity.DailySales, error) {
+	var results []entity.DailySales
+	err := r.db.Raw(`
+		SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count
+		FROM orders
+		WHERE created_at BETWEEN ? AND ? AND status = 'Completed'
+		GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+		ORDER BY date ASC
+	`, start, end).Scan(&results).Error
+	return results, err
+}
+
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *orderRepository) GetAverageOrderValue(start, end string) (float64, error) {
+	var avg float64
+	err := r.db.Model(&models.Order{}).
+		Where("created_at BETWEEN ? AND ? AND status = ?", start, end, "Completed").
+		Select("COALESCE(AVG(total_amount), 0)").
+		Row().Scan(&avg)
+	return avg, err
+}
+
 func toDomainOrder(m *models.Order) *entity.Order {
 	o := &entity.Order{
 		ID:            m.ID,

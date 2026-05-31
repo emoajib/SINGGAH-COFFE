@@ -58,6 +58,9 @@ type OrderRepository interface {
 	CountSince(since string) (int64, error)
 	CountByStatus(status string) (int64, error)
 	GetSumByStatusSince(status, since, timeFormat string) ([]entity.TrendPoint, error)
+	// BEP
+	GetDailySalesRange(start, end string) ([]entity.DailySales, error)
+	GetAverageOrderValue(start, end string) (float64, error)
 }
 
 // OrderItemRepository defines data access for order items
@@ -67,6 +70,8 @@ type OrderItemRepository interface {
 	GetTotalCogsRange(start, end string) (float64, error)
 	GetCategoryBreakdown() ([]entity.CatBreakdown, error)
 	GetTopProducts(limit int) ([]entity.TopProduct, error)
+	// BEP
+	GetProductSalesVolume(start, end string) ([]entity.ProductSalesVolume, error)
 }
 
 // ExpenseRepository defines data access for expenses
@@ -78,6 +83,9 @@ type ExpenseRepository interface {
 	Delete(id uint) error
 	GetTotal() (float64, error)
 	GetBreakdownRange(start, end string) ([]entity.ExpenseDetail, error)
+	// BEP
+	GetTotalByCostType(costType, start, end string) (float64, error)
+	GetFixedCostBreakdown(start, end string) ([]entity.FixedCostItem, error)
 }
 
 // SettingRepository defines data access for settings

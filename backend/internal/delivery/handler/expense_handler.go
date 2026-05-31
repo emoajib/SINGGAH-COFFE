@@ -29,6 +29,7 @@ func (h *ExpenseHandler) GetExpenses(c *gin.Context) {
 	c.JSON(http.StatusOK, expenses)
 }
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 	var req request.CreateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -40,6 +41,7 @@ func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 		Title:       req.Title,
 		Amount:      req.Amount,
 		Category:    req.Category,
+		CostType:    req.CostType,
 		Date:        parseDate(req.Date),
 		Description: req.Description,
 		Notes:       req.Notes,
@@ -54,6 +56,7 @@ func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 	c.JSON(http.StatusCreated, result)
 }
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -71,6 +74,7 @@ func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 		Title:       req.Title,
 		Amount:      req.Amount,
 		Category:    req.Category,
+		CostType:    req.CostType,
 		Date:        parseDate(req.Date),
 		Description: req.Description,
 		Notes:       req.Notes,
@@ -83,6 +87,28 @@ func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (h *ExpenseHandler) UpdateCostType(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid expense ID"})
+		return
+	}
+
+	var req request.UpdateCostTypeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.expenseUsecase.UpdateCostType(uint(id), req.CostType); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cost type"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Cost type updated successfully"})
 }
 
 func (h *ExpenseHandler) DeleteExpense(c *gin.Context) {

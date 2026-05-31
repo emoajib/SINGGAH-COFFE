@@ -102,11 +102,13 @@ type ProcessedWebhook struct {
 	Status    string `json:"status"`
 }
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type Expense struct {
 	BaseModel
 	Title       string    `json:"title"`
 	Amount      float64   `json:"amount"`
-	Category    string    `json:"category"` // Operational, Marketing, Maintenance
+	Category    string    `json:"category"`                // Operational, Marketing, Maintenance
+	CostType    string    `json:"cost_type" gorm:"default:fixed"` // fixed, variable
 	Date        time.Time `json:"date" gorm:"index"`
 	Description string    `json:"description"`
 	Notes       string    `json:"notes"`

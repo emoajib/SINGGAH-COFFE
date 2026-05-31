@@ -47,6 +47,7 @@ func main() {
 	expenseUsecase := usecase.NewExpenseUsecase(db)
 	settingsUsecase := usecase.NewSettingsUsecase(db)
 	webhookUsecase := usecase.NewWebhookUsecase(db)
+	bepUsecase := usecase.NewBEPUsecase(db)
 
 	handlers := &routes.Handlers{
 		Auth:      handler.NewAuthHandler(authUsecase),
@@ -57,6 +58,7 @@ func main() {
 		Expense:   handler.NewExpenseHandler(expenseUsecase),
 		Settings:  handler.NewSettingsHandler(settingsUsecase),
 		Webhook:   handler.NewWebhookHandler(webhookUsecase),
+		BEP:       handler.NewBEPHandler(bepUsecase),
 	}
 
 	r := gin.Default()

@@ -7,9 +7,9 @@ import {
     Monitor,
     Coffee,
     Wallet,
-    Smartphone
+    Smartphone,
+    TrendingUp
 } from "lucide-react"
-import { Button } from "../ui/button"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
 import { useEffect, useState } from "react"
@@ -47,6 +47,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         { id: "expenses", label: "Pengeluaran", icon: Wallet, roles: ["owner", "manager"] },
         { id: "sales", label: "Penjualan", icon: CreditCard, roles: ["owner", "manager"] },
         { id: "reports", label: "Laporan", icon: BarChart3, roles: ["owner"] },
+        { id: "bep", label: "Analisis BEP", icon: TrendingUp, roles: ["owner"] },
         { id: "integration", label: "Integrasi", icon: Puzzle, roles: ["owner"] },
         { id: "settings", label: "Pengaturan", icon: Settings, roles: ["owner", "manager", "cashier"] },
     ]
@@ -101,12 +102,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             </nav>
 
 <div className="p-4 border-t border-gray-100">
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                    <h4 className="font-semibold text-sm mb-1">Butuh Bantuan?</h4>
-                    <p className="text-xs text-gray-500 mb-3">Buka dokumentasi sistem.</p>
-                    <Button variant="outline" size="sm" className="w-full text-xs h-8">Pusat Bantuan</Button>
-                </div>
-                
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                     <button
                         onClick={() => window.open('/api/mobile/download', '_blank')}

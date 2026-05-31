@@ -46,9 +46,9 @@ export default function Settings() {
     })
 
     // User management state
-    const [staffList, setStaffList] = useState<any[]>([])
+    const [staffList, setStaffList] = useState<Array<{id: string; name: string; email: string; role: 'owner' | 'manager' | 'cashier' }>>([])
     const [showStaffModal, setShowStaffModal] = useState(false)
-    const [editingStaff, setEditingStaff] = useState<any>(null)
+    const [editingStaff, setEditingStaff] = useState<{id: string; name: string; email: string; role: 'owner' | 'manager' | 'cashier'} | null>(null)
     const [staffForm, setStaffForm] = useState<{
         name: string;
         email: string;
@@ -204,10 +204,10 @@ export default function Settings() {
         }
     }
 
-    const handleDeleteStaff = async (id: number) => {
+    const handleDeleteStaff = async (id: string) => {
         if (!confirm("Are you sure you want to remove this staff?")) return
         try {
-            await usersManager.remove.mutateAsync(String(id))
+            await usersManager.remove.mutateAsync(id)
             const users = await usersManager.list()
             setStaffList(users)
         } catch (error) {

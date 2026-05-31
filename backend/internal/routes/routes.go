@@ -16,6 +16,7 @@ type Handlers struct {
 	Expense   *handler.ExpenseHandler
 	Settings  *handler.SettingsHandler
 	Webhook   *handler.WebhookHandler
+	BEP       *handler.BEPHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers) {
@@ -77,7 +78,11 @@ func SetupRoutes(r *gin.Engine, h *Handlers) {
 			protected.GET("/expenses", h.Expense.GetExpenses)
 			protected.POST("/expenses", middleware.RoleMiddleware("owner", "manager"), h.Expense.CreateExpense)
 			protected.PUT("/expenses/:id", middleware.RoleMiddleware("owner", "manager"), h.Expense.UpdateExpense)
+			protected.PUT("/expenses/:id/cost-type", middleware.RoleMiddleware("owner"), h.Expense.UpdateCostType)
 			protected.DELETE("/expenses/:id", middleware.RoleMiddleware("owner"), h.Expense.DeleteExpense)
+
+			// BEP (Break-Even Point) — Owner Only
+			protected.GET("/reports/bep", middleware.RoleMiddleware("owner"), h.BEP.GetBEP)
 		}
 	}
 

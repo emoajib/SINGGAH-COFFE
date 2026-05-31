@@ -44,6 +44,7 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense) (*entity.ExpenseRespon
 	return &resp, nil
 }
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.ExpenseResponse, error) {
 	existing, err := uc.expenseRepo.FindByID(id)
 	if err != nil {
@@ -53,6 +54,7 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 	existing.Title = expense.Title
 	existing.Amount = expense.Amount
 	existing.Category = expense.Category
+	existing.CostType = expense.CostType
 	if !expense.Date.IsZero() {
 		existing.Date = expense.Date
 	}
@@ -64,6 +66,16 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 	}
 	resp := existing.ToResponse()
 	return &resp, nil
+}
+
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ExpenseUsecase) UpdateCostType(id uint, costType string) error {
+	existing, err := uc.expenseRepo.FindByID(id)
+	if err != nil {
+		return domainErrors.NewNotFoundError("expense not found")
+	}
+	existing.CostType = costType
+	return uc.expenseRepo.Update(existing)
 }
 
 func (uc *ExpenseUsecase) Delete(id uint) error {

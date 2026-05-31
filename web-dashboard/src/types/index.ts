@@ -167,7 +167,114 @@ export interface Setting {
   updated_at?: string
 }
 
-// ─── Dashboard ──────────────────────────────────────────────────────────────
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface BEPResponse {
+  report: BEPReport
+  forecast: BEPForecast
+  sensitivity: SensitivityMatrix | null
+  monte_carlo: MonteCarloResult | null
+  early_warning: EarlyWarning
+}
+
+export interface BEPReport {
+  period: string
+  total_revenue: number
+  total_variable_cost: number
+  total_fixed_cost: number
+  contribution_margin: number
+  cm_ratio: number
+  avg_selling_price: number
+  avg_variable_cost: number
+  bep_units: number
+  bep_revenue: number
+  bep_daily_units: number
+  margin_of_safety: number
+  daily_target: number
+  current_daily_avg: number
+  status: string
+  per_product: ProductMargin[]
+  fixed_cost_breakdown: FixedCostItem[]
+}
+
+export interface ProductMargin {
+  product_id: number
+  product_name: string
+  category: string
+  selling_price: number
+  variable_cost: number
+  contribution_margin: number
+  margin_ratio: number
+  units_sold: number
+  revenue: number
+  rank: number
+}
+
+export interface FixedCostItem {
+  name: string
+  amount: number
+}
+
+export interface BEPForecast {
+  period: string
+  predicted_revenue: number
+  predicted_units: number
+  confidence_lower: number
+  confidence_upper: number
+  probability_above_bep: number
+  mape: number
+  trend: string
+}
+
+export interface SensitivityMatrix {
+  current_bep_units: number
+  current_bep_revenue: number
+  scenarios: BEPScenario[]
+  best_case: BEPExtreme
+  worst_case: BEPExtreme
+  most_sensitive_to: string
+}
+
+export interface BEPScenario {
+  label: string
+  parameter: string
+  change: number
+  new_bep_units: number
+  new_bep_revenue: number
+  delta_percent: number
+}
+
+export interface BEPExtreme {
+  scenario: string
+  bep_units: number
+  bep_revenue: number
+}
+
+export interface MonteCarloResult {
+  iterations: number
+  mean_bep_units: number
+  median_bep_units: number
+  p10_bep_units: number
+  p90_bep_units: number
+  mean_bep_revenue: number
+  p10_bep_revenue: number
+  p90_bep_revenue: number
+  probability_profit: number
+  probability_loss: number
+  mean_profit: number
+}
+
+export interface EarlyWarning {
+  status: string
+  recommendations: Recommendation[]
+}
+
+export interface Recommendation {
+  priority: number
+  condition: string
+  action: string
+  severity: string
+  metric: string
+}
 export interface DashboardSummary {
   total_sales: number
   total_cogs: number

@@ -41,6 +41,7 @@ func (r *expenseRepository) Create(expense *entity.Expense) error {
 		Title:       expense.Title,
 		Amount:      expense.Amount,
 		Category:    expense.Category,
+		CostType:    expense.CostType,
 		Date:        expense.Date,
 		Description: expense.Description,
 		Notes:       expense.Notes,
@@ -57,6 +58,7 @@ func (r *expenseRepository) Update(expense *entity.Expense) error {
 		"title":       expense.Title,
 		"amount":      expense.Amount,
 		"category":    expense.Category,
+		"cost_type":   expense.CostType,
 		"date":        expense.Date,
 		"description": expense.Description,
 		"notes":       expense.Notes,
@@ -85,14 +87,37 @@ func (r *expenseRepository) GetBreakdownRange(start, end string) ([]entity.Expen
 	return results, err
 }
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *expenseRepository) GetTotalByCostType(costType, start, end string) (float64, error) {
+	var total float64
+	err := r.db.Model(&models.Expense{}).
+		Where("date BETWEEN ? AND ? AND cost_type = ?", start, end, costType).
+		Select("COALESCE(SUM(amount), 0)").
+		Row().Scan(&total)
+	return total, err
+}
+
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *expenseRepository) GetFixedCostBreakdown(start, end string) ([]entity.FixedCostItem, error) {
+	var results []entity.FixedCostItem
+	err := r.db.Model(&models.Expense{}).
+		Where("date BETWEEN ? AND ? AND cost_type = ?", start, end, "fixed").
+		Select("title as name, SUM(amount) as amount").
+		Group("title").
+		Scan(&results).Error
+	return results, err
+}
+
 func toDomainExpense(m *models.Expense) *entity.Expense {
 	return &entity.Expense{
 		ID:          m.ID,
 		Title:       m.Title,
 		Amount:      m.Amount,
 		Category:    m.Category,
+		CostType:    m.CostType,
 		Date:        m.Date,
 		Description: m.Description,
 		Notes:       m.Notes,
+		CreatedAt:   m.CreatedAt,
 	}
 }

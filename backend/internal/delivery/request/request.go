@@ -93,13 +93,20 @@ type StockMutationRequest struct {
 	NewCostPerUnit    float64 `json:"new_cost_per_unit"`
 }
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type CreateExpenseRequest struct {
 	Title       string  `json:"title" binding:"required"`
 	Amount      float64 `json:"amount" binding:"required,gt=0"`
 	Category    string  `json:"category" binding:"required"`
+	CostType    string  `json:"cost_type" binding:"required,oneof=fixed variable"`
 	Date        string  `json:"date" binding:"required"`
 	Description string  `json:"description"`
 	Notes       string  `json:"notes"`
+}
+
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type UpdateCostTypeRequest struct {
+	CostType string `json:"cost_type" binding:"required,oneof=fixed variable"`
 }
 
 type UpdateSettingsRequest map[string]string

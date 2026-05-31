@@ -6,6 +6,7 @@ import Header from "./components/layout/Header"
 import DashboardHome from "./pages/DashboardHome"
 import Sales from "./pages/Sales"
 import Reports from "./pages/Reports"
+import BepAnalysis from "./pages/BepAnalysis"
 import Integration from "./pages/Integration"
 import Settings from "./pages/Settings"
 import PosTerminal from "./pages/PosTerminal"
@@ -54,6 +55,7 @@ function AppContent() {
                     {activeTab === "expenses" && <Expenses />}
                     {activeTab === "sales" && <Sales />}
                     {activeTab === "reports" && <Reports />}
+                    {activeTab === "bep" && <BepAnalysis />}
                     {activeTab === "integration" && <Integration />}
                     {activeTab === "settings" && <Settings />}
                 </main>

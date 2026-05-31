@@ -2,22 +2,26 @@ package entity
 
 import "time"
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type Expense struct {
 	ID          uint
 	Title       string
 	Amount      float64
 	Category    string
+	CostType    string // fixed, variable
 	Date        time.Time
 	Description string
 	Notes       string
 	CreatedAt   time.Time
 }
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ExpenseResponse struct {
 	ID          uint      `json:"id"`
 	Title       string    `json:"title"`
 	Amount      float64   `json:"amount"`
 	Category    string    `json:"category"`
+	CostType    string    `json:"cost_type"`
 	Date        time.Time `json:"date"`
 	Description string    `json:"description"`
 	Notes       string    `json:"notes"`
@@ -30,9 +34,16 @@ func (e *Expense) ToResponse() ExpenseResponse {
 		Title:       e.Title,
 		Amount:      e.Amount,
 		Category:    e.Category,
+		CostType:    e.CostType,
 		Date:        e.Date,
 		Description: e.Description,
 		Notes:       e.Notes,
 		CreatedAt:   e.CreatedAt,
 	}
+}
+
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type FixedCostItem struct {
+	Name   string  `json:"name"`
+	Amount float64 `json:"amount"`
 }
