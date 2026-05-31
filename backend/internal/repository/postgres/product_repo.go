@@ -5,6 +5,7 @@ import (
 	"singgah-pos-backend/internal/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type productRepository struct {
@@ -29,6 +30,22 @@ func (r *productRepository) FindByIDWithRecipe(id uint) (*entity.Product, error)
 		return nil, err
 	}
 	return toDomainProduct(&m), nil
+}
+
+func (r *productRepository) FindByIDWithRecipeForUpdate(id uint) (*entity.Product, error) {
+	var m models.Product
+	if err := r.db.Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Recipe").Preload("Recipe.Ingredient").First(&m, id).Error; err != nil {
+		return nil, err
+	}
+	return toDomainProduct(&m), nil
+}
+
+func (r *productRepository) UpdateStockAtomic(id uint, delta float64, operator string) error {
+	expr := gorm.Expr("stock + ?", int(delta))
+	if operator == "sub" {
+		expr = gorm.Expr("stock - ?", int(delta))
+	}
+	return r.db.Model(&models.Product{}).Where("id = ?", id).UpdateColumn("stock", expr).Error
 }
 
 func (r *productRepository) FindAll(limit, offset int) ([]entity.Product, error) {

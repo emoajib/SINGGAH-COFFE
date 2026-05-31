@@ -26,10 +26,18 @@ type BEPCalculator struct {
 
 // Calculate returns the deterministic BEP report
 func (c *BEPCalculator) Calculate(products []entity.ProductSalesVolume) *entity.BEPReport {
+	// Initialize report with basic metrics even if revenue is zero
+	report := &entity.BEPReport{
+		TotalRevenue:      c.TotalRevenue,
+		TotalVariableCost: c.TotalVariableCost,
+		TotalFixedCost:    c.TotalFixedCost,
+		AvgSellingPrice:   c.AvgSellingPrice,
+		AvgVariableCost:   c.AvgVariableCost,
+		Status:            "KRITIS",
+	}
+
 	if c.TotalRevenue <= 0 || c.AvgSellingPrice <= 0 {
-		return &entity.BEPReport{
-			Status: "KRITIS",
-		}
+		return report
 	}
 
 	contributionMargin := c.TotalRevenue - c.TotalVariableCost

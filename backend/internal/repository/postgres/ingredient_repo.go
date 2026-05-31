@@ -5,6 +5,7 @@ import (
 	"singgah-pos-backend/internal/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ingredientRepository struct {
@@ -18,6 +19,14 @@ func NewIngredientRepository(db *gorm.DB) *ingredientRepository {
 func (r *ingredientRepository) FindByID(id uint) (*entity.Ingredient, error) {
 	var m models.Ingredient
 	if err := r.db.First(&m, id).Error; err != nil {
+		return nil, err
+	}
+	return toDomainIngredient(&m), nil
+}
+
+func (r *ingredientRepository) FindByIDForUpdate(id uint) (*entity.Ingredient, error) {
+	var m models.Ingredient
+	if err := r.db.Clauses(clause.Locking{Strength: "UPDATE"}).First(&m, id).Error; err != nil {
 		return nil, err
 	}
 	return toDomainIngredient(&m), nil

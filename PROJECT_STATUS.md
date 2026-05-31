@@ -1,14 +1,15 @@
 # PROGRES PENGEMBANGAN SISTEM MOKA POS - SINGGAH COFFEE
-**Status Terakhir: 3 Februari 2026 (04:30 AM)**
+**Status Terakhir: 1 Juni 2026 (01:00 AM)**
 
 Dokumen ini merangkum seluruh pencapaian pengembangan, fitur yang telah diintegrasikan secara rill, dan status sistem saat ini.
 
 ---
 
-## 🚀 UPDATE INTEGRASI DATA RILL (3 Feb 2026)
+## 🚀 UPDATE INTEGRASI DATA RILL (1 Juni 2026)
 Seluruh sistem kini telah melewati fase **Backend System Audit** dan **Integration Phase**. Fitur-fitur berikut telah terhubung sepenuhnya dengan data rill:
 
 - **Dashboard Utama**: Menampilkan summary total penjualan hari ini, pesanan aktif, stok menipis, dan transaksi hari ini secara *real-time* dari PostgreSQL.
+- **Race Condition Fix**: ✅ Pengurangan stok kini menggunakan `SELECT ... FOR UPDATE` dalam transaksi database untuk menjamin integritas data pada pesanan bersamaan.
 - **Analytics & Trend**: Grafik penjualan (`SalesChart`) kini menampilkan data per jam (Hourly Trend) langsung dari database.
 - **Top Products**: List item terlaris kini dihitung secara dinamis berdasarkan kuantitas penjualan rill.
 - **Reporting System**: Halaman laporan (`Reports`) kini menyajikan data rill pendapatan kotor, estimasi HPP (40%), laba bersih, dan breakdown kategori (Coffee vs Food vs Others).

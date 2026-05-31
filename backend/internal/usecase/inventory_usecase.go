@@ -99,7 +99,7 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 
 		// Create expense record for purchase stock-in
 		if isPurchase && mutationType == string(entity.MutationIn) {
-			ingredient, err := ingredientRepo.FindByID(ingredientID)
+			ingredient, err := ingredientRepo.FindByIDForUpdate(ingredientID)
 			if err != nil {
 				return err
 			}
@@ -115,6 +115,9 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 				Description: "Auto-generated from Stock In",
 				Notes:       notes,
 			})
+		} else {
+			// Lock anyway for consistency
+			ingredientRepo.FindByIDForUpdate(ingredientID)
 		}
 
 		// Update master cost per unit if requested

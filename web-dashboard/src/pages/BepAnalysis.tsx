@@ -11,6 +11,7 @@ import {
   Shield,
   Loader2,
   Activity,
+  Zap,
   ChevronDown,
   ChevronUp,
   Info,
@@ -89,6 +90,14 @@ const BepAnalysis: React.FC = () => {
       icon: Shield,
       color: report?.status === 'AMAN' ? 'bg-green-600' : report?.status === 'WASPADA' ? 'bg-yellow-600' : 'bg-red-600',
       gradient: report?.status === 'AMAN' ? 'bg-green-600' : report?.status === 'WASPADA' ? 'bg-yellow-600' : 'bg-red-600',
+    },
+    {
+      title: 'Payback Period',
+      value: report?.initial_capital ? report.payback_label : '-',
+      subtitle: report?.initial_capital ? `ROI Tahunan: ${formatNumber(report.roi_annual)}%` : 'Modal belum diset',
+      icon: Zap,
+      color: 'bg-orange-600',
+      gradient: 'bg-orange-600',
     },
   ]
 
@@ -213,6 +222,40 @@ const BepAnalysis: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Capital & Profitability Analysis */}
+      {report?.initial_capital ? (
+        <Card className="border-none shadow-xl glass-panel overflow-hidden">
+          <CardHeader className="border-b bg-white/30">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Zap className="w-5 h-5 text-orange-500" />
+              Analisis Modal & Profitabilitas
+            </CardTitle>
+            <CardDescription>Target pengembalian investasi (ROI)</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-4 bg-white rounded-2xl border shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Modal Awal Investasi</p>
+                <p className="text-2xl font-black text-gray-900">Rp {formatNumber(report.initial_capital)}</p>
+                <p className="text-[10px] text-gray-400 mt-1 italic">Amortisasi: {report.amortization_months} bulan</p>
+              </div>
+              <div className="p-4 bg-white rounded-2xl border shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Target Revenue BEP + Modal</p>
+                <p className="text-2xl font-black text-primary">Rp {formatNumber(report.bep_with_capital_revenue)}</p>
+                <p className="text-[10px] text-gray-400 mt-1 italic">Minimal omset agar modal kembali sesuai target</p>
+              </div>
+              <div className="p-4 bg-white rounded-2xl border shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Margin Kontribusi Saat Ini</p>
+                <p className={`text-2xl font-black ${report.cm_ratio > 0.6 ? 'text-green-600' : 'text-orange-600'}`}>
+                  {formatNumber(report.cm_ratio * 100)}%
+                </p>
+                <p className="text-[10px] text-gray-400 mt-1 italic">Target margin ideal: 60-70%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Forecast + Monte Carlo Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

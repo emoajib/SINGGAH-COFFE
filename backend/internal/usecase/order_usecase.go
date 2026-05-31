@@ -86,7 +86,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		var orderItems []entity.OrderItem
 
 		for _, itemInput := range req.Items {
-			product, err := productRepo.FindByIDWithRecipe(itemInput.ProductID)
+			product, err := productRepo.FindByIDWithRecipeForUpdate(itemInput.ProductID)
 			if err != nil {
 				return err
 			}
@@ -95,7 +95,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 			if len(product.Recipe) > 0 {
 				for _, recipeItem := range product.Recipe {
 					needed := recipeItem.Quantity * float64(itemInput.Quantity)
-					ingredient, err := ingredientRepo.FindByID(recipeItem.IngredientID)
+					ingredient, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID)
 					if err != nil {
 						return err
 					}
@@ -135,7 +135,9 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 					})
 				}
 			} else {
-				ingredientRepo.UpdateStockAtomic(product.ID, float64(itemInput.Quantity), "sub")
+				if err := productRepo.UpdateStockAtomic(product.ID, float64(itemInput.Quantity), "sub"); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -219,7 +221,7 @@ func (uc *OrderUsecase) Void(id uint) (*entity.OrderResponse, error) {
 
 		// Restore stock for each item
 		for _, item := range order.OrderItems {
-			product, err := productRepo.FindByIDWithRecipe(item.ProductID)
+			product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
 			if err != nil {
 				continue
 			}
@@ -227,6 +229,10 @@ func (uc *OrderUsecase) Void(id uint) (*entity.OrderResponse, error) {
 			if len(product.Recipe) > 0 {
 				for _, recipeItem := range product.Recipe {
 					restoreAmount := recipeItem.Quantity * float64(item.Quantity)
+					// Lock ingredient before update
+					if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
+						return err
+					}
 					ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add")
 					mutationRepo.Create(&entity.StockMutation{
 						IngredientID: recipeItem.IngredientID,
@@ -237,7 +243,7 @@ func (uc *OrderUsecase) Void(id uint) (*entity.OrderResponse, error) {
 					})
 				}
 			} else {
-				ingredientRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add")
+				productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add")
 			}
 		}
 

@@ -194,6 +194,16 @@ export interface BEPReport {
   status: string
   per_product: ProductMargin[]
   fixed_cost_breakdown: FixedCostItem[]
+  // Capital analysis
+  initial_capital: number
+  amortization_months: number
+  amortized_monthly_capital: number
+  net_profit: number
+  payback_period_months: number
+  payback_label: string
+  roi_annual: number
+  bep_with_capital_units: number
+  bep_with_capital_revenue: number
 }
 
 export interface ProductMargin {

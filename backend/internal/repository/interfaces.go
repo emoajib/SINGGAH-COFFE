@@ -19,9 +19,11 @@ type UserRepository interface {
 type ProductRepository interface {
 	FindByID(id uint) (*entity.Product, error)
 	FindByIDWithRecipe(id uint) (*entity.Product, error)
+	FindByIDWithRecipeForUpdate(id uint) (*entity.Product, error)
 	FindAll(limit, offset int) ([]entity.Product, error)
 	Create(product *entity.Product) error
 	Update(product *entity.Product) error
+	UpdateStockAtomic(id uint, delta float64, operator string) error
 	Delete(id uint) error
 	DeleteRecipeByProductID(productID uint) error
 	CreateRecipeItems(items []entity.RecipeItem) error
@@ -30,6 +32,7 @@ type ProductRepository interface {
 // IngredientRepository defines data access for ingredients
 type IngredientRepository interface {
 	FindByID(id uint) (*entity.Ingredient, error)
+	FindByIDForUpdate(id uint) (*entity.Ingredient, error)
 	FindAll() ([]entity.Ingredient, error)
 	Create(ingredient *entity.Ingredient) error
 	Update(ingredient *entity.Ingredient) error

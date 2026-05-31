@@ -557,14 +557,12 @@ PRIORITAS TINGGI (belum ada):
 ```
 1. Race Condition Fix
    File: backend/internal/usecase/order_usecase.go
-   Issue: Concurrent stock deduction bisa hasilkan stok negatif
-   Fix: SELECT ... FOR UPDATE dalam DB transaction
+   Status: ✅ SELESAI (1 Juni 2026) - Fixed using SELECT FOR UPDATE
 
 2. Settings.tsx Refactor  
-   File: web-dashboard/src/pages/Settings.tsx (54KB!)
-   Issue: File terlalu besar, maintainability crash
-   Fix: Pecah menjadi 4 sub-component
-
+   File: web-dashboard/src/pages/Settings.tsx (Now split into sub-components)
+   Status: ✅ SELESAI (1 Juni 2026) - Broken down into 8 sub-components for better maintainability.
+```
 3. JWT Token Revocation
    Issue: Logout tidak invalidate token
    Fix: Token blacklist di DB atau Redis

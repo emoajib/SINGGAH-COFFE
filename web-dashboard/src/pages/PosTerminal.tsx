@@ -38,6 +38,8 @@ const PosTerminal: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastOrder, setLastOrder] = useState<any>(null);
+    const [showCashModal, setShowCashModal] = useState(false);
+    const [cashAmount, setCashAmount] = useState<number>(0);
 
     const productsQuery = useProducts();
     const products = (productsQuery.data ?? []) as unknown as Product[];
@@ -152,7 +154,9 @@ const PosTerminal: React.FC = () => {
             <div className="flex-1 flex flex-col p-6 space-y-6 overflow-hidden">
                 <header className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">Terminal Kasir</h1>
+                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+                            {settings?.outlet_name || "KASIR"}
+                        </h1>
                         <p className="text-sm text-gray-400 font-medium">Singgah Coffee - Lingkungan POS Profesional</p>
                     </div>
                     <div className="flex bg-white p-1 rounded-2xl shadow-inner border">
@@ -255,7 +259,10 @@ const PosTerminal: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4 mt-8">
                         <button
-                            onClick={() => handleCheckout('Cash')}
+                            onClick={() => {
+                                setCashAmount(0);
+                                setShowCashModal(true);
+                            }}
                             disabled={cart.length === 0}
                             className="bg-gray-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all disabled:opacity-30 shadow-xl shadow-gray-200"
                         >
@@ -271,6 +278,76 @@ const PosTerminal: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Cash Payment Modal */}
+            <Dialog
+                isOpen={showCashModal}
+                onClose={() => setShowCashModal(false)}
+                title="Pembayaran Tunai"
+            >
+                <div className="space-y-6 p-4">
+                    <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 text-center">
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Total Tagihan</p>
+                        <h3 className="text-3xl font-black text-primary">Rp {formatNumber(total)}</h3>
+                    </div>
+
+                    <div className="space-y-3">
+                        <label className="text-xs font-black text-gray-900 uppercase tracking-widest">Uang Diterima</label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-400">Rp</span>
+                            <input
+                                type="number"
+                                value={cashAmount || ''}
+                                onChange={(e) => setCashAmount(Number(e.target.value))}
+                                className="w-full bg-white border-2 border-gray-100 rounded-xl py-4 pl-12 pr-4 font-black text-xl focus:border-primary outline-none transition-all"
+                                placeholder="0"
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                        {[5000, 10000, 20000, 50000, 100000].map(option => (
+                            <button
+                                key={option}
+                                onClick={() => setCashAmount(option)}
+                                className="py-3 bg-gray-100 hover:bg-primary hover:text-white rounded-xl text-xs font-black transition-all"
+                            >
+                                + {formatNumber(option)}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => setCashAmount(total)}
+                            className="py-3 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-xl text-xs font-black transition-all"
+                        >
+                            Uang Pas
+                        </button>
+                    </div>
+
+                    <div className={`p-6 rounded-2xl transition-all ${cashAmount >= total ? 'bg-green-50 border-2 border-green-100' : 'bg-gray-50 border-2 border-gray-100'}`}>
+                        <div className="flex justify-between items-center">
+                            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Kembalian</p>
+                            <h3 className={`text-2xl font-black ${cashAmount >= total ? 'text-green-600' : 'text-gray-300'}`}>
+                                Rp {formatNumber(cashAmount >= total ? cashAmount - total : 0)}
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <Button variant="ghost" className="flex-1 py-6 rounded-xl font-black" onClick={() => setShowCashModal(false)}>Batal</Button>
+                        <Button
+                            className="flex-1 py-6 rounded-xl font-black"
+                            disabled={cashAmount < total || loading}
+                            onClick={() => {
+                                setShowCashModal(false);
+                                handleCheckout('Cash');
+                            }}
+                        >
+                            {loading ? <Loader2 className="animate-spin" /> : 'Selesaikan Transaksi'}
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
             {/* Success & Print Modal */}
             <Dialog
                 isOpen={showSuccess}

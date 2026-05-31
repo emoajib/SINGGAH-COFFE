@@ -12,6 +12,8 @@ import { useProducts, useCreateProduct, useDeleteProduct } from '../hooks/usePro
 import { useIngredients, useCreateIngredient, useDeleteIngredient, useCreateStockMutation } from '../hooks/useIngredients'
 import { useQueryClient } from '@tanstack/react-query'
 
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+
 interface Ingredient {
     id: number;
     name: string;
@@ -269,22 +271,24 @@ const ProductManagement: React.FC = () => {
     const estimatedProfit = formData.price - estimatedCost;
     const profitMargin = formData.price > 0 ? ((estimatedProfit / formData.price) * 100).toFixed(2) : '0';
 
+    const allCategories = ['All', ...new Set(products.map(p => p.category))];
+
     return (
         <div className="p-6">
             <div className="flex flex-col mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">Manajemen Produksi</h1>
-                <div className="flex border-b">
+                <h1 className="text-3xl font-bold text-gray-900 mb-4 text-center md:text-left">Manajemen Produksi</h1>
+                <div className="flex border-b overflow-x-auto no-scrollbar">
                     <button
                         onClick={() => setActiveTab('ingredients')}
-                        className={`px-6 py-2 font-medium ${activeTab === 'ingredients' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`px-6 py-3 font-bold text-sm uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'ingredients' ? 'border-b-4 border-primary text-primary' : 'text-gray-400 hover:text-gray-700'}`}
                     >
                         Master Bahan & Harga
                     </button>
                     <button
                         onClick={() => setActiveTab('products')}
-                        className={`px-6 py-2 font-medium ${activeTab === 'products' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`px-6 py-3 font-bold text-sm uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'products' ? 'border-b-4 border-primary text-primary' : 'text-gray-400 hover:text-gray-700'}`}
                     >
-                        Resep Produk & Profitabilitas
+                        Menu & Resep
                     </button>
                 </div>
             </div>
@@ -416,36 +420,69 @@ const ProductManagement: React.FC = () => {
                 </div>
             ) : (
                 <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-xl font-semibold">Resep Produk</h2>
-                        <button
-                            onClick={() => handleOpenModal()}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
-                        >
-                            <Plus size={20} /> Tambah Produk
-                        </button>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">Daftar Menu & Resep</h2>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {allCategories.map(cat => (
+                                    <Badge key={cat} variant="secondary" className="bg-gray-100 text-gray-500 text-[9px] font-black uppercase tracking-widest">
+                                        {cat}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                        <Button onClick={() => handleOpenModal()} className="bg-primary hover:bg-primary/90 shadow-lg w-full md:w-auto">
+                            <Plus className="mr-2 h-4 w-4" /> Tambah Menu Baru
+                        </Button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {products.map((product) => (
-                            <div key={product.id} className="bg-white rounded-lg shadow-md border overflow-hidden flex flex-col">
-                                {product.image_url && (
-                                    <div className="h-40 bg-gray-100"><img src={getImageUrl(product.image_url)} className="w-full h-full object-cover" /></div>
-                                )}
-                                <div className="p-4 flex-1">
-                                    <div className="flex justify-between mb-2">
-                                        <div><h3 className="font-bold">{product.name}</h3><p className="text-xs text-gray-500">{product.category}</p></div>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => handleOpenModal(product)} className="text-blue-600"><Edit2 size={16} /></button>
-                                            <button onClick={() => handleDelete(product.id)} className="text-red-600"><Trash2 size={16} /></button>
+                            <div key={product.id} className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden flex flex-col group hover:scale-[1.02] transition-all duration-300">
+                                <div className="h-40 relative">
+                                    <img 
+                                        src={getImageUrl(product.image_url) || 'https://images.unsplash.com/photo-1541167760496-162955ed8a9f?w=400'} 
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                                    />
+                                    <div className="absolute top-3 right-3 flex gap-1">
+                                        <button onClick={() => handleOpenModal(product)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-blue-600 shadow-lg hover:bg-blue-600 hover:text-white transition-colors">
+                                            <Edit2 size={14} />
+                                        </button>
+                                        <button onClick={() => handleDelete(product.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-red-600 shadow-lg hover:bg-red-600 hover:text-white transition-colors">
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                    <div className="absolute bottom-3 left-3">
+                                        <Badge className="bg-primary/90 backdrop-blur-sm text-[8px] font-black uppercase tracking-widest border-none">
+                                            {product.category}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <div className="p-5 flex-1 flex flex-col">
+                                    <h3 className="font-bold text-gray-900 leading-tight mb-3">{product.name}</h3>
+                                    
+                                    <div className="space-y-2 mt-auto">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-gray-400 font-bold uppercase tracking-tighter text-[9px]">Harga Jual</span>
+                                            <span className="font-black text-gray-900">Rp {formatNumber(product.price)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-gray-400 font-bold uppercase tracking-tighter text-[9px]">Modal (HPP)</span>
+                                            <span className="font-bold text-blue-600">Rp {formatNumber(product.cost)}</span>
+                                        </div>
+                                        <div className="pt-2 border-t flex justify-between items-center">
+                                            <span className="text-[9px] font-black uppercase text-primary tracking-widest">Profit</span>
+                                            <span className="text-sm font-black text-emerald-600">Rp {formatNumber(product.price - product.cost)}</span>
                                         </div>
                                     </div>
-                                    <div className="space-y-1 text-xs border-t pt-2">
-                                        <div className="flex justify-between"><span>Harga Jual:</span><span className="font-bold">Rp {formatNumber(product.price)}</span></div>
-                                        <div className="flex justify-between"><span>Modal (HPP):</span><span className="font-bold text-blue-600">Rp {formatNumber(product.cost)}</span></div>
-                                        <div className="flex justify-between border-t mt-1 pt-1 font-semibold"><span>Profit:</span><span className="text-green-600">Rp {formatNumber(product.price - product.cost)}</span></div>
-                                    </div>
+                                    
                                     {product.recipe && product.recipe.length > 0 && (
-                                        <div className="mt-2 text-[10px] text-gray-400">Resep: {product.recipe?.map(r => r.ingredient?.name).join(', ') || 'N/A'}</div>
+                                        <div className="mt-3 pt-3 border-t-2 border-dashed border-gray-50">
+                                            <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-1">Komposisi</p>
+                                            <p className="text-[10px] text-gray-500 italic line-clamp-1">
+                                                {product.recipe?.map(r => r.ingredient?.name).join(', ')}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -563,77 +600,145 @@ const ProductManagement: React.FC = () => {
             {/* Product Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold">{editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}</h2>
-                                <button onClick={handleCloseModal} className="text-gray-500"><X size={24} /></button>
+                    <div className="bg-white rounded-[2rem] max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+                        <div className="p-8">
+                            <div className="flex justify-between items-center mb-8">
+                                <h2 className="text-3xl font-black text-gray-900 tracking-tight">{editingProduct ? 'Edit Menu' : 'Tambah Menu Baru'}</h2>
+                                <button onClick={handleCloseModal} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all"><X size={20} /></button>
                             </div>
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="space-y-4">
-                                        <div className="w-full h-40 bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer overflow-hidden relative" onClick={() => document.getElementById('img-up')?.click()}>
-                                            {formData.image_url ? <img src={getImageUrl(formData.image_url)} className="absolute w-full h-full object-cover" /> : <div className="text-center text-gray-400"><ImagePlus className="mx-auto mb-2" /><span className="text-xs">Unggah Gambar</span></div>}
+                            <form onSubmit={handleSubmit} className="space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-6">
+                                        <div className="w-full h-56 bg-gray-50 border-4 border-dashed border-gray-100 rounded-[2.5rem] flex flex-col items-center justify-center cursor-pointer overflow-hidden relative group" onClick={() => document.getElementById('img-up')?.click()}>
+                                            {formData.image_url ? (
+                                                <>
+                                                    <img src={getImageUrl(formData.image_url)} className="absolute w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold uppercase tracking-widest text-xs">Ganti Gambar</div>
+                                                </>
+                                            ) : (
+                                                <div className="text-center text-gray-300 group-hover:text-primary transition-colors">
+                                                    <ImagePlus size={48} strokeWidth={1} className="mx-auto mb-2" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest">Unggah Foto Menu</span>
+                                                </div>
+                                            )}
                                             <input id="img-up" type="file" className="hidden" onChange={handleImageUpload} />
                                         </div>
-                                        <div><label className="block text-sm font-semibold mb-1">Nama Produk</label><input className="w-full border rounded-lg px-3 py-2" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required /></div>
-                                        <div><label className="block text-sm font-semibold mb-1">Kategori</label><input className="w-full border rounded-lg px-3 py-2" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} required /></div>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div><label className="block text-sm font-semibold mb-1">Harga (Rp)</label><input type="number" className="w-full border rounded-lg px-3 py-2" value={formData.price} onChange={e => setFormData({ ...formData, price: parseFloat(e.target.value) })} required /></div>
-                                            <div><label className="block text-sm font-semibold mb-1">SKU</label><input className="w-full border rounded-lg px-3 py-2" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} required /></div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Nama Menu</label>
+                                            <Input className="h-12 rounded-2xl border-2 focus:border-primary" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required placeholder="Misal: Kopi Susu Gula Aren" />
                                         </div>
-                                        <div><label className="block text-sm font-semibold mb-1">Deskripsi</label><textarea className="w-full border rounded-lg px-3 py-2 h-24" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} /></div>
-                                    </div>
-                                </div>
-                                <div className="border-t pt-4">
-                                    <div className="flex justify-between items-center mb-4"><h3 className="font-bold">Komposisi Resep</h3><button type="button" onClick={handleAddRecipeItem} className="text-blue-600 text-sm flex items-center gap-1 font-semibold"><Plus size={16} /> Tambah Bahan Ke Resep</button></div>
-                                    <div className="space-y-4">
-                                        {formData.recipe.map((item, idx) => {
-                                            // Find the latest ingredient data from state to get the cost
-                                            const ing = ingredients.find(i => i.id === Number(item.ingredient_id));
-                                            const itemCost = ing ? (ing.cost_per_unit * item.quantity) : 0;
-                                            
-                                            return (
-                                                <div key={idx} className="flex gap-3 animate-in fade-in items-start">
-                                                    <div className="flex-1">
-                                                        <select 
-                                                            className="w-full border rounded-lg px-3 py-2 text-sm" 
-                                                            value={item.ingredient_id} 
-                                                            onChange={e => handleRecipeChange(idx, 'ingredient_id', parseInt(e.target.value))} 
-                                                            required
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Kategori</label>
+                                            <div className="relative">
+                                                <Input 
+                                                    className="h-12 rounded-2xl border-2 focus:border-primary" 
+                                                    value={formData.category} 
+                                                    onChange={e => setFormData({ ...formData, category: e.target.value })} 
+                                                    placeholder="Ketik kategori baru..."
+                                                    required 
+                                                />
+                                                <div className="flex flex-wrap gap-1.5 mt-3 px-1">
+                                                    {allCategories.filter(c => c !== 'All').map(cat => (
+                                                        <button 
+                                                            key={cat}
+                                                            type="button"
+                                                            onClick={() => setFormData({ ...formData, category: cat })}
+                                                            className={`text-[9px] px-3 py-1.5 rounded-full border-2 transition-all font-black uppercase tracking-widest ${formData.category === cat ? 'bg-primary text-white border-primary shadow-lg scale-105' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}
                                                         >
-                                                            <option value={0}>Pilih Bahan</option>
-                                                            {ingredients.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
-                                                        </select>
-                                                        {ing && <p className="text-[10px] text-gray-400 mt-1 ml-1">Harga master: Rp {formatNumber(ing.cost_per_unit)}/{ing.unit}</p>}
-                                                    </div>
-                                                    <div className="w-32">
-                                                        <input 
-                                                            type="number" 
-                                                            step="0.01" 
-                                                            className="w-full border rounded-lg px-3 py-2 text-sm" 
-                                                            placeholder="Jumlah" 
-                                                            value={item.quantity} 
-                                                            onChange={e => handleRecipeChange(idx, 'quantity', parseFloat(e.target.value))} 
-                                                            required 
-                                                        />
-                                                        {ing && <p className="text-[10px] text-blue-600 font-bold mt-1 text-right">Rp {formatNumber(itemCost)}</p>}
-                                                    </div>
-                                                    <button type="button" onClick={() => handleRemoveRecipeItem(idx)} className="text-red-500 pt-2"><Trash2 size={20} /></button>
+                                                            {cat}
+                                                        </button>
+                                                    ))}
                                                 </div>
-                                            );
-                                        })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Harga Jual (Rp)</label>
+                                                <Input type="number" className="h-12 rounded-2xl border-2 focus:border-primary font-bold text-lg" value={formData.price} onChange={e => setFormData({ ...formData, price: parseFloat(e.target.value) })} required />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">SKU / Kode</label>
+                                                <Input className="h-12 rounded-2xl border-2 focus:border-primary font-mono uppercase" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} required placeholder="KOPI-01" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Deskripsi Menu</label>
+                                            <textarea className="w-full border-2 rounded-[1.5rem] px-4 py-3 h-32 focus:border-primary outline-none transition-all text-sm" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Jelaskan keunikan rasa menu ini..." />
+                                        </div>
+
+                                        <div className="p-4 bg-primary/5 rounded-[1.5rem] border-2 border-primary/10">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-black uppercase text-primary tracking-widest">HPP Terkalkulasi</span>
+                                                <span className="text-lg font-black text-gray-900">Rp {formatNumber(estimatedCost)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black uppercase text-primary tracking-widest">Estimasi Profit</span>
+                                                <span className={`text-lg font-black ${estimatedProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Rp {formatNumber(estimatedProfit)} ({profitMargin}%)</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                {formData.recipe.length > 0 && (
-                                    <div className="bg-gray-900 text-white p-4 rounded-xl flex justify-between items-center">
-                                        <div><p className="text-xs opacity-60">Total HPP Produk</p><p className="text-lg font-bold">Rp {formatNumber(estimatedCost)}</p></div>
-                                        <div className="text-right"><p className="text-xs opacity-60">Estimasi Laba</p><p className={`text-lg font-bold ${estimatedProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>Rp {formatNumber(estimatedProfit)} ({profitMargin}%)</p></div>
+                                
+                                <div className="border-t-2 border-dashed border-gray-100 pt-8">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-black text-gray-900 tracking-tight">Komposisi Resep</h3>
+                                        <button type="button" onClick={handleAddRecipeItem} className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-[10px] flex items-center gap-2 font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
+                                            <Plus size={14} /> Tambah Bahan
+                                        </button>
                                     </div>
-                                )}
-                                <div className="flex justify-end gap-4"><button type="button" onClick={handleCloseModal} className="font-semibold underline">Batal</button><button type="submit" className="bg-blue-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200" disabled={loading}>{loading ? 'Menyimpan...' : 'Simpan Produk'}</button></div>
+                                    <div className="space-y-3">
+                                        {formData.recipe.length === 0 ? (
+                                            <div className="p-8 border-2 border-dashed border-gray-100 rounded-3xl text-center">
+                                                <p className="text-xs font-bold text-gray-300 uppercase tracking-[0.2em]">Belum Ada Resep Terdaftar</p>
+                                            </div>
+                                        ) : (
+                                            formData.recipe.map((item, idx) => {
+                                                const ing = ingredients.find(i => i.id === Number(item.ingredient_id));
+                                                const itemCost = ing ? (ing.cost_per_unit * item.quantity) : 0;
+                                                
+                                                return (
+                                                    <div key={idx} className="flex gap-4 p-4 bg-gray-50/50 rounded-2xl border-2 border-transparent hover:border-blue-100 transition-all items-start animate-in fade-in slide-in-from-top-2">
+                                                        <div className="flex-1">
+                                                            <select 
+                                                                className="w-full h-11 bg-white border-2 border-gray-100 rounded-xl px-4 text-xs font-bold focus:border-blue-400 outline-none transition-all" 
+                                                                value={item.ingredient_id} 
+                                                                onChange={e => handleRecipeChange(idx, 'ingredient_id', parseInt(e.target.value))} 
+                                                                required
+                                                            >
+                                                                <option value={0}>Pilih Bahan Baku</option>
+                                                                {ingredients.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+                                                            </select>
+                                                            {ing && <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-2 ml-1">Market: Rp {formatNumber(ing.cost_per_unit)}/{ing.unit}</p>}
+                                                        </div>
+                                                        <div className="w-36">
+                                                            <div className="relative">
+                                                                <input 
+                                                                    type="number" 
+                                                                    step="0.01" 
+                                                                    className="w-full h-11 bg-white border-2 border-gray-100 rounded-xl px-4 text-xs font-black focus:border-blue-400 outline-none text-right transition-all" 
+                                                                    placeholder="QTY" 
+                                                                    value={item.quantity} 
+                                                                    onChange={e => handleRecipeChange(idx, 'quantity', parseFloat(e.target.value))} 
+                                                                    required 
+                                                                />
+                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-gray-300 uppercase">{ing?.unit || 'UNIT'}</span>
+                                                            </div>
+                                                            {ing && <p className="text-[10px] text-blue-600 font-black mt-2 text-right">Rp {formatNumber(itemCost)}</p>}
+                                                        </div>
+                                                        <button type="button" onClick={() => handleRemoveRecipeItem(idx)} className="w-11 h-11 rounded-xl flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition-all"><Trash2 size={18} /></button>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 pt-4">
+                                    <Button type="button" variant="ghost" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-gray-400 hover:text-red-500" onClick={handleCloseModal}>Batal</Button>
+                                    <Button type="submit" className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20" disabled={loading}>{loading ? 'Memproses...' : editingProduct ? 'Simpan Perubahan' : 'Terbitkan Menu'}</Button>
+                                </div>
                             </form>
                         </div>
                     </div>
