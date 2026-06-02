@@ -35,9 +35,8 @@ func main() {
 
 	cfg := config.LoadConfig()
 
-	jwt.Init(cfg.JWTSecret)
-
 	db := database.Connect(cfg)
+	jwt.Init(cfg.JWTSecret, db)
 
 	authUsecase := usecase.NewAuthUsecase(db)
 	productUsecase := usecase.NewProductUsecase(db)
@@ -48,6 +47,22 @@ func main() {
 	settingsUsecase := usecase.NewSettingsUsecase(db)
 	webhookUsecase := usecase.NewWebhookUsecase(db)
 	bepUsecase := usecase.NewBEPUsecase(db)
+
+	// Start background cleanup of expired tokens every hour
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := authUsecase.CleanupExpiredTokens(); err != nil {
+					log.Printf("Error cleaning up expired tokens: %v", err)
+				} else {
+					log.Println("Expired tokens cleaned up successfully")
+				}
+			}
+		}
+	}()
 
 	handlers := &routes.Handlers{
 		Auth:      handler.NewAuthHandler(authUsecase),
@@ -88,7 +103,7 @@ func main() {
 		c.Next()
 	})
 
-	routes.SetupRoutes(r, handlers)
+	routes.SetupRoutes(r, handlers, db)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

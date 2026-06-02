@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/usecase"
@@ -132,4 +133,21 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully"})
+}
+
+// Logout handles user logout by blacklisting the JWT token
+func (h *AuthHandler) Logout(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header required"})
+		return
+	}
+
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+	if err := h.authUsecase.Logout(tokenString); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

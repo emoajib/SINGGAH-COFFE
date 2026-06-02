@@ -106,7 +106,7 @@ func (r *orderRepository) GetSumByStatusSince(status, since, timeFormat string) 
 	return results, err
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) GetDailySalesRange(start, end string) ([]entity.DailySales, error) {
 	var results []entity.DailySales
 	err := r.db.Raw(`
@@ -119,7 +119,7 @@ func (r *orderRepository) GetDailySalesRange(start, end string) ([]entity.DailyS
 	return results, err
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) GetAverageOrderValue(start, end string) (float64, error) {
 	var avg float64
 	err := r.db.Model(&models.Order{}).

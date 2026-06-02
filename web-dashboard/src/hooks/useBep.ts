@@ -1,4 +1,4 @@
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 import { useQuery } from '@tanstack/react-query'
 import { BepService } from '../services/bepService'
 import type { BEPResponse } from '../types'

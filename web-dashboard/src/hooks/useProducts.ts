@@ -50,7 +50,7 @@ export function useUploadProductImage() {
   return useMutation({
     mutationFn: ({ id, file }: { id: number; file: File }) => {
       const form = new FormData()
-      form.append('file', file)
+      form.append('image', file)
       return api.post(`/products/${id}/upload-image`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }).then((r) => r.data)

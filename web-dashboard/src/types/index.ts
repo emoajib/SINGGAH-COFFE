@@ -167,7 +167,7 @@ export interface Setting {
   updated_at?: string
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 export interface BEPResponse {
   report: BEPReport
   forecast: BEPForecast

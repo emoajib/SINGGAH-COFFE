@@ -77,7 +77,7 @@ func (r *orderItemRepository) GetTopProducts(limit int) ([]entity.TopProduct, er
 	return results, err
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (r *orderItemRepository) GetProductSalesVolume(start, end string) ([]entity.ProductSalesVolume, error) {
 	var results []entity.ProductSalesVolume
 	err := r.db.Raw(`

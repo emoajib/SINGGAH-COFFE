@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Risk Assessment:
 // - This endpoint is owner-only (protected by RoleMiddleware)
 // - BEP data is calculated from order and expense data, no PII exposed

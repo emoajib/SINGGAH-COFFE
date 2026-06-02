@@ -6,7 +6,7 @@ import (
 	"singgah-pos-backend/internal/domain/entity"
 )
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Technical Assumptions:
 // - Variable cost per unit = weighted average HPP from actual sales
 // - Fixed costs = all expenses with CostType = "fixed"
@@ -94,7 +94,7 @@ func (c *BEPCalculator) Calculate(products []entity.ProductSalesVolume) *entity.
 	}
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (c *BEPCalculator) determineStatus(marginOfSafety, dailyAvg, bepDaily float64) string {
 	if marginOfSafety < -10 {
 		return "KRITIS"
@@ -105,7 +105,7 @@ func (c *BEPCalculator) determineStatus(marginOfSafety, dailyAvg, bepDaily float
 	return "AMAN"
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (c *BEPCalculator) calculateProductMargins(products []entity.ProductSalesVolume) []entity.ProductMargin {
 	if len(products) == 0 {
 		return nil

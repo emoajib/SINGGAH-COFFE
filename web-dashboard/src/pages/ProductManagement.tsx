@@ -12,7 +12,7 @@ import { useProducts, useCreateProduct, useDeleteProduct } from '../hooks/usePro
 import { useIngredients, useCreateIngredient, useDeleteIngredient, useCreateStockMutation } from '../hooks/useIngredients'
 import { useQueryClient } from '@tanstack/react-query'
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface Ingredient {
     id: number;

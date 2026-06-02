@@ -192,7 +192,7 @@ const menuItems = [
 - ✅ Role-based access control maintained (Owner/Manager only)
 - ✅ No changes to authentication/authorization logic
 
-**Vetted by AI - Manual Review Required by Senior Engineer/Manager**
+**Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager**
 
 ---
 

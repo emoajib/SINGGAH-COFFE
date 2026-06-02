@@ -3,7 +3,7 @@ import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
 import { AlertCircle, Loader2, Save } from "lucide-react"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface NotificationSettingsProps {
     settings: Record<string, string>;

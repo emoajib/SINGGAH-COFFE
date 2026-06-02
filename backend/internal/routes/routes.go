@@ -5,6 +5,7 @@ import (
 	"singgah-pos-backend/internal/delivery/middleware"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Handlers struct {
@@ -19,20 +20,22 @@ type Handlers struct {
 	BEP       *handler.BEPHandler
 }
 
-func SetupRoutes(r *gin.Engine, h *Handlers) {
+func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 	api := r.Group("/api")
 	{
 		// Public Routes
 		api.POST("/auth/login", h.Auth.Login)
 		api.POST("/webhooks/xendit", h.Webhook.HandleXenditWebhook)
 
-		// Protected Routes
-		protected := api.Group("/")
-		protected.Use(middleware.AuthMiddleware())
-		{
+	// Protected Routes
+	protected := api.Group("/")
+	protected.Use(middleware.APIRateLimiter())
+	protected.Use(middleware.AuthMiddleware(db))
+	{
 			// Auth
 			protected.PUT("/auth/profile", middleware.RoleMiddleware("owner"), h.Auth.UpdateProfile)
 			protected.POST("/auth/change-password", middleware.RoleMiddleware("owner"), h.Auth.ChangePassword)
+			protected.POST("/auth/logout", h.Auth.Logout)
 
 			// User Management
 			protected.GET("/users", middleware.RoleMiddleware("owner"), h.Auth.GetUsers)

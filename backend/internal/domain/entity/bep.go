@@ -1,13 +1,13 @@
 package entity
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Technical Assumptions:
 // - Variable cost per unit = HPP (Product.Cost) from recipe ingredients
 // - Fixed costs = expenses with CostType = "fixed"
 // - Average selling price & cost weighted by actual sales volume
 // - BEP calculation assumes linear contribution margin within capacity
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // BEPReport is the top-level response for BEP analysis
 type BEPReport struct {
 	Period              string          `json:"period"`
@@ -39,7 +39,7 @@ type BEPReport struct {
 	BEPWithCapitalRevenue   float64 `json:"bep_with_capital_revenue"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type ProductMargin struct {
 	ProductID          uint    `json:"product_id"`
 	ProductName        string  `json:"product_name"`
@@ -53,7 +53,7 @@ type ProductMargin struct {
 	Rank               int     `json:"rank"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type ProductSalesVolume struct {
 	ProductID uint    `json:"product_id"`
 	Name      string  `json:"name"`
@@ -64,7 +64,7 @@ type ProductSalesVolume struct {
 	Revenue   float64 `json:"revenue"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // DailySales represents daily aggregated sales for forecasting
 type DailySales struct {
 	Date  string  `json:"date"`
@@ -72,7 +72,7 @@ type DailySales struct {
 	Count int64   `json:"count"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // BEPForecast contains WMA + seasonal forecast results
 type BEPForecast struct {
 	Period              string  `json:"period"`
@@ -85,7 +85,7 @@ type BEPForecast struct {
 	Trend               string  `json:"trend"` // MENINGKAT, STABIL, MENURUN
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // SensitivityMatrix contains what-if scenario analysis results
 type SensitivityMatrix struct {
 	CurrentBEPUnits   float64       `json:"current_bep_units"`
@@ -96,7 +96,7 @@ type SensitivityMatrix struct {
 	MostSensitiveTo   string        `json:"most_sensitive_to"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type BEPScenario struct {
 	Label         string  `json:"label"`
 	Parameter     string  `json:"parameter"`
@@ -106,14 +106,14 @@ type BEPScenario struct {
 	DeltaPercent  float64 `json:"delta_percent"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type BEPExtreme struct {
 	Scenario    string  `json:"scenario"`
 	BEPUnits    float64 `json:"bep_units"`
 	BEPRevenue  float64 `json:"bep_revenue"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // MonteCarloResult contains probabilistic BEP simulation results
 type MonteCarloResult struct {
 	Iterations        int     `json:"iterations"`
@@ -129,14 +129,14 @@ type MonteCarloResult struct {
 	MeanProfit        float64 `json:"mean_profit"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // EarlyWarning contains recommendations for the owner
 type EarlyWarning struct {
 	Status          string           `json:"status"` // AMAN, WASPADA, KRITIS
 	Recommendations []Recommendation `json:"recommendations"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type Recommendation struct {
 	Priority  int    `json:"priority"`
 	Condition string `json:"condition"`
@@ -145,7 +145,7 @@ type Recommendation struct {
 	Metric    string `json:"metric"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // BEPResponse wraps all BEP analysis results into a single API response
 type BEPResponse struct {
 	Report       *BEPReport          `json:"report"`

@@ -2,7 +2,7 @@ package entity
 
 import "time"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type Expense struct {
 	ID          uint
 	Title       string
@@ -15,7 +15,7 @@ type Expense struct {
 	CreatedAt   time.Time
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type ExpenseResponse struct {
 	ID          uint      `json:"id"`
 	Title       string    `json:"title"`
@@ -42,7 +42,7 @@ func (e *Expense) ToResponse() ExpenseResponse {
 	}
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type FixedCostItem struct {
 	Name   string  `json:"name"`
 	Amount float64 `json:"amount"`

@@ -87,7 +87,7 @@ func (r *expenseRepository) GetBreakdownRange(start, end string) ([]entity.Expen
 	return results, err
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (r *expenseRepository) GetTotalByCostType(costType, start, end string) (float64, error) {
 	var total float64
 	err := r.db.Model(&models.Expense{}).
@@ -97,7 +97,7 @@ func (r *expenseRepository) GetTotalByCostType(costType, start, end string) (flo
 	return total, err
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (r *expenseRepository) GetFixedCostBreakdown(start, end string) ([]entity.FixedCostItem, error) {
 	var results []entity.FixedCostItem
 	err := r.db.Model(&models.Expense{}).

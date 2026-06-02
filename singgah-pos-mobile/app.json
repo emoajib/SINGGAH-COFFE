@@ -14,14 +14,28 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "coffee.singgah.pos"
+      "bundleIdentifier": "coffee.singgah.pos",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "We need Bluetooth to connect to your receipt printer",
+        "NSBluetoothPeripheralUsageDescription": "We need Bluetooth to discover and connect to thermal printers"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5F0E6"
       },
-      "package": "coffee.singgah.pos"
+      "package": "coffee.singgah.pos",
+      "permissions": [
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "scheme": "singgah-pos",
     "plugins": [

@@ -44,7 +44,7 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense) (*entity.ExpenseRespon
 	return &resp, nil
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.ExpenseResponse, error) {
 	existing, err := uc.expenseRepo.FindByID(id)
 	if err != nil {
@@ -68,7 +68,7 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 	return &resp, nil
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (uc *ExpenseUsecase) UpdateCostType(id uint, costType string) error {
 	existing, err := uc.expenseRepo.FindByID(id)
 	if err != nil {

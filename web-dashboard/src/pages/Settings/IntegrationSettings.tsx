@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
 import { CreditCard, Loader2, Save, Smartphone } from "lucide-react"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface IntegrationSettingsProps {
     settings: Record<string, string>;

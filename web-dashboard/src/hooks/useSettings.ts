@@ -5,7 +5,16 @@ import type { Setting } from '../types'
 export function useSettings() {
   return useQuery({
     queryKey: ['settings'],
-    queryFn: () => api.get<Setting[]>('/settings').then((r) => r.data),
+    queryFn: () =>
+      api.get<Setting[]>('/settings').then((r) => {
+        // Convert array to map for backward compatibility
+        const settingsArray = r.data
+        const settingsMap: Record<string, string> = {}
+        for (const setting of settingsArray) {
+          settingsMap[setting.key] = setting.value
+        }
+        return settingsMap
+      }),
   })
 }
 

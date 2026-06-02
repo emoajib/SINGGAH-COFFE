@@ -400,7 +400,7 @@ Kopi Susu Gula Aren
 
 ---
 
-**Vetted by AI - Manual Review Required by Senior Engineer/Manager**
+**Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager**
 
 **Complexity Rating:** 8/10 - Comprehensive feature with frontend, backend, and database integration
 

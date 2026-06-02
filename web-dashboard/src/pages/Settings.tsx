@@ -18,7 +18,7 @@ import { PrinterSettings } from "./Settings/PrinterSettings"
 import { NotificationSettings } from "./Settings/NotificationSettings"
 import { IntegrationSettings } from "./Settings/IntegrationSettings"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 export default function Settings() {
     const { user } = useSelector((state: RootState) => state.auth)

@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "../../components/ui/button"
 import { Info, Loader2, Save, Shield, Users } from "lucide-react"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface SopSettingsProps {
     settings: Record<string, string>;

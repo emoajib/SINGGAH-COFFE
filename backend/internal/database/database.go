@@ -3,6 +3,7 @@ package database
 import (
 	"log"
 	"singgah-pos-backend/internal/config"
+	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/pkg/password"
 
@@ -27,12 +28,12 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.Ingredient{},
 		&models.RecipeItem{},
 		&models.StockMutation{},
-		&models.PurchaseOrder{},
 		&models.Order{},
 		&models.OrderItem{},
 		&models.Setting{},
 		&models.Expense{},
 		&models.ProcessedWebhook{},
+		&entity.TokenBlacklist{},
 	)
 	if err != nil {
 		log.Printf("AutoMigrate failed: %v", err)
@@ -63,6 +64,11 @@ func Connect(cfg config.Config) *gorm.DB {
 			{Key: "outlet_address", Value: "Jl. Example No. 123, Jakarta Selatan", SettingGroup: "profile"},
 			{Key: "tax_percentage", Value: "10", SettingGroup: "tax"},
 			{Key: "service_charge", Value: "5", SettingGroup: "tax"},
+			{Key: "printer_connection", Value: "network", SettingGroup: "printer"},
+			{Key: "printer_ip", Value: "", SettingGroup: "printer"},
+			{Key: "printer_bluetooth_address", Value: "", SettingGroup: "printer"},
+			{Key: "printer_width", Value: "80mm", SettingGroup: "printer"},
+			{Key: "auto_print", Value: "true", SettingGroup: "printer"},
 		}
 		db.Create(&defaultSettings)
 		log.Println("Seeded default settings")

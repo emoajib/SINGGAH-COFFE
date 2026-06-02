@@ -29,7 +29,7 @@ func (h *ExpenseHandler) GetExpenses(c *gin.Context) {
 	c.JSON(http.StatusOK, expenses)
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 	var req request.CreateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -56,7 +56,7 @@ func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 	c.JSON(http.StatusCreated, result)
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -89,7 +89,7 @@ func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (h *ExpenseHandler) UpdateCostType(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

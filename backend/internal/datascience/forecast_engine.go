@@ -7,7 +7,7 @@ import (
 	"singgah-pos-backend/internal/domain/entity"
 )
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Technical Assumptions:
 // - WMA (Weighted Moving Average) with 4 weight tiers
 // - Seasonal index computed per day-of-week from historical data
@@ -77,7 +77,7 @@ func (e *ForecastEngine) Forecast(nextPeriodDays int) *entity.BEPForecast {
 	}
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Weight tiers: last 7 days weight 0.30, 7-14 weight 0.25, 14-30 weight 0.25, rest 0.20
 func (e *ForecastEngine) calculateWMA() float64 {
 	n := len(e.DailySales)
@@ -128,7 +128,7 @@ func (e *ForecastEngine) calculateWMA() float64 {
 	return weightedSum / totalWeight
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (e *ForecastEngine) calculateSeasonalIndices() map[int]float64 {
 	if len(e.DailySales) < 14 {
 		return nil
@@ -169,7 +169,7 @@ func (e *ForecastEngine) calculateSeasonalIndices() map[int]float64 {
 	return indices
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (e *ForecastEngine) calculateMAPE(wma float64, indices map[int]float64) float64 {
 	if wma == 0 || len(e.DailySales) < 14 {
 		return 30 // default conservative MAPE
@@ -203,7 +203,7 @@ func (e *ForecastEngine) calculateMAPE(wma float64, indices map[int]float64) flo
 	return sumAPE / float64(count)
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (e *ForecastEngine) determineTrend() string {
 	n := len(e.DailySales)
 	if n < 14 {

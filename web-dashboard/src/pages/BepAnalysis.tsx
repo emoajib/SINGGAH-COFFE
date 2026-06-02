@@ -1,4 +1,4 @@
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 import React, { useState } from 'react'
 import { useBEPReport } from '../hooks/useBep'
 import {
@@ -43,7 +43,7 @@ const STATUS_TEXT: Record<string, string> = {
   KRITIS: '🔴 Kritis'
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 const BepAnalysis: React.FC = () => {
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -101,7 +101,7 @@ const BepAnalysis: React.FC = () => {
     },
   ]
 
-  // ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+  // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
   if (isLoading) {
     return (
       <div className="p-6 flex justify-center items-center h-full min-h-[400px]">

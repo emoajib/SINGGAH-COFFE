@@ -62,15 +62,7 @@ type StockMutation struct {
 	Date         time.Time `json:"date"`
 }
 
-type PurchaseOrder struct {
-	BaseModel
-	PONumber  string    `json:"po_number" gorm:"unique"`
-	Supplier  string    `json:"supplier"`
-	Status    string    `json:"status"` // Draft, Ordered, Received, Cancelled
-	TotalCost float64   `json:"total_cost"`
-	Date      time.Time `json:"date"`
-	Note      string    `json:"note"`
-}
+
 
 type Order struct {
 	BaseModel
@@ -102,7 +94,7 @@ type ProcessedWebhook struct {
 	Status    string `json:"status"`
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type Expense struct {
 	BaseModel
 	Title       string    `json:"title"`

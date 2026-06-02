@@ -76,7 +76,7 @@ cd singgah-pos-mobile && npm install && npx expo start --web
 
 ## 🔒 Governance & Security
 
-**⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager**
+**⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager**
 
 1. **Development Environment**: SIP must be disabled on macOS Intel/Silicon for network binding.
 2. **Data Security**: Secret keys (JWT, Xendit) must be configured in `backend/.env`.

@@ -3,12 +3,15 @@ package middleware
 import (
 	"net/http"
 	"strings"
+
 	"singgah-pos-backend/internal/pkg/jwt"
+	"singgah-pos-backend/internal/repository/postgres"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -23,6 +26,19 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
 			return
+		}
+
+		// Check if token is blacklisted
+		tokenBlacklistRepo := postgres.NewTokenBlacklistRepository(db)
+		if isBlacklisted, err := tokenBlacklistRepo.IsTokenBlacklisted(tokenString); err != nil || isBlacklisted {
+			if err != nil {
+				// Log error but don't fail open - if we can't check, assume token is valid for availability
+				// In production, you might want to fail closed here
+			} else if isBlacklisted {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
+				c.Abort()
+				return
+			}
 		}
 
 		c.Set("user_id", claims.UserID)

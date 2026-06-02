@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"errors"
+
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/pkg/jwt"
@@ -8,16 +10,22 @@ import (
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 
+	"golang.org/x/crypto/bcrypt"
+
+	jwtv5 "github.com/golang-jwt/jwt/v5"
+
 	"gorm.io/gorm"
 )
 
 type AuthUsecase struct {
-	userRepo repository.UserRepository
+	userRepo           repository.UserRepository
+	tokenBlacklistRepo repository.TokenBlacklistRepository
 }
 
 func NewAuthUsecase(db *gorm.DB) *AuthUsecase {
 	return &AuthUsecase{
-		userRepo: postgres.NewUserRepository(db),
+		userRepo:           postgres.NewUserRepository(db),
+		tokenBlacklistRepo: postgres.NewTokenBlacklistRepository(db),
 	}
 }
 
@@ -158,4 +166,47 @@ func (uc *AuthUsecase) ChangePassword(userID uint, currentPassword, newPassword 
 
 	user.Password = hashed
 	return uc.userRepo.Update(user)
+}
+
+// Logout revokes a JWT token by adding it to the blacklist
+func (uc *AuthUsecase) Logout(tokenString string) error {
+	// Parse token to get our custom claims
+	claims := &jwt.Claims{}
+	token, err := jwtv5.ParseWithClaims(tokenString, claims, func(token *jwtv5.Token) (interface{}, error) {
+		return jwt.JwtKey, nil
+	})
+	if err != nil {
+		return err
+	}
+	if !token.Valid {
+		return errors.New("invalid token")
+	}
+
+	// Extract JTI from claims
+	jti := claims.RegisteredClaims.ID
+	if jti == "" {
+		// If no JTI, we can't reliably blacklist the token
+		return errors.New("token missing JTI claim")
+	}
+
+	// Hash the token for storage (don't store raw token)
+	tokenHash, err := bcrypt.GenerateFromPassword([]byte(tokenString), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// Add to blacklist
+	blacklist := &entity.TokenBlacklist{
+		Jti:       jti,
+		UserID:    claims.UserID,
+		Token:     string(tokenHash),
+		ExpiresAt: claims.RegisteredClaims.ExpiresAt.Time, // Use token expiration time
+	}
+
+	return uc.tokenBlacklistRepo.Create(blacklist)
+}
+
+// CleanupExpiredTokens removes expired tokens from the blacklist
+func (uc *AuthUsecase) CleanupExpiredTokens() error {
+	return uc.tokenBlacklistRepo.DeleteExpired()
 }

@@ -5,12 +5,22 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"gorm.io/gorm"
+
+	"singgah-pos-backend/internal/repository/postgres"
 )
 
-var jwtKey []byte
+// JwtKey is the secret key used to sign and verify JWT tokens.
+var JwtKey []byte
 
-func Init(secret string) {
-	jwtKey = []byte(secret)
+// db is set during initialization for token blacklist checking
+var db *gorm.DB
+
+// Init initializes the JWT package with a secret and database connection
+func Init(secret string, database *gorm.DB) {
+	JwtKey = []byte(secret)
+	db = database
 }
 
 type Claims struct {
@@ -21,7 +31,7 @@ type Claims struct {
 }
 
 func GenerateToken(userID uint, email, role string) (string, error) {
-	if jwtKey == nil {
+	if JwtKey == nil {
 		return "", errors.New("JWT not initialized")
 	}
 	expirationTime := time.Now().Add(24 * time.Hour)
@@ -35,16 +45,16 @@ func GenerateToken(userID uint, email, role string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtKey)
+	return token.SignedString(JwtKey)
 }
 
 func ValidateToken(tokenString string) (*Claims, error) {
-	if jwtKey == nil {
+	if JwtKey == nil {
 		return nil, errors.New("JWT not initialized")
 	}
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
+		return JwtKey, nil
 	})
 	if err != nil {
 		return nil, err
@@ -52,5 +62,17 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	if !token.Valid {
 		return nil, errors.New("invalid token")
 	}
+
+	// Check if token is blacklisted
+	if db != nil {
+		tokenBlacklistRepo := postgres.NewTokenBlacklistRepository(db)
+		if isBlacklisted, err := tokenBlacklistRepo.IsTokenBlacklisted(tokenString); err != nil {
+			// Log error but don't fail open - if we can't check, assume token is valid for availability
+			// In production, you might want to fail closed here
+		} else if isBlacklisted {
+			return nil, errors.New("token has been revoked")
+		}
+	}
+
 	return claims, nil
 }

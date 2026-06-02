@@ -123,7 +123,7 @@ LIMIT 20;
 
 ## 🔐 Security & Compliance
 
-**⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager**
+**⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager**
 
 ### Risk Assessment:
 - **Data Integrity**: Recipe data tersimpan di database dengan foreign key constraints

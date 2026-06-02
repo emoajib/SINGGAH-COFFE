@@ -8,7 +8,7 @@ import (
 	"singgah-pos-backend/internal/domain/entity"
 )
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Technical Assumptions:
 // - Sales volume follows normal distribution around forecast mean
 // - Price and cost variability is small (±5% for price, ±3% for cost, ±5% for fixed cost)
@@ -115,7 +115,7 @@ func (s *MonteCarloSimulator) Simulate() *entity.MonteCarloResult {
 	}
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Box-Muller transform for generating normally distributed random numbers
 func normalRandom(mean, std float64) float64 {
 	if std <= 0 {

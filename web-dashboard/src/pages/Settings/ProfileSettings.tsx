@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button"
 import { Camera, Loader2, Save } from "lucide-react"
 import { getImageUrl, formatCurrency } from "../../lib/utils"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface ProfileSettingsProps {
     settings: Record<string, string>;

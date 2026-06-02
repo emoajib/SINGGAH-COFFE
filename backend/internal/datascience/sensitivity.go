@@ -7,7 +7,7 @@ import (
 	"singgah-pos-backend/internal/domain/entity"
 )
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Technical Assumptions:
 // - Sensitivity analysis evaluates one parameter at a time (univariate)
 // - Contribution margin ratio stays constant within the evaluated range
@@ -63,7 +63,7 @@ func (a *SensitivityAnalyzer) Analyze() *entity.SensitivityMatrix {
 	}
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (a *SensitivityAnalyzer) generateScenarios() []entity.BEPScenario {
 	var scenarios []entity.BEPScenario
 
@@ -130,7 +130,7 @@ func (a *SensitivityAnalyzer) generateScenarios() []entity.BEPScenario {
 	return scenarios
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (a *SensitivityAnalyzer) findMostSensitive(scenarios []entity.BEPScenario) string {
 	maxDelta := 0.0
 	mostSensitive := "price"
@@ -161,7 +161,7 @@ func (a *SensitivityAnalyzer) findMostSensitive(scenarios []entity.BEPScenario) 
 	return "Harga Jual"
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func formatPercent(label string, change float64) string {
 	sign := "+"
 	if change < 0 {

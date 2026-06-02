@@ -19,6 +19,7 @@ import { useAuthStore } from '../../src/stores/authStore'
 import { useToastStore } from '../../src/stores/toastStore'
 import Receipt from '../../src/components/pos/Receipt'
 import { formatNumber } from '../../src/lib/utils'
+import { printerService, PrinterSettings } from '../../src/services/printerService'
 import type { Product } from '../../src/types'
 
 export default function PosScreen() {
@@ -49,15 +50,49 @@ export default function PosScreen() {
   const tax = (subtotal + serviceFee) * (taxPercentage / 100)
   const total = subtotal + serviceFee + tax
 
-  const handlePrint = () => {
-    if (settings?.printer_ip) {
-      showToast(`Sending to printer at ${settings.printer_ip}...`, 'info')
-    }
-    // Web fallback
-    if (typeof window !== 'undefined') {
-      window.print()
-    }
-  }
+   const handlePrint = async () => {
+     if (!settings) {
+       showToast('Printer settings not available', 'error')
+       return
+     }
+
+     try {
+       showToast('Connecting to printer...', 'info')
+       
+       // Prepare receipt data
+       const receiptData: any = {
+         orderNumber: lastOrderNumber,
+         items: items,
+         products: products || [],
+         subtotal,
+         serviceFee,
+         tax,
+         total,
+         paymentMethod,
+         cashierName: user?.name || 'Cashier',
+         outletName: settings.outlet_name,
+         outletAddress: settings.outlet_address,
+         logoUrl: settings.outlet_logo_url
+       }
+
+       // Convert settings to PrinterSettings format
+       const printerSettings: PrinterSettings = {
+         printer_connection: (settings.printer_connection === 'network' || settings.printer_connection === 'bluetooth' || settings.printer_connection === 'usb') ? 
+           settings.printer_connection : 'network',
+         printer_ip: settings.printer_ip,
+         printer_bluetooth_address: settings.printer_bluetooth_address,
+         printer_width: (settings.printer_width === '58mm' || settings.printer_width === '80mm') ? 
+           settings.printer_width : '80mm',
+         auto_print: settings.auto_print
+       }
+
+       await printerService.printReceipt(printerSettings, receiptData)
+       showToast('Receipt printed successfully!', 'success')
+     } catch (error: any) {
+       console.error('Print error:', error)
+       showToast(`Print failed: ${error.message}`, 'error')
+     }
+   }
 
   const handleCheckout = async () => {
     if (items.length === 0 || isProcessing) return

@@ -1,4 +1,4 @@
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 import api from '../lib/api'
 import type { BEPResponse } from '../types'
 

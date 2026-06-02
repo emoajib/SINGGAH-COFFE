@@ -106,3 +106,12 @@ type WebhookRepository interface {
 	Update(order *entity.Order) error
 	FindAll(limit int) ([]entity.ProcessedWebhook, error)
 }
+
+// TokenBlacklistRepository defines data access for token blacklist
+type TokenBlacklistRepository interface {
+	Create(blacklist *entity.TokenBlacklist) error
+	FindByJti(jti string) (*entity.TokenBlacklist, error)
+	FindByTokenHash(tokenHash string) (*entity.TokenBlacklist, error)
+	IsTokenBlacklisted(tokenString string) (bool, error)
+	DeleteExpired() error
+}

@@ -25,6 +25,7 @@ export default function AppLayout() {
       <Stack.Screen name="products" />
       <Stack.Screen name="ingredients" />
       <Stack.Screen name="expenses" />
+      <Stack.Screen name="reports" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="index" />
     </Stack>

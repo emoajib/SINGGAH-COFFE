@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Technical Assumptions:
 // - BEP calculation uses current month's data with date range filtering
 // - Fixed costs are expenses marked with cost_type = "fixed"
@@ -292,7 +292,7 @@ func (uc *BEPUsecase) GetBEPReport(month, year int) (*entity.BEPResponse, error)
 	}, nil
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func calculateStdDevFromDailySales(dailySales []entity.DailySales) float64 {
 	if len(dailySales) == 0 {
 		return 0
@@ -314,7 +314,7 @@ func calculateStdDevFromDailySales(dailySales []entity.DailySales) float64 {
 	return math.Sqrt(variance)
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (uc *BEPUsecase) parseCapitalSettings() (float64, int) {
 	initialCapital := 0.0
 	amortMonths := 12
@@ -332,7 +332,7 @@ func (uc *BEPUsecase) parseCapitalSettings() (float64, int) {
 	return initialCapital, amortMonths
 }
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func generateEarlyWarning(report *entity.BEPReport, forecast *entity.BEPForecast) *entity.EarlyWarning {
 	var recommendations []entity.Recommendation
 

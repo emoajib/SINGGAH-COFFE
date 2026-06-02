@@ -3,7 +3,7 @@ import { Input } from "../../components/ui/input"
 import { Button } from "../../components/ui/button"
 import { Loader2, Save } from "lucide-react"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface TaxSettingsProps {
     settings: Record<string, string>;

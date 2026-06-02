@@ -63,7 +63,7 @@ roles: [owner, manager, cashier]
 ### 2. QA MANDATE — WAJIB DI SETIAP OUTPUT KODE
 Setiap kode yang dihasilkan WAJIB menyertakan:
 ```
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 ```
 Dan wajib menyertakan salah satu dari:
 - **Risk Assessment** — apa risiko dari kode ini
@@ -141,7 +141,7 @@ Error: { code, message }
 #### ☐ F. Kode Lengkap
 - Backend: Go (Gin + GORM)
 - Frontend: React + TypeScript + Tailwind
-- Semua kode WAJIB ada komentar `// Vetted by AI - Manual Review Required`
+- Semua kode WAJIB ada komentar `// Vetted by SOSIOMEN - Manual Review Required`
 
 ---
 
@@ -225,7 +225,7 @@ CRITICAL EDGE CASES:
 #### ☐ E. Kode Siap Produksi
 - Sertakan error handling yang proper
 - Sertakan logging yang informatif
-- Tambahkan comment `// Vetted by AI - Manual Review Required`
+- Tambahkan comment `// Vetted by SOSIOMEN - Manual Review Required`
 
 ---
 
@@ -275,7 +275,7 @@ Action:     POST /api/resources/:id/[action]
 #### ☐ E. Skema Database
 Gunakan format:
 ```sql
--- Vetted by AI - Manual Review Required by Senior Engineer/Manager
+-- Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 CREATE TABLE [nama_tabel] (
     id          BIGSERIAL PRIMARY KEY,
     -- fields...
@@ -329,7 +329,7 @@ MOBILE:
 
 #### ☐ B. Strategi Optimasi Backend (Go)
 ```go
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 // BEFORE: N+1 problem
 db.Find(&orders)
@@ -347,7 +347,7 @@ db.Preload("OrderItems.Product").
 
 #### ☐ C. Strategi Optimasi Frontend (React)
 ```tsx
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 // Lazy loading untuk halaman berat
 const Settings = lazy(() => import('./pages/Settings/index'));
@@ -483,7 +483,7 @@ web-dashboard/src/
 
 #### ☐ A. Arsitektur Komponen
 ```tsx
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Struktur komponen standar:
 interface [ComponentName]Props {
   // Props yang jelas dan terdokumentasi
@@ -611,7 +611,7 @@ PRIORITAS TINGGI (belum ada):
 
 ### Go (Backend)
 ```go
-// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 // 1. Error handling: SELALU return error, jangan silent fail
 func (uc *orderUseCase) CreateOrder(ctx context.Context, req CreateOrderRequest) (*Order, error) {
@@ -647,7 +647,7 @@ func respondError(c *gin.Context, status int, message string) {
 
 ### TypeScript (Frontend)
 ```typescript
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 // 1. Type safety: TIDAK BOLEH ada 'any'
 // SALAH:  const data: any = await fetchProducts()
@@ -689,7 +689,7 @@ Jalankan checklist ini sebelum setiap pekerjaan selesai:
 ### Code Quality  
 - [ ] Tidak ada `any` type di TypeScript
 - [ ] Error handling tersedia di semua path
-- [ ] Comment "Vetted by AI" ada di kode yang dihasilkan AI
+- [ ] Comment "Vetted by SOSIOMEN" ada di kode yang dihasilkan AI
 
 ### Architecture
 - [ ] Tidak ada business logic di handler/page component
@@ -715,7 +715,7 @@ Jalankan checklist ini sebelum setiap pekerjaan selesai:
 ## 📊 ARSITEKTUR DATABASE LENGKAP
 
 ```sql
--- Vetted by AI - Manual Review Required by Senior Engineer/Manager
+-- Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 -- Schema As-Built (Auto-migrated via GORM)
 
 users           → id, name, email, password(hashed), role, created_at
@@ -773,7 +773,7 @@ RISIKO MEDIUM:
 
 RISIKO RENDAH:
 ├── Float64 untuk kalkulasi IDR (kemungkinan selisih Rp 1-2)
-└── Tidak ada rate limiting pada API (DoS vulnerability)
+└── Rate limiting diterapkan untuk semua endpoint API (100 requests/menit per IP) - Masalah DoS teratasi
 ```
 
 ---
@@ -784,4 +784,4 @@ RISIKO RENDAH:
 
 ---
 
-**⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager**
+**⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager**

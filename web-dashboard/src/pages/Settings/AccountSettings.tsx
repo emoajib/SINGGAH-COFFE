@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button"
 import { Eye, EyeOff, Loader2, Lock, Save } from "lucide-react"
 import { useState } from "react"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface AccountSettingsProps {
     profile: { name: string; email: string };

@@ -3,7 +3,7 @@ import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface StaffSettingsProps {
     staffList: Array<{id: string; name: string; email: string; role: 'owner' | 'manager' | 'cashier' }>;

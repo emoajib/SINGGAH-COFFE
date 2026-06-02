@@ -18,7 +18,7 @@ func NewSettingsUsecase(db *gorm.DB) *SettingsUsecase {
 	}
 }
 
-func (uc *SettingsUsecase) GetAll(group string) (entity.SettingMap, error) {
+func (uc *SettingsUsecase) GetAll(group string) ([]entity.Setting, error) {
 	var settings []entity.Setting
 	var err error
 
@@ -31,12 +31,7 @@ func (uc *SettingsUsecase) GetAll(group string) (entity.SettingMap, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	result := make(entity.SettingMap)
-	for _, s := range settings {
-		result[s.Key] = s.Value
-	}
-	return result, nil
+	return settings, nil
 }
 
 func (uc *SettingsUsecase) Update(settings entity.SettingMap) error {
