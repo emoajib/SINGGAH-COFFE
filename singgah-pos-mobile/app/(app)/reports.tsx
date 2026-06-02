@@ -6,27 +6,57 @@ import { reportService } from '../../src/services/reportService'
 import { useToastStore } from '../../src/stores/toastStore'
 import { useAuthStore } from '../../src/stores/authStore'
 
+interface ProfitLossData {
+  revenue: number
+  cogs: number
+  grossProfit: number
+  grossProfitMargin: number
+  totalExpenses: number
+  netProfit: number
+}
+
+interface SalesSummaryData {
+  totalSales: number
+  totalOrders: number
+  averageOrderValue: number
+  topProducts: Array<{ name: string; quantity: number; revenue: number }>
+}
+
+type ReportCardItem =
+  | { title: 'Profit & Loss'; icon: string; data: ProfitLossData | undefined }
+  | { title: 'Sales Summary'; icon: string; data: SalesSummaryData | undefined }
+
 export default function ReportsScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { user } = useAuthStore()
   const { showToast } = useToastStore()
   
-  const [reportData, setReportData] = useState<any>(null)
+  const [reportData, setReportData] = useState<{
+    profitLoss: ProfitLossData
+    salesSummary: SalesSummaryData
+  } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const loadReportData = async () => {
     setIsLoading(true)
     try {
-      const [profitLoss, salesSummary] = await Promise.all([
+      const [profitLossResult, salesSummaryResult] = await Promise.all([
         reportService.getProfitLoss(),
         reportService.getSalesSummary()
       ])
       
       setReportData({
-        profitLoss,
-        salesSummary
+        profitLoss: {
+          revenue: profitLossResult.revenue,
+          cogs: profitLossResult.cogs,
+          grossProfit: profitLossResult.grossProfit,
+          grossProfitMargin: profitLossResult.grossProfitMargin,
+          totalExpenses: 0,
+          netProfit: 0,
+        },
+        salesSummary: salesSummaryResult,
       })
       showToast('Reports loaded successfully', 'success')
     } catch (error) {
@@ -74,56 +104,61 @@ export default function ReportsScreen() {
       ) : (
         <FlatList
           data={[
-            { title: 'Profit & Loss', icon: '💰', data: reportData?.profitLoss },
-            { title: 'Sales Summary', icon: '📊', data: reportData?.salesSummary }
+            { title: 'Profit & Loss' as const, icon: '💰', data: reportData?.profitLoss },
+            { title: 'Sales Summary' as const, icon: '📊', data: reportData?.salesSummary },
           ]}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.icon} {item.title}</Text>
-              </View>
-              <View style={styles.cardBody}>
-                {item.title === 'Profit & Loss' && item.data ? (
-                  <>
+          renderItem={({ item }: { item: ReportCardItem }) => {
+            if (item.title === 'Profit & Loss' && item.data) {
+              const pl = item.data as ProfitLossData
+              return (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>{item.icon} {item.title}</Text>
+                  </View>
+                  <View style={styles.cardBody}>
                     <Text style={styles.label}>Revenue:</Text>
-                    <Text style={styles.value}>Rp {item.data.revenue.toLocaleString('id-ID')}</Text>
+                    <Text style={styles.value}>Rp {pl.revenue.toLocaleString('id-ID')}</Text>
                     <Text style={styles.label}>COGS:</Text>
-                    <Text style={styles.value}>Rp {item.data.cogs.toLocaleString('id-ID')}</Text>
+                    <Text style={styles.value}>Rp {pl.cogs.toLocaleString('id-ID')}</Text>
                     <Text style={styles.label}>Gross Profit:</Text>
-                    <Text style={styles.value}>Rp {item.data.grossProfit.toLocaleString('id-ID')}</Text>
+                    <Text style={styles.value}>Rp {pl.grossProfit.toLocaleString('id-ID')}</Text>
                     <Text style={styles.label}>Gross Margin:</Text>
-                    <Text style={styles.value}>{item.data.grossProfitMargin.toFixed(1)}%</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.label}>Total Sales:</Text>
-                    <Text style={styles.value}>Rp {item.data?.totalSales?.toLocaleString('id-ID') || 0}</Text>
-                    <Text style={styles.label}>Total Orders:</Text>
-                    <Text style={styles.value}>{item.data?.totalOrders || 0}</Text>
-                    <Text style={styles.label}>Avg Order Value:</Text>
-                    <Text style={styles.value}>Rp {item.data?.averageOrderValue?.toLocaleString('id-ID') || 0}</Text>
-                    {item.data?.topProducts && item.data.topProducts.length > 0 ? (
-                      <>
-                        <Text style={styles.labelTop}>Top Products:</Text>
-                        <FlatList
-                          data={item.data.topProducts}
-                          keyExtractor={(item, index) => index.toString()}
-                          renderItem={({ item }) => (
-                            <View style={styles.productItem}>
-                              <Text style={styles.productText}>{item.name}</Text>
-                              <Text style={styles.productText}>Qty: {item.quantity} | Rev: Rp {item.revenue.toLocaleString('id-ID')}</Text>
-                            </View>
-                          )}
-                          contentContainerStyle={styles.productList}
-                        />
-                      </>
-                    ) : null}
-                  </>
-                )}
+                    <Text style={styles.value}>{pl.grossProfitMargin.toFixed(1)}%</Text>
+                  </View>
+                </View>
+              )
+            }
+            const ss = item.data as SalesSummaryData | undefined
+            return (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{item.icon} {item.title}</Text>
+                </View>
+                <View style={styles.cardBody}>
+                  <Text style={styles.label}>Total Sales:</Text>
+                  <Text style={styles.value}>Rp {ss?.totalSales?.toLocaleString('id-ID') || 0}</Text>
+                  <Text style={styles.label}>Total Orders:</Text>
+                  <Text style={styles.value}>{ss?.totalOrders || 0}</Text>
+                  <Text style={styles.label}>Avg Order Value:</Text>
+                  <Text style={styles.value}>Rp {ss?.averageOrderValue?.toLocaleString('id-ID') || 0}</Text>
+                  {ss?.topProducts && ss.topProducts.length > 0 ? (
+                    <>
+                      <Text style={styles.labelTop}>Top Products:</Text>
+                      <View style={styles.productList}>
+                        {ss.topProducts.map((product: { name: string; quantity: number; revenue: number }, index: number) => (
+                          <View key={index} style={styles.productItem}>
+                            <Text style={styles.productText}>{product.name}</Text>
+                            <Text style={styles.productText}>Qty: {product.quantity} | Rev: Rp {product.revenue.toLocaleString('id-ID')}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  ) : null}
+                </View>
               </View>
-            </View>
-          )}
-          keyExtractor={(item, index) => index.toString()}
+            )
+          }}
+          keyExtractor={(_item: ReportCardItem, index: number) => index.toString()}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#4B3621" />}
           ListEmptyComponent={

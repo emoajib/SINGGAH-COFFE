@@ -101,6 +101,28 @@ func (uc *ReportUsecase) GetDashboardSummary() (*entity.DashboardSummary, error)
 	return summary, nil
 }
 
+func (uc *ReportUsecase) GetSalesSummary() *entity.SalesSummaryResponse {
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := startOfDay.Format("2006-01-02 15:04:05")
+
+	totalSales, _ := uc.orderRepo.GetTotalSalesSince(since)
+	totalOrders, _ := uc.orderRepo.CountSince(since)
+	topProducts, _ := uc.orderItemRepo.GetTopProducts(5)
+
+	var avg float64
+	if totalOrders > 0 {
+		avg = totalSales / float64(totalOrders)
+	}
+
+	return &entity.SalesSummaryResponse{
+		TotalSales:        totalSales,
+		TotalOrders:       totalOrders,
+		AverageOrderValue: avg,
+		TopProducts:       topProducts,
+	}
+}
+
 func (uc *ReportUsecase) GetProfitLossReport(start, end string) (*entity.ProfitLossReport, error) {
 	revenue, _ := uc.orderRepo.GetTotalSalesRange(start, end)
 	cogs, _ := uc.orderItemRepo.GetTotalCogsRange(start, end)

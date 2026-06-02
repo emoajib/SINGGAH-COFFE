@@ -15,3 +15,10 @@ type ExpenseDetail struct {
 	Category string  `json:"category"`
 	Amount   float64 `json:"amount"`
 }
+
+type SalesSummaryResponse struct {
+	TotalSales        float64      `json:"totalSales"`
+	TotalOrders       int64        `json:"totalOrders"`
+	AverageOrderValue float64      `json:"averageOrderValue"`
+	TopProducts       []TopProduct `json:"topProducts"`
+}

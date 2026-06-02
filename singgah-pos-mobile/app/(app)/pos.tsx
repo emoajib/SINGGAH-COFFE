@@ -19,7 +19,8 @@ import { useAuthStore } from '../../src/stores/authStore'
 import { useToastStore } from '../../src/stores/toastStore'
 import Receipt from '../../src/components/pos/Receipt'
 import { formatNumber } from '../../src/lib/utils'
-import { printerService, PrinterSettings } from '../../src/services/printerService'
+import { printerService, PrinterSettings, ReceiptData } from '../../src/services/printerService'
+import PrintButton from '../../src/components/PrintButton'
 import type { Product } from '../../src/types'
 
 export default function PosScreen() {
@@ -37,6 +38,7 @@ export default function PosScreen() {
   // Receipt State
   const [showReceipt, setShowReceipt] = useState(false)
   const [lastOrderNumber, setLastOrderNumber] = useState('')
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
 
   const serviceCharge = parseFloat(settings?.service_charge || '0') || 0
   const taxPercentage = parseFloat(settings?.tax_percentage || '0') || 0
@@ -51,29 +53,13 @@ export default function PosScreen() {
   const total = subtotal + serviceFee + tax
 
    const handlePrint = async () => {
-     if (!settings) {
-       showToast('Printer settings not available', 'error')
+     if (!settings || !receiptData) {
+       showToast('Printer settings or receipt data not available', 'error')
        return
      }
 
      try {
        showToast('Connecting to printer...', 'info')
-       
-       // Prepare receipt data
-       const receiptData: any = {
-         orderNumber: lastOrderNumber,
-         items: items,
-         products: products || [],
-         subtotal,
-         serviceFee,
-         tax,
-         total,
-         paymentMethod,
-         cashierName: user?.name || 'Cashier',
-         outletName: settings.outlet_name,
-         outletAddress: settings.outlet_address,
-         logoUrl: settings.outlet_logo_url
-       }
 
        // Convert settings to PrinterSettings format
        const printerSettings: PrinterSettings = {
@@ -109,7 +95,24 @@ export default function PosScreen() {
       })
 
       setLastOrderNumber(orderNumber)
-      
+
+      // Build receipt data with proper type
+      const newReceiptData: ReceiptData = {
+        orderNumber,
+        items: items.map(i => ({ productId: i.productId, quantity: i.quantity })),
+        products: products || [],
+        subtotal,
+        serviceFee,
+        tax,
+        total,
+        paymentMethod,
+        cashierName: user?.name || 'Cashier',
+        outletName: settings?.outlet_name,
+        outletAddress: settings?.outlet_address,
+        logoUrl: settings?.outlet_logo_url,
+      }
+      setReceiptData(newReceiptData)
+
       // Auto-print if enabled in settings
       if (settings?.auto_print === 'true') {
         handlePrint()
@@ -292,9 +295,7 @@ export default function PosScreen() {
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.printBtn]} onPress={handlePrint}>
-                <Text style={styles.printBtnText}>PRINT RECEIPT</Text>
-              </TouchableOpacity>
+              {receiptData && <PrintButton receiptData={receiptData} />}
               <TouchableOpacity style={[styles.modalBtn, styles.newOrderBtn]} onPress={closeReceipt}>
                 <Text style={styles.newOrderBtnText}>NEW ORDER</Text>
               </TouchableOpacity>

@@ -66,6 +66,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			// Reports & Dashboard
 			protected.GET("/dashboard/summary", h.Report.GetDashboardSummary)
 			protected.GET("/reports/profit-loss", h.Report.GetProfitLoss)
+			protected.GET("/reports/sales-summary", h.Report.GetSalesSummary)
+			protected.GET("/reports/profit-loss/export", h.Report.ExportProfitLossCSV)
 			protected.GET("/integrations/logs", h.Webhook.GetWebhookLogs)
 
 			// Settings
