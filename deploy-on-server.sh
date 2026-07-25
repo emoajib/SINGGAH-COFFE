@@ -25,11 +25,20 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../backend/main ./cmd/server
 echo "   ✅ Backend binary ready"
 
 echo ""
-echo "📦 Step 2: Build React frontend..."
+echo "📦 Step 2: Build React frontend (shared hosting - low memory)..."
 mkdir -p "$PROJ_DIR/web" "$PROJ_DIR/logs"
 cd "$PROJ_DIR/web-dashboard"
-NODE_OPTIONS="--max-old-space-size=512" npm run build
-echo "   ✅ Frontend build ready"
+export NODE_OPTIONS="--max-old-space-size=256"
+export VITE_BUILD_SERVE_STATIC=false
+if npm run build 2>&1 | tail -5; then
+  echo "   ✅ Frontend build ready"
+else
+  echo ""
+  echo "⚠️  Build gagal karena RAM terbatas."
+  echo "   Coba install node lebih ringan atau build di lokal, lalu upload dist/"
+  echo "   Alternatif: npm ci && npm run build -- --minify=false"
+  exit 1
+fi
 
 echo ""
 echo "📤 Step 3: Copy files to web/..."
