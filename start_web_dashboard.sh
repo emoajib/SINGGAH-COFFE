@@ -3,7 +3,7 @@
 echo "🌐 Starting Web Dashboard..."
 echo "=============================="
 
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/web-dashboard"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/web-dashboard"
 
 # Check if node_modules exists
 if [ ! -d "node_modules" ]; then

@@ -21,13 +21,13 @@ Open **3 separate Terminal windows**:
 
 **Terminal 1 - Backend:**
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 ./start_all_services.sh
 ```
 
 **Terminal 2 - Web Dashboard:**
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 ./start_web_dashboard.sh
 ```
 
@@ -35,13 +35,13 @@ cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 
 **Terminal 1:**
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 docker-compose up -d
 ```
 
 **Terminal 2:**
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/web-dashboard"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/web-dashboard"
 npm run dev
 ```
 
@@ -60,7 +60,7 @@ npm run dev
 # Stop web dashboard and backend: Ctrl+C in their terminals
 
 # Stop Docker:
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 docker-compose down
 ```
 

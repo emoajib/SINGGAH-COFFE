@@ -11,7 +11,7 @@
 project_name: Singgah Coffee POS System
 version: 2.0.0
 status: Stable / Active Development (Phase 3)
-workspace: /Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/
+workspace: /Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/
 
 stack:
   backend:

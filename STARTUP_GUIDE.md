@@ -54,13 +54,13 @@ Run these scripts in separate terminal windows:
 
 #### Terminal 1: Backend + Database
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 ./start_all_services.sh
 ```
 
 #### Terminal 2: Web Dashboard
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 ./start_web_dashboard.sh
 ```
 
@@ -70,7 +70,7 @@ cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 
 #### 1. Start Backend & Database (Docker)
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 docker-compose down
 docker-compose up -d --build
 
@@ -80,7 +80,7 @@ docker ps
 
 #### 2. Start Web Dashboard
 ```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/web-dashboard"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/web-dashboard"
 npm install  # First time only
 npm run dev
 ```
