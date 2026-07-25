@@ -1,5 +1,5 @@
 import api from '../lib/api';
-import type { Ingredient, CreateIngredientRequest, CreateStockMutationRequest, StockMutation } from '../types';
+import type { Ingredient, LowStockAlert, CreateIngredientRequest, CreateStockMutationRequest, StockMutation } from '../types';
 
 export type { Ingredient };
 export type MutationType = 'IN' | 'OUT' | 'ADJ_ADD' | 'ADJ_SUB';
@@ -8,6 +8,12 @@ export const InventoryService = {
     // Get all ingredients
     getAll: async (): Promise<Ingredient[]> => {
         const response = await api.get('/ingredients');
+        return response.data;
+    },
+
+    // Get low stock alerts
+    getLowStockAlerts: async (): Promise<LowStockAlert> => {
+        const response = await api.get('/inventory/low-stock');
         return response.data;
     },
 

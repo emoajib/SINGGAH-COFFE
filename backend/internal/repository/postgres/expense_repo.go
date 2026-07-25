@@ -15,9 +15,11 @@ func NewExpenseRepository(db *gorm.DB) *expenseRepository {
 	return &expenseRepository{db: db}
 }
 
-func (r *expenseRepository) FindAll() ([]entity.Expense, error) {
+func (r *expenseRepository) FindAll(outletID ...uint) ([]entity.Expense, error) {
+	tx := r.db.Order("date desc, id desc")
+	tx = scopeOutlet(tx, "expenses", outletID...)
 	var ms []models.Expense
-	err := r.db.Order("date desc, id desc").Find(&ms).Error
+	err := tx.Find(&ms).Error
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +47,7 @@ func (r *expenseRepository) Create(expense *entity.Expense) error {
 		Date:        expense.Date,
 		Description: expense.Description,
 		Notes:       expense.Notes,
+		OutletID:    expense.OutletID,
 	}
 	if err := r.db.Create(m).Error; err != nil {
 		return err
@@ -69,40 +72,42 @@ func (r *expenseRepository) Delete(id uint) error {
 	return r.db.Delete(&models.Expense{}, id).Error
 }
 
-func (r *expenseRepository) GetTotal() (float64, error) {
+func (r *expenseRepository) GetTotal(outletID ...uint) (float64, error) {
+	tx := r.db.Model(&models.Expense{}).Select("COALESCE(SUM(amount), 0)")
+	tx = scopeOutlet(tx, "expenses", outletID...)
 	var total float64
-	err := r.db.Model(&models.Expense{}).
-		Select("COALESCE(SUM(amount), 0)").
-		Row().Scan(&total)
+	err := tx.Row().Scan(&total)
 	return total, err
 }
 
-func (r *expenseRepository) GetBreakdownRange(start, end string) ([]entity.ExpenseDetail, error) {
+func (r *expenseRepository) GetBreakdownRange(start, end string, outletID ...uint) ([]entity.ExpenseDetail, error) {
+	tx := r.db.Model(&models.Expense{}).
+		Where("date BETWEEN ? AND ?", start, end)
+	tx = scopeOutlet(tx, "expenses", outletID...)
 	var results []entity.ExpenseDetail
-	err := r.db.Model(&models.Expense{}).
-		Where("date BETWEEN ? AND ?", start, end).
-		Select("category, SUM(amount) as amount").
+	err := tx.Select("category, SUM(amount) as amount").
 		Group("category").
 		Scan(&results).Error
 	return results, err
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
-func (r *expenseRepository) GetTotalByCostType(costType, start, end string) (float64, error) {
+func (r *expenseRepository) GetTotalByCostType(costType, start, end string, outletID ...uint) (float64, error) {
+	tx := r.db.Model(&models.Expense{}).
+		Where("date BETWEEN ? AND ? AND cost_type = ?", start, end, costType)
+	tx = scopeOutlet(tx, "expenses", outletID...)
 	var total float64
-	err := r.db.Model(&models.Expense{}).
-		Where("date BETWEEN ? AND ? AND cost_type = ?", start, end, costType).
-		Select("COALESCE(SUM(amount), 0)").
-		Row().Scan(&total)
+	err := tx.Select("COALESCE(SUM(amount), 0)").Row().Scan(&total)
 	return total, err
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
-func (r *expenseRepository) GetFixedCostBreakdown(start, end string) ([]entity.FixedCostItem, error) {
+func (r *expenseRepository) GetFixedCostBreakdown(start, end string, outletID ...uint) ([]entity.FixedCostItem, error) {
+	tx := r.db.Model(&models.Expense{}).
+		Where("date BETWEEN ? AND ? AND cost_type = ?", start, end, "fixed")
+	tx = scopeOutlet(tx, "expenses", outletID...)
 	var results []entity.FixedCostItem
-	err := r.db.Model(&models.Expense{}).
-		Where("date BETWEEN ? AND ? AND cost_type = ?", start, end, "fixed").
-		Select("title as name, SUM(amount) as amount").
+	err := tx.Select("title as name, SUM(amount) as amount").
 		Group("title").
 		Scan(&results).Error
 	return results, err
@@ -118,6 +123,7 @@ func toDomainExpense(m *models.Expense) *entity.Expense {
 		Date:        m.Date,
 		Description: m.Description,
 		Notes:       m.Notes,
+		OutletID:    m.OutletID,
 		CreatedAt:   m.CreatedAt,
 	}
 }

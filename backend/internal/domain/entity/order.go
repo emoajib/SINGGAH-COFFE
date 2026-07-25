@@ -15,6 +15,8 @@ type Order struct {
 	OrderItems    []OrderItem
 	OrderTime     time.Time
 	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	OutletID      uint
 }
 
 type OrderItem struct {
@@ -40,6 +42,7 @@ type OrderResponse struct {
 	OrderItems    []OrderItemResponse `json:"items"`
 	OrderTime     time.Time           `json:"order_time"`
 	CreatedAt     time.Time           `json:"created_at"`
+	UpdatedAt     time.Time           `json:"updated_at"`
 }
 
 type OrderItemResponse struct {
@@ -78,5 +81,6 @@ func (o *Order) ToResponse() OrderResponse {
 		OrderItems:    items,
 		OrderTime:     o.OrderTime,
 		CreatedAt:     o.CreatedAt,
+		UpdatedAt:     o.UpdatedAt,
 	}
 }

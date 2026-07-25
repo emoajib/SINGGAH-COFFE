@@ -14,12 +14,21 @@ type BaseModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+type Outlet struct {
+	BaseModel
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Phone   string `json:"phone"`
+	Code    string `json:"code" gorm:"unique"` // short code eg. "pusat", "cabang-a"
+}
+
 type User struct {
 	BaseModel
 	Name     string `json:"name"`
 	Email    string `json:"email" gorm:"unique"`
 	Password string `json:"-"`    // Don't return password in JSON
 	Role     string `json:"role"` // owner, manager, cashier
+	OutletID uint   `json:"outlet_id" gorm:"default:0"` // 0 = all outlets (owner only)
 }
 
 type Product struct {
@@ -42,6 +51,7 @@ type Ingredient struct {
 	CurrentStock float64 `json:"current_stock"`
 	MinStock     float64 `json:"min_stock"`
 	CostPerUnit  float64 `json:"cost_per_unit"`
+	OutletID     uint    `json:"outlet_id" gorm:"index"`
 }
 
 type RecipeItem struct {
@@ -60,6 +70,7 @@ type StockMutation struct {
 	ReferenceID  string    `json:"reference_id"` // PO Number or Order Number
 	Notes        string    `json:"notes"`
 	Date         time.Time `json:"date"`
+	OutletID     uint      `json:"outlet_id" gorm:"index"`
 }
 
 
@@ -76,6 +87,7 @@ type Order struct {
 	CashierName   string      `json:"cashier_name"`
 	OrderItems    []OrderItem `json:"items" gorm:"foreignKey:OrderID"`
 	OrderTime     time.Time   `json:"order_time"`
+	OutletID      uint        `json:"outlet_id" gorm:"index"`
 }
 
 type OrderItem struct {
@@ -104,11 +116,13 @@ type Expense struct {
 	Date        time.Time `json:"date" gorm:"index"`
 	Description string    `json:"description"`
 	Notes       string    `json:"notes"`
+	OutletID    uint      `json:"outlet_id" gorm:"index"`
 }
 
 type Setting struct {
 	BaseModel
-	Key          string `json:"key" gorm:"unique"`
+	Key          string `json:"key" gorm:"uniqueIndex:idx_key_outlet"`
 	Value        string `json:"value"`
 	SettingGroup string `json:"group" gorm:"column:setting_group"` // profile, tax, printer, etc.
+	OutletID     uint   `json:"outlet_id" gorm:"uniqueIndex:idx_key_outlet;default:0"`
 }

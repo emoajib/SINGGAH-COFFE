@@ -12,6 +12,7 @@ import (
 	"singgah-pos-backend/internal/pkg/jwt"
 	"singgah-pos-backend/internal/routes"
 	"singgah-pos-backend/internal/usecase"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -47,6 +48,7 @@ func main() {
 	settingsUsecase := usecase.NewSettingsUsecase(db)
 	webhookUsecase := usecase.NewWebhookUsecase(db)
 	bepUsecase := usecase.NewBEPUsecase(db)
+	outletUsecase := usecase.NewOutletUsecase(db)
 
 	// Start background cleanup of expired tokens every hour
 	go func() {
@@ -74,18 +76,20 @@ func main() {
 		Settings:  handler.NewSettingsHandler(settingsUsecase),
 		Webhook:   handler.NewWebhookHandler(webhookUsecase),
 		BEP:       handler.NewBEPHandler(bepUsecase),
+		Outlet:    handler.NewOutletHandler(outletUsecase),
 	}
 
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Logger())
+	r.Use(gin.Recovery())
 
-	// CORS Middleware
-	allowedOrigins := map[string]bool{
-		"http://localhost:3000": true,
-		"http://localhost:8081": true,
-		"http://localhost:5173": true,
-		"http://localhost:8080": true,
+	// Build allowed origins set
+	allowedOrigins := make(map[string]bool)
+	for _, o := range strings.Split(cfg.CORSOrigins, ",") {
+		allowedOrigins[strings.TrimSpace(o)] = true
 	}
 
+	// CORS + Security Headers Middleware
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 		if origin == "" || allowedOrigins[origin] {
@@ -94,6 +98,11 @@ func main() {
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		// Security headers
+		c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
+		c.Writer.Header().Set("X-Frame-Options", "DENY")
+		c.Writer.Header().Set("X-XSS-Protection", "0")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)

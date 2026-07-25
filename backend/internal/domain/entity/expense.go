@@ -13,6 +13,7 @@ type Expense struct {
 	Description string
 	Notes       string
 	CreatedAt   time.Time
+	OutletID    uint
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager

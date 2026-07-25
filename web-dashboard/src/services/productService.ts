@@ -7,13 +7,7 @@ export const ProductService = {
     // Get all products
     getAll: async (): Promise<Product[]> => {
         const response = await api.get('/products');
-        // Map Backend (ID: uint) to Frontend (id: string)
-        return response.data.map((item: any) => ({
-            ...item,
-            id: String(item.id || item.ID),
-            sku: item.sku || item.Sku,
-            description: item.description || item.Description,
-        }));
+        return response.data;
     },
 
     // Create new product

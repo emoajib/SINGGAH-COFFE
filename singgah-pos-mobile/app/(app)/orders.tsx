@@ -93,9 +93,9 @@ export default function OrdersScreen() {
             <Text style={styles.itemsTitle}>Order Items</Text>
             {item.items.map((oi) => (
               <View key={oi.id} style={styles.itemRow}>
-                <Text style={styles.itemName} numberOfLines={1}>{oi.product_name}</Text>
+                <Text style={styles.itemName} numberOfLines={1}>{oi.product?.name || ''}</Text>
                 <Text style={styles.itemQty}>x{oi.quantity}</Text>
-                <Text style={styles.itemPrice}>{formatCurrency(oi.subtotal)}</Text>
+                <Text style={styles.itemPrice}>{formatCurrency(oi.price * oi.quantity)}</Text>
               </View>
             ))}
           </View>

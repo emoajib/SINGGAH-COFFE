@@ -98,8 +98,21 @@ const Reports: React.FC = () => {
         link.click();
     };
 
-    const printPdf = () => {
-        window.print();
+    const downloadPdf = async () => {
+        const token = localStorage.getItem('token');
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+        const params = new URLSearchParams({ start: dateRange.start, end: dateRange.end });
+        const res = await fetch(`${baseURL}/reports/profit-loss/export/pdf?${params}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Laporan_Laba_Rugi_${dateRange.start}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
     };
 
     const summary: any = _summary ?? {
@@ -209,9 +222,9 @@ const Reports: React.FC = () => {
                                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                                 EXCEL (.XLS)
                             </Button>
-                            <Button size="sm" className="font-bold gradient-primary text-white" onClick={printPdf}>
+                            <Button size="sm" className="font-bold gradient-primary text-white" onClick={downloadPdf}>
                                 <Download className="w-4 h-4 mr-2" />
-                                PDF / CETAK
+                                PDF
                             </Button>
                         </div>
                     </CardHeader>

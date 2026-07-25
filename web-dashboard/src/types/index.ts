@@ -1,6 +1,6 @@
 // ─── User ───────────────────────────────────────────────────────────────────
 export interface User {
-  id: string
+  id: number
   name: string
   email: string
   role: 'owner' | 'manager' | 'cashier'
@@ -26,7 +26,7 @@ export interface ChangePasswordRequest {
 
 // ─── Product ────────────────────────────────────────────────────────────────
 export interface Product {
-  ID: number
+  id: number
   name: string
   category: string
   price: number
@@ -69,7 +69,7 @@ export interface CreateProductRequest {
 
 // ─── Ingredient ─────────────────────────────────────────────────────────────
 export interface Ingredient {
-  ID: number
+  id: number
   name: string
   unit: string
   current_stock: number
@@ -100,42 +100,50 @@ export interface CreateStockMutationRequest {
   new_cost_per_unit?: number
 }
 
+// ─── Low Stock Alert ─────────────────────────────────────────────────────────
+export interface LowStockAlert {
+  count: number
+  alerts: Ingredient[]
+}
+
 /** Response shape for a stock mutation record */
 export interface StockMutation {
-  ID: number
+  id: number
   ingredient_id: number
   ingredient_name: string
   type: 'IN' | 'OUT' | 'ADJ_ADD' | 'ADJ_SUB'
   quantity: number
   notes: string
+  date: string
   created_at: string
   reference_id?: string
 }
 
 // ─── Order ──────────────────────────────────────────────────────────────────
 export interface Order {
-  ID: number
+  id: number
   order_number: string
-  payment_method: string
-  cashier_name: string
-  status: string
   total_amount: number
+  payment_method: string
+  payment_status: string
+  payment_ref?: string
+  status: string
+  user_id: number
+  cashier_name: string
   items: OrderItem[]
+  order_time: string
   created_at: string
   updated_at: string
-  payment_status?: string
-  invoice_url?: string
-  customer_email?: string
 }
 
 export interface OrderItem {
-  ID: number
+  id: number
   order_id: number
   product_id: number
-  product_name: string
+  product: Product
   quantity: number
   price: number
-  subtotal: number
+  cost: number
 }
 
 export interface CreateOrderRequest {
@@ -148,7 +156,7 @@ export interface CreateOrderRequest {
 
 // ─── Expense ────────────────────────────────────────────────────────────────
 export interface Expense {
-  ID: number
+  id: number
   title: string
   amount: number
   category: string
@@ -160,9 +168,10 @@ export interface Expense {
 
 // ─── Setting ────────────────────────────────────────────────────────────────
 export interface Setting {
-  ID: number
+  id: number
   key: string
   value: string
+  group: string
   created_at?: string
   updated_at?: string
 }

@@ -3,12 +3,14 @@ import { SalesChart } from "../components/dashboard/SalesChart"
 import { TopSellingItems } from "../components/dashboard/TopSellingItems"
 import { useEffect, useState } from "react"
 import { fetchSettings } from "../services/settingsService"
-import { Loader2 } from "lucide-react"
+import { InventoryService } from "../services/inventoryService"
+import { AlertTriangle, Loader2 } from "lucide-react"
 import { getImageUrl, formatNumber } from "../lib/utils"
 import { useDashboard } from "../hooks/useDashboard"
 import { Button } from "../components/ui/button"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
+import type { Ingredient } from "../types"
 
 interface DashboardHomeProps {
     setActiveTab: (tab: string) => void
@@ -18,6 +20,8 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
     const { user } = useSelector((state: RootState) => state.auth)
     const [logoUrl, setLogoUrl] = useState("")
     const [outletName, setOutletName] = useState("Singgah Coffee")
+    const [lowStockItems, setLowStockItems] = useState<Ingredient[]>([])
+    const [showLowStockDetails, setShowLowStockDetails] = useState(false)
 
     const formatCurrency = (value: number) => {
         return `Rp ${formatNumber(value)}`
@@ -46,6 +50,14 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
         }
         loadBranding()
     }, [])
+
+    useEffect(() => {
+        if (summary.low_stock_count > 0) {
+            InventoryService.getLowStockAlerts().then(res => {
+                setLowStockItems(res.alerts || [])
+            }).catch(() => {})
+        }
+    }, [summary.low_stock_count])
 
     return (
         <div className="space-y-6">
@@ -99,7 +111,10 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                         <p className="text-xs text-gray-500 mt-1">Pembayaran tertunda</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card
+                    className={summary.low_stock_count > 0 ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
+                    onClick={() => lowStockItems.length > 0 && setShowLowStockDetails(!showLowStockDetails)}
+                >
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-gray-500">Stok Menipis</CardTitle>
                     </CardHeader>
@@ -108,8 +123,29 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                             {statsLoading ? <Loader2 className="w-6 h-6 animate-spin text-gray-300" /> : summary.low_stock_count}
                         </div>
                         <p className={`text-xs mt-1 ${summary.low_stock_count > 0 ? "text-destructive font-bold" : "text-gray-500"}`}>
-                            {summary.low_stock_count > 0 ? "Perlu perhatian" : "Semua stok aman"}
+                            {summary.low_stock_count > 0 ? "Perlu perhatian — klik untuk detail" : "Semua stok aman"}
                         </p>
+                        {showLowStockDetails && lowStockItems.length > 0 && (
+                            <div className="mt-3 pt-3 border-t space-y-2">
+                                {lowStockItems.map(item => (
+                                    <div key={item.id} className="flex items-center gap-2 text-sm">
+                                        <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                                        <span className="font-medium flex-1 truncate">{item.name}</span>
+                                        <span className="text-muted-foreground">
+                                            {item.current_stock} / {item.min_stock} {item.unit}
+                                        </span>
+                                    </div>
+                                ))}
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    className="w-full text-xs"
+                                    onClick={(e) => { e.stopPropagation(); setActiveTab('ingredients') }}
+                                >
+                                    Kelola Stok →
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
                 <Card>

@@ -127,6 +127,7 @@ export interface StockMutation {
   type: 'IN' | 'OUT' | 'ADJ_ADD' | 'ADJ_SUB'
   quantity: number
   notes: string
+  date: string
   created_at: string
   reference_id?: string
 }
@@ -135,26 +136,27 @@ export interface StockMutation {
 export interface Order {
   id: number
   order_number: string
-  payment_method: string
-  cashier_name: string
-  status: string
   total_amount: number
+  payment_method: string
+  payment_status: string
+  payment_ref?: string
+  status: string
+  user_id: number
+  cashier_name: string
   items: OrderItem[]
+  order_time: string
   created_at: string
   updated_at: string
-  payment_status?: string
-  invoice_url?: string
-  customer_email?: string
 }
 
 export interface OrderItem {
   id: number
   order_id: number
   product_id: number
-  product_name: string
+  product: Product
   quantity: number
   price: number
-  subtotal: number
+  cost: number
 }
 
 export interface CreateOrderRequest {
@@ -182,6 +184,7 @@ export interface Setting {
   id: number
   key: string
   value: string
+  group: string
   created_at?: string
   updated_at?: string
 }

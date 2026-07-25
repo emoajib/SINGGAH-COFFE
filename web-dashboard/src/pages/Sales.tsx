@@ -102,7 +102,7 @@ export default function Sales() {
                                     {filteredOrders.map((order) => {
                                         const dt = formatDate(order.created_at)
                                         return (
-                                            <tr key={order.ID} className="bg-white border-b hover:bg-gray-50/50 transition-colors">
+                                            <tr key={order.id} className="bg-white border-b hover:bg-gray-50/50 transition-colors">
                                                 <td className="px-6 py-4 font-bold text-primary">{order.order_number}</td>
                                                 <td className="px-6 py-4">
                                                     <div>{dt.time}</div>
@@ -137,7 +137,7 @@ export default function Sales() {
                                                             size="icon"
                                                             variant="ghost"
                                                             className="h-8 w-8 text-red-500 hover:bg-red-50"
-                                                            onClick={() => handleVoid(order.ID)}
+                                                            onClick={() => handleVoid(order.id)}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>

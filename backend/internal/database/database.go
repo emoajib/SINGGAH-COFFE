@@ -34,6 +34,7 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.Expense{},
 		&models.ProcessedWebhook{},
 		&entity.TokenBlacklist{},
+		&models.Outlet{},
 	)
 	if err != nil {
 		log.Printf("AutoMigrate failed: %v", err)
@@ -72,6 +73,23 @@ func Connect(cfg config.Config) *gorm.DB {
 		}
 		db.Create(&defaultSettings)
 		log.Println("Seeded default settings")
+	}
+
+	// Seed Default Outlet if not exists
+	var outletCount int64
+	db.Model(&models.Outlet{}).Count(&outletCount)
+	if outletCount == 0 {
+		defaultOutlet := models.Outlet{
+			Name:    "Singgah Coffee",
+			Address: "Jl. Example No. 123, Jakarta Selatan",
+			Phone:   "+62 812-3456-7890",
+			Code:    "SGH-001",
+		}
+		db.Create(&defaultOutlet)
+
+		// Assign existing users to default outlet
+		db.Model(&models.User{}).Where("outlet_id = 0 OR outlet_id IS NULL").Update("outlet_id", defaultOutlet.ID)
+		log.Println("Seeded default outlet and assigned users")
 	}
 
 	return db

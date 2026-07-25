@@ -22,6 +22,7 @@ func (r *stockMutationRepository) Create(mutation *entity.StockMutation) error {
 		Quantity:     mutation.Quantity,
 		ReferenceID:  mutation.ReferenceID,
 		Notes:        mutation.Notes,
+		OutletID:     mutation.OutletID,
 	}
 	if !mutation.Date.IsZero() {
 		m.Date = mutation.Date
@@ -44,6 +45,7 @@ func (r *stockMutationRepository) FindByIngredientID(ingredientID uint) ([]entit
 			ReferenceID:  m.ReferenceID,
 			Notes:        m.Notes,
 			Date:         m.Date,
+			OutletID:     m.OutletID,
 			CreatedAt:    m.CreatedAt,
 		}
 	}

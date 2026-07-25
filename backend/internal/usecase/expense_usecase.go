@@ -21,8 +21,8 @@ func NewExpenseUsecase(db *gorm.DB) *ExpenseUsecase {
 	}
 }
 
-func (uc *ExpenseUsecase) GetAll() ([]entity.ExpenseResponse, error) {
-	expenses, err := uc.expenseRepo.FindAll()
+func (uc *ExpenseUsecase) GetAll(outletID ...uint) ([]entity.ExpenseResponse, error) {
+	expenses, err := uc.expenseRepo.FindAll(outletID...)
 	if err != nil {
 		return nil, err
 	}
@@ -33,9 +33,12 @@ func (uc *ExpenseUsecase) GetAll() ([]entity.ExpenseResponse, error) {
 	return resp, nil
 }
 
-func (uc *ExpenseUsecase) Create(expense *entity.Expense) (*entity.ExpenseResponse, error) {
+func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*entity.ExpenseResponse, error) {
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()
+	}
+	if len(outletID) > 0 {
+		expense.OutletID = outletID[0]
 	}
 	if err := uc.expenseRepo.Create(expense); err != nil {
 		return nil, err

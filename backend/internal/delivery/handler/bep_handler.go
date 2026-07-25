@@ -47,7 +47,7 @@ func (h *BEPHandler) GetBEP(c *gin.Context) {
 		}
 	}
 
-	report, err := h.bepUsecase.GetBEPReport(month, year)
+	report, err := h.bepUsecase.GetBEPReport(month, year, getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate BEP report"})
 		return

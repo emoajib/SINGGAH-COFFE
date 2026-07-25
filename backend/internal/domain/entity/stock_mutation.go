@@ -11,6 +11,7 @@ type StockMutation struct {
 	Notes        string
 	Date         time.Time
 	CreatedAt    time.Time
+	OutletID     uint
 }
 
 type MutationType string
@@ -23,14 +24,15 @@ const (
 )
 
 type StockMutationResponse struct {
-	ID           uint      `json:"id"`
-	IngredientID uint      `json:"ingredient_id"`
-	Type         string    `json:"type"`
-	Quantity     float64   `json:"quantity"`
-	ReferenceID  string    `json:"reference_id"`
-	Notes        string    `json:"notes"`
-	Date         time.Time `json:"date"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID             uint      `json:"id"`
+	IngredientID   uint      `json:"ingredient_id"`
+	IngredientName string    `json:"ingredient_name"`
+	Type           string    `json:"type"`
+	Quantity       float64   `json:"quantity"`
+	ReferenceID    string    `json:"reference_id"`
+	Notes          string    `json:"notes"`
+	Date           time.Time `json:"date"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 func (m *StockMutation) ToResponse() StockMutationResponse {

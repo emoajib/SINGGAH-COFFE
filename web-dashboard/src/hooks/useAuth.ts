@@ -53,11 +53,11 @@ export function useUsers() {
         api.post<User>('/users', data).then((r) => r.data),
     }),
     update: useMutation({
-      mutationFn: ({ id, ...data }: Partial<User> & { id: string }) =>
+      mutationFn: ({ id, ...data }: Partial<User> & { id: number | string }) =>
         api.put<User>(`/users/${id}`, data).then((r) => r.data),
     }),
     remove: useMutation({
-      mutationFn: (id: string) => api.delete(`/users/${id}`),
+      mutationFn: (id: number | string) => api.delete(`/users/${id}`),
     }),
   }
 }

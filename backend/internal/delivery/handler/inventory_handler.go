@@ -21,13 +21,26 @@ func NewInventoryHandler(inventoryUsecase *usecase.InventoryUsecase) *InventoryH
 }
 
 func (h *InventoryHandler) GetIngredients(c *gin.Context) {
-	ingredients, err := h.inventoryUsecase.GetIngredients()
+	ingredients, err := h.inventoryUsecase.GetIngredients(getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch ingredients"})
 		return
 	}
 
 	c.JSON(http.StatusOK, ingredients)
+}
+
+func (h *InventoryHandler) GetLowStockAlerts(c *gin.Context) {
+	alerts, err := h.inventoryUsecase.GetLowStockAlerts(getOutletID(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch low stock alerts"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"count":   len(alerts),
+		"alerts":  alerts,
+	})
 }
 
 func (h *InventoryHandler) CreateIngredient(c *gin.Context) {
@@ -45,7 +58,7 @@ func (h *InventoryHandler) CreateIngredient(c *gin.Context) {
 		CostPerUnit:  req.CostPerUnit,
 	}
 
-	result, err := h.inventoryUsecase.CreateIngredient(ingredient)
+	result, err := h.inventoryUsecase.CreateIngredient(ingredient, getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create ingredient"})
 		return
@@ -128,6 +141,7 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 		req.IsPurchase,
 		req.UpdateMasterPrice,
 		req.NewCostPerUnit,
+		getOutletID(c),
 	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock: " + err.Error()})
 		return

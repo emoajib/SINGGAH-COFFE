@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -41,9 +42,24 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 			}
 		}
 
+			// Determine effective outlet_id
+		outletID := claims.OutletID
+
+		// Owner can override by passing X-Outlet-ID header
+		if claims.Role == "owner" {
+			headerOutlet := c.GetHeader("X-Outlet-ID")
+			if headerOutlet != "" {
+				var parsedID uint
+				if _, err := fmt.Sscanf(headerOutlet, "%d", &parsedID); err == nil && parsedID > 0 {
+					outletID = parsedID
+				}
+			}
+		}
+
 		c.Set("user_id", claims.UserID)
 		c.Set("user_email", claims.Email)
 		c.Set("user_role", claims.Role)
+		c.Set("outlet_id", outletID)
 		c.Next()
 	}
 }

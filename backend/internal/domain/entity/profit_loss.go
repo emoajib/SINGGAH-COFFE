@@ -17,8 +17,8 @@ type ExpenseDetail struct {
 }
 
 type SalesSummaryResponse struct {
-	TotalSales        float64      `json:"totalSales"`
-	TotalOrders       int64        `json:"totalOrders"`
-	AverageOrderValue float64      `json:"averageOrderValue"`
-	TopProducts       []TopProduct `json:"topProducts"`
+	TotalSales        float64      `json:"total_sales"`
+	TotalOrders       int64        `json:"total_orders"`
+	AverageOrderValue float64      `json:"average_order_value"`
+	TopProducts       []TopProduct `json:"top_products"`
 }

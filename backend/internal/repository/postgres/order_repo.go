@@ -31,9 +31,11 @@ func (r *orderRepository) FindByIDWithItems(id uint) (*entity.Order, error) {
 	return toDomainOrder(&m), nil
 }
 
-func (r *orderRepository) FindAll(limit, offset int) ([]entity.Order, error) {
+func (r *orderRepository) FindAll(limit, offset int, outletID ...uint) ([]entity.Order, error) {
+	tx := r.db.Preload("OrderItems").Preload("OrderItems.Product").Order("created_at desc").Limit(limit).Offset(offset)
+	tx = scopeOutlet(tx, "orders", outletID...)
 	var ms []models.Order
-	if err := r.db.Preload("OrderItems").Preload("OrderItems.Product").Order("created_at desc").Limit(limit).Offset(offset).Find(&ms).Error; err != nil {
+	if err := tx.Find(&ms).Error; err != nil {
 		return nil, err
 	}
 	result := make([]entity.Order, len(ms))
@@ -60,72 +62,81 @@ func (r *orderRepository) Update(order *entity.Order) error {
 	}).Error
 }
 
-func (r *orderRepository) GetTotalSalesSince(since string) (float64, error) {
+func (r *orderRepository) GetTotalSalesSince(since string, outletID ...uint) (float64, error) {
+	tx := r.db.Model(&models.Order{}).Where("created_at >= ? AND status = ?", since, "Completed")
+	tx = scopeOutlet(tx, "orders", outletID...)
 	var total float64
-	err := r.db.Model(&models.Order{}).
-		Where("created_at >= ? AND status = ?", since, "Completed").
-		Select("COALESCE(SUM(total_amount), 0)").
-		Row().Scan(&total)
+	err := tx.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&total)
 	return total, err
 }
 
-func (r *orderRepository) GetTotalSalesRange(start, end string) (float64, error) {
+func (r *orderRepository) GetTotalSalesRange(start, end string, outletID ...uint) (float64, error) {
+	tx := r.db.Model(&models.Order{}).Where("created_at BETWEEN ? AND ? AND status = ?", start, end, "Completed")
+	tx = scopeOutlet(tx, "orders", outletID...)
 	var total float64
-	err := r.db.Model(&models.Order{}).
-		Where("created_at BETWEEN ? AND ? AND status = ?", start, end, "Completed").
-		Select("COALESCE(SUM(total_amount), 0)").
-		Row().Scan(&total)
+	err := tx.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&total)
 	return total, err
 }
 
-func (r *orderRepository) CountSince(since string) (int64, error) {
+func (r *orderRepository) CountSince(since string, outletID ...uint) (int64, error) {
+	tx := r.db.Model(&models.Order{}).Where("created_at >= ?", since)
+	tx = scopeOutlet(tx, "orders", outletID...)
 	var count int64
-	err := r.db.Model(&models.Order{}).
-		Where("created_at >= ?", since).
-		Count(&count).Error
+	err := tx.Count(&count).Error
 	return count, err
 }
 
-func (r *orderRepository) CountByStatus(status string) (int64, error) {
+func (r *orderRepository) CountByStatus(status string, outletID ...uint) (int64, error) {
+	tx := r.db.Model(&models.Order{}).Where("status = ?", status)
+	tx = scopeOutlet(tx, "orders", outletID...)
 	var count int64
-	err := r.db.Model(&models.Order{}).
-		Where("status = ?", status).
-		Count(&count).Error
+	err := tx.Count(&count).Error
 	return count, err
 }
 
-func (r *orderRepository) GetSumByStatusSince(status, since, timeFormat string) ([]entity.TrendPoint, error) {
+func (r *orderRepository) GetSumByStatusSince(status, since, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error) {
+	outletWhere := ""
+	args := []interface{}{since, status}
+	if len(outletID) > 0 && outletID[0] > 0 {
+		outletWhere = " AND outlet_id = ?"
+		args = append(args, outletID[0])
+	}
 	var results []entity.TrendPoint
 	err := r.db.Raw(`
 		SELECT TO_CHAR(created_at, '`+timeFormat+`') as name, SUM(total_amount) as total
 		FROM orders
-		WHERE created_at >= ? AND status = ?
+		WHERE created_at >= ? AND status = ?`+outletWhere+`
 		GROUP BY TO_CHAR(created_at, '`+timeFormat+`'), DATE_TRUNC('day', created_at)
 		ORDER BY DATE_TRUNC('day', created_at) ASC
-	`, since, status).Scan(&results).Error
+	`, args...).Scan(&results).Error
 	return results, err
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
-func (r *orderRepository) GetDailySalesRange(start, end string) ([]entity.DailySales, error) {
+func (r *orderRepository) GetDailySalesRange(start, end string, outletID ...uint) ([]entity.DailySales, error) {
+	outletWhere := ""
+	args := []interface{}{start, end}
+	if len(outletID) > 0 && outletID[0] > 0 {
+		outletWhere = " AND outlet_id = ?"
+		args = append(args, outletID[0])
+	}
 	var results []entity.DailySales
 	err := r.db.Raw(`
 		SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count
 		FROM orders
-		WHERE created_at BETWEEN ? AND ? AND status = 'Completed'
+		WHERE created_at BETWEEN ? AND ? AND status = 'Completed'`+outletWhere+`
 		GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
 		ORDER BY date ASC
-	`, start, end).Scan(&results).Error
+	`, args...).Scan(&results).Error
 	return results, err
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
-func (r *orderRepository) GetAverageOrderValue(start, end string) (float64, error) {
+func (r *orderRepository) GetAverageOrderValue(start, end string, outletID ...uint) (float64, error) {
+	tx := r.db.Model(&models.Order{}).Where("created_at BETWEEN ? AND ? AND status = ?", start, end, "Completed")
+	tx = scopeOutlet(tx, "orders", outletID...)
 	var avg float64
-	err := r.db.Model(&models.Order{}).
-		Where("created_at BETWEEN ? AND ? AND status = ?", start, end, "Completed").
-		Select("COALESCE(AVG(total_amount), 0)").
-		Row().Scan(&avg)
+	err := tx.Select("COALESCE(AVG(total_amount), 0)").Row().Scan(&avg)
 	return avg, err
 }
 
@@ -142,6 +153,7 @@ func toDomainOrder(m *models.Order) *entity.Order {
 		CashierName:   m.CashierName,
 		OrderTime:     m.OrderTime,
 		CreatedAt:     m.CreatedAt,
+		OutletID:      m.OutletID,
 		OrderItems:    make([]entity.OrderItem, len(m.OrderItems)),
 	}
 	for i, item := range m.OrderItems {
@@ -168,6 +180,13 @@ func toDomainOrder(m *models.Order) *entity.Order {
 	return o
 }
 
+func scopeOutlet(tx *gorm.DB, table string, outletID ...uint) *gorm.DB {
+	if len(outletID) > 0 && outletID[0] > 0 {
+		return tx.Where(table+".outlet_id = ?", outletID[0])
+	}
+	return tx
+}
+
 func toModelOrder(e *entity.Order) *models.Order {
 	return &models.Order{
 		OrderNumber:   e.OrderNumber,
@@ -179,5 +198,6 @@ func toModelOrder(e *entity.Order) *models.Order {
 		UserID:        e.UserID,
 		CashierName:   e.CashierName,
 		OrderTime:     e.OrderTime,
+		OutletID:      e.OutletID,
 	}
 }

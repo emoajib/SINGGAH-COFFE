@@ -29,8 +29,8 @@ func NewInventoryUsecase(db *gorm.DB) *InventoryUsecase {
 	}
 }
 
-func (uc *InventoryUsecase) GetIngredients() ([]entity.IngredientResponse, error) {
-	ingredients, err := uc.ingredientRepo.FindAll()
+func (uc *InventoryUsecase) GetIngredients(outletID ...uint) ([]entity.IngredientResponse, error) {
+	ingredients, err := uc.ingredientRepo.FindAll(outletID...)
 	if err != nil {
 		return nil, err
 	}
@@ -55,14 +55,23 @@ func (uc *InventoryUsecase) GetStockHistory(ingredientID uint) ([]entity.StockMu
 	if err != nil {
 		return nil, err
 	}
+	ingredient, err := uc.ingredientRepo.FindByID(ingredientID)
+	ingredientName := ""
+	if err == nil && ingredient != nil {
+		ingredientName = ingredient.Name
+	}
 	resp := make([]entity.StockMutationResponse, len(mutations))
 	for i, m := range mutations {
 		resp[i] = m.ToResponse()
+		resp[i].IngredientName = ingredientName
 	}
 	return resp, nil
 }
 
-func (uc *InventoryUsecase) CreateIngredient(req *entity.Ingredient) (*entity.IngredientResponse, error) {
+func (uc *InventoryUsecase) CreateIngredient(req *entity.Ingredient, outletID ...uint) (*entity.IngredientResponse, error) {
+	if len(outletID) > 0 {
+		req.OutletID = outletID[0]
+	}
 	if err := uc.ingredientRepo.Create(req); err != nil {
 		return nil, err
 	}
@@ -70,11 +79,16 @@ func (uc *InventoryUsecase) CreateIngredient(req *entity.Ingredient) (*entity.In
 	return &resp, nil
 }
 
-func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, quantity float64, notes string, isPurchase bool, updateMasterPrice bool, newCost float64) error {
+func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, quantity float64, notes string, isPurchase bool, updateMasterPrice bool, newCost float64, outletID ...uint) error {
 	return uc.db.Transaction(func(tx *gorm.DB) error {
 		mutationRepo := postgres.NewStockMutationRepository(tx)
 		ingredientRepo := postgres.NewIngredientRepository(tx)
 		expenseRepo := postgres.NewExpenseRepository(tx)
+
+		oid := uint(0)
+		if len(outletID) > 0 {
+			oid = outletID[0]
+		}
 
 		mutation := &entity.StockMutation{
 			IngredientID: ingredientID,
@@ -82,6 +96,7 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			Quantity:     quantity,
 			Notes:        notes,
 			Date:         time.Now(),
+			OutletID:     oid,
 		}
 
 		if err := mutationRepo.Create(mutation); err != nil {
@@ -114,6 +129,7 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 				Date:        time.Now(),
 				Description: "Auto-generated from Stock In",
 				Notes:       notes,
+				OutletID:    oid,
 			})
 		} else {
 			// Lock anyway for consistency
@@ -143,6 +159,18 @@ func (uc *InventoryUsecase) UpdateIngredient(id uint, name, unit string, costPer
 	ingredient.MinStock = minStock
 
 	return uc.ingredientRepo.Update(ingredient)
+}
+
+func (uc *InventoryUsecase) GetLowStockAlerts(outletID ...uint) ([]entity.IngredientResponse, error) {
+	ingredients, err := uc.ingredientRepo.FindLowStock(10, outletID...)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]entity.IngredientResponse, len(ingredients))
+	for i, ing := range ingredients {
+		resp[i] = ing.ToResponse()
+	}
+	return resp, nil
 }
 
 func (uc *InventoryUsecase) DeleteIngredient(id uint) error {

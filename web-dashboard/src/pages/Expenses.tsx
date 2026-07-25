@@ -64,7 +64,7 @@ export default function Expenses() {
     const handleSave = async () => {
         try {
             if (editingExpense) {
-                await updateExpense.mutateAsync({ id: editingExpense.ID, ...formData })
+                await updateExpense.mutateAsync({ id: editingExpense.id, ...formData })
                 toast({ title: "Success", description: "Expense updated", variant: "success" })
             } else {
                 await createExpense.mutateAsync(formData)
@@ -163,7 +163,7 @@ export default function Expenses() {
                             </thead>
                             <tbody>
                                 {filteredExpenses.map((exp) => (
-                                    <tr key={exp.ID} className="bg-white border-b hover:bg-gray-50">
+                                    <tr key={exp.id} className="bg-white border-b hover:bg-gray-50">
                                         <td className="px-6 py-4 font-medium text-gray-900">
                                             {new Date(exp.date).toLocaleDateString()}
                                         </td>
@@ -197,7 +197,7 @@ export default function Expenses() {
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
-                                                        onClick={() => handleDeleteExpense(exp.ID)}
+                                                        onClick={() => handleDeleteExpense(exp.id)}
                                                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                                     >
                                                         <Trash2 className="w-4 h-4" />

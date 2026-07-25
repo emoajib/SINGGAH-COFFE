@@ -1,7 +1,7 @@
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../components/ui/card"
-import { Coffee, Loader2, Eye, EyeOff } from "lucide-react"
+import { Coffee, Loader2, Eye, EyeOff, Smartphone } from "lucide-react"
 import { useState } from "react"
 import { useLogin } from "../hooks/useAuth"
 
@@ -78,6 +78,15 @@ export default function Login() {
                         </Button>
                     </CardFooter>
                 </form>
+                <div className="pb-4 px-6 text-center">
+                    <a
+                        href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/mobile/download`}
+                        className="inline-flex items-center gap-2 text-xs text-gray-400 hover:text-primary transition-colors"
+                    >
+                        <Smartphone className="w-3.5 h-3.5" />
+                        Download Aplikasi Android POS
+                    </a>
+                </div>
             </Card>
         </div>
     )

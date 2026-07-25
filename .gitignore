@@ -3,6 +3,7 @@ backend/backend.log
 backend/uploads/products/*
 backend/uploads/logo/*
 backend/.env
+backend/.env.backup
 
 
 

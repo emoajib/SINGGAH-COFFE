@@ -38,7 +38,7 @@ func NewReportUsecase(db *gorm.DB) *ReportUsecase {
 	}
 }
 
-func (uc *ReportUsecase) GetDashboardSummary() (*entity.DashboardSummary, error) {
+func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.DashboardSummary, error) {
 	// Fast path: return cached copy if fresh
 	dashboardMu.RLock()
 	if dashboardCache != nil && time.Since(dashboardCache.timestamp) < cacheTTL {
@@ -65,18 +65,18 @@ func (uc *ReportUsecase) GetDashboardSummary() (*entity.DashboardSummary, error)
 	since := startOfDay.Format("2006-01-02 15:04:05")
 	sinceWeek := startOfSevenDays.Format("2006-01-02 15:04:05")
 
-	totalSales, _ := uc.orderRepo.GetTotalSalesSince(since)
-	transactionsToday, _ := uc.orderRepo.CountSince(since)
-	activeOrders, _ := uc.orderRepo.CountByStatus("Pending")
-	lowStockCount, _ := uc.ingredientRepo.CountLowStock()
+	totalSales, _ := uc.orderRepo.GetTotalSalesSince(since, outletID...)
+	transactionsToday, _ := uc.orderRepo.CountSince(since, outletID...)
+	activeOrders, _ := uc.orderRepo.CountByStatus("Pending", outletID...)
+	lowStockCount, _ := uc.ingredientRepo.CountLowStock(outletID...)
 
-	totalCogs, _ := uc.orderItemRepo.GetTotalCogsByStatus("Completed")
-	totalExpenses, _ := uc.expenseRepo.GetTotal()
+	totalCogs, _ := uc.orderItemRepo.GetTotalCogsByStatus("Completed", outletID...)
+	totalExpenses, _ := uc.expenseRepo.GetTotal(outletID...)
 
-	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, "HH24:00")
-	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "DD Mon")
-	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown()
-	topProducts, _ := uc.orderItemRepo.GetTopProducts(5)
+	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, "HH24:00", outletID...)
+	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "DD Mon", outletID...)
+	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown(outletID...)
+	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
 
 	netProfit := totalSales - totalCogs - totalExpenses
 
@@ -101,14 +101,14 @@ func (uc *ReportUsecase) GetDashboardSummary() (*entity.DashboardSummary, error)
 	return summary, nil
 }
 
-func (uc *ReportUsecase) GetSalesSummary() *entity.SalesSummaryResponse {
+func (uc *ReportUsecase) GetSalesSummary(outletID ...uint) *entity.SalesSummaryResponse {
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	since := startOfDay.Format("2006-01-02 15:04:05")
 
-	totalSales, _ := uc.orderRepo.GetTotalSalesSince(since)
-	totalOrders, _ := uc.orderRepo.CountSince(since)
-	topProducts, _ := uc.orderItemRepo.GetTopProducts(5)
+	totalSales, _ := uc.orderRepo.GetTotalSalesSince(since, outletID...)
+	totalOrders, _ := uc.orderRepo.CountSince(since, outletID...)
+	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
 
 	var avg float64
 	if totalOrders > 0 {
@@ -123,10 +123,10 @@ func (uc *ReportUsecase) GetSalesSummary() *entity.SalesSummaryResponse {
 	}
 }
 
-func (uc *ReportUsecase) GetProfitLossReport(start, end string) (*entity.ProfitLossReport, error) {
-	revenue, _ := uc.orderRepo.GetTotalSalesRange(start, end)
-	cogs, _ := uc.orderItemRepo.GetTotalCogsRange(start, end)
-	expenses, _ := uc.expenseRepo.GetBreakdownRange(start, end)
+func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint) (*entity.ProfitLossReport, error) {
+	revenue, _ := uc.orderRepo.GetTotalSalesRange(start, end, outletID...)
+	cogs, _ := uc.orderItemRepo.GetTotalCogsRange(start, end, outletID...)
+	expenses, _ := uc.expenseRepo.GetBreakdownRange(start, end, outletID...)
 
 	var totalExpenses float64
 	for _, e := range expenses {

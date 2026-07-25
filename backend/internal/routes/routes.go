@@ -18,9 +18,23 @@ type Handlers struct {
 	Settings  *handler.SettingsHandler
 	Webhook   *handler.WebhookHandler
 	BEP       *handler.BEPHandler
+	Outlet    *handler.OutletHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
+	r.GET("/health", func(c *gin.Context) {
+		sqlDB, err := db.DB()
+		if err != nil {
+			c.JSON(500, gin.H{"status": "error", "message": "database connection failed"})
+			return
+		}
+		if err := sqlDB.Ping(); err != nil {
+			c.JSON(500, gin.H{"status": "error", "message": "database ping failed"})
+			return
+		}
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
 	api := r.Group("/api")
 	{
 		// Public Routes
@@ -57,6 +71,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 
 			// Inventory
 			protected.GET("/ingredients", h.Inventory.GetIngredients)
+			protected.GET("/inventory/low-stock", h.Inventory.GetLowStockAlerts)
 			protected.POST("/ingredients", middleware.RoleMiddleware("owner", "manager"), h.Inventory.CreateIngredient)
 			protected.PUT("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), h.Inventory.UpdateIngredient)
 			protected.DELETE("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), h.Inventory.DeleteIngredient)
@@ -67,7 +82,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/dashboard/summary", h.Report.GetDashboardSummary)
 			protected.GET("/reports/profit-loss", h.Report.GetProfitLoss)
 			protected.GET("/reports/sales-summary", h.Report.GetSalesSummary)
-			protected.GET("/reports/profit-loss/export", h.Report.ExportProfitLossCSV)
+			protected.GET("/reports/profit-loss/export/csv", h.Report.ExportProfitLossCSV)
+			protected.GET("/reports/profit-loss/export/pdf", h.Report.ExportProfitLossPDF)
 			protected.GET("/integrations/logs", h.Webhook.GetWebhookLogs)
 
 			// Settings
@@ -88,6 +104,13 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 
 			// BEP (Break-Even Point) — Owner Only
 			protected.GET("/reports/bep", middleware.RoleMiddleware("owner"), h.BEP.GetBEP)
+
+			// Outlets — Owner Only
+			protected.GET("/outlets", middleware.RoleMiddleware("owner"), h.Outlet.GetOutlets)
+			protected.GET("/outlets/:id", middleware.RoleMiddleware("owner"), h.Outlet.GetOutlet)
+			protected.POST("/outlets", middleware.RoleMiddleware("owner"), h.Outlet.CreateOutlet)
+			protected.PUT("/outlets/:id", middleware.RoleMiddleware("owner"), h.Outlet.UpdateOutlet)
+			protected.DELETE("/outlets/:id", middleware.RoleMiddleware("owner"), h.Outlet.DeleteOutlet)
 		}
 	}
 

@@ -7,6 +7,7 @@ type Ingredient struct {
 	CurrentStock float64
 	MinStock     float64
 	CostPerUnit  float64
+	OutletID     uint
 }
 
 type IngredientResponse struct {

@@ -20,7 +20,7 @@ func NewExpenseHandler(expenseUsecase *usecase.ExpenseUsecase) *ExpenseHandler {
 }
 
 func (h *ExpenseHandler) GetExpenses(c *gin.Context) {
-	expenses, err := h.expenseUsecase.GetAll()
+	expenses, err := h.expenseUsecase.GetAll(getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch expenses"})
 		return
@@ -47,7 +47,7 @@ func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 		Notes:       req.Notes,
 	}
 
-	result, err := h.expenseUsecase.Create(expense)
+	result, err := h.expenseUsecase.Create(expense, getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create expense"})
 		return

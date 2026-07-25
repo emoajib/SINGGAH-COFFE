@@ -2,9 +2,10 @@ import { useState, useEffect } from "react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../components/ui/card"
-import { Store, Printer, Percent, Bell, Loader2, User as UserIcon, Users, Zap, Eye, EyeOff, FileText } from "lucide-react"
+import { Store, Printer, Percent, Bell, Loader2, User as UserIcon, Users, Zap, Eye, EyeOff, FileText, Smartphone } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
+import type { User } from '../types'
 import { useSettings, useUpdateSetting, useUploadLogo } from '../hooks/useSettings'
 import { useUpdateProfile, useChangePassword, useUsers } from '../hooks/useAuth'
 
@@ -17,6 +18,7 @@ import { SopSettings } from "./Settings/SopSettings"
 import { PrinterSettings } from "./Settings/PrinterSettings"
 import { NotificationSettings } from "./Settings/NotificationSettings"
 import { IntegrationSettings } from "./Settings/IntegrationSettings"
+import { MobileAppSettings } from "./Settings/MobileAppSettings"
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
@@ -58,9 +60,9 @@ export default function Settings() {
     })
 
     // User management state
-    const [staffList, setStaffList] = useState<Array<{id: string; name: string; email: string; role: 'owner' | 'manager' | 'cashier' }>>([])
+    const [staffList, setStaffList] = useState<User[]>([])
     const [showStaffModal, setShowStaffModal] = useState(false)
-    const [editingStaff, setEditingStaff] = useState<{id: string; name: string; email: string; role: 'owner' | 'manager' | 'cashier'} | null>(null)
+    const [editingStaff, setEditingStaff] = useState<User | null>(null)
     const [staffForm, setStaffForm] = useState<{
         name: string;
         email: string;
@@ -170,7 +172,7 @@ export default function Settings() {
         try {
             setSaving(true)
             if (editingStaff) {
-                await usersManager.update.mutateAsync({ id: String(editingStaff.id), ...staffForm })
+                await usersManager.update.mutateAsync({ id: editingStaff.id, ...staffForm })
                 alert("Staff updated successfully!")
             } else {
                 await usersManager.create.mutateAsync(staffForm)
@@ -215,7 +217,7 @@ export default function Settings() {
         }
     }
 
-    const handleDeleteStaff = async (id: string) => {
+    const handleDeleteStaff = async (id: number) => {
         if (!confirm("Are you sure you want to remove this staff?")) return
         try {
             await usersManager.remove.mutateAsync(id)
@@ -307,6 +309,15 @@ export default function Settings() {
                             onClick={() => setActiveSection("integrations")}
                         >
                             <Zap className="w-4 h-4" /> API Integrasi
+                        </Button>
+                    )}
+                    {user?.role === 'owner' && (
+                        <Button
+                            variant={activeSection === "mobile" ? "secondary" : "ghost"}
+                            className="w-full justify-start gap-3"
+                            onClick={() => setActiveSection("mobile")}
+                        >
+                            <Smartphone className="w-4 h-4" /> Aplikasi Mobile
                         </Button>
                     )}
                 </div>
@@ -459,6 +470,9 @@ export default function Settings() {
                             handleInputChange={handleInputChange}
                             handleSaveSettings={handleSaveSettings}
                         />
+                    )}
+                    {activeSection === "mobile" && user?.role === 'owner' && (
+                        <MobileAppSettings />
                     )}
                 </div>
             </div>

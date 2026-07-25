@@ -2,15 +2,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
 import { Pencil, Plus, Trash2 } from "lucide-react"
+import type { User } from "../../types"
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
 interface StaffSettingsProps {
-    staffList: Array<{id: string; name: string; email: string; role: 'owner' | 'manager' | 'cashier' }>;
+    staffList: User[];
     currentUser: any;
     onAddStaff: () => void;
-    onEditStaff: (staff: any) => void;
-    onDeleteStaff: (id: string) => void;
+    onEditStaff: (staff: User) => void;
+    onDeleteStaff: (id: number) => void;
 }
 
 export function StaffSettings({

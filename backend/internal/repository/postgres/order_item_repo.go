@@ -29,56 +29,72 @@ func (r *orderItemRepository) Create(items []entity.OrderItem) error {
 	return r.db.Create(&ms).Error
 }
 
-func (r *orderItemRepository) GetTotalCogsByStatus(status string) (float64, error) {
+func outletWhere(table string, outletID ...uint) (string, []interface{}) {
+	if len(outletID) > 0 && outletID[0] > 0 {
+		return " AND " + table + ".outlet_id = ?", []interface{}{outletID[0]}
+	}
+	return "", nil
+}
+
+func (r *orderItemRepository) GetTotalCogsByStatus(status string, outletID ...uint) (float64, error) {
+	ow, args := outletWhere("orders", outletID...)
 	var total float64
 	err := r.db.Model(&models.OrderItem{}).
 		Joins("JOIN orders ON orders.id = order_items.order_id").
-		Where("orders.status = ?", status).
+		Where("orders.status = ?"+ow, append([]interface{}{status}, args...)...).
 		Select("COALESCE(SUM(order_items.cost * order_items.quantity), 0)").
 		Row().Scan(&total)
 	return total, err
 }
 
-func (r *orderItemRepository) GetTotalCogsRange(start, end string) (float64, error) {
+func (r *orderItemRepository) GetTotalCogsRange(start, end string, outletID ...uint) (float64, error) {
+	ow, args := outletWhere("orders", outletID...)
+	baseArgs := []interface{}{start, end, "Completed"}
 	var total float64
 	err := r.db.Model(&models.OrderItem{}).
 		Joins("JOIN orders ON orders.id = order_items.order_id").
-		Where("orders.created_at BETWEEN ? AND ? AND orders.status = ?", start, end, "Completed").
+		Where("orders.created_at BETWEEN ? AND ? AND orders.status = ?"+ow, append(baseArgs, args...)...).
 		Select("COALESCE(SUM(order_items.cost * order_items.quantity), 0)").
 		Row().Scan(&total)
 	return total, err
 }
 
-func (r *orderItemRepository) GetCategoryBreakdown() ([]entity.CatBreakdown, error) {
+func (r *orderItemRepository) GetCategoryBreakdown(outletID ...uint) ([]entity.CatBreakdown, error) {
+	ow, args := outletWhere("o", outletID...)
 	var results []entity.CatBreakdown
 	err := r.db.Raw(`
 		SELECT p.category, SUM(oi.price * oi.quantity) as total
 		FROM order_items oi
 		JOIN products p ON p.id = oi.product_id
 		JOIN orders o ON o.id = oi.order_id
-		WHERE o.status = 'Completed'
+		WHERE o.status = 'Completed'`+ow+`
 		GROUP BY p.category
-	`).Scan(&results).Error
+	`, args...).Scan(&results).Error
 	return results, err
 }
 
-func (r *orderItemRepository) GetTopProducts(limit int) ([]entity.TopProduct, error) {
+func (r *orderItemRepository) GetTopProducts(limit int, outletID ...uint) ([]entity.TopProduct, error) {
+	ow, args := outletWhere("o", outletID...)
+	allArgs := append(args, limit)
 	var results []entity.TopProduct
 	err := r.db.Raw(`
 		SELECT p.name, p.category, SUM(oi.quantity) as sales
 		FROM order_items oi
 		JOIN products p ON p.id = oi.product_id
 		JOIN orders o ON o.id = oi.order_id
-		WHERE o.status = 'Completed'
+		WHERE o.status = 'Completed'`+ow+`
 		GROUP BY p.name, p.category
 		ORDER BY sales DESC
 		LIMIT ?
-	`, limit).Scan(&results).Error
+	`, allArgs...).Scan(&results).Error
 	return results, err
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
-func (r *orderItemRepository) GetProductSalesVolume(start, end string) ([]entity.ProductSalesVolume, error) {
+func (r *orderItemRepository) GetProductSalesVolume(start, end string, outletID ...uint) ([]entity.ProductSalesVolume, error) {
+	ow, args := outletWhere("o", outletID...)
+	baseArgs := []interface{}{start, end}
+	allArgs := append(baseArgs, args...)
 	var results []entity.ProductSalesVolume
 	err := r.db.Raw(`
 		SELECT
@@ -92,9 +108,9 @@ func (r *orderItemRepository) GetProductSalesVolume(start, end string) ([]entity
 		FROM order_items oi
 		JOIN products p ON p.id = oi.product_id
 		JOIN orders o ON o.id = oi.order_id
-		WHERE o.created_at BETWEEN ? AND ? AND o.status = 'Completed'
+		WHERE o.created_at BETWEEN ? AND ? AND o.status = 'Completed'`+ow+`
 		GROUP BY p.id, p.name, p.category
 		ORDER BY quantity DESC
-	`, start, end).Scan(&results).Error
+	`, allArgs...).Scan(&results).Error
 	return results, err
 }

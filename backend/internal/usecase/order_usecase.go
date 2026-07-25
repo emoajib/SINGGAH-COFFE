@@ -50,8 +50,8 @@ type CreateOrderResponse struct {
 	InvoiceURL string               `json:"invoice_url"`
 }
 
-func (uc *OrderUsecase) GetAll(limit, offset int) ([]entity.OrderResponse, error) {
-	orders, err := uc.orderRepo.FindAll(limit, offset)
+func (uc *OrderUsecase) GetAll(limit, offset int, outletID ...uint) ([]entity.OrderResponse, error) {
+	orders, err := uc.orderRepo.FindAll(limit, offset, outletID...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (uc *OrderUsecase) GetByID(id uint) (*entity.OrderResponse, error) {
 	return &resp, nil
 }
 
-func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName string) (*CreateOrderResponse, error) {
+func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName string, outletID ...uint) (*CreateOrderResponse, error) {
 	var result CreateOrderResponse
 
 	err := uc.db.Transaction(func(tx *gorm.DB) error {
@@ -84,6 +84,11 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 
 		var totalAmount float64
 		var orderItems []entity.OrderItem
+
+		oid := uint(0)
+		if len(outletID) > 0 {
+			oid = outletID[0]
+		}
 
 		for _, itemInput := range req.Items {
 			product, err := productRepo.FindByIDWithRecipeForUpdate(itemInput.ProductID)
@@ -126,13 +131,14 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 					if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
 						return err
 					}
-					mutationRepo.Create(&entity.StockMutation{
-						IngredientID: recipeItem.IngredientID,
-						Type:         string(entity.MutationOut),
-						Quantity:     deductionAmount,
-						ReferenceID:  req.OrderNumber,
-						Notes:        "Sales Deduction",
-					})
+				mutationRepo.Create(&entity.StockMutation{
+					IngredientID: recipeItem.IngredientID,
+					Type:         string(entity.MutationOut),
+					Quantity:     deductionAmount,
+					ReferenceID:  req.OrderNumber,
+					Notes:        "Sales Deduction",
+					OutletID:     oid,
+				})
 				}
 			} else {
 				if err := productRepo.UpdateStockAtomic(product.ID, float64(itemInput.Quantity), "sub"); err != nil {
@@ -169,6 +175,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 			UserID:        userID,
 			CashierName:   cashierName,
 			OrderTime:     time.Now(),
+			OutletID:      oid,
 		}
 
 		// If QRIS, set as pending payment
@@ -203,7 +210,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 	return &result, nil
 }
 
-func (uc *OrderUsecase) Void(id uint) (*entity.OrderResponse, error) {
+func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, error) {
 	err := uc.db.Transaction(func(tx *gorm.DB) error {
 		orderRepo := postgres.NewOrderRepository(tx)
 		productRepo := postgres.NewProductRepository(tx)
@@ -219,7 +226,11 @@ func (uc *OrderUsecase) Void(id uint) (*entity.OrderResponse, error) {
 			return domainErrors.ErrOrderAlreadyVoided
 		}
 
-		// Restore stock for each item
+		oid := uint(0)
+		if len(outletID) > 0 {
+			oid = outletID[0]
+		}
+
 		for _, item := range order.OrderItems {
 			product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
 			if err != nil {
@@ -229,7 +240,6 @@ func (uc *OrderUsecase) Void(id uint) (*entity.OrderResponse, error) {
 			if len(product.Recipe) > 0 {
 				for _, recipeItem := range product.Recipe {
 					restoreAmount := recipeItem.Quantity * float64(item.Quantity)
-					// Lock ingredient before update
 					if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
 						return err
 					}
@@ -240,6 +250,7 @@ func (uc *OrderUsecase) Void(id uint) (*entity.OrderResponse, error) {
 						Quantity:     restoreAmount,
 						ReferenceID:  order.OrderNumber,
 						Notes:        "Void Return",
+						OutletID:     oid,
 					})
 				}
 			} else {

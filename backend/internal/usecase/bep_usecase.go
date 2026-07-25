@@ -41,7 +41,7 @@ func NewBEPUsecase(db *gorm.DB) *BEPUsecase {
 }
 
 // GetBEPReport generates the complete BEP analysis for a given month/year
-func (uc *BEPUsecase) GetBEPReport(month, year int) (*entity.BEPResponse, error) {
+func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.BEPResponse, error) {
 	// Build period strings
 	now := time.Now()
 	if month <= 0 {
@@ -114,31 +114,31 @@ func (uc *BEPUsecase) GetBEPReport(month, year int) (*entity.BEPResponse, error)
 	fcBreakdownCh := make(chan fcBreakdownRes, 1)
 
 	go func() {
-		rev, err := uc.orderRepo.GetTotalSalesRange(startStr, endStr)
+		rev, err := uc.orderRepo.GetTotalSalesRange(startStr, endStr, outletID...)
 		revenueCh <- salesResult{rev, err}
 	}()
 	go func() {
-		cogs, err := uc.orderItemRepo.GetTotalCogsRange(startStr, endStr)
+		cogs, err := uc.orderItemRepo.GetTotalCogsRange(startStr, endStr, outletID...)
 		cogsCh <- cogsRes{cogs, err}
 	}()
 	go func() {
-		fc, err := uc.expenseRepo.GetTotalByCostType("fixed", startStr, endStr)
+		fc, err := uc.expenseRepo.GetTotalByCostType("fixed", startStr, endStr, outletID...)
 		fixedCostCh <- fixedCostRes{fc, err}
 	}()
 	go func() {
-		vc, err := uc.expenseRepo.GetTotalByCostType("variable", startStr, endStr)
+		vc, err := uc.expenseRepo.GetTotalByCostType("variable", startStr, endStr, outletID...)
 		variableExpCh <- variableExpRes{vc, err}
 	}()
 	go func() {
-		ds, err := uc.orderRepo.GetDailySalesRange(histStartStr, endStr)
+		ds, err := uc.orderRepo.GetDailySalesRange(histStartStr, endStr, outletID...)
 		dailySalesCh <- dailySalesRes{ds, err}
 	}()
 	go func() {
-		ps, err := uc.orderItemRepo.GetProductSalesVolume(startStr, endStr)
+		ps, err := uc.orderItemRepo.GetProductSalesVolume(startStr, endStr, outletID...)
 		productSalesCh <- productSalesRes{ps, err}
 	}()
 	go func() {
-		fcb, err := uc.expenseRepo.GetFixedCostBreakdown(startStr, endStr)
+		fcb, err := uc.expenseRepo.GetFixedCostBreakdown(startStr, endStr, outletID...)
 		fcBreakdownCh <- fcBreakdownRes{fcb, err}
 	}()
 

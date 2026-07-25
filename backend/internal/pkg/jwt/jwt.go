@@ -24,21 +24,27 @@ func Init(secret string, database *gorm.DB) {
 }
 
 type Claims struct {
-	UserID uint   `json:"user_id"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserID   uint   `json:"user_id"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+	OutletID uint   `json:"outlet_id"`
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(userID uint, email, role string) (string, error) {
+func GenerateToken(userID uint, email, role string, outletID ...uint) (string, error) {
 	if JwtKey == nil {
 		return "", errors.New("JWT not initialized")
 	}
+	oid := uint(0)
+	if len(outletID) > 0 {
+		oid = outletID[0]
+	}
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
-		UserID: userID,
-		Email:  email,
-		Role:   role,
+		UserID:   userID,
+		Email:    email,
+		Role:     role,
+		OutletID: oid,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},

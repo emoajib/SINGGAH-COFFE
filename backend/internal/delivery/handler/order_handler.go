@@ -19,10 +19,11 @@ func NewOrderHandler(orderUsecase *usecase.OrderUsecase) *OrderHandler {
 }
 
 func (h *OrderHandler) GetOrders(c *gin.Context) {
+	outletID := getOutletID(c)
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	orders, err := h.orderUsecase.GetAll(limit, offset)
+	orders, err := h.orderUsecase.GetAll(limit, offset, outletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
 		return
@@ -57,7 +58,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		}{ProductID: item.ProductID, Quantity: item.Quantity})
 	}
 
-	result, err := h.orderUsecase.Create(ucReq, userID.(uint), cashierName)
+	result, err := h.orderUsecase.Create(ucReq, userID.(uint), cashierName, getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process order: " + err.Error()})
 		return
@@ -73,7 +74,7 @@ func (h *OrderHandler) VoidOrder(c *gin.Context) {
 		return
 	}
 
-	result, err := h.orderUsecase.Void(uint(id))
+	result, err := h.orderUsecase.Void(uint(id), getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to void order: " + err.Error()})
 		return

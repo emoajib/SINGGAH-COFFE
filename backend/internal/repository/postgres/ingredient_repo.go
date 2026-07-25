@@ -32,9 +32,11 @@ func (r *ingredientRepository) FindByIDForUpdate(id uint) (*entity.Ingredient, e
 	return toDomainIngredient(&m), nil
 }
 
-func (r *ingredientRepository) FindAll() ([]entity.Ingredient, error) {
+func (r *ingredientRepository) FindAll(outletID ...uint) ([]entity.Ingredient, error) {
+	tx := r.db
+	tx = scopeOutlet(tx, "ingredients", outletID...)
 	var ms []models.Ingredient
-	if err := r.db.Find(&ms).Error; err != nil {
+	if err := tx.Find(&ms).Error; err != nil {
 		return nil, err
 	}
 	result := make([]entity.Ingredient, len(ms))
@@ -82,10 +84,26 @@ func (r *ingredientRepository) Delete(id uint) error {
 	return r.db.Delete(&models.Ingredient{}, id).Error
 }
 
-func (r *ingredientRepository) CountLowStock() (int64, error) {
+func (r *ingredientRepository) CountLowStock(outletID ...uint) (int64, error) {
+	tx := r.db.Model(&models.Ingredient{}).Where("current_stock <= min_stock")
+	tx = scopeOutlet(tx, "ingredients", outletID...)
 	var count int64
-	err := r.db.Model(&models.Ingredient{}).Where("current_stock <= min_stock").Count(&count).Error
+	err := tx.Count(&count).Error
 	return count, err
+}
+
+func (r *ingredientRepository) FindLowStock(limit int, outletID ...uint) ([]entity.Ingredient, error) {
+	tx := r.db.Where("current_stock <= min_stock")
+	tx = scopeOutlet(tx, "ingredients", outletID...)
+	var ms []models.Ingredient
+	if err := tx.Limit(limit).Find(&ms).Error; err != nil {
+		return nil, err
+	}
+	result := make([]entity.Ingredient, len(ms))
+	for i, m := range ms {
+		result[i] = *toDomainIngredient(&m)
+	}
+	return result, nil
 }
 
 func toDomainIngredient(m *models.Ingredient) *entity.Ingredient {
@@ -96,6 +114,7 @@ func toDomainIngredient(m *models.Ingredient) *entity.Ingredient {
 		CurrentStock: m.CurrentStock,
 		MinStock:     m.MinStock,
 		CostPerUnit:  m.CostPerUnit,
+		OutletID:     m.OutletID,
 	}
 }
 
@@ -106,5 +125,6 @@ func toModelIngredient(e *entity.Ingredient) *models.Ingredient {
 		CurrentStock: e.CurrentStock,
 		MinStock:     e.MinStock,
 		CostPerUnit:  e.CostPerUnit,
+		OutletID:     e.OutletID,
 	}
 }

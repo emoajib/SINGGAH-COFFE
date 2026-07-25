@@ -33,14 +33,15 @@ type ProductRepository interface {
 type IngredientRepository interface {
 	FindByID(id uint) (*entity.Ingredient, error)
 	FindByIDForUpdate(id uint) (*entity.Ingredient, error)
-	FindAll() ([]entity.Ingredient, error)
+	FindAll(outletID ...uint) ([]entity.Ingredient, error)
 	Create(ingredient *entity.Ingredient) error
 	Update(ingredient *entity.Ingredient) error
 	UpdateStock(id uint, newStock float64) error
 	UpdateStockAtomic(id uint, delta float64, operator string) error
 	UpdateCostPerUnit(id uint, cost float64) error
 	Delete(id uint) error
-	CountLowStock() (int64, error)
+	CountLowStock(outletID ...uint) (int64, error)
+	FindLowStock(limit int, outletID ...uint) ([]entity.Ingredient, error)
 }
 
 // StockMutationRepository defines data access for stock mutations
@@ -53,42 +54,42 @@ type StockMutationRepository interface {
 type OrderRepository interface {
 	FindByID(id uint) (*entity.Order, error)
 	FindByIDWithItems(id uint) (*entity.Order, error)
-	FindAll(limit, offset int) ([]entity.Order, error)
+	FindAll(limit, offset int, outletID ...uint) ([]entity.Order, error)
 	Create(order *entity.Order) error
 	Update(order *entity.Order) error
-	GetTotalSalesSince(since string) (float64, error)
-	GetTotalSalesRange(start, end string) (float64, error)
-	CountSince(since string) (int64, error)
-	CountByStatus(status string) (int64, error)
-	GetSumByStatusSince(status, since, timeFormat string) ([]entity.TrendPoint, error)
+	GetTotalSalesSince(since string, outletID ...uint) (float64, error)
+	GetTotalSalesRange(start, end string, outletID ...uint) (float64, error)
+	CountSince(since string, outletID ...uint) (int64, error)
+	CountByStatus(status string, outletID ...uint) (int64, error)
+	GetSumByStatusSince(status, since, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error)
 	// BEP
-	GetDailySalesRange(start, end string) ([]entity.DailySales, error)
-	GetAverageOrderValue(start, end string) (float64, error)
+	GetDailySalesRange(start, end string, outletID ...uint) ([]entity.DailySales, error)
+	GetAverageOrderValue(start, end string, outletID ...uint) (float64, error)
 }
 
 // OrderItemRepository defines data access for order items
 type OrderItemRepository interface {
 	Create(items []entity.OrderItem) error
-	GetTotalCogsByStatus(status string) (float64, error)
-	GetTotalCogsRange(start, end string) (float64, error)
-	GetCategoryBreakdown() ([]entity.CatBreakdown, error)
-	GetTopProducts(limit int) ([]entity.TopProduct, error)
+	GetTotalCogsByStatus(status string, outletID ...uint) (float64, error)
+	GetTotalCogsRange(start, end string, outletID ...uint) (float64, error)
+	GetCategoryBreakdown(outletID ...uint) ([]entity.CatBreakdown, error)
+	GetTopProducts(limit int, outletID ...uint) ([]entity.TopProduct, error)
 	// BEP
-	GetProductSalesVolume(start, end string) ([]entity.ProductSalesVolume, error)
+	GetProductSalesVolume(start, end string, outletID ...uint) ([]entity.ProductSalesVolume, error)
 }
 
 // ExpenseRepository defines data access for expenses
 type ExpenseRepository interface {
-	FindAll() ([]entity.Expense, error)
+	FindAll(outletID ...uint) ([]entity.Expense, error)
 	FindByID(id uint) (*entity.Expense, error)
 	Create(expense *entity.Expense) error
 	Update(expense *entity.Expense) error
 	Delete(id uint) error
-	GetTotal() (float64, error)
-	GetBreakdownRange(start, end string) ([]entity.ExpenseDetail, error)
+	GetTotal(outletID ...uint) (float64, error)
+	GetBreakdownRange(start, end string, outletID ...uint) ([]entity.ExpenseDetail, error)
 	// BEP
-	GetTotalByCostType(costType, start, end string) (float64, error)
-	GetFixedCostBreakdown(start, end string) ([]entity.FixedCostItem, error)
+	GetTotalByCostType(costType, start, end string, outletID ...uint) (float64, error)
+	GetFixedCostBreakdown(start, end string, outletID ...uint) ([]entity.FixedCostItem, error)
 }
 
 // SettingRepository defines data access for settings
@@ -105,6 +106,15 @@ type WebhookRepository interface {
 	Create(webhook *entity.ProcessedWebhook) error
 	Update(order *entity.Order) error
 	FindAll(limit int) ([]entity.ProcessedWebhook, error)
+}
+
+// OutletRepository defines data access for outlets
+type OutletRepository interface {
+	FindAll() ([]entity.Outlet, error)
+	FindByID(id uint) (*entity.Outlet, error)
+	Create(outlet *entity.Outlet) error
+	Update(outlet *entity.Outlet) error
+	Delete(id uint) error
 }
 
 // TokenBlacklistRepository defines data access for token blacklist
