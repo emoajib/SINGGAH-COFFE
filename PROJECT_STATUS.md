@@ -28,7 +28,6 @@ Sistem telah melewati fase **Production Hardening** secara menyeluruh. Seluruh *
 - **.gitignore**: Referensi Flutter dihapus — tidak relevan dengan stack saat ini.
 - **Multi-stage Dockerfile**: `golang:1.23-alpine` → `alpine:3.19` — image size ~15MB.
 - **CSV Export**: Endpoint `GET /api/reports/profit-loss/export` untuk ekspor laporan laba rugi.
-- **Sales Summary**: Endpoint `GET /api/reports/sales-summary` khusus untuk mobile.
 
 #### **C. Unit Testing (42 tests)**
 | Usecase         | Jumlah Test | Cakupan                                              |
@@ -47,23 +46,12 @@ Sistem telah melewati fase **Production Hardening** secara menyeluruh. Seluruh *
 - **Dockerfile**: Multi-stage dengan nginx, SPA routing (fallback ke `index.html`), proxy `/api/` ke backend.
 - **nginx.conf**: `proxy_pass` diperbaiki agar cocok dengan service name di `docker-compose`.
 
-#### **E. Mobile App (Expo/React Native)**
-- **Reports screen**: `app/(app)/reports.tsx` dengan Profit & Loss dan Sales Summary.
-- **Printer integration**: `printerService`, `usePrinter` hook, `PrintButton` component — siap cetak struk Bluetooth.
-- **POS auto-print**: Cetak struk otomatis setelah payment sukses.
-- **TypeScript cleanup**: Semua tipe `any` diperbaiki — `ReceiptData`, `ProfitLossData`, dll. didefinisikan secara eksplisit.
-- **Performance**: Nested `FlatList` diganti dengan `.map()` — menghilangkan warning VirtualizedList.
-- **Unused deps removed**: `react-native-fs`, `react-native-permissions` dicabut.
-- **Zero circular dependencies**: Semua jalur impor diverifikasi.
-- **`npx tsc --noEmit`**: **Zero errors**.
-
-#### **F. Infrastructure & DevOps**
+#### **E. Infrastructure & DevOps**
 - **`run_backend_tests.sh`**: Path diperbaiki (`./services/` → `./internal/...`), referensi sqlite dihapus.
 - **`loadtest/load_test.sh`**: Bash-based load testing tool — zero dependencies (cukup `curl` + `bash`).
-- **CI/CD (GitHub Actions)**: 3 job — semuanya green.
+- **CI/CD (GitHub Actions)**: 2 jobs — both green.
   - Backend Build Check (Go 1.23)
   - Web Dashboard Build Check (Node 20, `npm run build`)
-  - Mobile POS Type Check (`npx tsc --noEmit`)
 - **Web-dashboard Dockerfile**: Node 18 → Node 20 (sinkron dengan CI).
 
 ---
@@ -72,8 +60,7 @@ Sistem telah melewati fase **Production Hardening** secara menyeluruh. Seluruh *
 
 1. **CI Enhancement**: Tambahkan `go test` step ke GitHub Actions workflow — saat ini masih build-only.
 2. **Integration Test**: `docker compose up` untuk full-stack verification — butuh Docker daemon di runner CI.
-3. **Mobile Native Build**: `expo run:android` / `expo run:ios` untuk pengujian di device fisik — butuh emulator/device dan native toolchain.
-4. **PDF Export**: Laporan dalam format PDF — perlu library eksternal (gofpdf / excelize) ditambahkan ke `go.mod`.
+3. **PDF Export**: Laporan dalam format PDF — perlu library eksternal (gofpdf / excelize) ditambahkan ke `go.mod`.
 5. **Auto Reorder**: Notifikasi stok ketika ingredient menyentuh `min_stock` — fitur manajemen supply.
 6. **Security Audit**: Dependency vulnerability scanning, CORS hardening, dan penetration testing.
 7. **Multi-Outlet Support**: Arsitektur multi-cabang — direncanakan untuk fase berikutnya.
@@ -138,11 +125,6 @@ graph TD
 **Dokumen ini disimpan di:** `PROJECT_STATUS.md`
 
 **Catatan penting:**
-- Mobile App menggunakan React Native (Expo). Jalankan dengan:
-  ```bash
-  cd singgah-pos-mobile
-  npm install && npx expo start --web
-  ```
 - Seluruh service berjalan di Docker. Gunakan `docker compose up --build` untuk menjalankan sistem lengkap.
 - Load testing dapat dilakukan tanpa dependensi tambahan: `bash loadtest/load_test.sh`
 - Unit test: `bash run_backend_tests.sh` atau `go test ./internal/... -v`

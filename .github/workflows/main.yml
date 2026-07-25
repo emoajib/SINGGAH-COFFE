@@ -108,25 +108,3 @@ jobs:
       if: always()
       run: pkill -f "go run.*cmd/server" || true
 
-  mobile-app-check:
-    name: Mobile POS Type Check
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: singgah-pos-mobile/package-lock.json
-
-    - name: Install Dependencies
-      run: |
-        cd singgah-pos-mobile
-        npm ci
-
-    - name: Run Type Check (TypeScript)
-      run: |
-        cd singgah-pos-mobile
-        npx tsc --noEmit

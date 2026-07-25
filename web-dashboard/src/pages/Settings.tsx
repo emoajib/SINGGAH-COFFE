@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../components/ui/card"
-import { Store, Printer, Percent, Bell, Loader2, User as UserIcon, Users, Zap, Eye, EyeOff, FileText, Smartphone } from "lucide-react"
+import { Store, Printer, Percent, Bell, Loader2, User as UserIcon, Users, Zap, Eye, EyeOff, FileText } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
 import type { User } from '../types'
@@ -18,7 +18,7 @@ import { SopSettings } from "./Settings/SopSettings"
 import { PrinterSettings } from "./Settings/PrinterSettings"
 import { NotificationSettings } from "./Settings/NotificationSettings"
 import { IntegrationSettings } from "./Settings/IntegrationSettings"
-import { MobileAppSettings } from "./Settings/MobileAppSettings"
+
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 
@@ -311,15 +311,6 @@ export default function Settings() {
                             <Zap className="w-4 h-4" /> API Integrasi
                         </Button>
                     )}
-                    {user?.role === 'owner' && (
-                        <Button
-                            variant={activeSection === "mobile" ? "secondary" : "ghost"}
-                            className="w-full justify-start gap-3"
-                            onClick={() => setActiveSection("mobile")}
-                        >
-                            <Smartphone className="w-4 h-4" /> Aplikasi Mobile
-                        </Button>
-                    )}
                 </div>
 
                 {/* Main Settings Content Area */}
@@ -470,9 +461,6 @@ export default function Settings() {
                             handleInputChange={handleInputChange}
                             handleSaveSettings={handleSaveSettings}
                         />
-                    )}
-                    {activeSection === "mobile" && user?.role === 'owner' && (
-                        <MobileAppSettings />
                     )}
                 </div>
             </div>

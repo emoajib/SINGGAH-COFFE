@@ -32,16 +32,10 @@ stack:
     charts: Recharts 2.10
     icons: Lucide React
 
-  mobile:
-    framework: React Native (Expo)
-    navigation: Expo Router
-    state: TanStack Query + Zustand
-
 services:
-  backend_api:    http://localhost:8080
-  web_dashboard:  http://localhost:3000
-  mobile_pos:     http://localhost:8081
-  database:       localhost:5432
+  backend_api:  http://localhost:8080
+  web_dashboard: http://localhost:3000
+  database:     localhost:5432
 
 roles: [owner, manager, cashier]
 ```
@@ -322,9 +316,6 @@ FRONTEND:
 ├── Tidak ada virtualisasi untuk list panjang
 └── Image belum dioptimasi (WebP conversion)
 
-MOBILE:
-├── Tidak ada offline support untuk menu
-└── Tidak ada background sync
 ```
 
 #### ☐ B. Strategi Optimasi Backend (Go)

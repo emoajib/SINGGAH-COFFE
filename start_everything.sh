@@ -4,7 +4,7 @@ echo "🚀 Starting Singgah Coffee POS System - All Services"
 echo "======================================================"
 echo ""
 
-BASE_DIR="/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+BASE_DIR="/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 LOG_DIR="$BASE_DIR/logs"
 DB_NAME="singgah_pos"
 
@@ -90,20 +90,6 @@ WEB_PID=$!
 echo "   ✅ Web Dashboard started (PID: $WEB_PID)"
 
 echo ""
-
-# ──────────────────────────────────────────────
-# Step 4: React Native Mobile App (Expo)
-# ──────────────────────────────────────────────
-echo "Step 4: React Native Mobile App..."
-cd "$BASE_DIR/singgah-pos-mobile"
-if [ ! -d "node_modules" ]; then
-    echo "   📦 Installing npm dependencies..."
-    npm install
-fi
-npx expo start --web > "$LOG_DIR/react-native.log" 2>&1 &
-MOBILE_PID=$!
-echo "   ✅ React Native App started in web mode (PID: $MOBILE_PID)"
-
 echo ""
 echo "======================================================"
 echo "  ✅ All services started!"
@@ -111,7 +97,6 @@ echo ""
 echo "  📍 Service URLs:"
 echo "     Backend API:    http://localhost:8080"
 echo "     Web Dashboard:  http://localhost:3000"
-echo "     Mobile POS:     http://localhost:8081 (Expo Web)"
 echo "     PostgreSQL:     localhost:5432"
 echo ""
 echo "  📁 Log files: $LOG_DIR"

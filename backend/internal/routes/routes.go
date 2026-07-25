@@ -90,11 +90,6 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/settings", h.Settings.GetSettings)
 			protected.POST("/settings", middleware.RoleMiddleware("owner"), h.Settings.UpdateSettings)
 			protected.POST("/settings/upload-logo", middleware.RoleMiddleware("owner"), h.Settings.UploadLogo)
-			protected.POST("/settings/upload-apk", middleware.RoleMiddleware("owner"), h.Settings.UploadMobileApp)
-
-			// Mobile App Download
-			protected.GET("/mobile/download", h.Settings.DownloadMobileApp)
-
 			// Expenses
 			protected.GET("/expenses", h.Expense.GetExpenses)
 			protected.POST("/expenses", middleware.RoleMiddleware("owner", "manager"), h.Expense.CreateExpense)

@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Navigate to project directory
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
+cd "/Volumes/PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 
 echo -e "${BLUE}Step 1: Stopping existing Docker containers...${NC}"
 docker-compose down
@@ -44,10 +44,5 @@ echo -e "${YELLOW}Next steps:${NC}"
 echo "   1. Open new terminal and run:"
 echo "      cd '/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/web-dashboard'"
 echo "      npm run dev"
-echo ""
-echo "   2. Open another terminal and run:"
-echo "      cd '/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/singgah-pos-mobile'"
-echo "      npm install"
-echo "      npx expo start --web"
 echo ""
 echo "========================================"

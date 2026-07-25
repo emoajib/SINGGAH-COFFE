@@ -1,6 +1,6 @@
 # ☕ Singgah Coffee POS System
 
-Professional, Enterprise-grade Point of Sale (POS) system for Singgah Coffee. Built with a robust **Go** backend, a high-performance **React** web dashboard, and a seamless **React Native (Expo)** mobile application.
+Professional, Enterprise-grade Point of Sale (POS) system for Singgah Coffee. Built with a robust **Go** backend, a high-performance **React** web dashboard, and a **PWA (Progressive Web App)** for mobile access.
 
 ![System Architecture](/.gemini/antigravity/brain/ebe4928a-8907-4448-aa9d-958424e63ef7/system_architecture_1770115419027.png)
 
@@ -16,11 +16,6 @@ Professional, Enterprise-grade Point of Sale (POS) system for Singgah Coffee. Bu
 - **Atomic Mutations**: Data-safe stock updates with a full audit trail (Stock In, Out, Adjustment).
 - **Critical Alerts**: Visual warnings for low-stock ingredients to prevent operational downtime.
 
-### 📱 Industrial Mobile POS
-- **Cross-Platform**: Built with React Native (Expo) for tablet and mobile efficiency.
-- **Receipt Printing**: Integrated thermal printer support (ESC/POS) via Network/IP.
-- **Active SOP Module**: Digital access to Standard Operating Procedures for staff directly in the app.
-
 ### 🛡️ Enterprise Security & Integrity
 - **Strict Validation**: Industrial-grade input validation in Go to prevent data corruption.
 - **Role-Based Access (RBAC)**: Secure access control for Owners, Managers, and Cashiers.
@@ -33,7 +28,6 @@ Professional, Enterprise-grade Point of Sale (POS) system for Singgah Coffee. Bu
 - **Backend**: Go (Golang) + Gin Framework + GORM
 - **Database**: PostgreSQL 15 + Docker Orchestration
 - **Web Dashboard**: React + TypeScript + Vite + Tailwind CSS
-- **Mobile POS**: React Native (Expo) + TanStack Query + Zustand
 - **CI/CD**: GitHub Actions
 
 ---
@@ -48,9 +42,6 @@ After ensuring [System Integrity Protection (SIP)](#️-important-macos-setup-re
 
 # Run Web Dashboard (Port 3000)
 ./start_web_dashboard.sh
-
-# Run Mobile POS (Port 8081)
-cd singgah-pos-mobile && npm install && npx expo start --web
 ```
 
 ---
@@ -61,7 +52,6 @@ cd singgah-pos-mobile && npm install && npx expo start --web
 |---------|-----|------|
 | **Backend API** | http://localhost:8080 | Central API & Logic Hub |
 | **Web Dashboard** | http://localhost:3000 | Admin & Management Console |
-| **Mobile POS** | http://localhost:8081 | Cashier Transaction Interface |
 | **Database** | localhost:5432 | PostgreSQL Data Store |
 
 ---
@@ -85,5 +75,5 @@ cd singgah-pos-mobile && npm install && npx expo start --web
 ---
 
 **Last Updated**: 2026-05-31  
-**Version**: 2.0.0 (Expo Migration Edition)  
+**Version**: 2.0.0 (PWA Edition)  
 **Status**: Stable / Production-Ready Core

@@ -64,12 +64,6 @@ cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE"
 ./start_web_dashboard.sh
 ```
 
-#### Terminal 3: Mobile App (React Native)
-```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/singgah-pos-mobile"
-npm install && npx expo start --web
-```
-
 ---
 
 ### Manual Start (Step by Step)
@@ -91,13 +85,6 @@ npm install  # First time only
 npm run dev
 ```
 
-#### 3. Start Mobile App (React Native)
-```bash
-cd "/Volumes/WORK/PROJECT PROTOTYPE/SISTEM MOKA POS SINGGAH COFFEE/singgah-pos-mobile"
-npm install  # First time only
-npx expo start --web
-```
-
 ---
 
 ## 🌐 Access URLs
@@ -106,7 +93,6 @@ After all services are running:
 
 - **Backend API**: http://localhost:8080
 - **Web Dashboard**: http://localhost:5173
-- **Mobile POS**: http://localhost:8081 (Expo Web)
 - **PostgreSQL Database**: localhost:5434
 
 ---
@@ -173,13 +159,13 @@ docker-compose restart api
 │                    Singgah Coffee POS                    │
 ├─────────────────────────────────────────────────────────┤
 │                                                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Web Dashboard│  │  Mobile POS  │  │  Backend API │  │
-│  │  (React)     │  │ (React Native)  │   (Go/Gin)   │  │
-│  │ Port: 5173   │  │ Port: 8081   │  │  Port: 8080  │  │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
-│         │                  │                  │          │
-│         └──────────────────┴──────────────────┘          │
+│  ┌──────────────┐  ┌──────────────┐  │
+│  │ Web Dashboard│  │  Backend API │  │
+│  │  (React)     │  │  (Go/Gin)    │  │
+│  │ Port: 5173   │  │  Port: 8080  │  │
+│  └──────┬───────┘  └──────┬───────┘  │
+│         │                  │          │
+│         └──────────────────┴──────────┘
 │                            │                             │
 │                   ┌────────▼────────┐                    │
 │                   │   PostgreSQL    │                    │
@@ -210,9 +196,8 @@ Check backend initialization for default admin credentials.
 1. **Start Services**: Run all three startup scripts
 2. **Development**: Make changes to code
 3. **Hot Reload**: 
-   - Web Dashboard: Auto-reloads via Vite
-   - Mobile POS: Auto-reloads via Expo
-   - Backend: Restart container if needed
+- Web Dashboard: Auto-reloads via Vite
+    - Backend: Restart container if needed
 4. **Testing**: Access via browser URLs above
 5. **Stop Services**: `Ctrl+C` in each terminal, then `docker-compose down`
 
