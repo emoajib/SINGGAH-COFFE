@@ -39,7 +39,7 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
-	if err := h.settingsUsecase.Update(entity.SettingMap(req)); err != nil {
+	if err := h.settingsUsecase.Update(entity.SettingMap{req.Key: req.Value}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 		return
 	}

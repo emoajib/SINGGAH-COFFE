@@ -109,4 +109,7 @@ type UpdateCostTypeRequest struct {
 	CostType string `json:"cost_type" binding:"required,oneof=fixed variable"`
 }
 
-type UpdateSettingsRequest map[string]string
+type UpdateSettingsRequest struct {
+	Key   string `json:"key" binding:"required"`
+	Value string `json:"value"`
+}
