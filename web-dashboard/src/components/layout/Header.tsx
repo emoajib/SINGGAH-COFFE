@@ -22,7 +22,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 const settings = await fetchSettings()
                 if (settings.outlet_name) setOutletName(settings.outlet_name)
             } catch (error) {
-                console.error("Failed to load outlet name:", error)
+                void error
             }
         }
         loadName()

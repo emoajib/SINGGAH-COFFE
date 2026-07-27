@@ -45,7 +45,7 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                 if (settings.outlet_logo_url) setLogoUrl(settings.outlet_logo_url)
                 if (settings.outlet_name) setOutletName(settings.outlet_name)
             } catch (error) {
-                console.error("Failed to load branding:", error)
+                void error
             }
         }
         loadBranding()

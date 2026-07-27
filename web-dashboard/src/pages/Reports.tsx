@@ -59,7 +59,7 @@ const Reports: React.FC = () => {
             const res = await api.get('/reports/profit-loss', { params: dateRange });
             setPlData(res.data);
         } catch (err) {
-            console.error("Failed to fetch P&L data", err);
+            void err;
         } finally {
             setIsPlLoading(false);
         }

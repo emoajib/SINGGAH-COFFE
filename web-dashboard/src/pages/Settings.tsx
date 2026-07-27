@@ -131,7 +131,7 @@ export default function Settings() {
             })
             alert("Logo uploaded successfully! Don't forget to save changes.")
         } catch (error: any) {
-            console.error("Upload failed:", error)
+            void error
             alert("Failed to upload logo: " + (error.response?.data?.error || error.message))
         } finally {
             setSaving(false)
@@ -148,7 +148,7 @@ export default function Settings() {
             )
             alert("Outlet settings saved successfully!")
         } catch (error) {
-            console.error("Failed to save settings", error)
+            void error
             alert("Failed to save settings. Please try again.")
         } finally {
             setSaving(false)
@@ -161,7 +161,7 @@ export default function Settings() {
             await updateProfileMutation.mutateAsync(profile)
             alert("Admin profile updated successfully!")
         } catch (error) {
-            console.error("Failed to update profile", error)
+            void error
             alert("Failed to update profile. Please try again.")
         } finally {
             setSaving(false)
@@ -184,7 +184,7 @@ export default function Settings() {
             const users = await usersManager.list()
             setStaffList(users)
         } catch (error: any) {
-            console.error("Failed to save staff", error)
+            void error
             const errorMsg = error.response?.data?.error || "Email might already be taken or invalid data."
             alert(`Failed to save staff: ${errorMsg}`)
         } finally {
@@ -210,7 +210,7 @@ export default function Settings() {
             setPasswordForm({ current_password: "", new_password: "", confirm_password: "" })
             alert("Password updated successfully!")
         } catch (error: any) {
-            console.error("Failed to update password", error)
+            void error
             alert(error.response?.data?.error || "Failed to update password.")
         } finally {
             setSaving(false)
@@ -224,7 +224,7 @@ export default function Settings() {
             const users = await usersManager.list()
             setStaffList(users)
         } catch (error) {
-            console.error("Failed to delete staff", error)
+            void error
         }
     }
 

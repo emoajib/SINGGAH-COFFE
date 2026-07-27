@@ -43,7 +43,7 @@ const Integration: React.FC = () => {
             setLogs(logsRes.data || []);
             setSettings(settingsRes.data || {});
         } catch (err) {
-            console.error("Failed to fetch integration data", err);
+            void err;
         } finally {
             setIsLoadingLogs(false);
         }
