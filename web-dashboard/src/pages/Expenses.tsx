@@ -105,15 +105,15 @@ export default function Expenses() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Pelacakan Pengeluaran</h1>
+                    <h1 className="text-xl md:text-3xl font-bold text-gray-900">Pelacakan Pengeluaran</h1>
                     <p className="text-gray-500">Kelola biaya operasional dan pengeluaran Anda.</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Segarkan"}
                     </Button>
                     {canEdit && (
-                        <Button className="gap-2" onClick={handleOpenAdd}>
+                        <Button size="sm" className="gap-1 sm:gap-2" onClick={handleOpenAdd}>
                             <Plus className="w-4 h-4" /> Tambah Pengeluaran
                         </Button>
                     )}
@@ -138,7 +138,7 @@ export default function Expenses() {
                 <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                         <CardTitle>Pengeluaran Terbaru</CardTitle>
-                        <div className="relative w-64">
+                        <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                             <Input
                                 placeholder="Cari pengeluaran..."

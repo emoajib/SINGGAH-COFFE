@@ -61,7 +61,7 @@ const Integration: React.FC = () => {
         <div className="p-8 space-y-8 bg-gray-50/50 min-h-screen font-sans">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-4xl font-black text-gray-900 tracking-tight text-primary uppercase">Omnichannel Hub</h1>
+                    <h1 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tight text-primary uppercase">Omnichannel Hub</h1>
                     <p className="text-gray-500 font-medium italic">Status integrasi eksternal dan log audit pembayaran riil.</p>
                 </div>
                 <Button

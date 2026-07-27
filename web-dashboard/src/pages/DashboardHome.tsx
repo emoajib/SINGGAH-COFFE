@@ -73,15 +73,15 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                         </div>
                     )}
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Ringkasan {outletName}</h1>
+                        <h1 className="text-xl md:text-3xl font-bold text-gray-900">Ringkasan {outletName}</h1>
                         <p className="text-gray-500">Selamat datang kembali di panel administrasi Anda.</p>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     {user?.role === 'owner' && (
                         <>
-                            <Button variant="outline" className="opacity-50 cursor-not-allowed" title="Feature coming soon">Ekspor Data</Button>
-                            <Button onClick={() => setActiveTab('pos')}>Pesanan Baru</Button>
+                            <Button variant="outline" size="sm" className="text-xs sm:text-sm opacity-50 cursor-not-allowed" title="Feature coming soon">Ekspor Data</Button>
+                            <Button size="sm" onClick={() => setActiveTab('pos')}>Pesanan Baru</Button>
                         </>
                     )}
                 </div>

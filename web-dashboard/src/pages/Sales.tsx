@@ -50,7 +50,7 @@ export default function Sales() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Penjualan & Transaksi</h1>
+                    <h1 className="text-xl md:text-3xl font-bold text-gray-900">Penjualan & Transaksi</h1>
                     <p className="text-gray-500">Pantau semua pembayaran yang berhasil dan tertunda.</p>
                 </div>
                 <div className="flex gap-2">
@@ -70,7 +70,7 @@ export default function Sales() {
                             <CardTitle>Riwayat Transaksi</CardTitle>
                             <CardDescription>Sinkronisasi pesanan waktu nyata.</CardDescription>
                         </div>
-                        <div className="relative w-64">
+                        <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                             <Input
                                 placeholder="Cari no. pesanan..."

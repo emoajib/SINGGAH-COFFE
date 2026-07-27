@@ -177,24 +177,24 @@ const Reports: React.FC = () => {
         <div className="p-8 space-y-8 bg-gray-50/50 min-h-screen">
             <div className="flex justify-between items-end no-print">
                 <div>
-                    <h1 className="text-4xl font-black text-gray-900 tracking-tight">Pusat Komando Analitik</h1>
+                    <h1 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tight">Pusat Komando Analitik</h1>
                     <p className="text-gray-500 font-medium">Wawasan finansial mendalam dan performa operasional.</p>
                 </div>
                 <div className="flex flex-col gap-2">
-                    <div className="flex gap-2 mb-2 no-print">
+                    <div className="flex flex-col sm:flex-row gap-2 mb-2 no-print">
                         <Input 
                             type="date" 
-                            className="w-40 h-10 bg-white" 
+                            className="w-full sm:w-40 h-10 bg-white" 
                             value={dateRange.start}
                             onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
                         />
                         <Input 
                             type="date" 
-                            className="w-40 h-10 bg-white" 
+                            className="w-full sm:w-40 h-10 bg-white" 
                             value={dateRange.end}
                             onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
                         />
-                        <Button onClick={fetchProfitLoss} className="h-10">
+                        <Button onClick={fetchProfitLoss} className="h-10 w-full sm:w-auto">
                             <Calendar className="w-4 h-4 mr-2" />
                             Filter
                         </Button>
@@ -217,13 +217,13 @@ const Reports: React.FC = () => {
                             </CardTitle>
                             <CardDescription>Format standar laporan keuangan periode {dateRange.start} - {dateRange.end}</CardDescription>
                         </div>
-                        <div className="flex gap-3">
-                            <Button variant="outline" size="sm" className="font-bold border-primary text-primary hover:bg-primary/5" onClick={downloadExcel}>
-                                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        <div className="flex gap-2 sm:gap-3">
+                            <Button variant="outline" size="sm" className="font-bold border-primary text-primary hover:bg-primary/5 text-[10px] sm:text-xs" onClick={downloadExcel}>
+                                <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                                 EXCEL (.XLS)
                             </Button>
-                            <Button size="sm" className="font-bold gradient-primary text-white" onClick={downloadPdf}>
-                                <Download className="w-4 h-4 mr-2" />
+                            <Button size="sm" className="font-bold gradient-primary text-white text-[10px] sm:text-xs" onClick={downloadPdf}>
+                                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                                 PDF
                             </Button>
                         </div>
@@ -265,10 +265,10 @@ const Reports: React.FC = () => {
                                             <span className="text-red-600 italic">(Rp {formatNumber(plData.total_expenses)})</span>
                                         </div>
                                     </div>
-                                    <div className="pt-8 border-t-4 border-gray-900 flex justify-between items-center">
-                                        <span className="text-xl font-black">LABA BERSIH AKHIR</span>
-                                        <span className="text-3xl font-black text-primary">Rp {formatNumber(plData.net_profit)}</span>
-                                    </div>
+                    <div className="pt-8 border-t-4 border-gray-900 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        <span className="text-sm sm:text-xl font-black">LABA BERSIH AKHIR</span>
+                        <span className="text-xl sm:text-3xl font-black text-primary">Rp {formatNumber(plData.net_profit)}</span>
+                    </div>
 
                                 </div>
                             </div>

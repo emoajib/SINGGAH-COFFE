@@ -152,15 +152,15 @@ const BepAnalysis: React.FC = () => {
   return (
     <div className="p-8 space-y-8 bg-gray-50/50 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
         <div>
-          <h1 className="text-4xl font-black text-gray-900 tracking-tight">Analisis Break-Even Point</h1>
+          <h1 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tight">Analisis Break-Even Point</h1>
           <p className="text-gray-500 font-medium">Titik impas, prediksi, dan rekomendasi strategis khusus Owner.</p>
         </div>
         <div className="flex gap-2 items-center">
           <Input
             type="month"
-            className="w-48 h-10 bg-white"
+            className="w-full sm:w-48 h-10 bg-white"
             value={`${year}-${String(month).padStart(2, '0')}`}
             onChange={(e) => {
               const [y, m] = e.target.value.split('-')
@@ -274,11 +274,11 @@ const BepAnalysis: React.FC = () => {
           <CardContent className="p-6 space-y-4">
             {forecast ? (
               <>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-white rounded-xl p-4 border">
                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Prediksi Revenue</p>
                     <p className="text-2xl font-black text-gray-900">Rp {formatNumber(forecast.predicted_revenue)}</p>
-                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                    <div className="flex flex-col sm:flex-row sm:justify-between text-[10px] text-gray-400 mt-1 gap-1">
                       <span>Optimis: Rp {formatNumber(forecast.confidence_upper)}</span>
                       <span>Pessimis: Rp {formatNumber(forecast.confidence_lower)}</span>
                     </div>
@@ -308,11 +308,11 @@ const BepAnalysis: React.FC = () => {
           <CardContent className="p-6 space-y-4">
             {monteCarlo ? (
               <>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-white rounded-xl p-4 border">
                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">BEP Mean (Unit)</p>
                     <p className="text-2xl font-black text-gray-900">{formatNumber(monteCarlo.mean_bep_units)}</p>
-                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                    <div className="flex flex-col sm:flex-row sm:justify-between text-[10px] text-gray-400 mt-1 gap-1">
                       <span>P10: {formatNumber(monteCarlo.p10_bep_units)}</span>
                       <span>P90: {formatNumber(monteCarlo.p90_bep_units)}</span>
                     </div>
@@ -388,7 +388,7 @@ const BepAnalysis: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            <div className="flex justify-between mt-4 text-xs font-bold text-gray-500">
+            <div className="flex flex-col sm:flex-row sm:justify-between mt-4 text-xs font-bold text-gray-500 gap-1">
               <span>Best Case: {sensitivity.best_case.scenario} ({formatNumber(sensitivity.best_case.bep_units)} unit)</span>
               <span>Worst Case: {sensitivity.worst_case.scenario} ({formatNumber(sensitivity.worst_case.bep_units)} unit)</span>
             </div>
