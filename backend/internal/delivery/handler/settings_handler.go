@@ -50,7 +50,10 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 func (h *SettingsHandler) UploadLogo(c *gin.Context) {
 	file, err := c.FormFile("logo")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
+		ct := c.GetHeader("Content-Type")
+		cl := c.GetHeader("Content-Length")
+		fmt.Printf("[upload-logo] err=%v | Content-Type=%q | Content-Length=%s\n", err, ct, cl)
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("No file uploaded: %v", err)})
 		return
 	}
 
