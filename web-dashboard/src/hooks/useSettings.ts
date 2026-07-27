@@ -31,10 +31,8 @@ export function useUploadLogo() {
   return useMutation({
     mutationFn: (file: File) => {
       const form = new FormData()
-      form.append('file', file)
-      return api.post('/settings/upload-logo', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }).then((r) => r.data)
+      form.append('logo', file)
+      return api.post('/settings/upload-logo', form).then((r) => r.data)
     },
   })
 }
