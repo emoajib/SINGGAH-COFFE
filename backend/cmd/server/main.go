@@ -111,6 +111,7 @@ func main() {
 		c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
 		c.Writer.Header().Set("X-Frame-Options", "DENY")
 		c.Writer.Header().Set("X-XSS-Protection", "0")
+		c.Writer.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)

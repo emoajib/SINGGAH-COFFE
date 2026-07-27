@@ -7,12 +7,12 @@ import (
 	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/pkg/password"
 
-	"gorm.io/driver/mysql" // Changed from postgres
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func Connect(cfg config.Config) *gorm.DB {
-	db, err := gorm.Open(mysql.Open(cfg.DatabaseURL), &gorm.Config{}) // Changed from postgres.New(...)
+	db, err := gorm.Open(postgres.New(postgres.Config{DSN: cfg.DatabaseURL}), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -41,14 +41,20 @@ func Connect(cfg config.Config) *gorm.DB {
 	var userCount int64
 	db.Model(&models.User{}).Count(&userCount)
 	if userCount == 0 {
-		hashedPassword, _ := password.HashPassword("admin")
+		log.Println("WARNING: Default admin credentials detected — please change password immediately")
+		hashedPassword, err := password.HashPassword("admin")
+		if err != nil {
+			log.Fatalf("Failed to hash default admin password: %v", err)
+		}
 		admin := models.User{
 			Name:     "Owner Singgah",
 			Email:    "owner@singgah.coffee",
 			Password: hashedPassword,
 			Role:     "owner",
 		}
-		db.Create(&admin)
+		if result := db.Create(&admin); result.Error != nil {
+			log.Fatalf("Failed to seed default admin user: %v", result.Error)
+		}
 		log.Println("Seeded default admin user")
 	}
 

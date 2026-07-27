@@ -47,7 +47,7 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 func (h *ProductHandler) CreateProduct(c *gin.Context) {
 	var req request.CreateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
@@ -85,7 +85,7 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 
 	var req request.UpdateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 

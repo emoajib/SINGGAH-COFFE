@@ -1,8 +1,9 @@
 package datascience
 
 import (
+	"crypto/rand"
 	"math"
-	"math/rand"
+	"math/big"
 	"sort"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -115,14 +116,27 @@ func (s *MonteCarloSimulator) Simulate() *entity.MonteCarloResult {
 	}
 }
 
+// cryptoRandFloat64 returns a cryptographically secure random float64 in [0,1)
+func cryptoRandFloat64() float64 {
+	n, err := rand.Int(rand.Reader, big.NewInt(1<<53))
+	if err != nil {
+		return 0.5 // fallback (extremely unlikely)
+	}
+	return float64(n.Int64()) / (1 << 53)
+}
+
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Box-Muller transform for generating normally distributed random numbers
 func normalRandom(mean, std float64) float64 {
 	if std <= 0 {
 		return mean
 	}
-	u1 := rand.Float64()
-	u2 := rand.Float64()
+	u1 := cryptoRandFloat64()
+	u2 := cryptoRandFloat64()
+	// Avoid log(0) which would produce -inf
+	if u1 == 0 {
+		u1 = 0.0000000001
+	}
 	z := math.Sqrt(-2*math.Log(u1)) * math.Cos(2*math.Pi*u2)
 	return mean + z*std
 }

@@ -160,9 +160,11 @@ export interface Expense {
   title: string
   amount: number
   category: string
+  cost_type: string
   date: string
   description?: string
   notes?: string
+  outlet_id?: number
   created_at?: string
 }
 

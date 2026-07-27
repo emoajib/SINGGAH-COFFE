@@ -30,6 +30,10 @@ WORKDIR /app
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/main .
 
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser
+USER appuser
+
 EXPOSE 8080
 
 CMD ["./main"]

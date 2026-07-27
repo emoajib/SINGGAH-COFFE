@@ -49,7 +49,7 @@ func (h *OutletHandler) CreateOutlet(c *gin.Context) {
 		Code    string `json:"code"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *OutletHandler) UpdateOutlet(c *gin.Context) {
 		Code    string `json:"code"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 

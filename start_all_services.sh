@@ -30,7 +30,7 @@ docker ps --filter "name=singgah" --format "table {{.Names}}\t{{.Status}}\t{{.Po
 echo ""
 
 echo -e "${BLUE}Step 4: Testing Backend API...${NC}"
-curl -s http://localhost:8080/api/auth/login -X POST -H "Content-Type: application/json" -d '{"username":"test","password":"test"}' | head -c 200
+curl -s http://localhost:8080/api/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"test","password":"test"}' | head -c 200
 echo ""
 echo ""
 

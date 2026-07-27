@@ -46,7 +46,7 @@ func (h *InventoryHandler) GetLowStockAlerts(c *gin.Context) {
 func (h *InventoryHandler) CreateIngredient(c *gin.Context) {
 	var req request.CreateIngredientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
@@ -122,7 +122,7 @@ func (h *InventoryHandler) GetStockHistory(c *gin.Context) {
 func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 	var req request.StockMutationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
@@ -143,7 +143,7 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 		req.NewCostPerUnit,
 		getOutletID(c),
 	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
 		return
 	}
 

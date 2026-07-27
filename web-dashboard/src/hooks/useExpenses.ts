@@ -34,3 +34,12 @@ export function useDeleteExpense() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
   })
 }
+
+export function useUpdateCostType() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, costType }: { id: number; costType: string }) =>
+      api.put(`/expenses/${id}/cost-type`, { cost_type: costType }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
+  })
+}

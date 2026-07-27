@@ -22,7 +22,7 @@ func NewAuthHandler(authUsecase *usecase.AuthUsecase) *AuthHandler {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req request.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
@@ -41,13 +41,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req request.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
 	result, err := h.authUsecase.Register(req.Name, req.Email, req.Password, req.Role)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Registration failed"})
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 
 	result, err := h.authUsecase.UpdateUser(uint(id), req.Name, req.Email, req.Role, req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	result, err := h.authUsecase.UpdateProfile(userID.(uint), req.Name, req.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
 		return
 	}
 
@@ -128,7 +128,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := h.authUsecase.ChangePassword(userID.(uint), req.CurrentPassword, req.NewPassword); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to change password"})
 		return
 	}
 

@@ -85,7 +85,7 @@ type UpdateIngredientRequest struct {
 
 type StockMutationRequest struct {
 	IngredientID      uint    `json:"ingredient_id" binding:"required"`
-	Type              string  `json:"type" binding:"required,oneof=IN OUT ADJ"`
+	Type              string  `json:"type" binding:"required,oneof=IN OUT ADJ ADJ_ADD ADJ_SUB"`
 	Quantity          float64 `json:"quantity" binding:"required,gt=0"`
 	Notes             string  `json:"notes"`
 	IsPurchase        bool    `json:"is_purchase"`

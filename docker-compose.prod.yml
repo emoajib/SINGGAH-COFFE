@@ -32,9 +32,11 @@ services:
 
   # 3. Frontend Web Dashboard (React + Nginx)
   web:
-    build: 
+    build:
       context: ./web-dashboard
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.singgah.coffee}
     container_name: singgah_web_prod
     ports:
       - "80:80" # Exposed to the internet

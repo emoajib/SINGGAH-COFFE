@@ -35,7 +35,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	var req request.CreateOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 
 	result, err := h.orderUsecase.Create(ucReq, userID.(uint), cashierName, getOutletID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process order: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process order"})
 		return
 	}
 
@@ -76,7 +76,7 @@ func (h *OrderHandler) VoidOrder(c *gin.Context) {
 
 	result, err := h.orderUsecase.Void(uint(id), getOutletID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to void order: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to void order"})
 		return
 	}
 
