@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -31,10 +32,17 @@ func getLoginLimiter(ip string) *rate.Limiter {
 }
 
 func main() {
+	port := flag.String("port", "8080", "Port to run the server on")
+	staticDir := flag.String("static-dir", "./web", "Directory containing static frontend files")
+	flag.Parse()
+
 	os.MkdirAll("uploads/logo", 0755)
 	os.MkdirAll("uploads/products", 0755)
 
 	cfg := config.LoadConfig()
+	if *port != "8080" {
+		cfg.Port = *port
+	}
 
 	db := database.Connect(cfg)
 	jwt.Init(cfg.JWTSecret, db)
@@ -114,6 +122,21 @@ func main() {
 
 	routes.SetupRoutes(r, handlers, db)
 
+	// Serve static frontend files for SPA — all non-API routes serve index.html
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if strings.HasPrefix(path, "/api") || strings.HasPrefix(path, "/health") || strings.HasPrefix(path, "/uploads") {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		staticFile := *staticDir + path
+		if info, err := os.Stat(staticFile); err == nil && !info.IsDir() {
+			c.File(staticFile)
+			return
+		}
+		c.File(*staticDir + "/index.html")
+	})
+
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: r,
@@ -123,7 +146,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("Server starting on port %s", cfg.Port)
+		log.Printf("Server starting on port %s, static dir: %s", cfg.Port, *staticDir)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
