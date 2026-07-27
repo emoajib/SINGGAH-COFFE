@@ -19,6 +19,7 @@ import { ErrorBoundary } from "./components/ui/error-boundary"
 
 function AppContent() {
     const [activeTab, setActiveTab] = useState("dashboard")
+    const [sidebarOpen, setSidebarOpen] = useState(false)
     const auth = useSelector((state: RootState) => state.auth)
     const isAuthenticated = auth?.isAuthenticated || false
 
@@ -26,7 +27,6 @@ function AppContent() {
         return <Login />
     }
 
-    // POS view (Full screen, no sidebar)
     if (activeTab === "pos") {
         return (
             <div className="bg-gray-50 min-h-screen p-4">
@@ -46,10 +46,10 @@ function AppContent() {
 
     return (
         <div className="flex bg-gray-50 min-h-screen">
-            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-            <div className="flex-1 flex flex-col h-screen overflow-hidden">
-                <Header />
-                <main className="p-6 flex-1 overflow-y-auto">
+            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+            <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+                <Header onMenuClick={() => setSidebarOpen(true)} />
+                <main className="p-4 md:p-6 flex-1 overflow-y-auto">
                     {activeTab === "dashboard" && <DashboardHome setActiveTab={setActiveTab} />}
                     {activeTab === "products" && <ProductManagement />}
                     {activeTab === "expenses" && <Expenses />}

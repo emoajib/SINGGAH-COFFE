@@ -1,4 +1,4 @@
-import { Bell, User, LogOut } from "lucide-react"
+import { Bell, User, LogOut, Menu } from "lucide-react"
 import { Button } from "../ui/button"
 import { useDispatch, useSelector } from "react-redux"
 import { logout } from "../../store/authSlice"
@@ -7,7 +7,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
 import { useEffect, useState } from "react"
 import { fetchSettings } from "../../services/settingsService"
 
-export default function Header() {
+interface HeaderProps {
+    onMenuClick?: () => void
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
     const dispatch = useDispatch()
     const { user } = useSelector((state: RootState) => state.auth)
     const [outletName, setOutletName] = useState("Singgah Coffee")
@@ -25,10 +29,15 @@ export default function Header() {
     }, [])
 
     return (
-        <header className="bg-white border-b h-16 flex items-center justify-between px-6 sticky top-0 z-10 w-full">
-            <h2 className="font-semibold text-lg text-gray-800">
-                Dashboard {outletName}
-            </h2>
+        <header className="bg-white border-b h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-10 w-full">
+            <div className="flex items-center gap-3">
+                <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-gray-100 rounded-md">
+                    <Menu className="w-5 h-5 text-gray-600" />
+                </button>
+                <h2 className="font-semibold text-base md:text-lg text-gray-800 truncate">
+                    Dashboard {outletName}
+                </h2>
+            </div>
 
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" className="relative">

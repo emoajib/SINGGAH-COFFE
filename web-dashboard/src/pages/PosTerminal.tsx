@@ -149,17 +149,17 @@ const PosTerminal: React.FC = () => {
     if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
     return (
-        <div className="flex h-screen bg-gray-100/50 overflow-hidden font-sans">
+        <div className="flex flex-col lg:flex-row h-screen bg-gray-100/50 overflow-hidden font-sans">
             {/* Products Area */}
-            <div className="flex-1 flex flex-col p-6 space-y-6 overflow-hidden">
-                <header className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-                            {settings?.outlet_name || "KASIR"}
-                        </h1>
-                        <p className="text-sm text-gray-400 font-medium">Singgah Coffee - Lingkungan POS Profesional</p>
-                    </div>
-                    <div className="flex bg-white p-1 rounded-2xl shadow-inner border">
+            <div className="flex-1 flex flex-col p-3 md:p-6 space-y-3 md:space-y-6 overflow-hidden">
+                    <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight">
+                                {settings?.outlet_name || "KASIR"}
+                            </h1>
+                            <p className="text-xs md:text-sm text-gray-400 font-medium">Singgah Coffee - Lingkungan POS Profesional</p>
+                        </div>
+                        <div className="flex bg-white p-1 rounded-2xl shadow-inner border overflow-x-auto max-w-full">
                         {categories.map(cat => (
                             <button
                                 key={cat}
@@ -209,8 +209,8 @@ const PosTerminal: React.FC = () => {
             </div>
 
             {/* Cart Section */}
-            <div className="w-[420px] glass-panel border-l-0 shadow-[-20px_0_50px_rgba(0,0,0,0.05)] flex flex-col relative z-20">
-                <div className="p-8 flex-1 flex flex-col overflow-hidden">
+            <div className="w-full lg:w-[420px] glass-panel border-t lg:border-t-0 lg:border-l-0 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] lg:shadow-[-20px_0_50px_rgba(0,0,0,0.05)] flex flex-col relative z-20 max-h-[45vh] lg:max-h-none">
+                <div className="p-4 md:p-8 flex-1 flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between mb-8">
                         <h2 className="text-2xl font-black text-gray-900">Pesanan</h2>
                         <span className="bg-primary/10 text-primary px-4 py-1 rounded-full text-xs font-black">{cart.length} PRODUK</span>

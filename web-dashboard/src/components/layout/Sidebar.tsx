@@ -7,7 +7,8 @@ import {
     Monitor,
     Coffee,
     Wallet,
-    TrendingUp
+    TrendingUp,
+    X
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
@@ -18,9 +19,11 @@ import { getImageUrl } from "../../lib/utils"
 interface SidebarProps {
     activeTab: string
     setActiveTab: (tab: string) => void
+    sidebarOpen: boolean
+    setSidebarOpen: (open: boolean) => void
 }
 
-export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen }: SidebarProps) {
     const { user } = useSelector((state: RootState) => state.auth)
     const role = user?.role || 'cashier'
     const [logoUrl, setLogoUrl] = useState("")
@@ -57,26 +60,36 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
     }
 
-    return (
-        <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">
-            <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-                {logoUrl ? (
-                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-100 shrink-0">
-                        <img
-                            src={getImageUrl(logoUrl)}
-                            alt="Logo"
-                            className="w-full h-full object-cover"
-                        />
+    const handleNav = (tab: string) => {
+        setActiveTab(tab)
+        setSidebarOpen(false)
+    }
+
+    const sidebarContent = (
+        <>
+            <div className="p-4 md:p-6 border-b border-gray-100 flex items-center gap-3">
+                <div className="flex-1 flex items-center gap-3">
+                    {logoUrl ? (
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-100 shrink-0">
+                            <img
+                                src={getImageUrl(logoUrl)}
+                                alt="Logo"
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0">
+                            {outletName.charAt(0)}
+                        </div>
+                    )}
+                    <div className="overflow-hidden">
+                        <h1 className="font-bold text-sm text-gray-900 truncate">{outletName}</h1>
+                        <p className="text-[10px] text-gray-500">Moka POS System</p>
                     </div>
-                ) : (
-                    <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0">
-                        {outletName.charAt(0)}
-                    </div>
-                )}
-                <div className="overflow-hidden">
-                    <h1 className="font-bold text-sm text-gray-900 truncate">{outletName}</h1>
-                    <p className="text-[10px] text-gray-500">Moka POS System</p>
                 </div>
+                <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 hover:bg-gray-100 rounded-md">
+                    <X className="w-5 h-5 text-gray-500" />
+                </button>
             </div>
 
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -87,7 +100,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                     return (
                         <button
                             key={item.id}
-                            onClick={() => setActiveTab(item.id)}
+                            onClick={() => handleNav(item.id)}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
                                 ? "bg-primary text-primary-foreground shadow-sm"
                                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -100,7 +113,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 })}
             </nav>
 
-<div className="p-4 border-t border-gray-100">
+            <div className="p-4 border-t border-gray-100">
                 
                 <div className="flex items-center gap-3 px-2">
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary border border-primary/20">
@@ -112,6 +125,28 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                     </div>
                 </div>
             </div>
-        </div>
+        </>
+    )
+
+    return (
+        <>
+            {/* Mobile backdrop */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* Mobile drawer */}
+            <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-200 ease-in-out lg:hidden ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+                {sidebarContent}
+            </div>
+
+            {/* Desktop sidebar */}
+            <div className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col h-screen">
+                {sidebarContent}
+            </div>
+        </>
     )
 }
