@@ -51,7 +51,7 @@ func (r *settingRepository) FindByGroup(group string) ([]entity.Setting, error) 
 
 func (r *settingRepository) FindByKey(key string) (*entity.Setting, error) {
 	var m models.Setting
-	if err := r.db.Where("key = ?", key).First(&m).Error; err != nil {
+	if err := r.db.Where("`key` = ?", key).First(&m).Error; err != nil {
 		return nil, err
 	}
 	return &entity.Setting{
@@ -64,7 +64,7 @@ func (r *settingRepository) FindByKey(key string) (*entity.Setting, error) {
 
 func (r *settingRepository) Upsert(key, value, group string) error {
 	var m models.Setting
-	result := r.db.Where("key = ?", key).First(&m)
+	result := r.db.Where("`key` = ?", key).First(&m)
 	if result.Error == gorm.ErrRecordNotFound {
 		return r.db.Create(&models.Setting{
 			Key:          key,
