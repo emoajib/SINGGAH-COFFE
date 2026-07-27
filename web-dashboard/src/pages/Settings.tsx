@@ -84,7 +84,7 @@ export default function Settings() {
     const [showStaffPass, setShowStaffPass] = useState(false)
 
     // React Query hooks
-    const { data: settingsArr } = useSettings()
+    const { data: settingsArr, isError: settingsError } = useSettings()
     const updateSetting = useUpdateSetting()
     const uploadLogoMutation = useUploadLogo()
     const updateProfileMutation = useUpdateProfile()
@@ -103,9 +103,17 @@ export default function Settings() {
             } else {
                 setSettings(prev => ({ ...prev, ...(settingsArr as any) }))
             }
+        }
+        if (settingsArr || settingsError) {
             setLoading(false)
         }
-    }, [settingsArr])
+    }, [settingsArr, settingsError])
+
+    // Safety timeout: force loading off after 15s
+    useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 15000)
+        return () => clearTimeout(timer)
+    }, [])
 
     // Load users for owner
     useEffect(() => {
