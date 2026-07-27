@@ -44,7 +44,7 @@ const PosTerminal: React.FC = () => {
     const productsQuery = useProducts();
     const products = (productsQuery.data ?? []) as unknown as Product[];
     const isLoadingProducts = productsQuery.isLoading;
-    const { data: settingsArr } = useSettings();
+    const { data: settingsArr, isError: settingsError } = useSettings();
     const createOrder = useCreateOrder();
 
     // Convert Setting[] to Record<string, string> for the expected shape
@@ -70,12 +70,18 @@ const PosTerminal: React.FC = () => {
         }
     }, [products]);
 
-    // Set loading to false when both data sources are ready
+    // Set loading to false when both data sources are ready (or if one fails)
     useEffect(() => {
-        if (!isLoadingProducts && settingsArr) {
+        if ((!isLoadingProducts && settingsArr) || settingsError) {
             setLoading(false);
         }
-    }, [isLoadingProducts, settingsArr]);
+    }, [isLoadingProducts, settingsArr, settingsError]);
+
+    // Safety timeout: force loading off after 15s
+    useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 15000);
+        return () => clearTimeout(timer);
+    }, []);
 
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const serviceRate = (parseFloat(settings?.service_charge) || 0) / 100;
