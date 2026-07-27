@@ -7,12 +7,12 @@ import (
 	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/pkg/password"
 
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 func Connect(cfg config.Config) *gorm.DB {
-	db, err := gorm.Open(postgres.New(postgres.Config{DSN: cfg.DatabaseURL}), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(cfg.DatabaseURL), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
