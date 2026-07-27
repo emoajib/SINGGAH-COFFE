@@ -43,7 +43,7 @@ func cleanupLoop() {
 
 func getAPILimiter(ip string) *rate.Limiter {
 	val, _ := apiLimiters.LoadOrStore(ip, &apiLimiter{
-		limiter:  rate.NewLimiter(rate.Every(time.Minute), 100),
+		limiter:  rate.NewLimiter(rate.Every(time.Minute), 300),
 		lastSeen: time.Now(),
 	})
 	al := val.(*apiLimiter)
