@@ -100,7 +100,7 @@ const Reports: React.FC = () => {
 
     const downloadPdf = async () => {
         const token = localStorage.getItem('token');
-        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+        const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
         const params = new URLSearchParams({ start: dateRange.start, end: dateRange.end });
         const res = await fetch(`${baseURL}/reports/profit-loss/export/pdf?${params}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
