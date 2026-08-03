@@ -312,6 +312,15 @@ export interface DashboardSummary {
   top_products: { name: string; category: string; sales: number; quantity?: number; product_id?: number; product_name?: string; total?: number }[]
 }
 
+// ─── Outlet ──────────────────────────────────────────────────────────
+export interface Outlet {
+  id: number
+  name: string
+  address: string
+  phone: string
+  code: string
+}
+
 // ─── Cash Register ────────────────────────────────────────────────────
 export interface CashRegister {
   id: number

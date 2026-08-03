@@ -1,13 +1,14 @@
 import { useState } from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
-import type { CashRegister } from "../types"
+import type { CashRegister, Outlet } from "../types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card"
 import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Loader2 } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { CashRegisterService } from "../services/cashRegisterService"
+import { fetchOutlets } from "../services/outletService"
 import { formatNumber } from "../lib/utils"
 
 function formatDate(dateStr: string) {
@@ -38,6 +39,18 @@ export default function CashRegister() {
             }),
         enabled: user?.role === "owner",
     })
+
+    const { data: outletsData } = useQuery({
+        queryKey: ["outlets"],
+        queryFn: fetchOutlets,
+        enabled: user?.role === "owner",
+    })
+
+    const outlets: Outlet[] = outletsData ?? []
+    const outletMap: Record<number, string> = {}
+    for (const o of outlets) {
+        outletMap[o.id] = o.name
+    }
 
     const records: CashRegister[] = data ?? []
 
@@ -114,7 +127,7 @@ export default function CashRegister() {
                                                     <div className="text-xs text-gray-400">{time}</div>
                                                 </td>
                                                 <td className="px-4 py-3">{r.cashier_name}</td>
-                                                <td className="px-4 py-3">{r.outlet_id || "-"}</td>
+                                                <td className="px-4 py-3">{outletMap[r.outlet_id] || r.outlet_id || "-"}</td>
                                                 <td className="px-4 py-3 text-right font-mono">{formatNumber(r.opening_amount)}</td>
                                                 <td className="px-4 py-3">
                                                     <Badge
