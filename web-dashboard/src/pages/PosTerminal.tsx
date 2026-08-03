@@ -92,12 +92,15 @@ const PosTerminal: React.FC = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const serviceRate = (parseFloat(settings?.service_charge) || 0) / 100;
-    const taxRate = (parseFloat(settings?.tax_percentage) || 0) / 100;
-    const serviceFee = subtotal * serviceRate;
-    const tax = (subtotal + serviceFee) * taxRate;
-    const total = subtotal + serviceFee + tax;
+     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+     const serviceRate = (parseFloat(settings?.service_charge) || 0) / 100;
+     const taxRate = (parseFloat(settings?.tax_percentage) || 0) / 100;
+     const serviceFee = subtotal * serviceRate;
+     const tax = (subtotal + serviceFee) * taxRate;
+     const total = subtotal + serviceFee + tax;
+
+     const logoUrl = settings?.outlet_logo_url || ""
+     const outletName = settings?.outlet_name || "Singgah Coffee"
 
     const addToCart = (product: Product) => {
         setCart(prev => {
@@ -175,18 +178,24 @@ const PosTerminal: React.FC = () => {
             {/* Main Section: Catalog & Header */}
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 border-r border-slate-200">
                 
-                {/* Header */}
-                <header className="bg-white border-b border-slate-200 p-4 md:px-6 md:py-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-700 text-white flex items-center justify-center font-black shadow-md shadow-amber-900/20">
-                            <Coffee size={22} />
-                        </div>
-                        <div>
-                            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none">
-                                Kasir
-                            </h1>
-                        </div>
-                    </div>
+                 {/* Header */}
+                 <header className="bg-white border-b border-slate-200 p-4 md:px-6 md:py-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                     <div className="flex items-center gap-3">
+                         {logoUrl ? (
+                             <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md shadow-amber-900/20">
+                                 <img src={getImageUrl(logoUrl)} alt="Logo" className="w-full h-full object-cover" />
+                             </div>
+                         ) : (
+                             <div className="w-10 h-10 rounded-xl bg-amber-700 text-white flex items-center justify-center font-black shadow-md shadow-amber-900/20">
+                                 <Coffee size={22} />
+                             </div>
+                         )}
+                         <div>
+                             <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none">
+                                 {outletName}
+                             </h1>
+                         </div>
+                     </div>
 
                     {/* Search Bar */}
                     <div className="relative flex-1 max-w-md">

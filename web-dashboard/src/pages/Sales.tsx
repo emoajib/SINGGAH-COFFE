@@ -10,9 +10,12 @@ import { useToast } from "../hooks/use-toast"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
 import { formatNumber } from "../lib/utils"
+import { useSettings } from "../hooks/useSettings"
 
 export default function Sales() {
     const { user } = useSelector((state: RootState) => state.auth)
+    const { data: settings } = useSettings()
+    const outletName = settings?.outlet_name || "Singgah Coffee"
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedTx, setSelectedTx] = useState<any | null>(null)
     const { toast } = useToast()
@@ -176,7 +179,7 @@ export default function Sales() {
                 {selectedTx && (
                     <div className="space-y-4 font-mono text-sm bg-gray-50 p-4 rounded-xl border border-dashed border-gray-200">
                         <div className="text-center border-b border-dashed border-gray-300 pb-4">
-                            <h3 className="font-bold text-xl uppercase tracking-wider">Singgah Coffee</h3>
+                             <h3 className="font-bold text-xl uppercase tracking-wider">{outletName}</h3>
                             <p className="text-[10px] text-gray-500 mt-1 uppercase">Catatan Transaksi Resmi</p>
                         </div>
 
@@ -207,7 +210,7 @@ export default function Sales() {
                         </div>
 
                         <div className="text-center text-[9px] text-gray-400 pt-6 italic">
-                            *** Terima kasih telah memilih Singgah Coffee ***<br />
+                             *** Terima kasih telah memilih {outletName} ***<br />
                             Simpan struk Anda untuk keperluan pertanyaan atau klaim.
                         </div>
                     </div>
