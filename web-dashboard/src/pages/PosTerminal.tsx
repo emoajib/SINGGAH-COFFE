@@ -18,7 +18,7 @@ import {
 import { Button } from "../components/ui/button"
 import { Dialog } from "../components/ui/dialog"
 import Receipt from "../components/pos/Receipt"
-import { getImageUrl, formatNumber } from "../lib/utils"
+import { getImageUrl, formatCurrency } from "../lib/utils"
 import { useProducts } from '../hooks/useProducts'
 import { useCreateOrder } from '../hooks/useOrders'
 import { useSettings } from '../hooks/useSettings'
@@ -284,7 +284,7 @@ const PosTerminal: React.FC = () => {
                                             <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
                                                 <div>
                                                     <span className="text-[10px] text-slate-400 block font-medium">Harga</span>
-                                                    <span className="text-sm font-black text-slate-900">Rp {formatNumber(product.price)}</span>
+                                                    <span className="text-sm font-black text-slate-900">{formatCurrency(product.price)}</span>
                                                 </div>
                                                 <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 group-hover:bg-amber-700 group-hover:text-white flex items-center justify-center transition-colors shadow-sm">
                                                     <Plus size={16} />
@@ -331,7 +331,7 @@ const PosTerminal: React.FC = () => {
                             <div key={item.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-3 group hover:border-amber-300 transition-all">
                                 <div className="flex-1 min-w-0">
                                     <h4 className="font-bold text-sm text-slate-900 truncate">{item.name}</h4>
-                                    <p className="text-xs text-slate-500 font-semibold mt-0.5">Rp {formatNumber(item.price)}</p>
+                                    <p className="text-xs text-slate-500 font-semibold mt-0.5">{formatCurrency(item.price)}</p>
                                 </div>
 
                                 <div className="flex items-center gap-3">
@@ -354,7 +354,7 @@ const PosTerminal: React.FC = () => {
 
                                     <div className="text-right min-w-[70px]">
                                         <span className="text-xs font-black text-slate-900 block">
-                                            Rp {formatNumber(item.price * item.quantity)}
+                                            {formatCurrency(item.price * item.quantity)}
                                         </span>
                                     </div>
 
@@ -377,25 +377,25 @@ const PosTerminal: React.FC = () => {
                     <div className="p-3 md:p-4 bg-slate-50/80 space-y-1.5">
                         <div className="flex justify-between text-xs text-slate-500 font-medium">
                             <span>Subtotal</span>
-                            <span className="font-bold text-slate-800">Rp {formatNumber(subtotal)}</span>
+                            <span className="font-bold text-slate-800">{formatCurrency(subtotal)}</span>
                         </div>
                         {serviceFee > 0 && (
                             <div className="flex justify-between text-xs text-slate-500 font-medium">
                                 <span>Layanan ({(serviceRate * 100).toFixed(0)}%)</span>
-                                <span className="font-bold text-slate-800">Rp {formatNumber(serviceFee)}</span>
+                                <span className="font-bold text-slate-800">{formatCurrency(serviceFee)}</span>
                             </div>
                         )}
                         {tax > 0 && (
                             <div className="flex justify-between text-xs text-slate-500 font-medium">
                                 <span>Pajak ({(taxRate * 100).toFixed(0)}%)</span>
-                                <span className="font-bold text-slate-800">Rp {formatNumber(tax)}</span>
+                                <span className="font-bold text-slate-800">{formatCurrency(tax)}</span>
                             </div>
                         )}
                         
                         <div className="flex justify-between items-baseline pt-2 border-t border-slate-200">
                             <div>
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Total Tagihan</span>
-                                <span className="text-xl font-black text-amber-800">Rp {formatNumber(total)}</span>
+                                <span className="text-xl font-black text-amber-800">{formatCurrency(total)}</span>
                             </div>
                             <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md">
                                 {cart.reduce((a, b) => a + b.quantity, 0)} Items
@@ -437,7 +437,7 @@ const PosTerminal: React.FC = () => {
                     {/* Bill Display */}
                     <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/60 text-center">
                         <p className="text-xs font-black text-amber-700/70 uppercase tracking-widest mb-0.5">Total Pembayaran</p>
-                        <h3 className="text-3xl font-black text-amber-900">Rp {formatNumber(total)}</h3>
+                        <h3 className="text-3xl font-black text-amber-900">{formatCurrency(total)}</h3>
                     </div>
 
                     {/* Cash Input */}
@@ -488,7 +488,7 @@ const PosTerminal: React.FC = () => {
                                             : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'
                                     }`}
                                 >
-                                    Rp {formatNumber(nominal)}
+                                    {formatCurrency(nominal)}
                                 </button>
                             ))}
                         </div>
@@ -504,7 +504,7 @@ const PosTerminal: React.FC = () => {
                                     onClick={() => setCashAmount(prev => prev + addVal)}
                                     className="py-2 px-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-700 transition-all"
                                 >
-                                    + {formatNumber(addVal)}
+                                     + {formatCurrency(addVal)}
                                 </button>
                             ))}
                         </div>
@@ -522,17 +522,17 @@ const PosTerminal: React.FC = () => {
                             <div className="flex justify-between items-center">
                                 <span className="text-xs font-black uppercase tracking-wider text-emerald-800">Kembalian</span>
                                 <h3 className="text-2xl font-black text-emerald-700">
-                                    Rp {formatNumber(cashAmount - total)}
+                                    {formatCurrency(cashAmount - total)}
                                 </h3>
                             </div>
                         ) : cashAmount > 0 ? (
                             <div className="flex justify-between items-center">
                                 <div>
                                     <span className="text-xs font-black uppercase tracking-wider text-amber-800 block">Uang Kurang</span>
-                                    <span className="text-[11px] text-amber-600 font-medium">Kurang Rp {formatNumber(total - cashAmount)} lagi</span>
+                                    <span className="text-[11px] text-amber-600 font-medium">Kurang {formatCurrency(total - cashAmount)} lagi</span>
                                 </div>
                                 <h3 className="text-xl font-black text-amber-700">
-                                    - Rp {formatNumber(total - cashAmount)}
+                                    - {formatCurrency(total - cashAmount)}
                                 </h3>
                             </div>
                         ) : (
@@ -607,11 +607,11 @@ const PosTerminal: React.FC = () => {
                                 💵 Uang Kembalian Pelanggan
                             </p>
                             <h3 className="text-3xl font-black text-emerald-700">
-                                Rp {formatNumber(lastChangeAmount)}
+                                {formatCurrency(lastChangeAmount)}
                             </h3>
                             <div className="mt-2 pt-2 border-t border-emerald-200/60 flex justify-between text-xs text-emerald-900 font-semibold px-2">
-                                <span>Tunai Diterima: <strong>Rp {formatNumber(lastCashGiven)}</strong></span>
-                                <span>Total Tagihan: <strong>Rp {formatNumber(lastOrder?.total_amount || 0)}</strong></span>
+                                <span>Tunai Diterima: <strong>{formatCurrency(lastCashGiven)}</strong></span>
+                                <span>Total Tagihan: <strong>{formatCurrency(lastOrder?.total_amount || 0)}</strong></span>
                             </div>
                         </div>
                     )}

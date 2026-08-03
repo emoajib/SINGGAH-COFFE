@@ -1,5 +1,5 @@
 import { MenuItem } from "../../services/productService"
-import { formatNumber } from "../../lib/utils"
+import { formatCurrency } from "../../lib/utils"
 import { useSettings } from "../../hooks/useSettings"
 
 interface ReceiptProps {
@@ -67,10 +67,10 @@ export default function Receipt({
                     <div key={idx}>
                         <div className="flex justify-between">
                             <span className="font-bold">{item.product.name}</span>
-                            <span>{formatNumber(item.product.price * item.qty)}</span>
+                            <span>{formatCurrency(item.product.price * item.qty)}</span>
                         </div>
                         <div className="text-[9px] text-gray-600">
-                            {item.qty} x {formatNumber(item.product.price)}
+                            {item.qty} x {formatCurrency(item.product.price)}
                         </div>
                     </div>
                 ))}
@@ -80,23 +80,23 @@ export default function Receipt({
             <div className="text-[10px] space-y-1">
                 <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>{formatNumber(subtotal)}</span>
+                    <span>{formatCurrency(subtotal)}</span>
                 </div>
                 {service > 0 && (
                     <div className="flex justify-between">
                         <span>Service Charge:</span>
-                        <span>{formatNumber(service)}</span>
+                        <span>{formatCurrency(service)}</span>
                     </div>
                 )}
                 {tax > 0 && (
                     <div className="flex justify-between">
                         <span>PB1 (Tax):</span>
-                        <span>{formatNumber(tax)}</span>
+                        <span>{formatCurrency(tax)}</span>
                     </div>
                 )}
                 <div className="flex justify-between font-bold text-sm mt-2 border-t border-black pt-1">
                     <span>TOTAL:</span>
-                    <span>Rp {formatNumber(total)}</span>
+                    <span>{formatCurrency(total)}</span>
                 </div>
                 <div className="flex justify-between mt-1">
                     <span>Payment:</span>

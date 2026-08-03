@@ -9,7 +9,7 @@ import { useOrders, useVoidOrder } from "../hooks/useOrders"
 import { useToast } from "../hooks/use-toast"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
-import { formatNumber } from "../lib/utils"
+import { formatCurrency } from "../lib/utils"
 import { useSettings } from "../hooks/useSettings"
 
 export default function Sales() {
@@ -31,10 +31,6 @@ export default function Sales() {
         } catch (error: any) {
             toast({ title: "Error", description: error.response?.data?.error || "Failed to void transaction", variant: "error" })
         }
-    }
-
-    const formatCurrency = (value: number) => {
-        return `Rp ${formatNumber(value)}`
     }
 
     const formatDate = (dateStr: string) => {

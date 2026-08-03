@@ -4,7 +4,7 @@ import { TopSellingItems } from "../components/dashboard/TopSellingItems"
 import { useEffect, useState } from "react"
 import { InventoryService } from "../services/inventoryService"
 import { AlertTriangle, Loader2 } from "lucide-react"
-import { getImageUrl, formatNumber } from "../lib/utils"
+import { getImageUrl, formatCurrency } from "../lib/utils"
 import { useDashboard } from "../hooks/useDashboard"
 import { useSettings } from "../hooks/useSettings"
 import { Button } from "../components/ui/button"
@@ -24,10 +24,6 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
     const { data: settings } = useSettings()
     const logoUrl = settings?.outlet_logo_url || ""
     const outletName = settings?.outlet_name || "Singgah Coffee"
-
-    const formatCurrency = (value: number) => {
-        return `Rp ${formatNumber(value)}`
-    }
 
     const { data: _summary, isLoading: statsLoading } = useDashboard()
     const summary: any = _summary ?? {
