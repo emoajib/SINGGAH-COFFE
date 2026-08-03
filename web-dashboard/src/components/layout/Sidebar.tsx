@@ -13,7 +13,6 @@ import {
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
-import { useEffect, useState } from "react"
 import { useSettings } from "../../hooks/useSettings"
 import { getImageUrl } from "../../lib/utils"
 
@@ -27,17 +26,11 @@ interface SidebarProps {
 export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen }: SidebarProps) {
     const { user } = useSelector((state: RootState) => state.auth)
     const role = user?.role || 'cashier'
-    const [logoUrl, setLogoUrl] = useState("")
-    const [outletName, setOutletName] = useState("Singgah Coffee")
 
     const { data: settings } = useSettings()
 
-    useEffect(() => {
-        if (settings) {
-            if (settings.outlet_logo_url) setLogoUrl(settings.outlet_logo_url)
-            if (settings.outlet_name) setOutletName(settings.outlet_name)
-        }
-    }, [settings])
+    const logoUrl = settings?.outlet_logo_url || ""
+    const outletName = settings?.outlet_name || "Singgah Coffee"
 
     const menuItems = [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager", "cashier"] },
