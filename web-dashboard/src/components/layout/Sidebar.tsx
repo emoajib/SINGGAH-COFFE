@@ -14,7 +14,7 @@ import {
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
 import { useEffect, useState } from "react"
-import { fetchSettings } from "../../services/settingsService"
+import { useSettings } from "../../hooks/useSettings"
 import { getImageUrl } from "../../lib/utils"
 
 interface SidebarProps {
@@ -30,18 +30,14 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
     const [logoUrl, setLogoUrl] = useState("")
     const [outletName, setOutletName] = useState("Singgah Coffee")
 
+    const { data: settings } = useSettings()
+
     useEffect(() => {
-        const loadBranding = async () => {
-            try {
-                const settings = await fetchSettings()
-                if (settings.outlet_logo_url) setLogoUrl(settings.outlet_logo_url)
-                if (settings.outlet_name) setOutletName(settings.outlet_name)
-            } catch (error) {
-                void error
-            }
+        if (settings) {
+            if (settings.outlet_logo_url) setLogoUrl(settings.outlet_logo_url)
+            if (settings.outlet_name) setOutletName(settings.outlet_name)
         }
-        loadBranding()
-    }, [])
+    }, [settings])
 
     const menuItems = [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager", "cashier"] },

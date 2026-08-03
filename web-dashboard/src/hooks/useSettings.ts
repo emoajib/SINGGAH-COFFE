@@ -28,11 +28,15 @@ export function useUpdateSetting() {
 }
 
 export function useUploadLogo() {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: (file: File) => {
       const form = new FormData()
       form.append('logo', file)
       return api.post('/settings/upload-logo', form).then((r) => r.data)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings'] })
     },
   })
 }
