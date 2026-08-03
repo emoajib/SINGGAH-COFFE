@@ -1,24 +1,25 @@
 import { useState } from "react"
 import { useDispatch } from "react-redux"
-import { setOpenCashRegister } from "../../store/authSlice"
+import { setOpenCashRegister, setCashFloatPending } from "../../store/authSlice"
 import { CashRegisterService } from "../../services/cashRegisterService"
 import { Dialog } from "../ui/dialog"
 import { Input } from "../ui/input"
-import { formatNumber } from "../../lib/utils"
+import { formatCurrency } from "../../lib/utils"
 
 interface CashFloatModalProps {
     open: boolean
     onSuccess: () => void
+    onClose: () => void
 }
 
-export default function CashFloatModal({ open, onSuccess }: CashFloatModalProps) {
+export default function CashFloatModal({ open, onSuccess, onClose }: CashFloatModalProps) {
     const dispatch = useDispatch()
     const [amount, setAmount] = useState("")
     const [notes, setNotes] = useState("")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
 
-    const displayAmount = amount ? formatNumber(parseInt(amount.replace(/\./g, ''))) : ""
+    const displayAmount = amount ? formatCurrency(parseInt(amount.replace(/\./g, ''))) : ""
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const digits = e.target.value.replace(/\D/g, '')
         setAmount(digits)
@@ -41,7 +42,13 @@ export default function CashFloatModal({ open, onSuccess }: CashFloatModalProps)
             dispatch(setOpenCashRegister(result))
             onSuccess()
         } catch (err: any) {
-            setError(err.response?.data?.error || "Gagal membuka kas. Periksa koneksi dan coba lagi.")
+            const serverError = err.response?.data?.error || ""
+            if (serverError.includes("already has an open cash register")) {
+                dispatch(setCashFloatPending(false))
+                onClose()
+                return
+            }
+            setError(serverError || "Gagal membuka kas. Periksa koneksi dan coba lagi.")
         } finally {
             setLoading(false)
         }
@@ -50,7 +57,7 @@ export default function CashFloatModal({ open, onSuccess }: CashFloatModalProps)
     return (
         <Dialog
             isOpen={open}
-            onClose={() => {}}
+            onClose={onClose}
             title="Uang Receh Kembalian"
             description="Masukkan nominal uang receh yang disediakan untuk kembalian sebelum memulai kasir."
             footer={

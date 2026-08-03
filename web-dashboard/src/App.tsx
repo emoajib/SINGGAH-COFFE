@@ -1,6 +1,7 @@
 import { useState } from "react"
-import { useSelector } from "react-redux"
+import { useSelector, useDispatch } from "react-redux"
 import { RootState } from "./store"
+import { setCashFloatPending } from "./store/authSlice"
 import Sidebar from "./components/layout/Sidebar"
 import Header from "./components/layout/Header"
 import DashboardHome from "./pages/DashboardHome"
@@ -22,6 +23,7 @@ import { ErrorBoundary } from "./components/ui/error-boundary"
 function AppContent() {
     const [activeTab, setActiveTab] = useState("dashboard")
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const dispatch = useDispatch()
     const auth = useSelector((state: RootState) => state.auth)
     const isAuthenticated = auth?.isAuthenticated || false
     const isCashier = auth?.user?.role === "cashier"
@@ -46,7 +48,7 @@ function AppContent() {
                     </button>
                 </div>
                 <div className="flex-1 min-h-0 overflow-hidden">
-                    {needsCashFloat ? <CashFloatModal open={true} onSuccess={() => setActiveTab("pos")} /> : <PosTerminal />}
+                    {needsCashFloat ? <CashFloatModal open={true} onSuccess={() => setActiveTab("pos")} onClose={() => dispatch(setCashFloatPending(false))} /> : <PosTerminal />}
                 </div>
             </div>
         )
@@ -69,7 +71,7 @@ function AppContent() {
                     {activeTab === "settings" && <Settings />}
                 </main>
             </div>
-            {needsCashFloat && <CashFloatModal open={true} onSuccess={() => {}} />}
+            {needsCashFloat && <CashFloatModal open={true} onSuccess={() => {}} onClose={() => dispatch(setCashFloatPending(false))} />}
         </div>
     )
 }
