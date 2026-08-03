@@ -49,7 +49,7 @@ func (uc *AuthUsecase) Login(req LoginRequest) (*LoginResponse, error) {
 		return nil, domainErrors.NewUnauthorizedError("invalid credentials")
 	}
 
-	token, err := jwt.GenerateToken(user.ID, user.Email, user.Role, user.OutletID)
+	token, err := jwt.GenerateToken(user.ID, user.Name, user.Email, user.Role, user.OutletID)
 	if err != nil {
 		return nil, err
 	}

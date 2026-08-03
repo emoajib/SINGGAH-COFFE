@@ -88,7 +88,7 @@ const authSlice = createSlice({
         },
         setOpenCashRegister: (state, action: PayloadAction<CashRegister | null>) => {
             state.openCashRegister = action.payload
-            state.cashFloatPending = action.payload === null || (state.user?.role === 'cashier' && action.payload === null)
+            state.cashFloatPending = action.payload === null
             if (action.payload) {
                 localStorage.setItem('open_cash_register', JSON.stringify(action.payload))
             } else {

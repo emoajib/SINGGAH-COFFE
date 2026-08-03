@@ -84,8 +84,6 @@ func (h *OrderHandler) VoidOrder(c *gin.Context) {
 }
 
 func (h *OrderHandler) getCurrentUser(c *gin.Context) (string, error) {
-	userID, _ := c.Get("user_id")
-	_ = userID
-	name, _ := c.Get("user_email")
+	name, _ := c.Get("user_name")
 	return name.(string), nil
 }
