@@ -327,6 +327,7 @@ export interface CashRegister {
   user_id: number
   cashier_name: string
   outlet_id: number
+  outlet_name: string
   opening_amount: number
   notes: string
   opened_at: string
@@ -338,6 +339,10 @@ export interface CashRegister {
 export interface OpenCashRegisterRequest {
   opening_amount: number
   notes?: string
+}
+
+export interface UpdateCashRegisterRequest {
+  notes: string
 }
 
 // ─── Paginated ──────────────────────────────────────────────────────────────

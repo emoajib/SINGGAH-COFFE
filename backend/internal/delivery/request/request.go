@@ -120,3 +120,11 @@ type OpenCashRegisterRequest struct {
 	OpeningAmount float64 `json:"opening_amount" binding:"required,gt=0"`
 	Notes         string  `json:"notes"`
 }
+
+type UpdateCashRegisterRequest struct {
+	Notes string `json:"notes"`
+}
+
+type CloseCashRegisterRequest struct {
+	ClosingAmount float64 `json:"closing_amount" binding:"required,gt=0"`
+}

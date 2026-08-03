@@ -1,14 +1,14 @@
 import { useState } from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
-import type { CashRegister, Outlet } from "../types"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card"
+import type { CashRegister } from "../types"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "../components/ui/card"
 import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
-import { Loader2 } from "lucide-react"
-import { useQuery } from "@tanstack/react-query"
+import { Button } from "../components/ui/button"
+import { Loader2, Pencil, Trash2, X } from "lucide-react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { CashRegisterService } from "../services/cashRegisterService"
-import { fetchOutlets } from "../services/outletService"
 import { formatNumber } from "../lib/utils"
 
 function formatDate(dateStr: string) {
@@ -25,6 +25,9 @@ export default function CashRegister() {
     const [dateFrom, setDateFrom] = useState("")
     const [dateTo, setDateTo] = useState("")
     const [status, setStatus] = useState("")
+    const [editingId, setEditingId] = useState<number | null>(null)
+    const [editNotes, setEditNotes] = useState("")
+    const queryClient = useQueryClient()
 
     const { data, isLoading, refetch } = useQuery({
         queryKey: ["cash-registers", cashierName, dateFrom, dateTo, status],
@@ -40,19 +43,39 @@ export default function CashRegister() {
         enabled: user?.role === "owner",
     })
 
-    const { data: outletsData } = useQuery({
-        queryKey: ["outlets"],
-        queryFn: fetchOutlets,
-        enabled: user?.role === "owner",
+    const updateMutation = useMutation({
+        mutationFn: ({ id, notes }: { id: number; notes: string }) =>
+            CashRegisterService.updateCashRegister(id, { notes }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["cash-registers"] })
+            setEditingId(null)
+            setEditNotes("")
+        },
     })
 
-    const outlets: Outlet[] = outletsData ?? []
-    const outletMap: Record<number, string> = {}
-    for (const o of outlets) {
-        outletMap[o.id] = o.name
-    }
+    const deleteMutation = useMutation({
+        mutationFn: (id: number) => CashRegisterService.deleteCashRegister(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["cash-registers"] })
+        },
+    })
 
     const records: CashRegister[] = data ?? []
+
+    const handleEdit = (r: CashRegister) => {
+        setEditingId(r.id)
+        setEditNotes(r.notes || "")
+    }
+
+    const handleSaveEdit = () => {
+        if (editingId === null) return
+        updateMutation.mutate({ id: editingId, notes: editNotes })
+    }
+
+    const handleDelete = (id: number) => {
+        if (!confirm("Hapus data kas ini?")) return
+        deleteMutation.mutate(id)
+    }
 
     return (
         <div className="space-y-4">
@@ -115,6 +138,7 @@ export default function CashRegister() {
                                         <th className="px-4 py-3 text-right">Uang Receh (Rp)</th>
                                         <th className="px-4 py-3">Status</th>
                                         <th className="px-4 py-3">Catatan</th>
+                                        <th className="px-4 py-3 text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -127,7 +151,7 @@ export default function CashRegister() {
                                                     <div className="text-xs text-gray-400">{time}</div>
                                                 </td>
                                                 <td className="px-4 py-3">{r.cashier_name}</td>
-                                                <td className="px-4 py-3">{outletMap[r.outlet_id] || r.outlet_id || "-"}</td>
+                                                <td className="px-4 py-3">{r.outlet_name || r.outlet_id || "-"}</td>
                                                 <td className="px-4 py-3 text-right font-mono">{formatNumber(r.opening_amount)}</td>
                                                 <td className="px-4 py-3">
                                                     <Badge
@@ -144,6 +168,24 @@ export default function CashRegister() {
                                                 <td className="px-4 py-3 text-xs text-slate-400 max-w-xs truncate">
                                                     {r.notes || "-"}
                                                 </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => handleEdit(r)}
+                                                            className="p-1 text-blue-600 hover:text-blue-800"
+                                                            title="Edit catatan"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(r.id)}
+                                                            className="p-1 text-red-600 hover:text-red-800"
+                                                            title="Hapus"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         )
                                     })}
@@ -153,6 +195,36 @@ export default function CashRegister() {
                     )}
                 </CardContent>
             </Card>
+
+            {editingId !== null && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <Card className="w-full max-w-md">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle>Edit Catatan</CardTitle>
+                            <Button variant="ghost" size="icon" onClick={() => setEditingId(null)}>
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Catatan</label>
+                                <Input
+                                    value={editNotes}
+                                    onChange={(e) => setEditNotes(e.target.value)}
+                                    placeholder="Masukkan catatan..."
+                                />
+                            </div>
+                        </CardContent>
+                        <CardFooter className="flex justify-end gap-3">
+                            <Button variant="ghost" onClick={() => setEditingId(null)}>Batal</Button>
+                            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
+                                {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                                Simpan
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </div>
+            )}
         </div>
     )
 }

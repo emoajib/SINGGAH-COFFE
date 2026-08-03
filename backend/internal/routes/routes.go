@@ -101,6 +101,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			// Cash Register — Cashier opens cash float on login
 			protected.POST("/cash-registers/open", h.CashRegister.OpenCashRegister)
 			protected.GET("/cash-registers", middleware.RoleMiddleware("owner"), h.CashRegister.GetCashRegisters)
+			protected.PUT("/cash-registers/:id", middleware.RoleMiddleware("owner"), h.CashRegister.UpdateCashRegister)
+			protected.DELETE("/cash-registers/:id", middleware.RoleMiddleware("owner"), h.CashRegister.DeleteCashRegister)
 
 			// BEP (Break-Even Point) — Owner Only
 			protected.GET("/reports/bep", middleware.RoleMiddleware("owner"), h.BEP.GetBEP)

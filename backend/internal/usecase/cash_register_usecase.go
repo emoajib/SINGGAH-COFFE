@@ -14,12 +14,14 @@ import (
 type CashRegisterUsecase struct {
 	cashRegisterRepo repository.CashRegisterRepository
 	userRepo         repository.UserRepository
+	outletRepo       repository.OutletRepository
 }
 
 func NewCashRegisterUsecase(db *gorm.DB) *CashRegisterUsecase {
 	return &CashRegisterUsecase{
 		cashRegisterRepo: postgres.NewCashRegisterRepository(db),
 		userRepo:         postgres.NewUserRepository(db),
+		outletRepo:       postgres.NewOutletRepository(db),
 	}
 }
 
@@ -57,4 +59,19 @@ func (uc *CashRegisterUsecase) GetCashRegisters(outletID uint, cashierName strin
 
 func (uc *CashRegisterUsecase) CountOpenByOutlet(outletID uint) (int64, error) {
 	return uc.cashRegisterRepo.CountOpenByOutlet(outletID)
+}
+
+func (uc *CashRegisterUsecase) GetAllOutlets() ([]entity.Outlet, error) {
+	return uc.outletRepo.FindAll()
+}
+
+func (uc *CashRegisterUsecase) UpdateCashRegister(cashRegister *entity.CashRegister) (*entity.CashRegister, error) {
+	if err := uc.cashRegisterRepo.Update(cashRegister); err != nil {
+		return nil, err
+	}
+	return uc.cashRegisterRepo.FindByID(cashRegister.ID)
+}
+
+func (uc *CashRegisterUsecase) DeleteCashRegister(id uint) error {
+	return uc.cashRegisterRepo.Delete(id)
 }

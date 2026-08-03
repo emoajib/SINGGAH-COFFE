@@ -69,10 +69,62 @@ func (h *CashRegisterHandler) GetCashRegisters(c *gin.Context) {
 		return
 	}
 
+	outletMap := make(map[uint]string)
+	allOutlets, err := h.cashRegisterUsecase.GetAllOutlets()
+	if err == nil {
+		for _, o := range allOutlets {
+			outletMap[o.ID] = o.Name
+		}
+	}
+
 	result := make([]entity.CashRegisterResponse, len(records))
 	for i, r := range records {
-		result[i] = r.ToResponse()
+		resp := r.ToResponse()
+		resp.OutletName = outletMap[r.OutletID]
+		result[i] = resp
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *CashRegisterHandler) UpdateCashRegister(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cash register ID"})
+		return
+	}
+
+	var req request.UpdateCashRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	cashRegister := &entity.CashRegister{
+		ID:     uint(id),
+		Notes:  req.Notes,
+	}
+
+	result, err := h.cashRegisterUsecase.UpdateCashRegister(cashRegister)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result.ToResponse())
+}
+
+func (h *CashRegisterHandler) DeleteCashRegister(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cash register ID"})
+		return
+	}
+
+	if err := h.cashRegisterUsecase.DeleteCashRegister(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Cash register deleted"})
 }

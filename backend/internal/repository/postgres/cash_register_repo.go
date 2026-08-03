@@ -15,6 +15,15 @@ func NewCashRegisterRepository(db *gorm.DB) *cashRegisterRepository {
 	return &cashRegisterRepository{db: db}
 }
 
+func (r *cashRegisterRepository) FindByID(id uint) (*entity.CashRegister, error) {
+	var m models.CashRegister
+	err := r.db.First(&m, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return toDomainCashRegister(&m), nil
+}
+
 func (r *cashRegisterRepository) FindOpenByUserID(userID uint) (*entity.CashRegister, error) {
 	var m models.CashRegister
 	err := r.db.Where("user_id = ? AND status = 'open'", userID).Order("opened_at desc").First(&m).Error
@@ -78,10 +87,12 @@ func (r *cashRegisterRepository) Create(cashRegister *entity.CashRegister) error
 
 func (r *cashRegisterRepository) Update(cashRegister *entity.CashRegister) error {
 	return r.db.Model(&models.CashRegister{}).Where("id = ?", cashRegister.ID).Updates(map[string]interface{}{
-		"closed_at":      cashRegister.ClosedAt,
-		"closing_amount": cashRegister.ClosingAmount,
-		"status":         cashRegister.Status,
+		"notes": cashRegister.Notes,
 	}).Error
+}
+
+func (r *cashRegisterRepository) Delete(id uint) error {
+	return r.db.Where("id = ?", id).Delete(&models.CashRegister{}).Error
 }
 
 func toDomainCashRegister(m *models.CashRegister) *entity.CashRegister {

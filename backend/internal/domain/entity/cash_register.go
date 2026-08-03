@@ -20,6 +20,7 @@ type CashRegisterResponse struct {
 	UserID        uint      `json:"user_id"`
 	CashierName   string    `json:"cashier_name"`
 	OutletID      uint      `json:"outlet_id"`
+	OutletName    string    `json:"outlet_name"`
 	OpeningAmount float64   `json:"opening_amount"`
 	Notes         string    `json:"notes"`
 	OpenedAt      time.Time `json:"opened_at"`
