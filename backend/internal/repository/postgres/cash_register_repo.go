@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"time"
+
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 
@@ -93,6 +95,17 @@ func (r *cashRegisterRepository) Update(cashRegister *entity.CashRegister) error
 
 func (r *cashRegisterRepository) Delete(id uint) error {
 	return r.db.Where("id = ?", id).Delete(&models.CashRegister{}).Error
+}
+
+func (r *cashRegisterRepository) Close(userID uint, closingAmount float64) error {
+	now := time.Now()
+	return r.db.Model(&models.CashRegister{}).
+		Where("user_id = ? AND status = 'open'", userID).
+		Updates(map[string]interface{}{
+			"status":         "closed",
+			"closed_at":       &now,
+			"closing_amount":  &closingAmount,
+		}).Error
 }
 
 func toDomainCashRegister(m *models.CashRegister) *entity.CashRegister {

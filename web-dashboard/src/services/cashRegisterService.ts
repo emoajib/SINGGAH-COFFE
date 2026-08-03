@@ -7,6 +7,11 @@ export const CashRegisterService = {
     return response.data
   },
 
+  closeCashRegister: async (closingAmount: number): Promise<{ message: string }> => {
+    const response = await api.post('/cash-registers/close', { closing_amount: closingAmount })
+    return response.data
+  },
+
   getCashRegisters: async (params?: {
     outlet_id?: number
     cashier_name?: string

@@ -13,15 +13,21 @@ import {
     Search,
     Banknote,
     Coffee,
-    RotateCcw
+    RotateCcw,
+    AlertTriangle
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Dialog } from "../components/ui/dialog"
+import { Input } from "../components/ui/input"
 import Receipt from "../components/pos/Receipt"
 import { getImageUrl, formatCurrency } from "../lib/utils"
 import { useProducts } from '../hooks/useProducts'
 import { useCreateOrder } from '../hooks/useOrders'
 import { useSettings } from '../hooks/useSettings'
+import { CashRegisterService } from "../services/cashRegisterService"
+import { useDispatch, useSelector } from "react-redux"
+import { RootState } from "../store"
+import { setOpenCashRegister } from "../store/authSlice"
 
 interface Product {
     id: number;
@@ -50,6 +56,13 @@ const PosTerminal: React.FC = () => {
     const [lastCashGiven, setLastCashGiven] = useState<number>(0);
     const [lastChangeAmount, setLastChangeAmount] = useState<number>(0);
     const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
+    const [showCloseModal, setShowCloseModal] = useState(false);
+    const [closingAmount, setClosingAmount] = useState("");
+    const [closeError, setCloseError] = useState("");
+    const [closeLoading, setCloseLoading] = useState(false);
+
+    const dispatch = useDispatch()
+    const { openCashRegister } = useSelector((state: RootState) => state.auth)
 
     const productsQuery = useProducts();
     const isLoadingProducts = productsQuery.isLoading;
@@ -99,8 +112,35 @@ const PosTerminal: React.FC = () => {
      const tax = (subtotal + serviceFee) * taxRate;
      const total = subtotal + serviceFee + tax;
 
-     const logoUrl = settings?.outlet_logo_url || ""
-     const outletName = settings?.outlet_name || "Singgah Coffee"
+      const logoUrl = settings?.outlet_logo_url || ""
+      const outletName = settings?.outlet_name || "Singgah Coffee"
+
+      const handleCloseCashRegister = async () => {
+          setCloseError("")
+          const num = parseFloat(closingAmount.replace(/\./g, ''))
+          if (!num || num <= 0) {
+              setCloseError("Nominal harus diisi dan lebih dari 0")
+              return
+          }
+          setCloseLoading(true)
+          try {
+              await CashRegisterService.closeCashRegister(num)
+              dispatch(setOpenCashRegister(null))
+              setShowCloseModal(false)
+              setClosingAmount("")
+          } catch (err: any) {
+              setCloseError(err.response?.data?.error || "Gagal menutup kas")
+          } finally {
+              setCloseLoading(false)
+          }
+      }
+
+      const displayClosingAmount = closingAmount ? formatCurrency(parseInt(closingAmount.replace(/\./g, ''))) : ""
+
+      const handleClosingAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const digits = e.target.value.replace(/\D/g, '')
+          setClosingAmount(digits)
+      }
 
     const addToCart = (product: Product) => {
         setCart(prev => {
@@ -213,6 +253,18 @@ const PosTerminal: React.FC = () => {
                             </button>
                         )}
                     </div>
+
+                        {openCashRegister && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowCloseModal(true)}
+                                className="border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                                <Banknote className="w-4 h-4 mr-1" />
+                                Tutup Kas
+                            </Button>
+                        )}
                 </header>
 
                 {/* Category Navigation */}
@@ -634,6 +686,61 @@ const PosTerminal: React.FC = () => {
             <div className="sr-only whitespace-pre">
                 {lastOrder && <Receipt {...lastOrder} />}
             </div>
+
+            {showCloseModal && openCashRegister && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                        <div className="p-6 border-b border-gray-200">
+                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                                Tutup Kas
+                            </h2>
+                            <p className="text-sm text-gray-600 mt-1">
+                                Masukkan nominal uang kas akhir untuk menutup kas.
+                            </p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Uang Receh (Rp):</span>
+                                    <span className="font-bold">{formatCurrency(openCashRegister.opening_amount)}</span>
+                                </div>
+                                <div className="flex justify-between mt-1">
+                                    <span className="text-gray-600">Dibuka oleh:</span>
+                                    <span>{openCashRegister.cashier_name}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1">
+                                    Nominal Uang Kas Akhir (Rp)
+                                </label>
+                                <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={displayClosingAmount}
+                                    onChange={handleClosingAmountChange}
+                                    placeholder="Contoh: 500.000"
+                                    className="text-lg font-bold"
+                                    required
+                                />
+                            </div>
+                            {closeError && <p className="text-sm text-red-600">{closeError}</p>}
+                        </div>
+                        <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+                            <Button variant="ghost" onClick={() => { setShowCloseModal(false); setCloseError(""); setClosingAmount("") }}>
+                                Batal
+                            </Button>
+                            <Button
+                                onClick={handleCloseCashRegister}
+                                disabled={closeLoading}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                                {closeLoading ? "Menyimpan..." : "Simpan & Tutup Kas"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -135,4 +135,5 @@ type CashRegisterRepository interface {
 	Create(cashRegister *entity.CashRegister) error
 	Update(cashRegister *entity.CashRegister) error
 	Delete(id uint) error
+	Close(userID uint, closingAmount float64) error
 }

@@ -128,3 +128,20 @@ func (h *CashRegisterHandler) DeleteCashRegister(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cash register deleted"})
 }
+
+func (h *CashRegisterHandler) CloseCashRegister(c *gin.Context) {
+	var req request.CloseCashRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "closing_amount harus lebih dari 0"})
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+
+	if err := h.cashRegisterUsecase.CloseCashRegister(userID.(uint), req.ClosingAmount); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Cash register closed"})
+}

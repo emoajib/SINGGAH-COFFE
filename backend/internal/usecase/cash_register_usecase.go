@@ -75,3 +75,7 @@ func (uc *CashRegisterUsecase) UpdateCashRegister(cashRegister *entity.CashRegis
 func (uc *CashRegisterUsecase) DeleteCashRegister(id uint) error {
 	return uc.cashRegisterRepo.Delete(id)
 }
+
+func (uc *CashRegisterUsecase) CloseCashRegister(userID uint, closingAmount float64) error {
+	return uc.cashRegisterRepo.Close(userID, closingAmount)
+}
