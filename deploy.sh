@@ -3,10 +3,22 @@ set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEPLOY_DIR="$PROJECT_DIR/deploy"
-SERVER_HOST="${DEPLOY_HOST:?Set DEPLOY_HOST}"
+
+echo "📋 Deploy Singgah POS ke Server"
+echo "================================"
+echo ""
+echo "Pastikan variabel environment berikut sudah di-set:"
+echo "  export DEPLOY_HOST=sosiomen.com"
+echo "  export DEPLOY_PATH=/home/username/singgah-pos"
+echo "  export DEPLOY_USER=root"
+echo "  export DEPLOY_PORT=22"
+echo "  export SSH_KEY=~/.ssh/id_rsa"
+echo ""
+
+SERVER_HOST="${DEPLOY_HOST:?Error: DEPLOY_HOST belum di-set. Jalankan: export DEPLOY_HOST=your-server.com}"
 SERVER_USER="${DEPLOY_USER:-root}"
 SERVER_PORT="${DEPLOY_PORT:-22}"
-SERVER_PATH="${DEPLOY_PATH:?Set DEPLOY_PATH, contoh: /home/username/singgah-pos}"
+SERVER_PATH="${DEPLOY_PATH:?Error: DEPLOY_PATH belum di-set. Jalankan: export DEPLOY_PATH=/home/username/singgah-pos}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_rsa}"
 
 mkdir -p "$DEPLOY_DIR/backend"

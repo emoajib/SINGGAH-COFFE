@@ -2,7 +2,7 @@
 set -e
 
 PROJ_DIR="$HOME/singgah-pos"
-REPO_URL="https://github.com/emoajib/sistem-moka-pos-singgah-coffee.git"
+REPO_URL="https://github.com/emoajib/SINGGAH-COFFE.git"
 
 echo "=== Singgah POS Auto Deploy ==="
 echo ""
