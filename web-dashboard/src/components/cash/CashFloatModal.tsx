@@ -4,6 +4,7 @@ import { setOpenCashRegister } from "../../store/authSlice"
 import { CashRegisterService } from "../../services/cashRegisterService"
 import { Dialog } from "../ui/dialog"
 import { Input } from "../ui/input"
+import { formatNumber } from "../../lib/utils"
 
 interface CashFloatModalProps {
     open: boolean
@@ -17,10 +18,16 @@ export default function CashFloatModal({ open, onSuccess }: CashFloatModalProps)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
 
+    const displayAmount = amount ? formatNumber(parseInt(amount.replace(/\./g, ''))) : ""
+    const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const digits = e.target.value.replace(/\D/g, '')
+        setAmount(digits)
+    }
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         setError("")
-        const num = parseFloat(amount)
+        const num = parseFloat(amount.replace(/\./g, ''))
         if (!num || num <= 0) {
             setError("Nominal harus diisi dan lebih dari 0")
             return
@@ -33,8 +40,8 @@ export default function CashFloatModal({ open, onSuccess }: CashFloatModalProps)
             })
             dispatch(setOpenCashRegister(result))
             onSuccess()
-        } catch {
-            setError("Gagal membuka kas. Periksa koneksi dan coba lagi.")
+        } catch (err: any) {
+            setError(err.response?.data?.error || "Gagal membuka kas. Periksa koneksi dan coba lagi.")
         } finally {
             setLoading(false)
         }
@@ -62,12 +69,11 @@ export default function CashFloatModal({ open, onSuccess }: CashFloatModalProps)
                         Nominal Uang Receh (Rp)
                     </label>
                     <Input
-                        type="number"
-                        min="1"
-                        step="1000"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="Contoh: 500000"
+                        type="text"
+                        inputMode="numeric"
+                        value={displayAmount}
+                        onChange={handleAmountChange}
+                        placeholder="Contoh: 500.000"
                         className="text-lg font-bold"
                         required
                     />
