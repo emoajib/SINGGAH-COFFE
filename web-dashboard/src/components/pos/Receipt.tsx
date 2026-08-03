@@ -1,5 +1,6 @@
 import { MenuItem } from "../../services/productService"
 import { formatNumber } from "../../lib/utils"
+import { useSettings } from "../../hooks/useSettings"
 
 interface ReceiptProps {
     orderNumber: string
@@ -22,13 +23,24 @@ export default function Receipt({
     paymentMethod,
     cashierName
 }: ReceiptProps) {
-    const outletName = "Singgah Coffee"
-    const outletAddress = "Jl. Example No. 123, Jakarta"
+    const { data: settings } = useSettings()
+    const outletName = settings?.outlet_name || "Singgah Coffee"
+    const outletAddress = settings?.outlet_address || "Jl. Example No. 123, Jakarta"
+    const outletLogoUrl = settings?.outlet_logo_url || ""
     const now = new Date().toLocaleString('id-ID')
 
     return (
         <div id="receipt-print" className="bg-white p-4 font-mono text-black">
             <div className="text-center mb-4">
+                {outletLogoUrl && (
+                    <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden">
+                        <img
+                            src={outletLogoUrl}
+                            alt="Logo"
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                )}
                 <h1 className="text-lg font-bold uppercase">{outletName}</h1>
                 <p className="text-[10px]">{outletAddress}</p>
                 <div className="border-b border-dashed border-black my-2"></div>

@@ -2,11 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { SalesChart } from "../components/dashboard/SalesChart"
 import { TopSellingItems } from "../components/dashboard/TopSellingItems"
 import { useEffect, useState } from "react"
-import { fetchSettings } from "../services/settingsService"
 import { InventoryService } from "../services/inventoryService"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import { getImageUrl, formatNumber } from "../lib/utils"
 import { useDashboard } from "../hooks/useDashboard"
+import { useSettings } from "../hooks/useSettings"
 import { Button } from "../components/ui/button"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
@@ -18,10 +18,12 @@ interface DashboardHomeProps {
 
 export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
     const { user } = useSelector((state: RootState) => state.auth)
-    const [logoUrl, setLogoUrl] = useState("")
-    const [outletName, setOutletName] = useState("Singgah Coffee")
     const [lowStockItems, setLowStockItems] = useState<Ingredient[]>([])
     const [showLowStockDetails, setShowLowStockDetails] = useState(false)
+
+    const { data: settings } = useSettings()
+    const logoUrl = settings?.outlet_logo_url || ""
+    const outletName = settings?.outlet_name || "Singgah Coffee"
 
     const formatCurrency = (value: number) => {
         return `Rp ${formatNumber(value)}`
@@ -37,19 +39,6 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
         category_breakdown: [] as { category: string; total: number }[],
         top_products: [] as { name: string; category: string; sales: number }[]
     }
-
-    useEffect(() => {
-        const loadBranding = async () => {
-            try {
-                const settings = await fetchSettings()
-                if (settings.outlet_logo_url) setLogoUrl(settings.outlet_logo_url)
-                if (settings.outlet_name) setOutletName(settings.outlet_name)
-            } catch (error) {
-                void error
-            }
-        }
-        loadBranding()
-    }, [])
 
     useEffect(() => {
         if (summary.low_stock_count > 0) {
