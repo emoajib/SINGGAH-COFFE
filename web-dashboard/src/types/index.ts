@@ -312,6 +312,25 @@ export interface DashboardSummary {
   top_products: { name: string; category: string; sales: number; quantity?: number; product_id?: number; product_name?: string; total?: number }[]
 }
 
+// ─── Cash Register ────────────────────────────────────────────────────
+export interface CashRegister {
+  id: number
+  user_id: number
+  cashier_name: string
+  outlet_id: number
+  opening_amount: number
+  notes: string
+  opened_at: string
+  closed_at: string | null
+  closing_amount: number | null
+  status: 'open' | 'closed'
+}
+
+export interface OpenCashRegisterRequest {
+  opening_amount: number
+  notes?: string
+}
+
 // ─── Paginated ──────────────────────────────────────────────────────────────
 export interface PaginatedResponse<T> {
   data: T[]

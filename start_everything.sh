@@ -22,28 +22,31 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # ──────────────────────────────────────────────
-# Step 1: PostgreSQL
+# Step 1: MySQL
 # ──────────────────────────────────────────────
-echo "Step 1: PostgreSQL..."
-if pg_isready -q 2>/dev/null; then
-    echo "   ✅ PostgreSQL is running"
+echo "Step 1: MySQL..."
+if mysqladmin -uroot -ppassword -h 127.0.0.1 ping 2>/dev/null | grep -q "alive" || mysql -u "$USER" -e "SELECT 1" 2>/dev/null | grep -q "1"; then
+    echo "   ✅ MySQL is running"
 else
-    echo "   ⚠️ PostgreSQL not running. Attempting to start..."
-    brew services start postgresql@17 2>/dev/null || brew services start postgresql 2>/dev/null
+    echo "   ⚠️ MySQL not running. Attempting to start (Homebrew)..."
+    brew services start mysql 2>/dev/null || brew services start mariadb 2>/dev/null
     sleep 3
-    if pg_isready -q 2>/dev/null; then
-        echo "   ✅ PostgreSQL started"
+    if mysqladmin -uroot -ppassword -h 127.0.0.1 ping 2>/dev/null | grep -q "alive" || mysql -u "$USER" -e "SELECT 1" 2>/dev/null | grep -q "1"; then
+        echo "   ✅ MySQL started"
     else
-        echo "   ❌ Failed to start PostgreSQL. Please start it manually."
-        echo "     Try: brew services start postgresql@17"
+        echo "   ❌ Failed to start MySQL. Please start it manually."
+        echo "     Try: brew services start mysql"
         exit 1
     fi
 fi
 
 # Create database if not exists
-psql -U postgres -h localhost -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" 2>/dev/null | grep -q 1 \
-    && echo "   ✅ Database '$DB_NAME' already exists" \
-    || { createdb -U postgres -h localhost "$DB_NAME" 2>/dev/null && echo "   ✅ Database '$DB_NAME' created"; }
+if mysql -uroot -ppassword -h 127.0.0.1 -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci" 2>/dev/null \
+    || mysql -u "$USER" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci" 2>/dev/null; then
+    echo "   ✅ Database '$DB_NAME' is ready"
+else
+    echo "   ⚠️ Could not create database '$DB_NAME'. Create it manually if needed."
+fi
 
 echo ""
 
@@ -97,7 +100,7 @@ echo ""
 echo "  📍 Service URLs:"
 echo "     Backend API:    http://localhost:8080"
 echo "     Web Dashboard:  http://localhost:3000"
-echo "     PostgreSQL:     localhost:5432"
+echo "     MySQL:          localhost:3306"
 echo ""
 echo "  📁 Log files: $LOG_DIR"
 echo "  🛑 Press Ctrl+C to stop all services"

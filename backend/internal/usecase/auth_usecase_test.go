@@ -104,7 +104,7 @@ func TestAuthUsecase_RegisterSuccess(t *testing.T) {
 	uc := createAuthUsecase(db)
 
 	// Execute
-	resp, err := uc.Register("John Doe", "john@example.com", "password123", "cashier")
+	resp, err := uc.Register("John Doe", "john@example.com", "password123", "cashier", 0)
 
 	// Assert
 	assert.NoError(t, err)

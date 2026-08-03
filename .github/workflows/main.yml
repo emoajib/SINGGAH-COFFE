@@ -55,16 +55,15 @@ jobs:
     name: Integration Test (Docker Compose)
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:15-alpine
+      mysql:
+        image: mysql:8
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: singgah_pos
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: singgah_pos
         ports:
-          - 5432:5432
+          - 3306:3306
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ppassword"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
@@ -79,7 +78,7 @@ jobs:
     - name: Start Backend
       env:
         JWT_SECRET: ci-test-secret-key-thats-at-least-32-characters-long
-        DATABASE_URL: host=localhost user=postgres password=password dbname=singgah_pos port=5432 sslmode=disable
+        DATABASE_URL: root:password@tcp(localhost:3306)/singgah_pos?charset=utf8mb4&parseTime=True&loc=Local
       run: |
         cd backend
         go run ./cmd/server &

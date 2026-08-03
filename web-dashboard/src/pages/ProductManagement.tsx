@@ -36,11 +36,12 @@ const ProductManagement: React.FC = () => {
     const [restockModal, setRestockModal] = useState({ isOpen: false, itemId: 0, type: 'IN' as 'IN' | 'OUT' });
     const [historyModal, setHistoryModal] = useState({ isOpen: false, ingredient: null as Ingredient | null, history: [] as any[] });
     const [loading, setLoading] = useState(false);
-
     const productsQuery = useProducts();
     const ingredientsQuery = useIngredients();
-    const products = (productsQuery.data ?? []) as unknown as Product[];
-    const ingredients = (ingredientsQuery.data ?? []) as unknown as Ingredient[];
+    const productsRaw = productsQuery.data;
+    const products: Product[] = Array.isArray(productsRaw) ? (productsRaw as unknown as Product[]) : [];
+    const ingredientsRaw = ingredientsQuery.data;
+    const ingredients: Ingredient[] = Array.isArray(ingredientsRaw) ? (ingredientsRaw as unknown as Ingredient[]) : [];
     const deleteProduct = useDeleteProduct();
     const deleteIngredient = useDeleteIngredient();
     const createStockMutation = useCreateStockMutation();

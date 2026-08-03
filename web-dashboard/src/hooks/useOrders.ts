@@ -5,7 +5,10 @@ import type { Order, CreateOrderRequest } from '../types'
 export function useOrders(limit = 50, offset = 0) {
   return useQuery({
     queryKey: ['orders', { limit, offset }],
-    queryFn: () => api.get<Order[]>(`/orders?limit=${limit}&offset=${offset}`).then((r) => r.data),
+    queryFn: async () => {
+      const r = await api.get<Order[]>(`/orders?limit=${limit}&offset=${offset}`)
+      return Array.isArray(r.data) ? r.data : []
+    },
   })
 }
 

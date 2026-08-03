@@ -32,6 +32,7 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.ProcessedWebhook{},
 		&entity.TokenBlacklist{},
 		&models.Outlet{},
+		&models.CashRegister{},
 	)
 	if err != nil {
 		log.Printf("AutoMigrate failed: %v", err)
@@ -64,8 +65,8 @@ func Connect(cfg config.Config) *gorm.DB {
 	if settingCount == 0 {
 		defaultSettings := []models.Setting{
 			{Key: "outlet_name", Value: "Singgah Coffee", SettingGroup: "profile"},
-			{Key: "outlet_phone", Value: "+62 812-3456-7890", SettingGroup: "profile"},
-			{Key: "outlet_address", Value: "Jl. Example No. 123, Jakarta Selatan", SettingGroup: "profile"},
+			{Key: "outlet_phone", Value: "", SettingGroup: "profile"},
+			{Key: "outlet_address", Value: "", SettingGroup: "profile"},
 			{Key: "tax_percentage", Value: "10", SettingGroup: "tax"},
 			{Key: "service_charge", Value: "5", SettingGroup: "tax"},
 			{Key: "printer_connection", Value: "network", SettingGroup: "printer"},
@@ -83,10 +84,8 @@ func Connect(cfg config.Config) *gorm.DB {
 	db.Model(&models.Outlet{}).Count(&outletCount)
 	if outletCount == 0 {
 		defaultOutlet := models.Outlet{
-			Name:    "Singgah Coffee",
-			Address: "Jl. Example No. 123, Jakarta Selatan",
-			Phone:   "+62 812-3456-7890",
-			Code:    "SGH-001",
+			Name: "Singgah Coffee",
+			Code: "SGH-001",
 		}
 		db.Create(&defaultOutlet)
 

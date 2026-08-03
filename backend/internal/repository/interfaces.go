@@ -125,3 +125,12 @@ type TokenBlacklistRepository interface {
 	IsTokenBlacklisted(tokenString string) (bool, error)
 	DeleteExpired() error
 }
+
+// CashRegisterRepository defines data access for cash registers
+type CashRegisterRepository interface {
+	FindOpenByUserID(userID uint) (*entity.CashRegister, error)
+	FindAll(outletID uint, cashierName string, dateFrom string, dateTo string, status string, limit int, offset int) ([]entity.CashRegister, error)
+	CountOpenByOutlet(outletID uint) (int64, error)
+	Create(cashRegister *entity.CashRegister) error
+	Update(cashRegister *entity.CashRegister) error
+}

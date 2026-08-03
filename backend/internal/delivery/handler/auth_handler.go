@@ -45,7 +45,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authUsecase.Register(req.Name, req.Email, req.Password, req.Role)
+	result, err := h.authUsecase.Register(req.Name, req.Email, req.Password, req.Role, req.OutletID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Registration failed"})
 		return
@@ -76,7 +76,7 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authUsecase.UpdateUser(uint(id), req.Name, req.Email, req.Role, req.Password)
+	result, err := h.authUsecase.UpdateUser(uint(id), req.Name, req.Email, req.Role, req.Password, req.OutletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return

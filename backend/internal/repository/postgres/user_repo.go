@@ -60,9 +60,10 @@ func (r *userRepository) Create(user *entity.User) error {
 func (r *userRepository) Update(user *entity.User) error {
 	m := toModelUser(user)
 	return r.db.Model(&models.User{}).Where("id = ?", user.ID).Updates(map[string]interface{}{
-		"name":  m.Name,
-		"email": m.Email,
-		"role":  m.Role,
+		"name":       m.Name,
+		"email":      m.Email,
+		"role":       m.Role,
+		"outlet_id":  m.OutletID,
 	}).Error
 }
 
@@ -77,6 +78,7 @@ func toDomainUser(m *models.User) *entity.User {
 		Email:    m.Email,
 		Password: m.Password,
 		Role:     m.Role,
+		OutletID: m.OutletID,
 	}
 }
 
@@ -86,5 +88,6 @@ func toModelUser(e *entity.User) *models.User {
 		Email:    e.Email,
 		Password: e.Password,
 		Role:     e.Role,
+		OutletID: e.OutletID,
 	}
 }

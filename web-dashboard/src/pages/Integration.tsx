@@ -40,7 +40,7 @@ const Integration: React.FC = () => {
                 api.get('/integrations/logs'),
                 api.get('/settings')
             ]);
-            setLogs(logsRes.data || []);
+            setLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
             setSettings(settingsRes.data || {});
         } catch (err) {
             void err;

@@ -29,7 +29,7 @@ func LoadConfig() Config {
 
 	return Config{
 		Port:        getEnv("PORT", "8080"),
-		DatabaseURL: getEnv("DATABASE_URL", "host=localhost user=postgres password=postgres dbname=singgah_pos port=5432 sslmode=disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "root:password@tcp(localhost:3306)/singgah_pos?charset=utf8mb4&parseTime=True&loc=Local"),
 		JWTSecret:   secret,
 		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8081,http://localhost:5173,http://localhost:8080"),
 	}

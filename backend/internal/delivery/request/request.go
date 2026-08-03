@@ -10,6 +10,7 @@ type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=5"`
 	Role     string `json:"role" binding:"required,oneof=owner manager cashier"`
+	OutletID uint   `json:"outlet_id"` // 0 = all outlets (owner)
 }
 
 type UpdateProfileRequest struct {
@@ -22,6 +23,7 @@ type UpdateUserRequest struct {
 	Email    string `json:"email" binding:"omitempty,email"`
 	Role     string `json:"role" binding:"omitempty,oneof=owner manager cashier"`
 	Password string `json:"password"`
+	OutletID *uint  `json:"outlet_id"`
 }
 
 type ChangePasswordRequest struct {
@@ -112,4 +114,9 @@ type UpdateCostTypeRequest struct {
 type UpdateSettingsRequest struct {
 	Key   string `json:"key" binding:"required"`
 	Value string `json:"value"`
+}
+
+type OpenCashRegisterRequest struct {
+	OpeningAmount float64 `json:"opening_amount" binding:"required,gt=0"`
+	Notes         string  `json:"notes"`
 }

@@ -132,7 +132,7 @@ export default function Sales() {
                                                             <Printer className="w-4 h-4" />
                                                         </Button>
                                                     )}
-                                                    {order.status !== 'Void' && (
+                                                    {order.status !== 'Void' && (user?.role === 'owner' || user?.role === 'manager') && (
                                                         <Button
                                                             size="icon"
                                                             variant="ghost"

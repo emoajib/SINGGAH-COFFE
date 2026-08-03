@@ -26,7 +26,7 @@ Professional, Enterprise-grade Point of Sale (POS) system for Singgah Coffee. Bu
 ## 🏗️ Technical Stack
 
 - **Backend**: Go (Golang) + Gin Framework + GORM
-- **Database**: PostgreSQL 15 + Docker Orchestration
+- **Database**: MySQL 8 + Docker Orchestration
 - **Web Dashboard**: React + TypeScript + Vite + Tailwind CSS
 - **CI/CD**: GitHub Actions
 
@@ -52,7 +52,7 @@ After ensuring [System Integrity Protection (SIP)](#️-important-macos-setup-re
 |---------|-----|------|
 | **Backend API** | http://localhost:8080 | Central API & Logic Hub |
 | **Web Dashboard** | http://localhost:3000 | Admin & Management Console |
-| **Database** | localhost:5432 | PostgreSQL Data Store |
+| **Database** | localhost:3306 | MySQL Data Store |
 
 ---
 

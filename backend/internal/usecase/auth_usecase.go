@@ -60,7 +60,7 @@ func (uc *AuthUsecase) Login(req LoginRequest) (*LoginResponse, error) {
 	}, nil
 }
 
-func (uc *AuthUsecase) Register(name, email, pwd, role string) (*entity.UserResponse, error) {
+func (uc *AuthUsecase) Register(name, email, pwd, role string, outletID uint) (*entity.UserResponse, error) {
 	hashedPassword, err := password.HashPassword(pwd)
 	if err != nil {
 		return nil, err
@@ -71,6 +71,7 @@ func (uc *AuthUsecase) Register(name, email, pwd, role string) (*entity.UserResp
 		Email:    email,
 		Password: hashedPassword,
 		Role:     role,
+		OutletID: outletID,
 	}
 
 	if err := uc.userRepo.Create(user); err != nil {
@@ -93,7 +94,7 @@ func (uc *AuthUsecase) GetUsers() ([]entity.UserResponse, error) {
 	return resp, nil
 }
 
-func (uc *AuthUsecase) UpdateUser(id uint, name, email, role, pwd string) (*entity.UserResponse, error) {
+func (uc *AuthUsecase) UpdateUser(id uint, name, email, role, pwd string, outletID *uint) (*entity.UserResponse, error) {
 	user, err := uc.userRepo.FindByID(id)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("user")
@@ -107,6 +108,9 @@ func (uc *AuthUsecase) UpdateUser(id uint, name, email, role, pwd string) (*enti
 	}
 	if role != "" {
 		user.Role = role
+	}
+	if outletID != nil {
+		user.OutletID = *outletID
 	}
 	if pwd != "" {
 		hashed, err := password.HashPassword(pwd)

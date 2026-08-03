@@ -1,16 +1,15 @@
 services:
   # Database Service
   db:
-    image: postgres:15-alpine
-    container_name: singgah_postgres
+    image: mysql:8
+    container_name: singgah_mysql
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: singgah_pos
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: singgah_pos
     ports:
-      - "5434:5432"
+      - "3307:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
     restart: always
 
   # Backend API Service
@@ -23,7 +22,7 @@ services:
       - "8080:8080"
     environment:
       PORT: 8080
-      DATABASE_URL: "host=db user=postgres password=password dbname=singgah_pos port=5432 sslmode=disable"
+      DATABASE_URL: "root:password@tcp(db:3306)/singgah_pos?charset=utf8mb4&parseTime=True&loc=Local"
       JWT_SECRET: "singgah-coffee-jwt-secret-key-change-this-in-prod-2026"
     depends_on:
       - db
@@ -47,4 +46,4 @@ services:
     restart: always
 
 volumes:
-  postgres_data:
+  mysql_data:

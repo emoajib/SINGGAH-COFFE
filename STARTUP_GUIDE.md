@@ -93,7 +93,7 @@ After all services are running:
 
 - **Backend API**: http://localhost:8080
 - **Web Dashboard**: http://localhost:5173
-- **PostgreSQL Database**: localhost:5434
+- **MySQL Database**: localhost:3307
 
 ---
 
@@ -168,8 +168,8 @@ docker-compose restart api
 │         └──────────────────┴──────────┘
 │                            │                             │
 │                   ┌────────▼────────┐                    │
-│                   │   PostgreSQL    │                    │
-│                   │   Port: 5434    │                    │
+│                   │      MySQL      │                    │
+│                   │   Port: 3307    │                    │
 │                   └─────────────────┘                    │
 │                                                           │
 └─────────────────────────────────────────────────────────┘
@@ -181,8 +181,8 @@ docker-compose restart api
 
 ### Database
 - **Host**: localhost
-- **Port**: 5434
-- **User**: postgres
+- **Port**: 3307
+- **User**: root
 - **Password**: password
 - **Database**: singgah_pos
 

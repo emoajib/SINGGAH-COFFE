@@ -96,18 +96,20 @@ func (r *orderRepository) CountByStatus(status string, outletID ...uint) (int64,
 
 func (r *orderRepository) GetSumByStatusSince(status, since, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error) {
 	outletWhere := ""
-	args := []interface{}{since, status}
+	args := []interface{}{timeFormat, since, status}
 	if len(outletID) > 0 && outletID[0] > 0 {
 		outletWhere = " AND outlet_id = ?"
 		args = append(args, outletID[0])
 	}
+	args = append(args, timeFormat)
+
 	var results []entity.TrendPoint
 	err := r.db.Raw(`
-		SELECT TO_CHAR(created_at, '`+timeFormat+`') as name, SUM(total_amount) as total
+		SELECT DATE_FORMAT(created_at, ?) as name, SUM(total_amount) as total
 		FROM orders
 		WHERE created_at >= ? AND status = ?`+outletWhere+`
-		GROUP BY TO_CHAR(created_at, '`+timeFormat+`'), DATE_TRUNC('day', created_at)
-		ORDER BY DATE_TRUNC('day', created_at) ASC
+		GROUP BY DATE_FORMAT(created_at, ?), DATE(created_at)
+		ORDER BY DATE(created_at) ASC
 	`, args...).Scan(&results).Error
 	return results, err
 }
@@ -122,10 +124,10 @@ func (r *orderRepository) GetDailySalesRange(start, end string, outletID ...uint
 	}
 	var results []entity.DailySales
 	err := r.db.Raw(`
-		SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count
+		SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as date, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count
 		FROM orders
 		WHERE created_at BETWEEN ? AND ? AND status = 'Completed'`+outletWhere+`
-		GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+		GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
 		ORDER BY date ASC
 	`, args...).Scan(&results).Error
 	return results, err

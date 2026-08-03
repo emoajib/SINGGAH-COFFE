@@ -417,7 +417,7 @@ const Reports: React.FC = () => {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {summary?.top_products && summary.top_products.length > 0 ? (
+                                {Array.isArray(summary?.top_products) && summary.top_products.length > 0 ? (
                                     summary.top_products.map((prod: any, i: number) => (
                                         <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 group hover:bg-white/10 transition-all">
                                             <div className="flex items-center gap-3">

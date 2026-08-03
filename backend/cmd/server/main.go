@@ -57,6 +57,7 @@ func main() {
 	webhookUsecase := usecase.NewWebhookUsecase(db)
 	bepUsecase := usecase.NewBEPUsecase(db)
 	outletUsecase := usecase.NewOutletUsecase(db)
+	cashRegisterUsecase := usecase.NewCashRegisterUsecase(db)
 
 	// Start background cleanup of expired tokens every hour
 	go func() {
@@ -75,16 +76,17 @@ func main() {
 	}()
 
 	handlers := &routes.Handlers{
-		Auth:      handler.NewAuthHandler(authUsecase),
-		Product:   handler.NewProductHandler(productUsecase),
-		Order:     handler.NewOrderHandler(orderUsecase),
-		Inventory: handler.NewInventoryHandler(inventoryUsecase),
-		Report:    handler.NewReportHandler(reportUsecase),
-		Expense:   handler.NewExpenseHandler(expenseUsecase),
-		Settings:  handler.NewSettingsHandler(settingsUsecase),
-		Webhook:   handler.NewWebhookHandler(webhookUsecase),
-		BEP:       handler.NewBEPHandler(bepUsecase),
-		Outlet:    handler.NewOutletHandler(outletUsecase),
+		Auth:          handler.NewAuthHandler(authUsecase),
+		Product:       handler.NewProductHandler(productUsecase),
+		Order:         handler.NewOrderHandler(orderUsecase),
+		Inventory:     handler.NewInventoryHandler(inventoryUsecase),
+		Report:        handler.NewReportHandler(reportUsecase),
+		Expense:       handler.NewExpenseHandler(expenseUsecase),
+		Settings:      handler.NewSettingsHandler(settingsUsecase),
+		Webhook:       handler.NewWebhookHandler(webhookUsecase),
+		BEP:           handler.NewBEPHandler(bepUsecase),
+		Outlet:        handler.NewOutletHandler(outletUsecase),
+		CashRegister:  handler.NewCashRegisterHandler(cashRegisterUsecase),
 	}
 
 	r := gin.New()

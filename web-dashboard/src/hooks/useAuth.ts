@@ -41,7 +41,7 @@ export function useUpdateProfile() {
 export function useChangePassword() {
   return useMutation({
     mutationFn: (data: ChangePasswordRequest) =>
-      api.put('/auth/change-password', data).then((res) => res.data),
+      api.post('/auth/change-password', data).then((res) => res.data),
   })
 }
 

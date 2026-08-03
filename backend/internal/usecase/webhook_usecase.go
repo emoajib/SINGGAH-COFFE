@@ -44,12 +44,18 @@ func (uc *WebhookUsecase) GetWebhookLogs(limit int) ([]entity.ProcessedWebhook, 
 // It verifies the callback token, ensures idempotency, and updates the
 // corresponding order's payment status.
 func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload XenditCallback) error {
-	// Verify callback token
+	// Verify callback token (fail closed)
+	if callbackToken == "" {
+		return domainErrors.NewUnauthorizedError("missing callback token")
+	}
+
 	expectedToken, err := uc.settingRepo.FindByKey("xendit_callback_token")
-	if err == nil && expectedToken != nil && callbackToken != "" {
-		if callbackToken != expectedToken.Value {
-			return domainErrors.NewUnauthorizedError("invalid callback token")
-		}
+	if err != nil || expectedToken == nil || expectedToken.Value == "" {
+		return domainErrors.NewInvalidInputError("callback token is not configured")
+	}
+
+	if callbackToken != expectedToken.Value {
+		return domainErrors.NewUnauthorizedError("invalid callback token")
 	}
 
 	return uc.db.Transaction(func(tx *gorm.DB) error {

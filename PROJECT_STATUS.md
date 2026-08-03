@@ -89,7 +89,7 @@ graph TD
     end
 
     subgraph Data ["Data Layer"]
-        DB[("🗄️ PostgreSQL 15 (Docker)")]
+        DB[("🗄️ MySQL 8 (Docker)")]
     end
 
     subgraph DevOps ["Infrastructure"]
@@ -118,7 +118,7 @@ graph TD
 |------------------|-------------------------------------|--------------------------------------|
 | **Web Dashboard** | `http://localhost:51xx`           | Cek terminal saat startup frontend   |
 | **Backend API**   | `http://localhost:8080`           | Gin API Gateway                      |
-| **Database**      | `localhost:5432`                  | PostgreSQL 15 (Dockerized)           |
+| **Database**      | `localhost:3306`                  | MySQL 8 (Dockerized)                |
 | **Admin Login**   | `owner@singgah.coffee` / `admin`  | Role: Owner — akses penuh            |
 | **Manager Login** | *(buat akun via register)*        | Role: Manager — akses terbatas       |
 

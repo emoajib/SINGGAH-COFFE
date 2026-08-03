@@ -12,7 +12,9 @@ import Settings from "./pages/Settings"
 import PosTerminal from "./pages/PosTerminal"
 import ProductManagement from "./pages/ProductManagement"
 import Expenses from "./pages/Expenses"
+import CashRegister from "./pages/CashRegister"
 import Login from "./pages/Login"
+import CashFloatModal from "./components/cash/CashFloatModal"
 import { ToastProvider } from "./hooks/use-toast"
 import { Toaster } from "./components/ui/toaster"
 import { ErrorBoundary } from "./components/ui/error-boundary"
@@ -22,24 +24,30 @@ function AppContent() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const auth = useSelector((state: RootState) => state.auth)
     const isAuthenticated = auth?.isAuthenticated || false
+    const isCashier = auth?.user?.role === "cashier"
+    const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
 
     if (!isAuthenticated) {
         return <Login />
     }
 
+    const needsCashFloat = isCashier && cashFloatPending
+
     if (activeTab === "pos") {
         return (
-            <div className="bg-gray-50 min-h-screen p-4">
-                <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-xl font-bold">Terminal Kasir Singgah</h1>
+            <div className="bg-slate-100 h-screen overflow-hidden flex flex-col p-2 md:p-3">
+                <div className="flex justify-between items-center px-2 py-1 mb-2 shrink-0">
+                    <h1 className="text-lg font-black text-slate-800">Kasir</h1>
                     <button
                         onClick={() => setActiveTab("dashboard")}
-                        className="text-sm px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 font-medium text-gray-700 transition-colors"
+                        className="text-xs px-3 py-1.5 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 font-bold text-slate-700 transition-colors"
                     >
                         Keluar Mode Kasir
                     </button>
                 </div>
-                <PosTerminal />
+                <div className="flex-1 min-h-0 overflow-hidden">
+                    {needsCashFloat ? <CashFloatModal open={true} onSuccess={() => setActiveTab("pos")} /> : <PosTerminal />}
+                </div>
             </div>
         )
     }
@@ -55,11 +63,13 @@ function AppContent() {
                     {activeTab === "expenses" && <Expenses />}
                     {activeTab === "sales" && <Sales />}
                     {activeTab === "reports" && <Reports />}
+                    {activeTab === "cash-registers" && <CashRegister />}
                     {activeTab === "bep" && <BepAnalysis />}
                     {activeTab === "integration" && <Integration />}
                     {activeTab === "settings" && <Settings />}
                 </main>
             </div>
+            {needsCashFloat && <CashFloatModal open={true} onSuccess={() => {}} />}
         </div>
     )
 }

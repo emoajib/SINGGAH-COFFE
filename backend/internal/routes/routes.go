@@ -9,16 +9,17 @@ import (
 )
 
 type Handlers struct {
-	Auth      *handler.AuthHandler
-	Product   *handler.ProductHandler
-	Order     *handler.OrderHandler
-	Inventory *handler.InventoryHandler
-	Report    *handler.ReportHandler
-	Expense   *handler.ExpenseHandler
-	Settings  *handler.SettingsHandler
-	Webhook   *handler.WebhookHandler
-	BEP       *handler.BEPHandler
-	Outlet    *handler.OutletHandler
+	Auth             *handler.AuthHandler
+	Product          *handler.ProductHandler
+	Order            *handler.OrderHandler
+	Inventory        *handler.InventoryHandler
+	Report           *handler.ReportHandler
+	Expense          *handler.ExpenseHandler
+	Settings         *handler.SettingsHandler
+	Webhook          *handler.WebhookHandler
+	BEP              *handler.BEPHandler
+	Outlet           *handler.OutletHandler
+	CashRegister     *handler.CashRegisterHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
@@ -96,6 +97,10 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.PUT("/expenses/:id", middleware.RoleMiddleware("owner", "manager"), h.Expense.UpdateExpense)
 			protected.PUT("/expenses/:id/cost-type", middleware.RoleMiddleware("owner"), h.Expense.UpdateCostType)
 			protected.DELETE("/expenses/:id", middleware.RoleMiddleware("owner"), h.Expense.DeleteExpense)
+
+			// Cash Register — Cashier opens cash float on login
+			protected.POST("/cash-registers/open", h.CashRegister.OpenCashRegister)
+			protected.GET("/cash-registers", middleware.RoleMiddleware("owner"), h.CashRegister.GetCashRegisters)
 
 			// BEP (Break-Even Point) — Owner Only
 			protected.GET("/reports/bep", middleware.RoleMiddleware("owner"), h.BEP.GetBEP)

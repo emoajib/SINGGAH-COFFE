@@ -18,7 +18,7 @@ stack:
     language: Go (Golang) 1.25
     framework: Gin v1.9.1
     orm: GORM v1.31.1
-    database: PostgreSQL 15 (Dockerized)
+    database: MySQL 8 (Dockerized)
     auth: JWT (golang-jwt/jwt v5)
     payment: Xendit SDK v3.7.0
     build_system: Bazel
@@ -35,7 +35,7 @@ stack:
 services:
   backend_api:  http://localhost:8080
   web_dashboard: http://localhost:3000
-  database:     localhost:5432
+  database:     localhost:3306
 
 roles: [owner, manager, cashier]
 ```
@@ -232,7 +232,7 @@ CRITICAL EDGE CASES:
 #### ☐ A. Arsitektur (Diagram Wajib)
 ```
 Format minimal:
-Client → [Auth Layer] → Handler → UseCase → Repository → PostgreSQL
+Client → [Auth Layer] → Handler → UseCase → Repository → MySQL
 ```
 
 #### ☐ B. Struktur Komponen

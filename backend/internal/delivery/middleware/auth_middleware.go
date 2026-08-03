@@ -29,17 +29,16 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if token is blacklisted
+		// Check if token is blacklisted (fail closed: reject on repo error)
 		tokenBlacklistRepo := postgres.NewTokenBlacklistRepository(db)
-		if isBlacklisted, err := tokenBlacklistRepo.IsTokenBlacklisted(tokenString); err != nil || isBlacklisted {
-			if err != nil {
-				// Log error but don't fail open - if we can't check, assume token is valid for availability
-				// In production, you might want to fail closed here
-			} else if isBlacklisted {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
-				c.Abort()
-				return
-			}
+		if isBlacklisted, err := tokenBlacklistRepo.IsTokenBlacklisted(tokenString); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to verify token"})
+			c.Abort()
+			return
+		} else if isBlacklisted {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
+			c.Abort()
+			return
 		}
 
 			// Determine effective outlet_id

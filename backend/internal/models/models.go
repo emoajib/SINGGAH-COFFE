@@ -126,3 +126,16 @@ type Setting struct {
 	SettingGroup string `json:"group" gorm:"column:setting_group"` // profile, tax, printer, etc.
 	OutletID     uint   `json:"outlet_id" gorm:"uniqueIndex:idx_key_outlet;default:0"`
 }
+
+type CashRegister struct {
+	BaseModel
+	UserID        uint       `json:"user_id" gorm:"index"`
+	CashierName   string     `json:"cashier_name"`
+	OutletID      uint       `json:"outlet_id" gorm:"index"`
+	OpeningAmount float64    `json:"opening_amount"`            // Uang receh / kas awal saat buka kas
+	Notes         string     `json:"notes"`
+	OpenedAt      time.Time  `json:"opened_at" gorm:"index"`    // Waktu buka kas
+	ClosedAt      *time.Time `json:"closed_at"`                 // Reserved: waktu tutup kas
+	ClosingAmount *float64   `json:"closing_amount"`            // Reserved: kas akhir saat tutup kas
+	Status        string     `json:"status" gorm:"default:open;index"` // open, closed
+}

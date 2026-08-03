@@ -17,7 +17,7 @@ type cacheEntry struct {
 }
 
 var (
-	dashboardCache *cacheEntry
+	dashboardCache map[uint]*cacheEntry
 	dashboardMu    sync.RWMutex
 	cacheTTL       = 30 * time.Second
 )
@@ -39,10 +39,12 @@ func NewReportUsecase(db *gorm.DB) *ReportUsecase {
 }
 
 func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.DashboardSummary, error) {
+	key := cacheKey(outletID)
+
 	// Fast path: return cached copy if fresh
 	dashboardMu.RLock()
-	if dashboardCache != nil && time.Since(dashboardCache.timestamp) < cacheTTL {
-		copy := *dashboardCache.data
+	if entry := dashboardCache[key]; entry != nil && time.Since(entry.timestamp) < cacheTTL {
+		copy := *entry.data
 		dashboardMu.RUnlock()
 		return &copy, nil
 	}
@@ -52,8 +54,8 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	dashboardMu.Lock()
 	defer dashboardMu.Unlock()
 
-	if dashboardCache != nil && time.Since(dashboardCache.timestamp) < cacheTTL {
-		copy := *dashboardCache.data
+	if entry := dashboardCache[key]; entry != nil && time.Since(entry.timestamp) < cacheTTL {
+		copy := *entry.data
 		return &copy, nil
 	}
 
@@ -73,8 +75,8 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	totalCogs, _ := uc.orderItemRepo.GetTotalCogsByStatus("Completed", outletID...)
 	totalExpenses, _ := uc.expenseRepo.GetTotal(outletID...)
 
-	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, "HH24:00", outletID...)
-	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "DD Mon", outletID...)
+	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, "%H:00", outletID...)
+	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "%d %b", outletID...)
 	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown(outletID...)
 	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
 
@@ -94,11 +96,22 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 		TopProducts:       topProducts,
 	}
 
-	dashboardCache = &cacheEntry{
+	if dashboardCache == nil {
+		dashboardCache = make(map[uint]*cacheEntry)
+	}
+	dashboardCache[key] = &cacheEntry{
 		data:      summary,
 		timestamp: time.Now(),
 	}
 	return summary, nil
+}
+
+// cacheKey derives the cache key from an optional outletID (0 = all outlets).
+func cacheKey(outletID []uint) uint {
+	if len(outletID) > 0 {
+		return outletID[0]
+	}
+	return 0
 }
 
 func (uc *ReportUsecase) GetSalesSummary(outletID ...uint) *entity.SalesSummaryResponse {

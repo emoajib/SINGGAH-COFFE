@@ -1,16 +1,15 @@
 version: '3.8'
 
 services:
-  # 1. Database Service (PostgreSQL)
+  # 1. Database Service (MySQL)
   db:
-    image: postgres:15-alpine
-    container_name: singgah_postgres_prod
+    image: mysql:8
+    container_name: singgah_mysql_prod
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-securepassword}
-      POSTGRES_DB: singgah_pos
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-securepassword}
+      MYSQL_DATABASE: singgah_pos
     volumes:
-      - postgres_prod_data:/var/lib/postgresql/data
+      - mysql_prod_data:/var/lib/mysql
     restart: always
     networks:
       - singgah_network
@@ -23,7 +22,7 @@ services:
     container_name: singgah_api_prod
     environment:
       PORT: 8080
-      DATABASE_URL: "host=db user=${DB_USER:-postgres} password=${DB_PASSWORD:-securepassword} dbname=singgah_pos port=5432 sslmode=disable"
+      DATABASE_URL: "root:${DB_PASSWORD:-securepassword}@tcp(db:3306)/singgah_pos?charset=utf8mb4&parseTime=True&loc=Local"
     depends_on:
       - db
     restart: always
@@ -51,4 +50,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_prod_data:
+  mysql_prod_data:

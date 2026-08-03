@@ -8,7 +8,8 @@ import {
     Coffee,
     Wallet,
     TrendingUp,
-    X
+    X,
+    Banknote,
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
@@ -49,6 +50,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         { id: "expenses", label: "Pengeluaran", icon: Wallet, roles: ["owner", "manager"] },
         { id: "sales", label: "Penjualan", icon: CreditCard, roles: ["owner", "manager"] },
         { id: "reports", label: "Laporan", icon: BarChart3, roles: ["owner"] },
+        { id: "cash-registers", label: "Kas", icon: Banknote, roles: ["owner"] },
         { id: "bep", label: "Analisis BEP", icon: TrendingUp, roles: ["owner"] },
         { id: "integration", label: "Integrasi", icon: Puzzle, roles: ["owner"] },
         { id: "settings", label: "Pengaturan", icon: Settings, roles: ["owner", "manager", "cashier"] },
