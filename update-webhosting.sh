@@ -61,8 +61,9 @@ if [ -f "deploy.tar.gz" ]; then
         echo "✅ Backend binary updated"
     fi
     
-    # Copy start.sh (to backend/ directory where the binary lives)
-    cp -f "$TMP_DIR/start.sh" backend/start.sh 2>/dev/null || true
+    # Preserve server's existing start.sh (has correct env vars)
+    # Only update .env if newer
+    cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
     
     # Copy scripts + docs
     cp -rf "$TMP_DIR/scripts" scripts/ 2>/dev/null || true
