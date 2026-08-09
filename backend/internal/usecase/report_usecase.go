@@ -80,6 +80,19 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown(outletID...)
 	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
 
+	if hourlyTrend == nil {
+		hourlyTrend = []entity.TrendPoint{}
+	}
+	if weeklyTrend == nil {
+		weeklyTrend = []entity.TrendPoint{}
+	}
+	if categoryBreakdown == nil {
+		categoryBreakdown = []entity.CatBreakdown{}
+	}
+	if topProducts == nil {
+		topProducts = []entity.TopProduct{}
+	}
+
 	netProfit := totalSales - totalCogs - totalExpenses
 
 	summary := &entity.DashboardSummary{
@@ -122,6 +135,9 @@ func (uc *ReportUsecase) GetSalesSummary(outletID ...uint) *entity.SalesSummaryR
 	totalSales, _ := uc.orderRepo.GetTotalSalesSince(since, outletID...)
 	totalOrders, _ := uc.orderRepo.CountSince(since, outletID...)
 	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
+	if topProducts == nil {
+		topProducts = []entity.TopProduct{}
+	}
 
 	var avg float64
 	if totalOrders > 0 {
@@ -140,6 +156,9 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 	revenue, _ := uc.orderRepo.GetTotalSalesRange(start, end, outletID...)
 	cogs, _ := uc.orderItemRepo.GetTotalCogsRange(start, end, outletID...)
 	expenses, _ := uc.expenseRepo.GetBreakdownRange(start, end, outletID...)
+	if expenses == nil {
+		expenses = []entity.ExpenseDetail{}
+	}
 
 	var totalExpenses float64
 	for _, e := range expenses {

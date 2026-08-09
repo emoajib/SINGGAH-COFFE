@@ -54,7 +54,14 @@ func (uc *CashRegisterUsecase) OpenCashRegister(userID uint, outletID uint, req 
 }
 
 func (uc *CashRegisterUsecase) GetCashRegisters(outletID uint, cashierName string, dateFrom string, dateTo string, status string, limit int, offset int) ([]entity.CashRegister, error) {
-	return uc.cashRegisterRepo.FindAll(outletID, cashierName, dateFrom, dateTo, status, limit, offset)
+	registers, err := uc.cashRegisterRepo.FindAll(outletID, cashierName, dateFrom, dateTo, status, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	if registers == nil {
+		registers = []entity.CashRegister{}
+	}
+	return registers, nil
 }
 
 func (uc *CashRegisterUsecase) CountOpenByOutlet(outletID uint) (int64, error) {
@@ -62,7 +69,14 @@ func (uc *CashRegisterUsecase) CountOpenByOutlet(outletID uint) (int64, error) {
 }
 
 func (uc *CashRegisterUsecase) GetAllOutlets() ([]entity.Outlet, error) {
-	return uc.outletRepo.FindAll()
+	outlets, err := uc.outletRepo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+	if outlets == nil {
+		outlets = []entity.Outlet{}
+	}
+	return outlets, nil
 }
 
 func (uc *CashRegisterUsecase) UpdateCashRegister(cashRegister *entity.CashRegister) (*entity.CashRegister, error) {
