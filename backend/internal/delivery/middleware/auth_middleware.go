@@ -1,10 +1,11 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/pkg/jwt"
 	"singgah-pos-backend/internal/repository/postgres"
 
@@ -29,30 +30,46 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Check if token is blacklisted (fail closed: reject on repo error)
-		tokenBlacklistRepo := postgres.NewTokenBlacklistRepository(db)
-		if isBlacklisted, err := tokenBlacklistRepo.IsTokenBlacklisted(tokenString); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to verify token"})
-			c.Abort()
-			return
-		} else if isBlacklisted {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
-			c.Abort()
-			return
+		if claims.ID != "" {
+			tokenBlacklistRepo := postgres.NewTokenBlacklistRepository(db)
+			if isBlacklisted, err := tokenBlacklistRepo.IsJtiBlacklisted(claims.ID); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to verify token"})
+				c.Abort()
+				return
+			} else if isBlacklisted {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
+				c.Abort()
+				return
+			}
 		}
 
-			// Determine effective outlet_id
 		outletID := claims.OutletID
 
-		// Owner can override by passing X-Outlet-ID header
 		if claims.Role == "owner" {
 			headerOutlet := c.GetHeader("X-Outlet-ID")
 			if headerOutlet != "" {
-				var parsedID uint
-				if _, err := fmt.Sscanf(headerOutlet, "%d", &parsedID); err == nil && parsedID > 0 {
-					outletID = parsedID
+				parsedID, err := strconv.ParseUint(strings.TrimSpace(headerOutlet), 10, 64)
+				if err != nil || parsedID == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid X-Outlet-ID header"})
+					c.Abort()
+					return
 				}
+				var exists int64
+				if err := db.Model(&models.Outlet{}).Where("id = ?", parsedID).Count(&exists).Error; err != nil || exists == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Outlet not found"})
+					c.Abort()
+					return
+				}
+				outletID = uint(parsedID)
 			}
+		} else if outletID == 0 {
+			var defID uint
+			if err := db.Model(&models.Outlet{}).Order("id ASC").Limit(1).Pluck("id", &defID).Error; err != nil || defID == 0 {
+				c.JSON(http.StatusForbidden, gin.H{"error": "No outlet is assigned to your account"})
+				c.Abort()
+				return
+			}
+			outletID = defID
 		}
 
 		c.Set("user_id", claims.UserID)

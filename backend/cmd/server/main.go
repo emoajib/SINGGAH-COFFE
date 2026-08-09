@@ -14,22 +14,11 @@ import (
 	"singgah-pos-backend/internal/routes"
 	"singgah-pos-backend/internal/usecase"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/time/rate"
 )
-
-var (
-	loginLimiters sync.Map
-)
-
-func getLoginLimiter(ip string) *rate.Limiter {
-	limiter, _ := loginLimiters.LoadOrStore(ip, rate.NewLimiter(rate.Every(time.Second), 5))
-	return limiter.(*rate.Limiter)
-}
 
 func main() {
 	port := flag.String("port", "8080", "Port to run the server on")

@@ -28,6 +28,13 @@ func (h *ReportHandler) GetDashboardSummary(c *gin.Context) {
 		return
 	}
 
+	// FIX-3: zero the financial fields for cashier (BFLA protection)
+	if c.GetString("user_role") == "cashier" {
+		summary.TotalCogs = 0
+		summary.TotalExpenses = 0
+		summary.NetProfit = 0
+	}
+
 	c.JSON(http.StatusOK, summary)
 }
 

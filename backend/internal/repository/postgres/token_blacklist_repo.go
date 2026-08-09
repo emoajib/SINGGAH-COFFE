@@ -52,10 +52,10 @@ func (r *tokenBlacklistRepo) DeleteExpired() error {
 	return r.db.Where("expires_at < ?", time.Now()).Delete(&entity.TokenBlacklist{}).Error
 }
 
-// IsTokenBlacklisted checks if a token is in the blacklist
-func (r *tokenBlacklistRepo) IsTokenBlacklisted(tokenString string) (bool, error) {
+// IsJtiBlacklisted checks if a token is in the blacklist by its JTI
+func (r *tokenBlacklistRepo) IsJtiBlacklisted(jti string) (bool, error) {
 	var count int64
-	err := r.db.Model(&entity.TokenBlacklist{}).Where("token = ?", tokenString).Count(&count).Error
+	err := r.db.Model(&entity.TokenBlacklist{}).Where("jti = ?", jti).Count(&count).Error
 	if err != nil {
 		return false, err
 	}

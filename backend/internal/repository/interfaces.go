@@ -122,7 +122,7 @@ type TokenBlacklistRepository interface {
 	Create(blacklist *entity.TokenBlacklist) error
 	FindByJti(jti string) (*entity.TokenBlacklist, error)
 	FindByTokenHash(tokenHash string) (*entity.TokenBlacklist, error)
-	IsTokenBlacklisted(tokenString string) (bool, error)
+	IsJtiBlacklisted(jti string) (bool, error)
 	DeleteExpired() error
 }
 

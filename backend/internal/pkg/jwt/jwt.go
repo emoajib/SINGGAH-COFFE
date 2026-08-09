@@ -1,6 +1,8 @@
 package jwt
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -40,6 +42,15 @@ func GenerateToken(userID uint, name, email, role string, outletID ...uint) (str
 	if len(outletID) > 0 {
 		oid = outletID[0]
 	}
+
+	// Generate JTI (JWT ID) — 16 random bytes hex-encoded, unique per token.
+	// Used for token revocation via the blacklist (keyed by jti, not by token).
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	jti := hex.EncodeToString(b) // 32-char hex, unique per token
+
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
 		UserID:   userID,
@@ -48,6 +59,7 @@ func GenerateToken(userID uint, name, email, role string, outletID ...uint) (str
 		Role:     role,
 		OutletID: oid,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti,
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
@@ -62,6 +74,9 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	}
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
 		return JwtKey, nil
 	})
 	if err != nil {
@@ -74,9 +89,8 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	// Check if token is blacklisted
 	if db != nil {
 		tokenBlacklistRepo := postgres.NewTokenBlacklistRepository(db)
-		if isBlacklisted, err := tokenBlacklistRepo.IsTokenBlacklisted(tokenString); err != nil {
-			// Log error but don't fail open - if we can't check, assume token is valid for availability
-			// In production, you might want to fail closed here
+		if isBlacklisted, err := tokenBlacklistRepo.IsJtiBlacklisted(claims.ID); err != nil {
+			return nil, errors.New("unable to verify token")
 		} else if isBlacklisted {
 			return nil, errors.New("token has been revoked")
 		}

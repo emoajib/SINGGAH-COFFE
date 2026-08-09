@@ -39,8 +39,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 	api := r.Group("/api")
 	{
 		// Public Routes
-		api.POST("/auth/login", h.Auth.Login)
-		api.POST("/webhooks/xendit", h.Webhook.HandleXenditWebhook)
+		api.POST("/auth/login", middleware.LoginRateLimiter(), h.Auth.Login)
+		api.POST("/webhooks/xendit", middleware.WebhookRateLimiter(), h.Webhook.HandleXenditWebhook)
 
 	// Protected Routes
 	protected := api.Group("/")
@@ -72,27 +72,27 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 
 			// Inventory
 			protected.GET("/ingredients", h.Inventory.GetIngredients)
-			protected.GET("/inventory/low-stock", h.Inventory.GetLowStockAlerts)
+			protected.GET("/inventory/low-stock", middleware.RoleMiddleware("owner", "manager"), h.Inventory.GetLowStockAlerts)
 			protected.POST("/ingredients", middleware.RoleMiddleware("owner", "manager"), h.Inventory.CreateIngredient)
 			protected.PUT("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), h.Inventory.UpdateIngredient)
 			protected.DELETE("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), h.Inventory.DeleteIngredient)
-			protected.GET("/ingredients/:id/history", h.Inventory.GetStockHistory)
+			protected.GET("/ingredients/:id/history", middleware.RoleMiddleware("owner", "manager"), h.Inventory.GetStockHistory)
 			protected.POST("/inventory/mutation", middleware.RoleMiddleware("owner", "manager"), h.Inventory.UpdateStock)
 
 			// Reports & Dashboard
 			protected.GET("/dashboard/summary", h.Report.GetDashboardSummary)
-			protected.GET("/reports/profit-loss", h.Report.GetProfitLoss)
-			protected.GET("/reports/sales-summary", h.Report.GetSalesSummary)
-			protected.GET("/reports/profit-loss/export/csv", h.Report.ExportProfitLossCSV)
-			protected.GET("/reports/profit-loss/export/pdf", h.Report.ExportProfitLossPDF)
-			protected.GET("/integrations/logs", h.Webhook.GetWebhookLogs)
+			protected.GET("/reports/profit-loss", middleware.RoleMiddleware("owner", "manager"), h.Report.GetProfitLoss)
+			protected.GET("/reports/sales-summary", middleware.RoleMiddleware("owner", "manager"), h.Report.GetSalesSummary)
+			protected.GET("/reports/profit-loss/export/csv", middleware.RoleMiddleware("owner", "manager"), h.Report.ExportProfitLossCSV)
+			protected.GET("/reports/profit-loss/export/pdf", middleware.RoleMiddleware("owner", "manager"), h.Report.ExportProfitLossPDF)
+			protected.GET("/integrations/logs", middleware.RoleMiddleware("owner"), h.Webhook.GetWebhookLogs)
 
 			// Settings
 			protected.GET("/settings", h.Settings.GetSettings)
 			protected.POST("/settings", middleware.RoleMiddleware("owner"), h.Settings.UpdateSettings)
 			protected.POST("/settings/upload-logo", middleware.RoleMiddleware("owner"), h.Settings.UploadLogo)
 			// Expenses
-			protected.GET("/expenses", h.Expense.GetExpenses)
+			protected.GET("/expenses", middleware.RoleMiddleware("owner", "manager"), h.Expense.GetExpenses)
 			protected.POST("/expenses", middleware.RoleMiddleware("owner", "manager"), h.Expense.CreateExpense)
 			protected.PUT("/expenses/:id", middleware.RoleMiddleware("owner", "manager"), h.Expense.UpdateExpense)
 			protected.PUT("/expenses/:id/cost-type", middleware.RoleMiddleware("owner"), h.Expense.UpdateCostType)

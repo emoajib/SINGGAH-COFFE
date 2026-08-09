@@ -32,3 +32,4 @@ postgres_data/
 
 # SQL Backups
 backup_before_cleanup_*.sql
+backend/server

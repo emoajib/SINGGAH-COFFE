@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -9,8 +11,6 @@ import (
 	"singgah-pos-backend/internal/pkg/password"
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
-
-	"golang.org/x/crypto/bcrypt"
 
 	jwtv5 "github.com/golang-jwt/jwt/v5"
 
@@ -172,11 +172,16 @@ func (uc *AuthUsecase) ChangePassword(userID uint, currentPassword, newPassword 
 	return uc.userRepo.Update(user)
 }
 
+// ErrMissingJTI is returned when a token has no JTI and cannot be revoked
+var ErrMissingJTI = errors.New("token missing JTI claim")
+
 // Logout revokes a JWT token by adding it to the blacklist
 func (uc *AuthUsecase) Logout(tokenString string) error {
-	// Parse token to get our custom claims
 	claims := &jwt.Claims{}
 	token, err := jwtv5.ParseWithClaims(tokenString, claims, func(token *jwtv5.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwtv5.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
 		return jwt.JwtKey, nil
 	})
 	if err != nil {
@@ -186,25 +191,19 @@ func (uc *AuthUsecase) Logout(tokenString string) error {
 		return errors.New("invalid token")
 	}
 
-	// Extract JTI from claims
 	jti := claims.RegisteredClaims.ID
 	if jti == "" {
-		// If no JTI, we can't reliably blacklist the token
-		return errors.New("token missing JTI claim")
+		return ErrMissingJTI
 	}
 
-	// Hash the token for storage (don't store raw token)
-	tokenHash, err := bcrypt.GenerateFromPassword([]byte(tokenString), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
+	sum := sha256.Sum256([]byte(tokenString))
+	tokenHash := hex.EncodeToString(sum[:])
 
-	// Add to blacklist
 	blacklist := &entity.TokenBlacklist{
 		Jti:       jti,
 		UserID:    claims.UserID,
-		Token:     string(tokenHash),
-		ExpiresAt: claims.RegisteredClaims.ExpiresAt.Time, // Use token expiration time
+		Token:     tokenHash,
+		ExpiresAt: claims.RegisteredClaims.ExpiresAt.Time,
 	}
 
 	return uc.tokenBlacklistRepo.Create(blacklist)

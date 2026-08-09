@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -145,6 +146,10 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 	if err := h.authUsecase.Logout(tokenString); err != nil {
+		if errors.Is(err, usecase.ErrMissingJTI) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Token has no JTI; cannot revoke — please log in again"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
 		return
 	}

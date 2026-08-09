@@ -29,7 +29,49 @@ func (h *SettingsHandler) GetSettings(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, settings)
+	role, _ := c.Get("user_role")
+	roleStr, ok := role.(string)
+	if !ok || roleStr == "" {
+		roleStr = "cashier"
+	}
+
+	c.JSON(http.StatusOK, filterSettingsByRole(roleStr, settings))
+}
+
+var cashierAllowedSettings = map[string]bool{
+	"outlet_name":         true,
+	"outlet_phone":        true,
+	"outlet_address":      true,
+	"outlet_description":  true,
+	"outlet_logo_url":     true,
+	"tax_percentage":      true,
+	"service_charge":      true,
+	"printer_connection":  true,
+	"printer_ip":          true,
+	"printer_bluetooth_address": true,
+	"printer_width":       true,
+	"auto_print":          true,
+	"enable_stock_alerts": true,
+}
+
+func filterSettingsByRole(role string, settings []entity.Setting) []entity.Setting {
+	out := make([]entity.Setting, 0, len(settings))
+	for _, s := range settings {
+		switch role {
+		case "owner":
+			out = append(out, s)
+		case "manager":
+			if strings.HasPrefix(s.Key, "xendit_") {
+				continue
+			}
+			out = append(out, s)
+		default:
+			if cashierAllowedSettings[s.Key] {
+				out = append(out, s)
+			}
+		}
+	}
+	return out
 }
 
 func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
