@@ -25,7 +25,7 @@ mkdir -p "$DEPLOY_DIR/backend"
 
 echo "📦 Step 1: Build Go backend (Linux binary)..."
 cd "$PROJECT_DIR/backend"
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "$DEPLOY_DIR/backend/main" ./cmd/server
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "$DEPLOY_DIR/backend/singgah-backend" ./cmd/server
 echo "   ✅ Binary ready"
 
 echo ""
@@ -40,8 +40,8 @@ echo "📤 Step 3: Upload ke server..."
 
 echo "   → Upload backend binary..."
 scp -P "$SERVER_PORT" -i "$SSH_KEY" \
-  "$DEPLOY_DIR/backend/main" \
-  "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/backend/main"
+  "$DEPLOY_DIR/backend/singgah-backend" \
+  "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/backend/singgah-backend"
 
 echo "   → Upload frontend files..."
 scp -P "$SERVER_PORT" -i "$SSH_KEY" \
@@ -69,6 +69,6 @@ echo "  ✅ Deploy selesai!"
 echo ""
 echo "  SSH ke server & jalankan:"
 echo "    cd ${SERVER_PATH}"
-echo "    chmod +x backend/main start.sh"
+echo "    chmod +x backend/singgah-backend start.sh"
 echo "    ./start.sh &"
 echo "========================================="
