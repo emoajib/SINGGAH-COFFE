@@ -61,16 +61,14 @@ if [ -f "deploy.tar.gz" ]; then
         echo "✅ Backend binary updated"
     fi
     
-    # Copy start.sh
-    cp -f "$TMP_DIR/start.sh" start.sh 2>/dev/null || true
+    # Copy start.sh (to backend/ directory where the binary lives)
+    cp -f "$TMP_DIR/start.sh" backend/start.sh 2>/dev/null || true
     
     # Copy scripts + docs
     cp -rf "$TMP_DIR/scripts" scripts/ 2>/dev/null || true
     cp -rf "$TMP_DIR/docs" docs/ 2>/dev/null || true
     
     rm -rf "$TMP_DIR"
-else
-    echo "⚠️  deploy.tar.gz not found — using committed binary"
 fi
 
 # --- Step 3: Update frontend from pre-built web-build/ ---
@@ -97,7 +95,7 @@ pkill -f "backend/main" 2>/dev/null || true
 sleep 2
 
 chmod +x backend/singgah-backend start.sh 2>/dev/null || chmod +x backend/main start.sh 2>/dev/null
-GOMAXPROCS=1 nohup ./start.sh > logs/backend.log 2>&1 &
+GOMAXPROCS=1 nohup ./backend/start.sh > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo "✅ Backend started (PID: $BACKEND_PID)"
 
