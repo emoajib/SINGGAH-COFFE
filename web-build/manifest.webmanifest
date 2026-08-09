@@ -1,0 +1,1 @@
+{"name":"Singgah Coffee POS","short_name":"Singgah POS","description":"POS System for Singgah Coffee","start_url":"/","display":"standalone","background_color":"#F5F0E6","theme_color":"#4B3621","lang":"en","scope":"/","orientation":"portrait","icons":[{"src":"/coffee-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
