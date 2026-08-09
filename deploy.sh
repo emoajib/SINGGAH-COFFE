@@ -60,8 +60,19 @@ scp -P "$SERVER_PORT" -i "$SSH_KEY" \
 
 echo "   → Upload start script..."
 scp -P "$SERVER_PORT" -i "$SSH_KEY" \
-  "$PROJECT_DIR/server-start.sh" \
+  "$PROJECT_DIR/backend/start.sh" \
   "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/start.sh"
+
+echo "   → Upload backup scripts..."
+ssh -P "$SERVER_PORT" -i "$SSH_KEY" \
+  "${SERVER_USER}@${SERVER_HOST}" \
+  "mkdir -p ${SERVER_PATH}/scripts ${SERVER_PATH}/backups ${SERVER_PATH}/docs" 2>/dev/null
+scp -P "$SERVER_PORT" -i "$SSH_KEY" -r \
+  "$PROJECT_DIR/scripts/"*.sh \
+  "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/scripts/"
+scp -P "$SERVER_PORT" -i "$SSH_KEY" \
+  "$PROJECT_DIR/docs/BACKUP.md" \
+  "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/docs/BACKUP.md"
 
 echo ""
 echo "========================================="
@@ -69,6 +80,9 @@ echo "  ✅ Deploy selesai!"
 echo ""
 echo "  SSH ke server & jalankan:"
 echo "    cd ${SERVER_PATH}"
-echo "    chmod +x backend/singgah-backend start.sh"
+echo "    chmod +x backend/singgah-backend start.sh scripts/*.sh"
 echo "    ./start.sh &"
+echo ""
+echo "  Backup setup (opsional):"
+echo "    bash scripts/cron-backup-webhosting.sh  # daily cron backup"
 echo "========================================="

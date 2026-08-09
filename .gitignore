@@ -13,11 +13,15 @@ web-dashboard/dist/
 web-dashboard/.env
 web-dashboard/.env.local
 
+# Local backups
+backups/
+backups/*.sql.gz
+backups/*.tar.gz
+
 # IDE
 .idea/
 .vscode/
 *.swp
-*.swo
 *~
 
 # OS
