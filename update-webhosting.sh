@@ -95,7 +95,8 @@ pkill -f "singgah-backend" 2>/dev/null || true
 pkill -f "backend/main" 2>/dev/null || true
 sleep 2
 
-chmod +x backend/singgah-backend start.sh 2>/dev/null || chmod +x backend/main start.sh 2>/dev/null
+chmod +x backend/singgah-backend 2>/dev/null || true
+mkdir -p logs
 GOMAXPROCS=1 nohup ./backend/start.sh > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo "✅ Backend started (PID: $BACKEND_PID)"
