@@ -49,25 +49,26 @@ git pull origin main
 echo "✅ Pulled to $(git rev-parse --short HEAD)"
 
 # --- Step 2: Deploy from deploy.tar.gz (pre-built package) ---
+TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
 if [ -f "deploy.tar.gz" ]; then
     echo "📦 Extracting deploy.tar.gz..."
-    tar -xzf deploy.tar.gz --exclude='web/*' -C /tmp/singgah-deploy-tmp
+    tar -xzf deploy.tar.gz -C "$TMP_DIR"
     
     # Copy backend binary
-    if [ -f "/tmp/singgah-deploy-tmp/backend/singgah-backend" ]; then
-        cp -f /tmp/singgah-deploy-tmp/backend/singgah-backend backend/singgah-backend
-        cp -f /tmp/singgah-deploy-tmp/backend/.env backend/.env 2>/dev/null || true
+    if [ -f "$TMP_DIR/backend/singgah-backend" ]; then
+        cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend
+        cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
         echo "✅ Backend binary updated"
     fi
     
     # Copy start.sh
-    cp -f /tmp/singgah-deploy-tmp/start.sh start.sh 2>/dev/null || true
+    cp -f "$TMP_DIR/start.sh" start.sh 2>/dev/null || true
     
     # Copy scripts + docs
-    cp -rf /tmp/singgah-deploy-tmp/scripts scripts/ 2>/dev/null || true
-    cp -rf /tmp/singgah-deploy-tmp/docs docs/ 2>/dev/null || true
+    cp -rf "$TMP_DIR/scripts" scripts/ 2>/dev/null || true
+    cp -rf "$TMP_DIR/docs" docs/ 2>/dev/null || true
     
-    rm -rf /tmp/singgah-deploy-tmp
+    rm -rf "$TMP_DIR"
 else
     echo "⚠️  deploy.tar.gz not found — using committed binary"
 fi
