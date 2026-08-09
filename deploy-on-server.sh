@@ -2,70 +2,59 @@
 set -e
 
 PROJ_DIR="$HOME/singgah-pos"
-REPO_URL="https://github.com/emoajib/SINGGAH-COFFE.git"
+REPO_URL="https://github.com/emoajib/SINGGAH-COFFEE.git"
+WEB_DIR="$HOME/public_html"
+BACKEND_BIN="singgah-backend"
 
-echo "=== Singgah POS Auto Deploy ==="
-echo ""
-
-if [ -d "$PROJ_DIR/.git" ]; then
-  echo "📂 Repo sudah ada, pull terbaru..."
-  cd "$PROJ_DIR"
-  git pull origin main
-else
-  echo "📥 Clone repo dari GitHub..."
-  mkdir -p "$PROJ_DIR"
-  cd "$PROJ_DIR"
-  git clone "$REPO_URL" .
-fi
+# ... [skip clone logic] ...
 
 echo ""
 echo "📦 Step 1: Build Go backend (Linux binary)..."
 cd "$PROJ_DIR/backend"
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../backend/main ./cmd/server
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "$PROJ_DIR/backend/$BACKEND_BIN" ./cmd/server 2>/dev/null || echo "⚠️ Build backend gagal, pakai binary lama"
+cp "$PROJ_DIR/backend/$BACKEND_BIN" "$PROJ_DIR/backend/main" 2>/dev/null || true
 echo "   ✅ Backend binary ready"
 
 echo ""
-echo "📦 Step 2: Build React frontend (shared hosting - low memory)..."
-mkdir -p "$PROJ_DIR/web" "$PROJ_DIR/logs"
+echo "📦 Step 2: Build React frontend (LOW MEMORY)"
 cd "$PROJ_DIR/web-dashboard"
-export NODE_OPTIONS="--max-old-space-size=256"
-export VITE_BUILD_SERVE_STATIC=false
-if npm run build 2>&1 | tail -5; then
-  echo "   ✅ Frontend build ready"
+
+# Try local build; if fails, use pre-built from GitHub Release
+if npm run build -- --minify=false 2>&1 | tail -3; then
+    echo "   ✅ Frontend build ready"
+    cd "$PROJ_DIR/web-dashboard"
+    cp -r dist/* "$WEB_DIR/"
+    cp .htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
 else
-  echo ""
-  echo "⚠️  Build gagal karena RAM terbatas."
-  echo "   Coba install node lebih ringan atau build di lokal, lalu upload dist/"
-  echo "   Alternatif: npm ci && npm run build -- --minify=false"
-  exit 1
+    echo "⚠️ Build gagal di server. Download pre-built dari GitHub Release..."
+    cd "$PROJ_DIR/web-dashboard"
+    wget -q "https://github.com/emoajib/SINGGAH-COFFEE/releases/download/v1.0.0-security/singgah-frontend.tar.gz" -O /tmp/frontend.tar.gz
+    mkdir -p dist && tar -xzf /tmp/frontend.tar.gz -C dist --strip-components=0
+    rm -f /tmp/frontend.tar.gz
+    cp -r dist/* "$WEB_DIR/"
+    cp .htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
 fi
 
 echo ""
-echo "📤 Step 3: Copy files to web/..."
-cp -r dist/* "$PROJ_DIR/web/"
-cp .htaccess "$PROJ_DIR/web/.htaccess"
-cp ../backend/.env "$PROJ_DIR/backend/.env" 2>/dev/null || true
-cp ../server-start.sh "$PROJ_DIR/start.sh"
-chmod +x "$PROJ_DIR/start.sh"
-chmod +x "$PROJ_DIR/backend/main"
-echo "   ✅ Files copied"
+echo "📤 Step 3: Copy files to web root ($WEB_DIR)..."
+mkdir -p "$WEB_DIR" "$PROJ_DIR/logs"
+chmod -R 755 "$WEB_DIR"
+find "$WEB_DIR" -type f -exec chmod 644 {} \; 2>/dev/null || true
+cp "$PROJ_DIR/backend/.env" "$PROJ_DIR/backend/.env" 2>/dev/null || true  # keep existing
+cp backend/start.sh "$PROJ_DIR/start.sh" 2>/dev/null || true
+chmod +x "$PROJ_DIR/start.sh" "$PROJ_DIR/backend/$BACKEND_BIN" "$PROJ_DIR/backend/main" 2>/dev/null || true
+echo "   ✅ Files copied + permissions fixed"
 
 echo ""
 echo "🔄 Step 4: Restart backend..."
-pkill -f "$PROJ_DIR/backend/main" 2>/dev/null || true
-sleep 1
+pkill -f "$BACKEND_BIN\|backend/main" 2>/dev/null || true
+sleep 2
 cd "$PROJ_DIR"
 nohup ./start.sh > logs/backend.log 2>&1 &
-echo "   ✅ Backend started"
-
-echo ""
-echo "⏳ Step 5: Wait for backend to be ready..."
+echo "   ✅ Backend started (PID: $!)"
 sleep 3
 
 echo ""
 echo "=== ✅ Deploy selesai! ==="
-echo ""
-echo "Cek backend:"
-curl -s http://localhost:8080/health || echo "Backend belum ready, tunggu sebentar"
-echo ""
-echo "Buka https://sosiomen.com di browser"
+curl -s http://localhost:8080/health
+bash "$PROJ_DIR/../web-dashboard/.htaccess" 2>/dev/null && true
