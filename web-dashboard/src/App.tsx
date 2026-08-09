@@ -13,6 +13,7 @@ import Settings from "./pages/Settings"
 import PosTerminal from "./pages/PosTerminal"
 import ProductManagement from "./pages/ProductManagement"
 import Expenses from "./pages/Expenses"
+import BackupManagement from "./pages/BackupManagement"
 import KebutuhanStok from "./pages/KebutuhanStok"
 import CashRegister from "./pages/CashRegister"
 import Login from "./pages/Login"
@@ -71,6 +72,7 @@ function AppContent() {
                     {activeTab === "kebutuhan-stok" && <KebutuhanStok />}
                     {activeTab === "integration" && <Integration />}
                     {activeTab === "settings" && <Settings />}
+                    {activeTab === "backup" && <BackupManagement />}
                 </main>
             </div>
             {needsCashFloat && <CashFloatModal open={true} onSuccess={() => {}} onClose={() => dispatch(setCashFloatPending(false))} />}

@@ -117,6 +117,13 @@ type OutletRepository interface {
 	Delete(id uint) error
 }
 
+// ProductionTargetRepository defines data access for production targets
+type ProductionTargetRepository interface {
+	FindAll(outletID ...uint) ([]entity.ProductionTarget, error)
+	FindAllWithProduct(outletID ...uint) ([]entity.ProductionTargetDetail, error)
+	ReplaceAll(targets []entity.ProductionTarget, outletID uint) error
+}
+
 // TokenBlacklistRepository defines data access for token blacklist
 type TokenBlacklistRepository interface {
 	Create(blacklist *entity.TokenBlacklist) error

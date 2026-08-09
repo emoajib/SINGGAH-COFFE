@@ -415,3 +415,23 @@ export interface SaveProductionTargetsRequest {
   targets: { product_id: number; target_cup: number }[]
 }
 
+export interface BackupStatus {
+  database: { name: string; size: string }
+  uploads: { path: string; size: string }
+  disk: { available: string; backupDir: string }
+  lastBackup: string
+}
+
+export interface BackupFile {
+  name: string
+  size: string
+  modified: string
+  type: string
+}
+
+export interface BackupResult {
+  status: string
+  timestamp: string
+  results: { type: string; status: string; file?: string; size?: string; error?: string; details?: string }[]
+}
+

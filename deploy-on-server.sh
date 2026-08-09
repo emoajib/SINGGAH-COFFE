@@ -42,7 +42,10 @@ chmod -R 755 "$WEB_DIR"
 find "$WEB_DIR" -type f -exec chmod 644 {} \; 2>/dev/null || true
 cp "$PROJ_DIR/backend/.env" "$PROJ_DIR/backend/.env" 2>/dev/null || true  # keep existing
 cp backend/start.sh "$PROJ_DIR/start.sh" 2>/dev/null || true
-chmod +x "$PROJ_DIR/start.sh" "$PROJ_DIR/backend/$BACKEND_BIN" "$PROJ_DIR/backend/main" 2>/dev/null || true
+mkdir -p "$PROJ_DIR/scripts" "$PROJ_DIR/docs" "$PROJ_DIR/backups"
+cp scripts/*.sh "$PROJ_DIR/scripts/" 2>/dev/null || true
+cp docs/BACKUP.md "$PROJ_DIR/docs/" 2>/dev/null || true
+chmod +x "$PROJ_DIR/start.sh" "$PROJ_DIR/backend/$BACKEND_BIN" "$PROJ_DIR/backend/main" "$PROJ_DIR/scripts/*.sh" 2>/dev/null || true
 echo "   ✅ Files copied + permissions fixed"
 
 echo ""
@@ -57,4 +60,3 @@ sleep 3
 echo ""
 echo "=== ✅ Deploy selesai! ==="
 curl -s http://localhost:8080/health
-bash "$PROJ_DIR/../web-dashboard/.htaccess" 2>/dev/null && true

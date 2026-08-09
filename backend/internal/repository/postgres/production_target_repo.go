@@ -33,6 +33,31 @@ func (r *productionTargetRepository) FindAll(outletID ...uint) ([]entity.Product
 	return result, nil
 }
 
+func (r *productionTargetRepository) FindAllWithProduct(outletID ...uint) ([]entity.ProductionTargetDetail, error) {
+	tx := r.db.Table("production_targets AS pt").
+		Select("pt.product_id, pt.target_cup, p.name AS product_name").
+		Joins("JOIN products AS p ON p.id = pt.product_id")
+	tx = scopeOutlet(tx, "pt", outletID...)
+	type row struct {
+		ProductID   uint    `gorm:"column:product_id"`
+		ProductName string  `gorm:"column:product_name"`
+		TargetCup   float64 `gorm:"column:target_cup"`
+	}
+	var rows []row
+	if err := tx.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make([]entity.ProductionTargetDetail, len(rows))
+	for i, r := range rows {
+		result[i] = entity.ProductionTargetDetail{
+			ProductID:   r.ProductID,
+			ProductName: r.ProductName,
+			TargetCup:   r.TargetCup,
+		}
+	}
+	return result, nil
+}
+
 // ReplaceAll wipes targets for the outlet and inserts the given set atomically.
 func (r *productionTargetRepository) ReplaceAll(targets []entity.ProductionTarget, outletID uint) error {
 	if outletID == 0 {

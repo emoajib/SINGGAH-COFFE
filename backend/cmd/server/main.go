@@ -47,6 +47,7 @@ func main() {
 	bepUsecase := usecase.NewBEPUsecase(db)
 	outletUsecase := usecase.NewOutletUsecase(db)
 	cashRegisterUsecase := usecase.NewCashRegisterUsecase(db)
+	productionTargetUsecase := usecase.NewProductionTargetUsecase(db)
 
 	// Start background cleanup of expired tokens every hour
 	go func() {
@@ -76,6 +77,8 @@ func main() {
 		BEP:           handler.NewBEPHandler(bepUsecase),
 		Outlet:        handler.NewOutletHandler(outletUsecase),
 		CashRegister:  handler.NewCashRegisterHandler(cashRegisterUsecase),
+		Backup:        handler.NewBackupHandler(db, &cfg),
+		ProductionTarget: handler.NewProductionTargetHandler(productionTargetUsecase),
 	}
 
 	r := gin.New()

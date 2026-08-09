@@ -20,6 +20,8 @@ type Handlers struct {
 	BEP              *handler.BEPHandler
 	Outlet           *handler.OutletHandler
 	CashRegister     *handler.CashRegisterHandler
+	Backup           *handler.BackupHandler
+	ProductionTarget *handler.ProductionTargetHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
@@ -114,6 +116,19 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/outlets", middleware.RoleMiddleware("owner"), h.Outlet.CreateOutlet)
 			protected.PUT("/outlets/:id", middleware.RoleMiddleware("owner"), h.Outlet.UpdateOutlet)
 			protected.DELETE("/outlets/:id", middleware.RoleMiddleware("owner"), h.Outlet.DeleteOutlet)
+
+			// Backup (Owner Only)
+			protected.POST("/backup", middleware.RoleMiddleware("owner"), h.Backup.CreateBackup)
+			protected.POST("/backup/restore", middleware.RoleMiddleware("owner"), h.Backup.RestoreBackup)
+			protected.GET("/backup/history", middleware.RoleMiddleware("owner"), h.Backup.GetBackupHistory)
+			protected.GET("/backup/status", middleware.RoleMiddleware("owner"), h.Backup.GetBackupStatus)
+
+			// Production Targets & Requirements (Owner Only)
+			protected.GET("/production-targets", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetTargets)
+			protected.PUT("/production-targets", middleware.RoleMiddleware("owner"), h.ProductionTarget.SaveTargets)
+			protected.GET("/inventory/requirements", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetRequirements)
+			protected.GET("/backup/download/:name", middleware.RoleMiddleware("owner"), h.Backup.DownloadBackup)
+			protected.POST("/backup/upload", middleware.RoleMiddleware("owner"), h.Backup.UploadBackup)
 		}
 	}
 

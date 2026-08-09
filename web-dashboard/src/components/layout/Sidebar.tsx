@@ -11,6 +11,7 @@ import {
     X,
     Banknote,
     ShoppingCart,
+    HardDrive,
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
@@ -44,6 +45,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         { id: "bep", label: "Analisis BEP", icon: TrendingUp, roles: ["owner"] },
         { id: "kebutuhan-stok", label: "Kebutuhan Stok", icon: ShoppingCart, roles: ["owner", "manager"] },
         { id: "integration", label: "Integrasi", icon: Puzzle, roles: ["owner"] },
+        { id: "backup", label: "Backup", icon: HardDrive, roles: ["owner"] },
         { id: "settings", label: "Pengaturan", icon: Settings, roles: ["owner", "manager", "cashier"] },
     ]
 

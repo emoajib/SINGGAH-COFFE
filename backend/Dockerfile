@@ -23,7 +23,7 @@ RUN go mod tidy && \
 FROM alpine:3.19
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata bash mariadb-client tar gzip
 
 WORKDIR /app
 
