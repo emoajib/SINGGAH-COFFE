@@ -33,6 +33,7 @@ func Connect(cfg config.Config) *gorm.DB {
 		&entity.TokenBlacklist{},
 		&models.Outlet{},
 		&models.CashRegister{},
+		&models.ProductionTarget{},
 	)
 	if err != nil {
 		log.Printf("AutoMigrate failed: %v", err)

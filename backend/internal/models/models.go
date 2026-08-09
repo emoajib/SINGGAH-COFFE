@@ -46,12 +46,22 @@ type Product struct {
 
 type Ingredient struct {
 	BaseModel
-	Name         string  `json:"name"`
-	Unit         string  `json:"unit"` // gram, ml, pcs
-	CurrentStock float64 `json:"current_stock"`
-	MinStock     float64 `json:"min_stock"`
-	CostPerUnit  float64 `json:"cost_per_unit"`
-	OutletID     uint    `json:"outlet_id" gorm:"index"`
+	Name             string  `json:"name"`
+	Category         string  `json:"category"` // Kopi, Susu, Pemanis, Kemasan, etc.
+	Unit             string  `json:"unit"` // gram, ml, pcs
+	PurchaseUnit     string  `json:"purchase_unit"` // kg, liter, gram, pcs
+	PurchaseUnitSize float64 `json:"purchase_unit_size"` // isi per satuan beli (1000 gr/kg, 100 gr/pack)
+	CurrentStock     float64 `json:"current_stock"`
+	MinStock         float64 `json:"min_stock"`
+	CostPerUnit      float64 `json:"cost_per_unit"`
+	OutletID         uint    `json:"outlet_id" gorm:"index"`
+}
+
+type ProductionTarget struct {
+	BaseModel
+	ProductID uint    `json:"product_id" gorm:"uniqueIndex:uq_product_outlet"`
+	TargetCup float64 `json:"target_cup"`
+	OutletID  uint    `json:"outlet_id" gorm:"uniqueIndex:uq_product_outlet;default:1"`
 }
 
 type RecipeItem struct {

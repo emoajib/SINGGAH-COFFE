@@ -125,7 +125,7 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                                     variant="link"
                                     size="sm"
                                     className="w-full text-xs"
-                                    onClick={(e) => { e.stopPropagation(); setActiveTab('ingredients') }}
+                                    onClick={(e) => { e.stopPropagation(); setActiveTab('products') }}
                                 >
                                     Kelola Stok →
                                 </Button>

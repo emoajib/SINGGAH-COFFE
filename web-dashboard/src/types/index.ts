@@ -367,3 +367,51 @@ export interface Integration {
   status: 'connected' | 'disconnected' | 'error'
   last_sync: string
 }
+
+// ─── Kebutuhan Stok (Production Planning) ───────────────────────────────────
+export interface ProductionTarget {
+  product_id: number
+  product_name: string
+  target_cup: number
+}
+
+export interface RequirementProduct {
+  product_id: number
+  product_name: string
+  target_cup: number
+  items: {
+    ingredient_id: number
+    name: string
+    qty_per_cup: number
+    unit: string
+    total_need: number
+  }[]
+}
+
+export interface RequirementIngredient {
+  ingredient_id: number
+  name: string
+  category: string
+  unit: string
+  total_needed: number
+  purchase_unit: string
+  purchase_unit_size: number
+  need_in_purchase_unit: number
+  rounded_purchase_unit: number
+  estimated_cost: number
+}
+
+export interface RequirementResponse {
+  period_days: number
+  total_target_cup: number
+  avg_cup_per_day: number
+  total_estimated_cost: number
+  menus: RequirementProduct[]
+  ingredients: RequirementIngredient[]
+}
+
+export interface SaveProductionTargetsRequest {
+  period_days: number
+  targets: { product_id: number; target_cup: number }[]
+}
+

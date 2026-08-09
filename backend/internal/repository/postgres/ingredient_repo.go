@@ -108,23 +108,29 @@ func (r *ingredientRepository) FindLowStock(limit int, outletID ...uint) ([]enti
 
 func toDomainIngredient(m *models.Ingredient) *entity.Ingredient {
 	return &entity.Ingredient{
-		ID:           m.ID,
-		Name:         m.Name,
-		Unit:         m.Unit,
-		CurrentStock: m.CurrentStock,
-		MinStock:     m.MinStock,
-		CostPerUnit:  m.CostPerUnit,
-		OutletID:     m.OutletID,
+		ID:               m.ID,
+		Name:             m.Name,
+		Category:         m.Category,
+		Unit:             m.Unit,
+		PurchaseUnit:     m.PurchaseUnit,
+		PurchaseUnitSize: m.PurchaseUnitSize,
+		CurrentStock:     m.CurrentStock,
+		MinStock:         m.MinStock,
+		CostPerUnit:      m.CostPerUnit,
+		OutletID:         m.OutletID,
 	}
 }
 
 func toModelIngredient(e *entity.Ingredient) *models.Ingredient {
 	return &models.Ingredient{
-		Name:         e.Name,
-		Unit:         e.Unit,
-		CurrentStock: e.CurrentStock,
-		MinStock:     e.MinStock,
-		CostPerUnit:  e.CostPerUnit,
-		OutletID:     e.OutletID,
+		Name:             e.Name,
+		Category:         e.Category,
+		Unit:             e.Unit,
+		PurchaseUnit:     e.PurchaseUnit,
+		PurchaseUnitSize: e.PurchaseUnitSize,
+		CurrentStock:     e.CurrentStock,
+		MinStock:         e.MinStock,
+		CostPerUnit:      e.CostPerUnit,
+		OutletID:         e.OutletID,
 	}
 }

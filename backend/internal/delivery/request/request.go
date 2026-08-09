@@ -128,3 +128,13 @@ type UpdateCashRegisterRequest struct {
 type CloseCashRegisterRequest struct {
 	ClosingAmount float64 `json:"closing_amount" binding:"required,gt=0"`
 }
+
+type ProductionTargetInput struct {
+	ProductID uint    `json:"product_id" binding:"required"`
+	TargetCup float64 `json:"target_cup" binding:"gte=0"`
+}
+
+type SaveProductionTargetsRequest struct {
+	PeriodDays int                     `json:"period_days"`
+	Targets    []ProductionTargetInput `json:"targets"`
+}
