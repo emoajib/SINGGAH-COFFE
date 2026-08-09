@@ -37,3 +37,17 @@ postgres_data/
 # SQL Backups
 backup_before_cleanup_*.sql
 backend/server
+
+# Local build artifacts
+backend/singgah-backend-local
+backend/deploy/
+deploy/backend/
+deploy/web/
+deploy/scripts/
+deploy/docs/
+deploy/start.sh
+deploy/.env
+logs/
+*.log
+server-start.sh
+deploy/
