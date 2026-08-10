@@ -79,11 +79,13 @@ if [ -d "web-build" ]; then
     rm -rf "$WEB_DIR"/*
     cp -r web-build/* "$WEB_DIR/"
     cp .htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
+    cp api-proxy.php "$WEB_DIR/api-proxy.php" 2>/dev/null || true
     echo "✅ Frontend deployed from web-build/"
 elif [ -d "web-dashboard/dist" ]; then
     rm -rf "$WEB_DIR"/*
     cp -r web-dashboard/dist/* "$WEB_DIR/"
     cp web-dashboard/.htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
+    cp api-proxy.php "$WEB_DIR/api-proxy.php" 2>/dev/null || true
     echo "✅ Frontend deployed from dist/"
 else
     echo "⚠️  No pre-built frontend found — skipping frontend update"

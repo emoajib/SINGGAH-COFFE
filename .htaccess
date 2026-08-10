@@ -1,11 +1,8 @@
 RewriteEngine On
 
-# Reverse proxy untuk API Go backend
-RewriteCond %{HTTP:Upgrade} =websocket [NC]
-RewriteRule ^/api/(.*)$ ws://127.0.0.1:8080/api/$1 [P,L]
-
-RewriteCond %{HTTP:Upgrade} !=websocket [NC]
-RewriteRule ^/api(.*)$ http://127.0.0.1:8080/api$1 [P,L]
+# API — diteruskan lewat api-proxy.php (bekerja tanpa mod_proxy di shared hosting)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^api(/?)(.*)$ api-proxy.php [L,QSA]
 
 # Biarkan file statis dilayani langsung
 RewriteCond %{REQUEST_FILENAME} !-f
