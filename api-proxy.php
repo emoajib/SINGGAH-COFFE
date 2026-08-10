@@ -25,11 +25,13 @@ foreach ($_SERVER as $key => $value) {
     }
     $headers[] = $name . ': ' . $value;
 }
-if (isset($_SERVER['CONTENT_TYPE']) && $_SERVER['CONTENT_TYPE'] !== '') {
-    $headers[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
-}
+$isMultipart = !empty($_FILES);
 
-$body = file_get_contents('php://input');
+if (isset($_SERVER['CONTENT_TYPE']) && $_SERVER['CONTENT_TYPE'] !== '') {
+    if (!$isMultipart) {
+        $headers[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
+    }
+}
 
 $ch = curl_init($target);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
@@ -37,9 +39,31 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HEADER, true);
 curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-if ($body !== '' && $body !== false) {
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+curl_setopt($ch, CURLOPT_TIMEOUT, 300);
+if ($isMultipart) {
+    // php://input is NOT available for multipart/form-data; rebuild from
+    // $_FILES + $_POST so curl sets its own boundary + Content-Type.
+    $postfields = array();
+    foreach ($_POST as $k => $v) {
+        $postfields[$k] = $v;
+    }
+    foreach ($_FILES as $k => $f) {
+        if (is_array($f['tmp_name'])) {
+            foreach ($f['tmp_name'] as $i => $tmp) {
+                if ($f['error'][$i] === UPLOAD_ERR_OK && is_uploaded_file($tmp)) {
+                    $postfields[$k . '[' . $i . ']'] = new CURLFile($tmp, $f['type'][$i], $f['name'][$i]);
+                }
+            }
+        } elseif ($f['error'] === UPLOAD_ERR_OK && is_uploaded_file($tmp = $f['tmp_name'])) {
+            $postfields[$k] = new CURLFile($tmp, $f['type'], $f['name']);
+        }
+    }
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postfields);
+} else {
+    $body = file_get_contents('php://input');
+    if ($body !== '' && $body !== false) {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+    }
 }
 $response = curl_exec($ch);
 $errno = curl_errno($ch);
