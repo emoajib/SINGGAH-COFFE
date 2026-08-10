@@ -21,6 +21,7 @@ type Handlers struct {
 	Outlet           *handler.OutletHandler
 	CashRegister     *handler.CashRegisterHandler
 	Backup           *handler.BackupHandler
+	Sync             *handler.SyncHandler
 	ProductionTarget *handler.ProductionTargetHandler
 }
 
@@ -129,6 +130,10 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/inventory/requirements", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetRequirements)
 			protected.GET("/backup/download/:name", middleware.RoleMiddleware("owner"), h.Backup.DownloadBackup)
 			protected.POST("/backup/upload", middleware.RoleMiddleware("owner"), h.Backup.UploadBackup)
+
+			// Sync (Owner Only) — forward backup to/from production server
+			protected.POST("/backup/push", middleware.RoleMiddleware("owner"), h.Sync.PushBackup)
+			protected.POST("/backup/pull", middleware.RoleMiddleware("owner"), h.Sync.PullBackup)
 		}
 	}
 

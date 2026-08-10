@@ -78,6 +78,7 @@ func main() {
 		Outlet:        handler.NewOutletHandler(outletUsecase),
 		CashRegister:  handler.NewCashRegisterHandler(cashRegisterUsecase),
 		Backup:        handler.NewBackupHandler(db, &cfg),
+		Sync:          handler.NewSyncHandler(&cfg),
 		ProductionTarget: handler.NewProductionTargetHandler(productionTargetUsecase),
 	}
 

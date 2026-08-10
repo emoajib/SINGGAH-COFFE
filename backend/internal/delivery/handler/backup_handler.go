@@ -295,45 +295,41 @@ func (h *BackupHandler) UploadBackup(c *gin.Context) {
 }
 
 func (h *BackupHandler) parseDBConfig() (user, pass, host, port, dbname string, err error) {
-	dsn := h.cfg.DatabaseURL
-	// Format: user:password@tcp(host:port)/dbname?params
-	atIdx := strings.Index(dsn, "@")
+	return parseDBDSN(h.cfg.DatabaseURL)
+}
+
+// parseDBDSN extracts user, password, host, port, dbname from a go-sql-driver
+// DSN. Passwords may contain '@', so the split point is the '@tcp(' marker
+// (matching go-sql-driver/mysql, which uses the last '@' before the protocol).
+func parseDBDSN(dsn string) (user, pass, host, port, dbname string, err error) {
+	atIdx := strings.Index(dsn, "@tcp(")
 	if atIdx < 0 {
-		err = fmt.Errorf("invalid DATABASE_URL: missing @")
-		return
+		return "", "", "", "", "", fmt.Errorf("invalid DATABASE_URL: missing @tcp(")
 	}
 	creds := strings.SplitN(dsn[:atIdx], ":", 2)
 	if len(creds) != 2 {
-		err = fmt.Errorf("invalid DATABASE_URL: missing password")
-		return
+		return "", "", "", "", "", fmt.Errorf("invalid DATABASE_URL: missing password")
 	}
 	user, pass = creds[0], creds[1]
 
-	tcpIdx := strings.Index(dsn[atIdx:], "tcp(")
-	if tcpIdx < 0 {
-		err = fmt.Errorf("invalid DATABASE_URL: missing tcp(host:port)")
-		return
-	}
-	tcpPart := dsn[atIdx+tcpIdx+4:]
+	tcpPart := dsn[atIdx+len("@tcp("):]
 	closeParen := strings.Index(tcpPart, ")")
+	if closeParen < 0 {
+		return "", "", "", "", "", fmt.Errorf("invalid DATABASE_URL: missing closing paren")
+	}
 	hostPort := tcpPart[:closeParen]
 	parts := strings.Split(hostPort, ":")
 	host = parts[0]
+	port = "3306"
 	if len(parts) > 1 {
 		port = parts[1]
-	} else {
-		port = "3306"
 	}
 
-	rest := tcpPart[closeParen+1:] // /dbname?params
-	rest = strings.TrimPrefix(rest, "/")
-	dbIdx := strings.Index(rest, "?")
-	if dbIdx < 0 {
-		dbname = rest
-	} else {
-		dbname = rest[:dbIdx]
+	rest := strings.TrimPrefix(tcpPart[closeParen+1:], "/")
+	if dbIdx := strings.Index(rest, "?"); dbIdx >= 0 {
+		rest = rest[:dbIdx]
 	}
-	return
+	return user, pass, host, port, rest, nil
 }
 
 func getFileSize(path string) (string, error) {

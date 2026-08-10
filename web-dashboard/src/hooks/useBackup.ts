@@ -74,3 +74,26 @@ export function useUploadBackup() {
     },
   })
 }
+
+export function usePushBackup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (type: 'db' | 'uploads' | 'all') =>
+      api.post<BackupResult>('/backup/push', { type }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['backup-history'] })
+    },
+  })
+}
+
+export function usePullBackup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (type: 'db' | 'uploads' | 'all') =>
+      api.post<BackupResult>('/backup/pull', { type }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['backup-history'] })
+      qc.invalidateQueries({ queryKey: ['backup-status'] })
+    },
+  })
+}

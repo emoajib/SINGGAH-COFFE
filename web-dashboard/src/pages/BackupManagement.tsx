@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Database, Upload, Archive, RefreshCw, Download, Upload as UploadIcon, HardDrive, Clock, FileText, CheckCircle, XCircle } from "lucide-react"
-import { useBackupStatus, useBackupHistory, useCreateBackup, useRestoreBackup, useDownloadBackup, useUploadBackup } from "../hooks/useBackup"
+import { useBackupStatus, useBackupHistory, useCreateBackup, useRestoreBackup, useDownloadBackup, useUploadBackup, usePushBackup, usePullBackup } from "../hooks/useBackup"
 import type { BackupFile } from "../types"
 
 export default function BackupManagement() {
@@ -16,6 +16,37 @@ export default function BackupManagement() {
   const restoreBackup = useRestoreBackup()
   const downloadBackup = useDownloadBackup()
   const uploadBackup = useUploadBackup()
+  const pushBackup = usePushBackup()
+  const pullBackup = usePullBackup()
+
+  const [syncing, setSyncing] = useState<"push" | "pull" | null>(null)
+  const [syncResult, setSyncResult] = useState<any>(null)
+
+  const handlePush = async (type: "db" | "uploads" | "all") => {
+    if (!confirm(`Yakin PUSH data ${type.toUpperCase()} dari localhost ke server? Data server akan DITIMPA.`)) return
+    setSyncing("push")
+    setSyncResult(null)
+    try {
+      setSyncResult(await pushBackup.mutateAsync(type))
+    } catch (err: any) {
+      setSyncResult({ status: "failed", error: err?.response?.data?.error || err.message })
+    } finally {
+      setSyncing(null)
+    }
+  }
+
+  const handlePull = async (type: "db" | "uploads" | "all") => {
+    if (!confirm(`Yakin PULL data ${type.toUpperCase()} dari server? Data localhost akan DITIMPA.`)) return
+    setSyncing("pull")
+    setSyncResult(null)
+    try {
+      setSyncResult(await pullBackup.mutateAsync(type))
+    } catch (err: any) {
+      setSyncResult({ status: "failed", error: err?.response?.data?.error || err.message })
+    } finally {
+      setSyncing(null)
+    }
+  }
 
   // PLACEHOLDER: handleBackup
   const handleBackup = async (type: "db" | "uploads" | "all") => {
@@ -240,13 +271,13 @@ export default function BackupManagement() {
                 Sinkronkan database dan file uploads antara server produksi dan localhost.
               </p>
               <div className="flex gap-3">
-                <Button variant="outline" className="flex items-center gap-2">
+                <Button variant="outline" className="flex items-center gap-2" disabled={syncing !== null} onClick={() => handlePull("all")}>
                   <Download className="w-4 h-4" />
-                  Pull dari Server
+                  {syncing === "pull" ? "Menarik..." : "Pull dari Server"}
                 </Button>
-                <Button variant="outline" className="flex items-center gap-2">
+                <Button variant="outline" className="flex items-center gap-2" disabled={syncing !== null} onClick={() => handlePush("all")}>
                   <UploadIcon className="w-4 h-4" />
-                  Push ke Server
+                  {syncing === "push" ? "Mengirim..." : "Push ke Server"}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => refetchHistory()}>
                   <RefreshCw className="w-4 h-4" />
@@ -254,10 +285,33 @@ export default function BackupManagement() {
                 </Button>
               </div>
 
+              {syncResult && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  syncResult.status === "success"
+                    ? "bg-green-50 text-green-800"
+                    : syncResult.status === "partial"
+                      ? "bg-yellow-50 text-yellow-800"
+                      : "bg-red-50 text-red-800"
+                }`}>
+                  <div className="font-medium flex items-center gap-2">
+                    {syncResult.status === "success" ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                    {syncResult.status === "success" ? "Sinkronisasi berhasil" : syncResult.status === "partial" ? "Sinkronisasi sebagian berhasil" : "Sinkronisasi gagal"}
+                  </div>
+                  {syncResult.results?.map((r: any, i: number) => (
+                    <div key={i} className="mt-1 ml-6">
+                      {r.type}: {r.status} {r.file && `→ ${r.file}`}
+                      {r.error && <span className="text-red-600"> — {r.error}</span>}
+                      {r.reason && <span className="text-slate-500"> ({r.reason})</span>}
+                    </div>
+                  ))}
+                  {syncResult.error && <p className="mt-1">{syncResult.error}</p>}
+                </div>
+              )}
+
               <div className="pt-4 border-t space-y-2 text-xs text-slate-500">
                 <p>⚠️ <strong>Push</strong> akan menimpa data di server. Gunakan dengan hati-hati!</p>
-                <p>💡 Sinkronisasi dilakukan via CLI: <code>bash scripts/sync-data.sh --pull</code> atau <code>--push</code></p>
-                <p>🔧 Env vars yang dibutuhkan: DEPLOY_HOST, DEPLOY_PORT, DEPLOY_PASS</p>
+                <p>💡 Backup dibuat otomatis lalu dikirim ke server lewat API. Lihat hasilnya di atas.</p>
+                <p>🔧 Env vars yang dibutuhkan backend: SYNC_SERVER_URL, SYNC_OWNER_EMAIL, SYNC_OWNER_PASSWORD</p>
               </div>
             </CardContent>
           </Card>
