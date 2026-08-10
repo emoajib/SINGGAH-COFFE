@@ -234,7 +234,7 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 	if req.Type == "uploads" {
 		upDir := filepath.Join(".", "uploads")
 		os.MkdirAll(upDir, 0755)
-		cmd := exec.Command("bash", "-c", fmt.Sprintf("tar xzf %s -C %s", srcFile, upDir))
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("tar xzf %s -C .", srcFile))
 		if out, e := cmd.CombinedOutput(); e != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": string(out), "exit": e.Error()})
 			return
