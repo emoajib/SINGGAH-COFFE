@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Database, Upload, Archive, RefreshCw, Download, Upload as UploadIcon, HardDrive, Clock, FileText, CheckCircle, XCircle } from "lucide-react"
@@ -21,6 +21,7 @@ export default function BackupManagement() {
 
   const [syncing, setSyncing] = useState<"push" | "pull" | null>(null)
   const [syncResult, setSyncResult] = useState<any>(null)
+  const uploadInputRef = useRef<HTMLInputElement>(null)
 
   const handlePush = async (type: "db" | "uploads" | "all") => {
     if (!confirm(`Yakin PUSH data ${type.toUpperCase()} dari localhost ke server? Data server akan DITIMPA.`)) return
@@ -222,12 +223,10 @@ export default function BackupManagement() {
           <CardHeader>
             <CardTitle>Riwayat Backup</CardTitle>
             <div className="flex gap-2">
-              <label className="cursor-pointer">
-                <input type="file" accept=".sql.gz,.tar.gz,.gz" className="hidden" onChange={handleUpload} />
-                <Button size="sm" variant="outline" asChild>
-                  <span className="flex items-center gap-1"><UploadIcon className="w-3 h-4" /> Upload</span>
-                </Button>
-              </label>
+              <input ref={uploadInputRef} type="file" accept=".sql.gz,.tar.gz,.gz" className="hidden" onChange={handleUpload} />
+              <Button size="sm" variant="outline" onClick={() => uploadInputRef.current?.click()}>
+                <span className="flex items-center gap-1"><UploadIcon className="w-3 h-4" /> Upload</span>
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
