@@ -66,7 +66,7 @@ func (h *BackupHandler) CreateBackup(c *gin.Context) {
 		}
 
 		outFile := filepath.Join(backupDir, fmt.Sprintf("db_%s.sql.gz", ts))
-		dumpCmd := fmt.Sprintf("mysqldump -u%s -p%s -h%s -P%s --single-transaction --quick --lock-tables=false %s | gzip > %s",
+		dumpCmd := fmt.Sprintf("set -o pipefail; mysqldump -u%s -p%s -h%s -P%s --single-transaction --quick --lock-tables=false %s | gzip > %s",
 			user, pass, host, port, dbname, outFile)
 		cmd := exec.Command("bash", "-c", dumpCmd)
 		if out, e := cmd.CombinedOutput(); e != nil {
@@ -74,8 +74,15 @@ func (h *BackupHandler) CreateBackup(c *gin.Context) {
 			results = append(results, gin.H{"type": "db", "status": "failed", "error": string(out), "details": e.Error()})
 			os.Remove(outFile)
 		} else {
-			size, _ := getFileSize(outFile)
-			results = append(results, gin.H{"type": "db", "status": "ok", "file": fmt.Sprintf("db_%s.sql.gz", ts), "size": size})
+			sizeBytes := fileSizeBytes(outFile)
+			if sizeBytes <= 20 {
+				status = "partial"
+				results = append(results, gin.H{"type": "db", "status": "failed", "error": "mysqldump produced an empty archive (mysqldump unavailable or failed silently)"})
+				os.Remove(outFile)
+			} else {
+				size, _ := getFileSize(outFile)
+				results = append(results, gin.H{"type": "db", "status": "ok", "file": fmt.Sprintf("db_%s.sql.gz", ts), "size": size})
+			}
 		}
 	}
 
@@ -335,6 +342,14 @@ func getFileSize(path string) (string, error) {
 		return "", err
 	}
 	return formatBytes(info.Size()), nil
+}
+
+func fileSizeBytes(path string) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return -1
+	}
+	return info.Size()
 }
 
 func formatBytes(size int64) string {

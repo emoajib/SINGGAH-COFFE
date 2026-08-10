@@ -69,7 +69,7 @@ tar -czf deploy.tar.gz -C deploy .
 ```bash
 PORT=8080
 DATABASE_URL="sosb4282_singgah_pos:b1nt@nG9@tcp(localhost:3306)/sosb4282_singgah_pos?charset=utf8mb4&parseTime=True&loc=Local"
-JWT_SECRET="sg7$mK29#vPqL8*RnY4&xWzB3!cFjT1@hN6eAd5"
+JWT_SECRET="sg7#pL8*RnY4&xWzB3!cFjT1@hN6eAd5"
 NODE_ENV=production
 ```
 
