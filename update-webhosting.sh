@@ -43,10 +43,20 @@ if [ ! -d "$PROJ_DIR/.git" ]; then
 fi
 
 # --- Step 1: Pull latest code ---
+# Guard: jika script ini berubah saat git pull, jalankan ulang versi terbaru
+SELF_SCRIPT="$0"
+SELF_HASH_BEFORE=$(md5sum "$SELF_SCRIPT" 2>/dev/null | awk '{print $1}')
+
 echo "📥 Pulling latest code..."
 cd "$PROJ_DIR"
 git pull origin main
 echo "✅ Pulled to $(git rev-parse --short HEAD)"
+
+SELF_HASH_AFTER=$(md5sum "$SELF_SCRIPT" 2>/dev/null | awk '{print $1}')
+if [ -n "$SELF_HASH_BEFORE" ] && [ "$SELF_HASH_BEFORE" != "$SELF_HASH_AFTER" ]; then
+    echo "↻ Script updated during pull — re-running with latest version..."
+    exec bash "$SELF_SCRIPT"
+fi
 
 # --- Step 2: Deploy from deploy.tar.gz (pre-built package) ---
 TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
@@ -78,14 +88,14 @@ mkdir -p "$WEB_DIR"
 if [ -d "web-build" ]; then
     rm -rf "$WEB_DIR"/*
     cp -r web-build/* "$WEB_DIR/"
-    cp .htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
-    cp api-proxy.php "$WEB_DIR/api-proxy.php" 2>/dev/null || true
+    cp .htaccess "$WEB_DIR/.htaccess"
+    cp api-proxy.php "$WEB_DIR/api-proxy.php"
     echo "✅ Frontend deployed from web-build/"
 elif [ -d "web-dashboard/dist" ]; then
     rm -rf "$WEB_DIR"/*
     cp -r web-dashboard/dist/* "$WEB_DIR/"
     cp web-dashboard/.htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
-    cp api-proxy.php "$WEB_DIR/api-proxy.php" 2>/dev/null || true
+    cp api-proxy.php "$WEB_DIR/api-proxy.php"
     echo "✅ Frontend deployed from dist/"
 else
     echo "⚠️  No pre-built frontend found — skipping frontend update"
