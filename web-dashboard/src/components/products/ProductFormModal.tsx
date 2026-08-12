@@ -117,8 +117,8 @@ export function ProductFormModal({ isOpen, onClose, onSaved, editingProduct, ing
         try {
             const response = await api.post('/products/upload-image', formDataUpload);
             setFormData({ ...formData, image_url: response.data.url });
-        } catch (error) {
-            alert('Failed to upload image');
+        } catch (error: any) {
+            alert('Failed to upload image: ' + (error.response?.data?.error || error.message));
         }
     };
 
