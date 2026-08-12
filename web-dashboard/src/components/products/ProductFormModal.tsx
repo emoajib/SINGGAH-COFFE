@@ -115,9 +115,7 @@ export function ProductFormModal({ isOpen, onClose, onSaved, editingProduct, ing
         formDataUpload.append('image', file);
 
         try {
-            const response = await api.post('/products/upload-image', formDataUpload, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            const response = await api.post('/products/upload-image', formDataUpload);
             setFormData({ ...formData, image_url: response.data.url });
         } catch (error) {
             alert('Failed to upload image');

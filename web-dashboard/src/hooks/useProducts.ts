@@ -52,7 +52,7 @@ export function useUploadProductImage() {
       const form = new FormData()
       form.append('image', file)
       return api.post(`/products/${id}/upload-image`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+
       }).then((r) => r.data)
     },
   })

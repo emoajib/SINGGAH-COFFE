@@ -65,9 +65,7 @@ export function useUploadBackup() {
     mutationFn: (file: File) => {
       const form = new FormData()
       form.append('file', file)
-      return api.post('/backup/upload', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }).then((r) => r.data)
+      return api.post('/backup/upload', form).then((r) => r.data)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['backup-history'] })
