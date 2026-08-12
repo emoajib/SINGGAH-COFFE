@@ -1,7 +1,7 @@
 <?php
 /** Singgah POS API proxy: forwards /api/* to Go backend 127.0.0.1:8080 (shared-hosting friendly, no mod_proxy needed). */
 
-$backend = 'http://127.0.0.1:8080';
+$backend = getenv('SINGGAH_BACKEND_URL') ?: 'http://127.0.0.1:8080';
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
 if ($path === null || $path === false) {

@@ -25,6 +25,7 @@ if npm run build -- --minify=false 2>&1 | tail -3; then
     cd "$PROJ_DIR/web-dashboard"
     cp -r dist/* "$WEB_DIR/"
     cp .htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
+    cp api-proxy.php "$WEB_DIR/api-proxy.php" 2>/dev/null || true
 else
     echo "⚠️ Build gagal di server. Download pre-built dari GitHub Release..."
     cd "$PROJ_DIR/web-dashboard"
@@ -33,6 +34,7 @@ else
     rm -f /tmp/frontend.tar.gz
     cp -r dist/* "$WEB_DIR/"
     cp .htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
+    cp api-proxy.php "$WEB_DIR/api-proxy.php" 2>/dev/null || true
 fi
 
 echo ""

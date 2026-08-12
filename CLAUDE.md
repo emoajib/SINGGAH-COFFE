@@ -53,7 +53,17 @@ cd ../web-dashboard && npm run build
 #   - backend/.env             (webhosting DB creds)
 #   - web/                     (built frontend)
 #   - start.sh                 (startup script)
+#   - api-proxy.php            (PHP reverse proxy for /api and /uploads)
+#   - .htaccess                (Apache rewrite rules)
 #   - scripts/*.sh             (backup scripts)
+mkdir -p deploy/backend deploy/web deploy/scripts
+cp backend/singgah-backend deploy/backend/
+cp backend/.env deploy/backend/
+cp start.sh deploy/
+cp api-proxy.php deploy/
+cp .htaccess deploy/
+cp -r web-dashboard/dist/* deploy/web/
+cp scripts/*.sh deploy/scripts/
 tar -czf deploy.tar.gz -C deploy .
 ```
 
@@ -62,7 +72,7 @@ tar -czf deploy.tar.gz -C deploy .
 2. SSH: `ssh sosb4282@sosiomen.com`
 3. Extract: `cd /home/sosb4282/singgah-pos && tar -xzf deploy.tar.gz`
 4. Backend: `chmod +x backend/singgah-backend start.sh && ./start.sh &`
-5. Frontend: `rm -rf ~/public_html/* && cp -r web/* ~/public_html/ && cp .htaccess ~/public_html/`
+5. Frontend: `rm -rf ~/public_html/* && cp -r web/* ~/public_html/ && cp .htaccess api-proxy.php ~/public_html/`
 6. Verify: `curl -s http://localhost:8080/health`
 
 #### Server env vars (start.sh):

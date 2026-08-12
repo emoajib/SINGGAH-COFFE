@@ -26,6 +26,7 @@ else
     cp -r dist/* "$WEB_DIR/" 2>/dev/null || true
 fi
 cp web-dashboard/.htaccess "$WEB_DIR/.htaccess" 2>/dev/null || cp .htaccess "$WEB_DIR/" 2>/dev/null || true
+cp api-proxy.php "$WEB_DIR/api-proxy.php" 2>/dev/null || true
 echo "✅ Frontend files copied to $WEB_DIR"
 
 # 4. Fix permissions

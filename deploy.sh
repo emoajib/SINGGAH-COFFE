@@ -48,10 +48,13 @@ scp -P "$SERVER_PORT" -i "$SSH_KEY" \
   -r "$PROJECT_DIR/web-dashboard/dist"/* \
   "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/web/"
 
-echo "   → Upload .htaccess..."
+echo "   → Upload .htaccess + api-proxy.php..."
 scp -P "$SERVER_PORT" -i "$SSH_KEY" \
   "$PROJECT_DIR/.htaccess" \
   "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/web/.htaccess"
+scp -P "$SERVER_PORT" -i "$SSH_KEY" \
+  "$PROJECT_DIR/api-proxy.php" \
+  "${SERVER_USER}@${SERVER_HOST}:${SERVER_PATH}/web/api-proxy.php"
 
 echo "   → Upload .env..."
 scp -P "$SERVER_PORT" -i "$SSH_KEY" \

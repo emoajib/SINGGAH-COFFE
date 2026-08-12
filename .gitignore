@@ -40,6 +40,8 @@ backend/server
 
 # Local build artifacts
 backend/singgah-backend-local
+backend/singgah-backend
+backend/singgah-backend-darwin
 backend/deploy/
 deploy/backend/
 deploy/web/
