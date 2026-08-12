@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "master", "main" ]
 
+permissions:
+  contents: write
+
 jobs:
   backend-check:
     name: Backend Build & Test
@@ -106,4 +109,64 @@ jobs:
     - name: Stop Backend
       if: always()
       run: pkill -f "go run.*cmd/server" || true
+
+  publish-deploy-package:
+    name: Build & Publish deploy.tar.gz
+    runs-on: ubuntu-latest
+    needs: [backend-check, web-dashboard-check]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build backend binary (Linux)
+        run: |
+          mkdir -p deploy/backend deploy/web deploy/scripts
+          cd backend
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../deploy/backend/singgah-backend ./cmd/server
+
+      - name: Build frontend
+        run: |
+          cd web-dashboard
+          npm ci
+          npm run build
+          cp -r dist/* ../deploy/web/
+
+      - name: Bundle deploy package
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          cp backend/start.sh deploy/start.sh
+          cp api-proxy.php deploy/
+          cp .htaccess deploy/
+          cp backend/.env deploy/backend/ 2>/dev/null || true
+          cp scripts/*.sh deploy/scripts/ 2>/dev/null || true
+          tar -czf deploy.tar.gz -C deploy .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: deploy-${GITHUB_SHA::8}
+          name: "Deploy package ${{ github.sha::8 }}"
+          body: |
+            Auto-generated deploy package from CI.
+            
+            - Backend binary (Linux amd64)
+            - Frontend build
+            - deploy.sh, api-proxy.php, .htaccess
+            - Scripts
+            - Backend .env
+          files: deploy.tar.gz
+          prerelease: true
+          generate_release_notes: false
 

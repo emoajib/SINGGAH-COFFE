@@ -58,47 +58,74 @@ if [ -n "$SELF_HASH_BEFORE" ] && [ "$SELF_HASH_BEFORE" != "$SELF_HASH_AFTER" ]; 
     exec bash "$SELF_SCRIPT"
 fi
 
-# --- Step 2: Deploy from deploy.tar.gz (pre-built package) ---
+# --- Step 2: Download deploy.tar.gz from latest GitHub release ---
+echo "📥 Fetching latest deploy package from GitHub Releases..."
 TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
-if [ -f "deploy.tar.gz" ]; then
+RELEASE_URL=$(curl -sL "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
+    | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for r in data:
+    for a in r.get('assets', []):
+        if a['name'] == 'deploy.tar.gz':
+            print(a['browser_download_url'])
+            sys.exit(0)
+" 2>/dev/null || true)
+
+if [ -n "$RELEASE_URL" ]; then
+    echo "   → Downloading: $RELEASE_URL"
+    curl -sL "$RELEASE_URL" -o "$TMP_DIR/deploy.tar.gz"
     echo "📦 Extracting deploy.tar.gz..."
-    tar -xzf deploy.tar.gz -C "$TMP_DIR"
+    tar -xzf "$TMP_DIR/deploy.tar.gz" -C "$TMP_DIR"
     
-    # Copy backend binary
-    if [ -f "$TMP_DIR/backend/singgah-backend" ]; then
-        cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend
-        cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
-        echo "✅ Backend binary updated"
-    fi
-    
-    # Preserve server's existing start.sh (has correct env vars)
-    # Only update .env if newer
+    # Copy backend binary (preserve server's existing start.sh & .env)
+    cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend 2>/dev/null || true
+    chmod +x backend/singgah-backend 2>/dev/null || true
+    # Update .env from package (server-specific overrides preserved by start.sh exports)
     cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
+    echo "✅ Backend binary updated from release"
+    
+    # Deploy frontend from package + proxy files
+    rm -rf "$WEB_DIR"/*
+    cp -r "$TMP_DIR/web"/* "$WEB_DIR/" 2>/dev/null || cp -r "$TMP_DIR"/web/* "$WEB_DIR/" 2>/dev/null || true
+    cp "$TMP_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
+    cp "$TMP_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
+    echo "✅ Frontend + proxy files deployed from release"
     
     # Copy scripts + docs
     cp -rf "$TMP_DIR/scripts" scripts/ 2>/dev/null || true
-    cp -rf "$TMP_DIR/docs" docs/ 2>/dev/null || true
     
     rm -rf "$TMP_DIR"
-fi
-
-# --- Step 3: Update frontend from pre-built web-build/ ---
-echo "🌐 Updating frontend..."
-mkdir -p "$WEB_DIR"
-if [ -d "web-build" ]; then
-    rm -rf "$WEB_DIR"/*
-    cp -r web-build/* "$WEB_DIR/"
-    cp .htaccess "$WEB_DIR/.htaccess"
-    cp api-proxy.php "$WEB_DIR/api-proxy.php"
-    echo "✅ Frontend deployed from web-build/"
-elif [ -d "web-dashboard/dist" ]; then
-    rm -rf "$WEB_DIR"/*
-    cp -r web-dashboard/dist/* "$WEB_DIR/"
-    cp web-dashboard/.htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
-    cp api-proxy.php "$WEB_DIR/api-proxy.php"
-    echo "✅ Frontend deployed from dist/"
 else
-    echo "⚠️  No pre-built frontend found — skipping frontend update"
+    echo "⚠️  No deploy.tar.gz release found. Falling back to local build..."
+    # Fallback: use existing local deploy.tar.gz if present
+    if [ -f "$PROJ_DIR/deploy.tar.gz" ]; then
+        echo "📦 Using local deploy.tar.gz..."
+        TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
+        tar -xzf "$PROJ_DIR/deploy.tar.gz" -C "$TMP_DIR"
+        cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend 2>/dev/null || true
+        chmod +x backend/singgah-backend 2>/dev/null || true
+        cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
+        rm -rf "$WEB_DIR"/*
+        cp -r "$TMP_DIR/web"/* "$WEB_DIR/" 2>/dev/null || true
+        cp "$TMP_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
+        cp "$TMP_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
+        rm -rf "$TMP_DIR"
+    fi
+    
+    # If no release and no local package, try building from source
+    if [ ! -f "$WEB_DIR/api-proxy.php" ]; then
+        echo "🌐 No pre-built package found. Building from source..."
+        if [ -d "web-dashboard/dist" ]; then
+            rm -rf "$WEB_DIR"/*
+            cp -r web-dashboard/dist/* "$WEB_DIR/"
+            cp api-proxy.php "$WEB_DIR/api-proxy.php"
+            cp .htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
+            echo "✅ Frontend deployed from build/dist/"
+        else
+            echo "⚠️  No pre-built frontend found — skipping frontend update"
+        fi
+    fi
 fi
 
 # --- Step 4: Restart backend ---
