@@ -62,15 +62,15 @@ fi
 echo "📥 Fetching latest deploy package from GitHub Releases..."
 TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
 RELEASE_URL=$(curl -sL "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
-    | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for r in data:
-    for a in r.get('assets', []):
-        if a['name'] == 'deploy.tar.gz':
-            print(a['browser_download_url'])
-            sys.exit(0)
-" 2>/dev/null || true)
+    | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' \
+    | head -1 \
+    | sed 's/"browser_download_url":"//;s/"$//')
+# Fallback: try jq if available (more reliable JSON parsing)
+if [ -z "$RELEASE_URL" ] && command -v jq &>/dev/null; then
+    RELEASE_URL=$(curl -sL "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
+        | jq -r '.[].assets[]? | select(.name == "deploy.tar.gz") | .browser_download_url' \
+        | head -1)
+fi
 
 if [ -n "$RELEASE_URL" ]; then
     echo "   → Downloading: $RELEASE_URL"
