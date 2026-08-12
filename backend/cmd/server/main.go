@@ -118,13 +118,9 @@ func main() {
 
 	routes.SetupRoutes(r, handlers, db)
 
-	// Serve static frontend files for SPA — all non-API routes serve index.html
+	// Serve static frontend files for SPA — all non-API routes serve static file or index.html
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
-		if strings.HasPrefix(path, "/api") || strings.HasPrefix(path, "/health") || strings.HasPrefix(path, "/uploads") {
-			c.Status(http.StatusNotFound)
-			return
-		}
 		staticFile := *staticDir + path
 		if info, err := os.Stat(staticFile); err == nil && !info.IsDir() {
 			c.File(staticFile)

@@ -41,7 +41,8 @@ pkill -f "backend/main" 2>/dev/null || true
 sleep 1
 cd "$PROJ_DIR/backend"
 chmod +x singgah-backend 2>/dev/null || chmod +x main 2>/dev/null || true
-nohup ./start.sh > ../logs/backend.log 2>&1 &
+setsid nohup ./start.sh > ../logs/backend.log 2>&1 &
+disown 2>/dev/null || true
 echo $! > ../backend.pid
 sleep 3
 

@@ -55,7 +55,8 @@ echo "🔄 Step 4: Restart backend..."
 pkill -f "$BACKEND_BIN\|backend/main" 2>/dev/null || true
 sleep 2
 cd "$PROJ_DIR"
-nohup ./start.sh > logs/backend.log 2>&1 &
+setsid nohup ./start.sh > logs/backend.log 2>&1 &
+disown 2>/dev/null || true
 echo "   ✅ Backend started (PID: $!)"
 sleep 3
 

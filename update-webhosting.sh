@@ -136,8 +136,9 @@ sleep 2
 
 chmod +x backend/singgah-backend 2>/dev/null || true
 mkdir -p logs
-GOMAXPROCS=1 nohup ./backend/start.sh > logs/backend.log 2>&1 &
+GOMAXPROCS=1 setsid nohup ./backend/start.sh > logs/backend.log 2>&1 &
 BACKEND_PID=$!
+disown 2>/dev/null || true
 echo "✅ Backend started (PID: $BACKEND_PID)"
 
 # --- Step 5: Health check ---
