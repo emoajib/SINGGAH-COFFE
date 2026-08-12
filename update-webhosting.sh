@@ -80,20 +80,20 @@ fi
 # --- Step 2: Download deploy.tar.gz from latest GitHub release ---
 echo "📥 Fetching latest deploy package from GitHub Releases..."
 TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
-RELEASE_URL=$(curl -sL "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
+RELEASE_URL=$(curl -sL --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
     | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' \
     | head -1 \
     | sed 's/"browser_download_url":"//;s/"$//')
 # Fallback: try jq if available (more reliable JSON parsing)
 if [ -z "$RELEASE_URL" ] && command -v jq &>/dev/null; then
-    RELEASE_URL=$(curl -sL "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
+    RELEASE_URL=$(curl -sL --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
         | jq -r '.[].assets[]? | select(.name == "deploy.tar.gz") | .browser_download_url' \
         | head -1)
 fi
 
 if [ -n "$RELEASE_URL" ]; then
     echo "   → Downloading: $RELEASE_URL"
-    curl -sL "$RELEASE_URL" -o "$TMP_DIR/deploy.tar.gz"
+    curl -sL --max-time 120 "$RELEASE_URL" -o "$TMP_DIR/deploy.tar.gz"
     echo "📦 Extracting deploy.tar.gz..."
     tar -xzf "$TMP_DIR/deploy.tar.gz" -C "$TMP_DIR"
     
