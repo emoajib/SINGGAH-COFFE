@@ -115,10 +115,20 @@ if [ -n "$RELEASE_URL" ]; then
     cp -rf "$TMP_DIR/scripts" scripts/ 2>/dev/null || true
     
     rm -rf "$TMP_DIR"
-else
-    echo "⚠️  No deploy.tar.gz release found. Falling back to local build..."
-    # Fallback: use existing local deploy.tar.gz if present
-    if [ -f "$PROJ_DIR/deploy.tar.gz" ]; then
+ else
+    echo "⚠️  No deploy.tar.gz release found. Falling back to local packages..."
+    
+    # Priority 1: web-fixed.zip (frontend-only, most recent)
+    if [ -f "$PROJ_DIR/web-fixed.zip" ]; then
+        echo "📦 Using web-fixed.zip (frontend-only)..."
+        rm -rf "$WEB_DIR"/*
+        unzip -o "$PROJ_DIR/web-fixed.zip" -d "$WEB_DIR/"
+        find "$WEB_DIR" -type f -exec chmod 644 {} \;
+        echo "✅ Frontend updated from web-fixed.zip"
+    fi
+    
+    # Priority 2: local deploy.tar.gz (full package)
+    if [ -f "$PROJ_DIR/deploy.tar.gz" ] && [ ! -f "$WEB_DIR/api-proxy.php" ]; then
         echo "📦 Using local deploy.tar.gz..."
         TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
         tar -xzf "$PROJ_DIR/deploy.tar.gz" -C "$TMP_DIR"
@@ -130,18 +140,10 @@ else
         cp "$TMP_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
         cp "$TMP_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
         rm -rf "$TMP_DIR"
+        echo "✅ Full deploy from local deploy.tar.gz"
     fi
     
-    # Also try web-fixed.zip as frontend-only fallback
-    if [ ! -f "$WEB_DIR/api-proxy.php" ] && [ -f "$PROJ_DIR/web-fixed.zip" ]; then
-        echo "📦 Using web-fixed.zip (frontend-only)..."
-        rm -rf "$WEB_DIR"/*
-        unzip -o "$PROJ_DIR/web-fixed.zip" -d "$WEB_DIR/"
-        find "$WEB_DIR" -type f -exec chmod 644 {} \;
-        echo "✅ Frontend updated from web-fixed.zip"
-    fi
-    
-    # If no release and no local package, try building from source
+    # If no package found, try building from source
     if [ ! -f "$WEB_DIR/api-proxy.php" ]; then
         echo "🌐 No pre-built package found. Building from source..."
         if [ -d "web-dashboard/dist" ]; then
