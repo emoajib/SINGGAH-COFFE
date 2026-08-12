@@ -42,20 +42,39 @@ if [ ! -d "$PROJ_DIR/.git" ]; then
     fi
 fi
 
+# --- Step 0: Parse args ---
+SKIP_PULL=false
+for arg in "$@"; do
+    case "$arg" in
+        --skip-pull) SKIP_PULL=true; shift ;;
+    esac
+done
+
 # --- Step 1: Pull latest code ---
-# Guard: jika script ini berubah saat git pull, jalankan ulang versi terbaru
 SELF_SCRIPT="$0"
 SELF_HASH_BEFORE=$(md5sum "$SELF_SCRIPT" 2>/dev/null | awk '{print $1}')
 
-echo "📥 Pulling latest code..."
-cd "$PROJ_DIR"
-git pull origin main
-echo "✅ Pulled to $(git rev-parse --short HEAD)"
+if [ "$SKIP_PULL" = true ]; then
+    echo "⏭️  Skipping git pull (--skip-pull)"
+    echo "✅ On $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+else
+    echo "📥 Pulling latest code..."
+    cd "$PROJ_DIR"
+    # Kill backend before pull (in case binary is locked)
+    pkill -f "singgah-backend" 2>/dev/null || true
+    sleep 1
+    # Aggressive reset: discard ALL local changes, then pull
+    git fetch origin 2>&1 | tail -2
+    git reset --hard HEAD 2>&1 || true
+    git clean -fd 2>&1 | tail -3
+    git reset --hard origin/main 2>&1
+    echo "✅ Pulled to $(git rev-parse --short HEAD)"
+fi
 
 SELF_HASH_AFTER=$(md5sum "$SELF_SCRIPT" 2>/dev/null | awk '{print $1}')
-if [ -n "$SELF_HASH_BEFORE" ] && [ "$SELF_HASH_BEFORE" != "$SELF_HASH_AFTER" ]; then
+if [ "$SKIP_PULL" = false ] && [ -n "$SELF_HASH_BEFORE" ] && [ "$SELF_HASH_BEFORE" != "$SELF_HASH_AFTER" ]; then
     echo "↻ Script updated during pull — re-running with latest version..."
-    exec bash "$SELF_SCRIPT"
+    exec bash "$SELF_SCRIPT" "$@"
 fi
 
 # --- Step 2: Download deploy.tar.gz from latest GitHub release ---
@@ -111,6 +130,15 @@ else
         cp "$TMP_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
         cp "$TMP_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
         rm -rf "$TMP_DIR"
+    fi
+    
+    # Also try web-fixed.zip as frontend-only fallback
+    if [ ! -f "$WEB_DIR/api-proxy.php" ] && [ -f "$PROJ_DIR/web-fixed.zip" ]; then
+        echo "📦 Using web-fixed.zip (frontend-only)..."
+        rm -rf "$WEB_DIR"/*
+        unzip -o "$PROJ_DIR/web-fixed.zip" -d "$WEB_DIR/"
+        find "$WEB_DIR" -type f -exec chmod 644 {} \;
+        echo "✅ Frontend updated from web-fixed.zip"
     fi
     
     # If no release and no local package, try building from source
