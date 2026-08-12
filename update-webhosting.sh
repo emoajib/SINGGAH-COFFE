@@ -124,7 +124,10 @@ if [ -n "$RELEASE_URL" ]; then
         rm -rf "$WEB_DIR"/*
         unzip -o "$PROJ_DIR/web-fixed.zip" -d "$WEB_DIR/"
         find "$WEB_DIR" -type f -exec chmod 644 {} \;
-        echo "✅ Frontend updated from web-fixed.zip"
+        # Restore proxy files (web-fixed.zip is frontend-only)
+        cp "$PROJ_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
+        cp "$PROJ_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
+        echo "✅ Frontend + proxy files deployed from web-fixed.zip"
     fi
     
     # Priority 2: local deploy.tar.gz (full package)
