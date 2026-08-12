@@ -146,6 +146,7 @@ jobs:
       - name: Bundle deploy package
         run: |
           cd "$GITHUB_WORKSPACE"
+          echo "SHORT_SHA=$(cut -c1-8 <<< "${GITHUB_SHA}")" >> "$GITHUB_ENV"
           cp backend/start.sh deploy/start.sh
           cp api-proxy.php deploy/
           cp .htaccess deploy/
@@ -156,16 +157,18 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: deploy-${GITHUB_SHA::8}
-          name: "Deploy package ${{ github.sha::8 }}"
+          tag_name: deploy-${{ env.SHORT_SHA }}
+          name: "Deploy package ${{ env.SHORT_SHA }} (${{ github.sha }})"
           body: |
             Auto-generated deploy package from CI.
-            
+
             - Backend binary (Linux amd64)
             - Frontend build
             - deploy.sh, api-proxy.php, .htaccess
             - Scripts
             - Backend .env
+
+            Commit: ${{ github.sha }}
           files: deploy.tar.gz
           prerelease: true
           generate_release_notes: false
