@@ -7,6 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
     plugins: [react(), VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: 'auto',
         includeAssets: ['coffee-icon.svg'],
         manifest: {
             name: 'Singgah Coffee POS',
@@ -28,7 +29,18 @@ export default defineConfig({
             ]
         },
         workbox: {
-            globPatterns: ['**/*.{js,css,html,svg,png,woff2}']
+            globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+            cleanupOutdatedCaches: true,
+            runtimeCaching: [
+                {
+                    urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+                    handler: 'NetworkFirst',
+                    options: {
+                        cacheName: 'api-cache',
+                        expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+                    },
+                },
+            ],
         }
     })],
     resolve: {
