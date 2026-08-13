@@ -142,8 +142,8 @@ func (h *ProductHandler) UploadProductImage(c *gin.Context) {
 		return
 	}
 
-	if file.Size > 5<<20 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "File too large (max 5MB)"})
+	if file.Size > 10<<20 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File too large (max 10MB)"})
 		return
 	}
 

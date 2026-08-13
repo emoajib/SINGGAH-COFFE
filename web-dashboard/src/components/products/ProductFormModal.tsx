@@ -3,7 +3,7 @@ import { Plus, X, Trash2, ImagePlus } from 'lucide-react';
 import { Input } from "../ui/input"
 import { Button } from "../ui/button"
 import api from '../../lib/api'
-import { getImageUrl, formatNumber } from '../../lib/utils'
+import { getImageUrl, formatNumber, compressImage } from '../../lib/utils'
 
 interface Ingredient {
     id: number;
@@ -111,16 +111,17 @@ export function ProductFormModal({ isOpen, onClose, onSaved, editingProduct, ing
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const formDataUpload = new FormData();
-        formDataUpload.append('image', file);
-
         try {
+            const compressedFile = await compressImage(file);
+            const formDataUpload = new FormData();
+            formDataUpload.append('image', compressedFile);
+
             const response = await api.post('/products/upload-image', formDataUpload);
             setFormData({ ...formData, image_url: response.data.url });
         } catch (error: any) {
             alert('Failed to upload image: ' + (error.response?.data?.error || error.message));
         }
-    };
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

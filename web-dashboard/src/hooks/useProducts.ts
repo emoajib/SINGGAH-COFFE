@@ -45,13 +45,13 @@ export function useDeleteProduct() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
   })
 }
-
 export function useUploadProductImage() {
   return useMutation({
-    mutationFn: ({ id, file }: { id: number; file: File }) => {
+    mutationFn: ({ file }: { file: File }) => {
       const form = new FormData()
       form.append('image', file)
-      return api.post(`/products/${id}/upload-image`, form).then((r) => r.data)
+
+      return api.post(`/products/upload-image`, form).then((r) => r.data)
     },
   })
 }
