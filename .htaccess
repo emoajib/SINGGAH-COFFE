@@ -1,3 +1,9 @@
+# PHP settings – increase limits for large file uploads + long requests
+php_value memory_limit 512M
+php_value max_execution_time 600
+php_value post_max_size 16M
+php_value upload_max_filesize 16M
+
 RewriteEngine On
 
 # Service worker & manifest – DISABLE cache (force update)
