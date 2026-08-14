@@ -51,11 +51,11 @@
 
 **Deploy package structure (`deploy/`):**
 - `backend/singgah-backend` — Linux amd64 binary
-- `backend/.env` — VPS DB creds (`sosb4282_singgah_pos:b1nt@nG9@...`)
+- `backend/.env` — kredensial produksi (tidak di-commit; isi manual di server, lihat `backend/.env.example`)
 - `web/` — built frontend (from `web-dashboard/dist/`)
-- `start.sh` — sets env vars + execs binary
+- `start.sh` — reads `backend/.env`, sets hardening, execs binary
 - `scripts/*.sh` — backup/sync automation
-- Credentials: SSH `sosb4282@sosiomen.com`, DB `sosb4282_singgah_pos`, user `owner@singgah.coffee` / `admin`
+- Credentials: jangan simpan di repo. Rotasi yang bocor → lihat `docs/ROTASI_KREDENSIAL.md`
 
 **CI workflow details:**
 - `test.yml` — Go tests on push/PR to `main`

@@ -7,6 +7,14 @@ on:
     branches: [main]
 
 jobs:
+  shared-hosting-constraints:
+    name: Shared Hosting Constraint Guard
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run constraint guard
+      run: ./scripts/check-constraints.sh
+
   test:
     runs-on: ubuntu-latest
     defaults:

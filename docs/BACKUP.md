@@ -11,7 +11,7 @@
 | **Database** | MySQL/MariaDB @ `localhost:3306` | Docker MySQL @ `localhost:3307` |
 | **DB Name** | `sosb4282_singgah_pos` | `singgah_pos` |
 | **DB User** | `sosb4282_singgah_pos` | `root` |
-| **DB Pass** | `b1nt@nG9` | `password` |
+| **DB Pass** | `********` (dari `backend/.env`) | `password` |
 | **Uploads** | `~/singgah-pos/backend/uploads/` | `./backend/uploads/` |
 | **Frontend** | `~/public_html/` (SvelteKit build) | `./web-dashboard/` (Vite dev) |
 | **Backend** | `~/singgah-pos/backend/singgah-backend` | Docker container `singgah_api` |
@@ -22,7 +22,7 @@
 
 - [ ] Backend sedang berjalan (`ps aux | grep singgah-backend`)
 - [ ] Health check 200 (`curl -s http://localhost:8080/health`)
-- [ ] Database accessible (`mysql -u sosb4282_singgah_pos -pb1nt@nG9 -e "SELECT 1"`)
+- [ ] Database accessible (`mysql -u <db_user> -p<db_pass> -e "SELECT 1"` — nilai dari `backend/.env`)
 - [ ] Uploads folder ada (`ls ~/singgah-pos/backend/uploads/products/`)
 - [ ] Disk space cukup (`df -h ~/backups`)
 
@@ -91,7 +91,7 @@ bash scripts/sync-data.sh --push
 # On server:
 cd ~/singgah-pos
 gunzip -c ~/backups/db_local_20240101_120000.sql.gz | \
-  mysql -u sosb4282_singgah_pos -pb1nt@nG9 sosb4282_singgah_pos
+  mysql -u <db_user> -p<db_pass> sosb4282_singgah_pos
 ```
 
 ### Check sync status
@@ -147,7 +147,7 @@ kill $(pgrep singgah-backend)
 
 # 2. Restore from pre-restore backup
 gunzip -c ~/backups/db_YYYYMMDD_HHMMSS_pre_restore.sql.gz | \
-  mysql -u sosb4282_singgah_pos -pb1nt@nG9 sosb4282_singgah_pos
+  mysql -u <db_user> -p<db_pass> sosb4282_singgah_pos
 
 # 3. Restore uploads (if needed)
 tar xzf ~/backups/uploads_YYYYMMDD_HHMMSS_pre_restore.tar.gz -C ~/singgah-pos/backend/

@@ -53,3 +53,11 @@ logs/
 *.log
 server-start.sh
 deploy/
+
+# Artifact deploy stale + potensi bocor secret — JANGAN di-commit
+deploy.tar.gz
+*.pid
+main_linux_amd64
+backend/cmd/server/main_linux_amd64
+web-fixed.zip
+backend/go.mod.backup

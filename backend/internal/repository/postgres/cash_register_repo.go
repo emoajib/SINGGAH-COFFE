@@ -64,12 +64,6 @@ func (r *cashRegisterRepository) FindAll(outletID uint, cashierName string, date
 	return result, nil
 }
 
-func (r *cashRegisterRepository) CountOpenByOutlet(outletID uint) (int64, error) {
-	var count int64
-	err := r.db.Model(&models.CashRegister{}).Where("outlet_id = ? AND status = 'open'", outletID).Count(&count).Error
-	return count, err
-}
-
 func (r *cashRegisterRepository) Create(cashRegister *entity.CashRegister) error {
 	m := &models.CashRegister{
 		UserID:        cashRegister.UserID,

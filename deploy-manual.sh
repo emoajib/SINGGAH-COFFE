@@ -39,11 +39,18 @@ echo "   ✅ Permissions fixed"
 pkill -f "singgah-backend" 2>/dev/null || true
 pkill -f "backend/main" 2>/dev/null || true
 sleep 1
-cd "$PROJ_DIR/backend"
-chmod +x singgah-backend 2>/dev/null || chmod +x main 2>/dev/null || true
-setsid nohup ./start.sh > ../logs/backend.log 2>&1 &
+cd "$PROJ_DIR"
+# start.sh berada di root $PROJ_DIR, binary di backend/sekitar script.
+chmod +x start.sh 2>/dev/null || true
+chmod +x backend/singgah-backend backend/main 2>/dev/null || true
+# pastikan .env tersedia (kredensial produksi tidak di-commit ke repo publik)
+if [ ! -f "$PROJ_DIR/backend/.env" ]; then
+    echo "⚠️ backend/.env tidak ditemukan. Buat sebelum start (lihat docs/DEPLOY.md)."
+    ls -la "$PROJ_DIR/backend/.env.example"
+fi
+setsid nohup ./start.sh > logs/backend.log 2>&1 &
 disown 2>/dev/null || true
-echo $! > ../backend.pid
+echo $! > backend.pid
 sleep 3
 
 # 6. Health check

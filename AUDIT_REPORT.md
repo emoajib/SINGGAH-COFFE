@@ -183,7 +183,7 @@ Verifikasi: `go build ./...` + `go vet ./...` + `go test ./...` di `backend/` lu
 ### Perlu keputusan segera (A8)
 1. ~~Pilih satu database produksi: **PostgreSQL** (DSN aktif) atau **MySQL/MariaDB** (driver GORM aktif).~~ **Diputuskan: MySQL 8** (dipakai VPS/webhosting & kompatibel dengan localhost MariaDB). Semua DSN, docker-compose, query, dan CI sudah diseragamkan ke MySQL. Lihat catatan verifikasi di bawah.
 2. ~~Sesuaikan: dialector di `database.go`, DSN di `config.go`/`.env`/`docker-compose.yml`, dan query di `order_repo.go` (PG-only) vs `setting_repo.go` (backtick MySQL).~~ **Selesai** — backtick di `setting_repo.go` dipertahankan karena `key` adalah reserved word MySQL.
-3. ~~Konsistenkan `server-start.sh` dengan keputusan tersebut.~~ **Selesai**.
+3. ~~Konsistenkan `server-start.sh` dengan keputusan tersebut.~~ **Selesai** — `server-start.sh` kini deprecated (meneruskan ke `backend/.env` + hardening GOMAXPROCS/GOMEMLIMIT). Script start resmi: `backend/start.sh`.
 
 ### Disarankan (A9, A11, A12)
 4. Tambah halaman/komponen manajemen outlet + switch outlet di UI; kirim `X-Outlet-ID` dari `api.ts` saat owner memilih outlet.

@@ -72,6 +72,18 @@ Dan wajib menyertakan salah satu dari:
   - Settings → hanya `owner`
   - Reports P&L → hanya `owner`
 
+### 4. SHARED HOSTING CONSTRAINTS (MANDATORY — jangan diregresi)
+> Produksi jalan di shared hosting (rumahweb, `ulimit -u` rendah). Pelanggaran berikut
+> membuat proses crash `fatal error: newosproc` dan upload gagal. Ini insiden produksi nyata.
+
+- ❌ **DILARANG** membuka raw `sql.DB`/`gorm.Open` di luar pool `database.go`
+  (wajib: `SetMaxOpenConns(10)`, `SetMaxIdleConns(2)`, `SetConnMaxLifetime(5m)`)
+- ❌ **DILARANG** menghapus `GOMAXPROCS=1`/`GOMEMLIMIT=200MiB` dari `backend/start.sh`
+- ❌ **DILARANG** menghapus `CURLOPT_POSTFIELDS` multipart forwarding di `api-proxy.php`
+  (semua upload diuji lewat proxy, bukan browser→backend langsung)
+- ❌ **DILARANG** retry/polling goroutine tak terbatas di handler/usecase — wajib worker pool
+- ✅ **WAJIB** jalankan `scripts/check-constraints.sh` (atau CI guard) sebelum commit
+
 ---
 
 ## ⚙️ 8 PERINTAH WORKFLOW WAJIB

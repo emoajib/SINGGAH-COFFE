@@ -64,10 +64,6 @@ func (uc *CashRegisterUsecase) GetCashRegisters(outletID uint, cashierName strin
 	return registers, nil
 }
 
-func (uc *CashRegisterUsecase) CountOpenByOutlet(outletID uint) (int64, error) {
-	return uc.cashRegisterRepo.CountOpenByOutlet(outletID)
-}
-
 func (uc *CashRegisterUsecase) GetAllOutlets() ([]entity.Outlet, error) {
 	outlets, err := uc.outletRepo.FindAll()
 	if err != nil {

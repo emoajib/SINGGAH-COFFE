@@ -100,10 +100,6 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 		data []entity.FixedCostItem
 		err  error
 	}
-	type avgOrderRes struct {
-		avg float64
-		err error
-	}
 
 	revenueCh := make(chan salesResult, 1)
 	cogsCh := make(chan cogsRes, 1)

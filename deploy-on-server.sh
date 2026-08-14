@@ -12,7 +12,6 @@ echo ""
 echo "📦 Step 1: Build Go backend (Linux binary)..."
 cd "$PROJ_DIR/backend"
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "$PROJ_DIR/backend/$BACKEND_BIN" ./cmd/server 2>/dev/null || echo "⚠️ Build backend gagal, pakai binary lama"
-cp "$PROJ_DIR/backend/$BACKEND_BIN" "$PROJ_DIR/backend/main" 2>/dev/null || true
 echo "   ✅ Backend binary ready"
 
 echo ""
@@ -42,12 +41,16 @@ echo "📤 Step 3: Copy files to web root ($WEB_DIR)..."
 mkdir -p "$WEB_DIR" "$PROJ_DIR/logs"
 chmod -R 755 "$WEB_DIR"
 find "$WEB_DIR" -type f -exec chmod 644 {} \; 2>/dev/null || true
-cp "$PROJ_DIR/backend/.env" "$PROJ_DIR/backend/.env" 2>/dev/null || true  # keep existing
-cp backend/start.sh "$PROJ_DIR/start.sh" 2>/dev/null || true
+# Jaga-jaga .env server tidak ter-timpa jika belum ada (kredensial produksi TIDAK di-commit).
+if [ ! -f "$PROJ_DIR/backend/.env" ]; then
+    echo "   ⚠️ backend/.env tidak ditemukan di server. Buat manual sebelum start:"
+    echo "       cp backend/.env.example backend/.env  → lalu isi DATABASE_URL & JWT_SECRET"
+fi
+cp "$PROJ_DIR/backend/start.sh" "$PROJ_DIR/start.sh"
 mkdir -p "$PROJ_DIR/scripts" "$PROJ_DIR/docs" "$PROJ_DIR/backups"
-cp scripts/*.sh "$PROJ_DIR/scripts/" 2>/dev/null || true
-cp docs/BACKUP.md "$PROJ_DIR/docs/" 2>/dev/null || true
-chmod +x "$PROJ_DIR/start.sh" "$PROJ_DIR/backend/$BACKEND_BIN" "$PROJ_DIR/backend/main" "$PROJ_DIR/scripts/*.sh" 2>/dev/null || true
+chmod +x "$PROJ_DIR"/scripts/*.sh 2>/dev/null || true
+for f in "$PROJ_DIR/scripts"/*.sh; do [ -f "$f" ] && chmod +x "$f"; done 2>/dev/null || true
+chmod +x "$PROJ_DIR/start.sh" "$PROJ_DIR/backend/$BACKEND_BIN" "$PROJ_DIR/backend/main" 2>/dev/null || true
 echo "   ✅ Files copied + permissions fixed"
 
 echo ""

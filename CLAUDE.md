@@ -76,10 +76,12 @@ tar -czf deploy.tar.gz -C deploy .
 6. Verify: `curl -s http://localhost:8080/health`
 
 #### Server env vars (start.sh):
+> ⚠️ Kredensial asli TIDAK boleh di-commit. Nilai di bawah PLACEHOLDER — isi
+> `backend/.env` di server (lihat `backend/.env.example` & `docs/ROTASI_KREDENSIAL.md`).
 ```bash
 PORT=8080
-DATABASE_URL="sosb4282_singgah_pos:b1nt@nG9@tcp(localhost:3306)/sosb4282_singgah_pos?charset=utf8mb4&parseTime=True&loc=Local"
-JWT_SECRET="sg7#pL8*RnY4&xWzB3!cFjT1@hN6eAd5"
+DATABASE_URL="user:password@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
+JWT_SECRET="<generate: openssl rand -hex 32>"
 NODE_ENV=production
 ```
 

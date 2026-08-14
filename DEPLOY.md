@@ -66,18 +66,23 @@ scp -P 22 -i ~/.ssh/id_rsa \
   .htaccess \
   user@sosiomen.com:~/singgah-pos/web/.htaccess
 
-# Upload .env backend
+# Upload .env backend (kredensial produksi — JANGAN pernah ke git/release publik)
 scp -P 22 -i ~/.ssh/id_rsa \
   backend/.env \
   user@sosiomen.com:~/singgah-pos/backend/.env
 
-# Upload server-start.sh
+# Upload start.sh (hardened: GOMAXPROCS=1, GOMEMLIMIT=200MiB)
 scp -P 22 -i ~/.ssh/id_rsa \
-  server-start.sh \
+  backend/start.sh \
   user@sosiomen.com:~/singgah-pos/start.sh
 ```
 
 Ganti `user` dengan username SSH kamu dan `sosiomen.com` dengan domain/port server kamu.
+
+> ⚠️ **Kredensial** disimpan hanya di `backend/.env` di server (sudah di-gitignore).
+> Template placeholder: `backend/.env.example`. Jika `.env` di server belum ada,
+> salin dari `.env.example` lalu isi `DATABASE_URL` & `JWT_SECRET`.
+> Repo ini publik — jangan pernah meletakkan kredensial nyata di file yang di-commit.
 
 ---
 
@@ -89,9 +94,13 @@ SSH ke server:
 ssh user@sosiomen.com
 
 cd ~/singgah-pos
-chmod +x backend/main start.sh
+chmod +x backend/singgah-backend start.sh
 ./start.sh &
 ```
+
+`start.sh` otomatis:
+- Membaca `backend/.env` (DATABASE_URL, JWT_SECRET) — jika `.env` tidak ada, start GAGAL dengan pesan jelas (kredensial tidak pernah di-commit).
+- Menetapkan `GOMAXPROCS=1` & `GOMEMLIMIT=200MiB` (wajib di shared hosting — mencegah crash `fatal error: newosproc`).
 
 Cek backend berjalan:
 
@@ -106,16 +115,19 @@ Harus mengembalikan `{"status":"ok"}`.
 ## Langkah 6: Konfigurasi Domain di cPanel/Apache
 
 1. Login cPanel → **Domains** atau **Zone Editor**
-2. Arahkan domain `sosiomen.com` ke folder `~/singgah-pos/web/`
-3. Pastikan **mod_rewrite** dan **mod_proxy** aktif di Apache
-4. Pastikan `.htaccess` diizinkan (AllowOverride All)
+2. Arahkan domain `sosiomen.com` ke folder web (mis. `~/public_html` atau `~/singgah-pos/web/`)
+3. Pastikan **mod_rewrite** aktif dan `.htaccess` diizinkan (`AllowOverride All`)
 
-Atau jika menggunakan `.htaccess` di folder web:
+> **Gateway API = `api-proxy.php`** (bukan mod_proxy). File ini sudah menyalurkan
+> request `/api/*` ke backend `http://127.0.0.1:8080` DAN me-forward file upload
+> multipart (constraint wajib — lihat AGENTS.md). Pastikan `api-proxy.php` + `.htaccess`
+> ikut di-upload ke folder web. `mod_proxy` TIDAK diperlukan jika memakai `api-proxy.php`.
+
+Contoh `.htaccess` minimal (rewrite SPA + route `/api` ke api-proxy.php):
 
 ```apache
 RewriteEngine On
-RewriteCond %{REQUEST_URI} ^/api(.*)$ [NC]
-RewriteRule ^/api(.*)$ http://127.0.0.1:8080/api$1 [P,L]
+RewriteRule ^api/(.*)$ /api-proxy.php [QSA,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ /index.html [L]
@@ -139,14 +151,11 @@ Buka browser https://sosiomen.com:
 ```
 ~/singgah-pos/
 ├── backend/
-│   ├── main          ← Binary Go (chmod +x)
-│   └── .env          ← Konfigurasi environment
-├── start.sh          ← Script start backend
-├── web/
-│   ├── index.html
-│   ├── assets/
-│   ├── .htaccess
-│   └── ...
+│   ├── singgah-backend ← Binary Go (chmod +x)
+│   ├── start.sh        ← Di-upload sebagai root start.sh
+│   └── .env            ← Kredensial produksi (gitignore, wajib ada)
+├── start.sh            ← Script start (hardened GOMAXPROCS/GOMEMLIMIT)
+├── ~/public_html/      ← Folder web: index.html, assets/, .htaccess, api-proxy.php
 └── logs/
 ```
 
@@ -154,12 +163,14 @@ Buka browser https://sosiomen.com:
 
 ## Deploy Ulang (Update)
 
-Ketika ada perubahan kode:
-
 1. `git pull origin main`
-2. Ulangi Langkah 1–2 (build)
-3. Upload ulang file via SCP
-4. Restart backend: `pkill -f "singgah-pos/backend/main"` lalu `./start.sh &`
+2. Rebuild: backend (`CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o backend/singgah-backend ./cmd/server` di `backend/`) + frontend (`npm run build` di `web-dashboard/`)
+3. Upload ulang binary, frontend, `api-proxy.php`, `.htaccess`, dan `backend/start.sh`
+4. Restart backend: `pkill -f "singgah-backend"` lalu `./start.sh &`
+
+> ⚠️ Jika server lama menjalankan `backend/start.sh` versi hardcoded, setelah pull versi baru
+> **wajib** memastikan `backend/.env` ada (isi DATABASE_URL & JWT_SECRET) — jika tidak, backend
+> tidak akan start. Kredensial yang pernah ter-commit karena repo publik harus di-rotasi.
 
 ---
 
@@ -169,6 +180,6 @@ Ketika ada perubahan kode:
 |---|---|
 | `502 Bad Gateway` | Backend belum jalan. Cek: `curl http://localhost:8080/health` |
 | `403 Forbidden` | `.htaccess` tidak aktif. Pastikan `AllowOverride All` di Apache config |
-| `500 Internal Server Error` | Cek log: `tail -f ~/singgah-pos/logs/` |
-| CORS error | Pastikan `.htaccess` ada di `~/singgah-pos/web/` dan mod_proxy aktif |
-| Backend mati | Jalankan ulang: `cd ~/singgah-pos && ./start.sh &` |
+| `500 Internal Server Error` | Cek log: `tail -f ~/singgah-pos/logs/backend.log`; pastikan `backend/.env` ada |
+| CORS error | Pastikan `api-proxy.php` + `.htaccess` ada di folder web |
+| Backend mati | Cek log `~/singgah-pos/logs/backend.log` — sering karena `.env` hilang atau `JWT_SECRET`/`DATABASE_URL` kosong. Jalankan ulang: `cd ~/singgah-pos && ./start.sh &` |

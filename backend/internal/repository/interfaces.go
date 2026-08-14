@@ -138,7 +138,6 @@ type CashRegisterRepository interface {
 	FindByID(id uint) (*entity.CashRegister, error)
 	FindOpenByUserID(userID uint) (*entity.CashRegister, error)
 	FindAll(outletID uint, cashierName string, dateFrom string, dateTo string, status string, limit int, offset int) ([]entity.CashRegister, error)
-	CountOpenByOutlet(outletID uint) (int64, error)
 	Create(cashRegister *entity.CashRegister) error
 	Update(cashRegister *entity.CashRegister) error
 	Delete(id uint) error

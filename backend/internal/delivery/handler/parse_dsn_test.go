@@ -3,12 +3,12 @@ package handler
 import "testing"
 
 func TestParseDBDSNWithAtInPassword(t *testing.T) {
-	dsn := "sosb4282_singgah_pos:b1nt@nG9@tcp(localhost:3306)/sosb4282_singgah_pos?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "app_user:p@ssw@rd@tcp(dbhost:3407)/app_db?charset=utf8mb4&parseTime=True&loc=Local"
 	user, pass, host, port, dbname, err := parseDBDSN(dsn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if user != "sosb4282_singgah_pos" || pass != "b1nt@nG9" || host != "localhost" || port != "3306" || dbname != "sosb4282_singgah_pos" {
+	if user != "app_user" || pass != "p@ssw@rd" || host != "dbhost" || port != "3407" || dbname != "app_db" {
 		t.Fatalf("got user=%q pass=%q host=%q port=%q dbname=%q", user, pass, host, port, dbname)
 	}
 }

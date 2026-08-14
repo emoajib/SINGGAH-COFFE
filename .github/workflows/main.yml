@@ -10,6 +10,20 @@ permissions:
   contents: write
 
 jobs:
+  shared-hosting-constraints:
+    name: Shared Hosting Constraint Guard
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run constraint guard
+      run: ./scripts/check-constraints.sh
+    - name: Validate deploy artifact not tracked
+      run: |
+        if git ls-files --error-unmatch deploy.tar.gz >/dev/null 2>&1; then
+          echo "FAIL: deploy.tar.gz masih tracked (artifact stale + bocor secret)"
+          exit 1
+        fi
+
   backend-check:
     name: Backend Build & Test
     runs-on: ubuntu-latest
@@ -19,7 +33,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.23'
+        go-version: '1.25'
 
     - name: Build Backend
       run: |
@@ -76,7 +90,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.23'
+        go-version: '1.25'
 
     - name: Start Backend
       env:
@@ -113,7 +127,7 @@ jobs:
   publish-deploy-package:
     name: Build & Publish deploy.tar.gz
     runs-on: ubuntu-latest
-    needs: [backend-check, web-dashboard-check]
+    needs: [shared-hosting-constraints, backend-check, web-dashboard-check]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
@@ -123,7 +137,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23'
+          go-version: '1.25'
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -150,8 +164,9 @@ jobs:
           cp backend/start.sh deploy/start.sh
           cp api-proxy.php deploy/
           cp .htaccess deploy/
-          cp backend/.env deploy/backend/ 2>/dev/null || true
           cp scripts/*.sh deploy/scripts/ 2>/dev/null || true
+          # CATATAN: backend/.env TIDAK disertakan (repo & release publik — bocor kredensial).
+          # Operator mengisi backend/.env di server sendiri (lihat deploy-manual / update-webhosting).
           tar -czf deploy.tar.gz -C deploy .
 
       - name: Create GitHub Release
@@ -164,9 +179,10 @@ jobs:
 
             - Backend binary (Linux amd64)
             - Frontend build
-            - deploy.sh, api-proxy.php, .htaccess
+            - start.sh (hardened: GOMAXPROCS=1, GOMEMLIMIT=200MiB), api-proxy.php, .htaccess
             - Scripts
-            - Backend .env
+
+            Kredensial TIDAK disertakan — isi `backend/.env` di server sebelum start.
 
             Commit: ${{ github.sha }}
           files: deploy.tar.gz

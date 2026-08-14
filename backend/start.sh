@@ -1,9 +1,19 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-export PORT=8080
-export DATABASE_URL="sosb4282_singgah_pos:b1nt@nG9@tcp(localhost:3306)/sosb4282_singgah_pos?charset=utf8mb4&parseTime=True&loc=Local"
-export JWT_SECRET="sg7#pL8*RnY4&xWzB3!cFjT1@hN6eAd5"
-export NODE_ENV=production
+
+# Salin kredensial produksi TIDAK boleh di-commit ke git (repo ini publik).
+# Nilai asli DATABASE_URL/JWT_SECRET disimpan di backend/.env (gitignored).
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
+export PORT="${PORT:-8080}"
+export DATABASE_URL="${DATABASE_URL:?DATABASE_URL harus di-set di backend/.env}"
+export JWT_SECRET="${JWT_SECRET:?JWT_SECRET harus di-set di backend/.env}"
+export NODE_ENV="${NODE_ENV:-production}"
 
 # Shared-hosting hardening: batasi jumlah OS thread & memori Go agar tidak
 # melampaui ulimit -u server (mencegah crash "fatal error: newosproc").
