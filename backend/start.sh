@@ -4,6 +4,12 @@ export PORT=8080
 export DATABASE_URL="sosb4282_singgah_pos:b1nt@nG9@tcp(localhost:3306)/sosb4282_singgah_pos?charset=utf8mb4&parseTime=True&loc=Local"
 export JWT_SECRET="sg7#pL8*RnY4&xWzB3!cFjT1@hN6eAd5"
 export NODE_ENV=production
+
+# Shared-hosting hardening: batasi jumlah OS thread & memori Go agar tidak
+# melampaui ulimit -u server (mencegah crash "fatal error: newosproc").
+export GOMAXPROCS=1
+export GOMEMLIMIT=200MiB
+
 cd "$SCRIPT_DIR"
 # Binary is at backend/ relative to this script (deploy.sh places it there).
 # Fall back to ./singgah-backend if script is inside the backend/ dir itself.

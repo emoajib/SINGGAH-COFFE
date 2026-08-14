@@ -2,6 +2,7 @@ package database
 
 import (
 	"log"
+	"time"
 	"singgah-pos-backend/internal/config"
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
@@ -16,6 +17,19 @@ func Connect(cfg config.Config) *gorm.DB {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+
+	// Shared-hosting hardening: batasi connection pool agar jumlah OS thread
+	// yang dibuat go-sql-driver/mysql (1 thread watcher per koneksi) tidak
+	// melampaui ulimit -u server. Tanpa ini aplikasi rawan crash
+	// "fatal error: newosproc" saat koneksi DB menumpuk (mis. export PDF).
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Failed to get sql.DB: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxIdleConns(2)
+	sqlDB.SetConnMaxIdleTime(60 * time.Second)
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
 	// Auto Migrate the schema with error checking
 	log.Println("Running Auto Migration...")
