@@ -98,7 +98,30 @@ NODE_ENV=production
 - DB migrations: SQL files in root (run manually with `mysql -u root -ppassword singgah_pos < file.sql`)
 - Data seed: `import_excel_baseline.sql`, `migrate_stock_requirements.sql`, `setup_recipes.sql`
 
-### 7. Local Development
+### 7. Shared Hosting Constraints (MANDATORY — architecturally enforced)
+
+> **ALL models/agents MUST obey these rules on EVERY feature/module update.**
+> These exist to prevent the `fatal error: newosproc` crash (host `ulimit -u`)
+> and Apache/PHP upload failures (api-proxy.php). Do NOT regress them.
+
+1. **DB connection pool limits are REQUIRED** — any new repository layer MUST reuse
+   the pool configured in `backend/internal/database/database.go`:
+   `SetMaxOpenConns(10)`, `SetMaxIdleConns(2)`, `SetConnMaxLifetime(5m)`.
+   NEVER open a raw `sql.DB`/gorm connection outside the shared pool
+   (per-connection go-sql-driver/mysql watcher threads crash the process on shared hosting).
+2. **`start.sh` MUST keep** `GOMAXPROCS=1` and `GOMEMLIMIT=200MiB` (or lower).
+   New background workers/goroutines MUST NOT add unbounded concurrency;
+   use worker pools, not `go func()` per task/request.
+3. **`api-proxy.php` MUST keep multipart/form-data + file POST field forwarding**
+   (the `CURLOPT_POSTFIELDS` fix). Any new file-upload module MUST be tested end-to-end
+   through the proxy; do NOT assume the browser talks directly to the backend.
+4. **Do not add unlimited retries/polling goroutines** in handlers or usecases —
+   each one can spawn OS threads on a low-`ulimit` host.
+5. **Deploy checklist after ANY change**: `go vet ./...` + `go test ./...` +
+   `npx tsc --noEmit`, rebuild Linux binary, `cp api-proxy.php .htaccess ~/public_html/`,
+   restart via `start.sh`, verify `/health` AND a real file upload.
+
+### 8. Local Development
 ```bash
 # Terminal 1: Backend
 cd backend && go run ./cmd/server
