@@ -4,6 +4,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/repository"
@@ -13,11 +14,11 @@ import (
 )
 
 type ProductionTargetUsecase struct {
-	db                     *gorm.DB
-	productRepo            repository.ProductRepository
-	productionTargetRepo   repository.ProductionTargetRepository
-	ingredientRepo         repository.IngredientRepository
-	settingRepo            repository.SettingRepository
+	db                   *gorm.DB
+	productRepo          repository.ProductRepository
+	productionTargetRepo repository.ProductionTargetRepository
+	ingredientRepo       repository.IngredientRepository
+	settingRepo          repository.SettingRepository
 }
 
 func NewProductionTargetUsecase(db *gorm.DB) *ProductionTargetUsecase {
@@ -50,6 +51,63 @@ func (uc *ProductionTargetUsecase) SaveTargets(periodDays int, targets []entity.
 	return uc.settingRepo.Upsert("stock_planning_period_days", strconv.Itoa(periodDays), "inventory")
 }
 
+// resolveCategory returns a sensible default category if empty.
+func resolveCategory(name, existingCat string) string {
+	if existingCat != "" {
+		return existingCat
+	}
+	lower := strings.ToLower(name)
+	if strings.Contains(lower, "kopi") || strings.Contains(lower, "arabika") || strings.Contains(lower, "robusta") || strings.Contains(lower, "espresso") || strings.Contains(lower, "bean") || strings.Contains(lower, "dieng") {
+		return "Kopi"
+	}
+	if strings.Contains(lower, "susu") || strings.Contains(lower, "milk") || strings.Contains(lower, "oat") || strings.Contains(lower, "creamer") || strings.Contains(lower, "krimer") {
+		return "Susu"
+	}
+	if strings.Contains(lower, "gula") || strings.Contains(lower, "syrup") || strings.Contains(lower, "sirup") || strings.Contains(lower, "aren") || strings.Contains(lower, "skm") || strings.Contains(lower, "manis") {
+		return "Pemanis"
+	}
+	if strings.Contains(lower, "cup") || strings.Contains(lower, "tutup") || strings.Contains(lower, "sedotan") || strings.Contains(lower, "straw") || strings.Contains(lower, "plastik") || strings.Contains(lower, "paper") {
+		return "Kemasan"
+	}
+	if strings.Contains(lower, "es") || strings.Contains(lower, "ice") {
+		return "Es"
+	}
+	return "Lainnya"
+}
+
+// resolvePurchaseUnit returns sensible purchase unit and unit size if unconfigured.
+func resolvePurchaseUnit(unit, existingPUnit string, existingSize float64) (string, float64) {
+	pUnit := existingPUnit
+	size := existingSize
+	if size > 0 && pUnit != "" {
+		return pUnit, size
+	}
+	switch strings.ToLower(unit) {
+	case "gram", "gr", "g":
+		if pUnit == "" {
+			pUnit = "kg"
+		}
+		if size <= 0 {
+			size = 1000
+		}
+	case "ml", "mili", "milliliter":
+		if pUnit == "" {
+			pUnit = "liter"
+		}
+		if size <= 0 {
+			size = 1000
+		}
+	default:
+		if pUnit == "" {
+			pUnit = unit
+		}
+		if size <= 0 {
+			size = 1
+		}
+	}
+	return pUnit, size
+}
+
 // GetRequirements calculates ingredient purchase requirements from production targets.
 func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.RequirementResponse, error) {
 	products, err := uc.productRepo.FindAll(0, 0)
@@ -60,15 +118,6 @@ func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.Requi
 	if err != nil {
 		return nil, err
 	}
-	targets, err := uc.productionTargetRepo.FindAll(outletID)
-	if err != nil {
-		return nil, err
-	}
-
-	targetMap := make(map[uint]float64)
-	for _, t := range targets {
-		targetMap[t.ProductID] = t.TargetCup
-	}
 
 	periodDays := 10
 	if s, err := uc.settingRepo.FindByKey("stock_planning_period_days"); err == nil && s != nil {
@@ -77,13 +126,22 @@ func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.Requi
 		}
 	}
 
-	ingMap := make(map[uint]entity.Ingredient)
+	targetDetails, err := uc.productionTargetRepo.FindAll(outletID)
+	if err != nil {
+		return nil, err
+	}
+	targetMap := make(map[uint]float64, len(targetDetails))
+	for _, td := range targetDetails {
+		targetMap[td.ProductID] = td.TargetCup
+	}
+
+	ingMap := make(map[uint]entity.Ingredient, len(ingredients))
 	for _, ing := range ingredients {
 		ingMap[ing.ID] = ing
 	}
 
-	var menus []entity.RequirementMenu
 	ingredientAgg := make(map[uint]*entity.RequirementIngredient)
+	var menus []entity.RequirementMenu
 
 	var totalTargetCup float64
 	for _, prod := range products {
@@ -108,17 +166,20 @@ func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.Requi
 			if !ok {
 				continue
 			}
+			cat := resolveCategory(ing.Name, ing.Category)
+			pUnit, pSize := resolvePurchaseUnit(ing.Unit, ing.PurchaseUnit, ing.PurchaseUnitSize)
+
 			if agg, exists := ingredientAgg[ri.IngredientID]; exists {
 				agg.TotalNeeded += totalNeed
 			} else {
 				ingredientAgg[ri.IngredientID] = &entity.RequirementIngredient{
-					IngredientID: ri.IngredientID,
-					Name:         ing.Name,
-					Category:     ing.Category,
-					Unit:         ing.Unit,
-					TotalNeeded:  totalNeed,
-					PurchaseUnit:     ing.PurchaseUnit,
-					PurchaseUnitSize: ing.PurchaseUnitSize,
+					IngredientID:     ri.IngredientID,
+					Name:             ing.Name,
+					Category:         cat,
+					Unit:             ing.Unit,
+					TotalNeeded:      totalNeed,
+					PurchaseUnit:     pUnit,
+					PurchaseUnitSize: pSize,
 				}
 			}
 		}

@@ -189,12 +189,23 @@ export default function KebutuhanStok() {
                                         {requirements?.ingredients.map(i => (
                                             <tr key={i.ingredient_id} className="border-b border-slate-100">
                                                 <td className="py-2 pr-3 font-medium text-slate-800">{i.name}</td>
-                                                <td className="py-2 pr-3 text-gray-500">{i.category || "-"}</td>
+                                                <td className="py-2 pr-3 text-gray-500">
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
+                                                        {i.category || "Lainnya"}
+                                                    </span>
+                                                </td>
                                                 <td className="py-2 pr-3 text-right text-slate-700">
                                                     {formatNumber(i.total_needed)} {i.unit}
                                                 </td>
                                                 <td className="py-2 pr-3 text-right text-slate-700">
-                                                    {formatNumber(i.need_in_purchase_unit)} {i.purchase_unit}
+                                                    <span className="font-bold text-slate-900">
+                                                        {formatNumber(i.rounded_purchase_unit || Math.ceil(i.need_in_purchase_unit || 0))} {i.purchase_unit || (i.unit === 'gram' ? 'kg' : i.unit === 'ml' ? 'liter' : i.unit)}
+                                                    </span>
+                                                    {i.need_in_purchase_unit > 0 && i.need_in_purchase_unit !== i.rounded_purchase_unit && i.purchase_unit && (
+                                                        <span className="text-gray-400 text-[11px] ml-1 block font-normal">
+                                                            ({i.need_in_purchase_unit.toFixed(2)} {i.purchase_unit})
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="py-2 pr-3 text-right font-semibold text-slate-800">
                                                     {formatCurrency(i.estimated_cost)}
