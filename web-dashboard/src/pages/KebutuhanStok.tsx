@@ -57,7 +57,9 @@ export default function KebutuhanStok() {
         try {
             const payload = {
                 period_days: periodDays || 10,
-                targets: targets.map(t => ({ product_id: t.product_id, target_cup: t.target_cup || 0 })),
+                targets: targets
+                    .filter(t => (t.target_cup || 0) > 0)
+                    .map(t => ({ product_id: t.product_id, target_cup: Number(t.target_cup) })),
             }
             await RequirementService.saveTargets(payload)
             toast({ title: "Berhasil", description: "Target produksi tersimpan", variant: "success" })

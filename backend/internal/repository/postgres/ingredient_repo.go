@@ -57,10 +57,13 @@ func (r *ingredientRepository) Create(ingredient *entity.Ingredient) error {
 
 func (r *ingredientRepository) Update(ingredient *entity.Ingredient) error {
 	return r.db.Model(&models.Ingredient{}).Where("id = ?", ingredient.ID).Updates(map[string]interface{}{
-		"name":          ingredient.Name,
-		"unit":          ingredient.Unit,
-		"cost_per_unit": ingredient.CostPerUnit,
-		"min_stock":     ingredient.MinStock,
+		"name":               ingredient.Name,
+		"category":           ingredient.Category,
+		"unit":               ingredient.Unit,
+		"purchase_unit":      ingredient.PurchaseUnit,
+		"purchase_unit_size": ingredient.PurchaseUnitSize,
+		"cost_per_unit":      ingredient.CostPerUnit,
+		"min_stock":          ingredient.MinStock,
 	}).Error
 }
 

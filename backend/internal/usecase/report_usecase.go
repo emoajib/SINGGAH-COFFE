@@ -72,8 +72,8 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	activeOrders, _ := uc.orderRepo.CountByStatus("Pending", outletID...)
 	lowStockCount, _ := uc.ingredientRepo.CountLowStock(outletID...)
 
-	totalCogs, _ := uc.orderItemRepo.GetTotalCogsByStatus("Completed", outletID...)
-	totalExpenses, _ := uc.expenseRepo.GetTotal(outletID...)
+	totalCogs, _ := uc.orderItemRepo.GetTotalCogsSince("Completed", since, outletID...)
+	totalExpenses, _ := uc.expenseRepo.GetTotalSince(since, outletID...)
 
 	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, "%H:00", outletID...)
 	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "%d %b", outletID...)

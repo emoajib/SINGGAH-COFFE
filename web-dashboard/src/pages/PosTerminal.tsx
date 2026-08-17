@@ -36,6 +36,16 @@ interface Product {
     category: string;
     stock: number;
     image_url?: string;
+    recipe?: {
+        ingredient_id: number;
+        quantity: number;
+        ingredient?: {
+            id: number;
+            name: string;
+            current_stock: number;
+            unit: string;
+        };
+    }[];
 }
 
 interface CartItem extends Product {
@@ -298,7 +308,9 @@ const PosTerminal: React.FC = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-5">
                             {filteredProducts.map(product => {
                                 const cartItem = cart.find(i => i.id === product.id);
-                                const isOutOfStock = product.stock <= 0;
+                                const isOutOfStock = (product.recipe && product.recipe.length > 0)
+                                    ? product.recipe.some(r => r.ingredient && r.ingredient.current_stock < r.quantity)
+                                    : product.stock <= 0;
                                 return (
                                     <div
                                         key={product.id}
@@ -528,21 +540,38 @@ const PosTerminal: React.FC = () => {
                                         : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                                 }`}
                             >
-                                Uang Pas
+                                Uang Pas ({formatCurrency(total)})
                             </button>
-                            {[20000, 50000, 100000].map(nominal => (
-                                <button
-                                    key={nominal}
-                                    onClick={() => setCashAmount(nominal)}
-                                    className={`py-3 px-2 rounded-xl text-xs font-black transition-all border ${
-                                        cashAmount === nominal
-                                            ? 'bg-amber-700 text-white border-amber-700 shadow-md'
-                                            : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'
-                                    }`}
-                                >
-                                    {formatCurrency(nominal)}
-                                </button>
-                            ))}
+                            {(() => {
+                                const suggestions: number[] = [];
+                                const steps = [10000, 20000, 50000, 100000];
+                                for (const s of steps) {
+                                    const rounded = Math.ceil(total / s) * s;
+                                    if (rounded > total && !suggestions.includes(rounded)) {
+                                        suggestions.push(rounded);
+                                    }
+                                }
+                                const notes = [20000, 50000, 100000, 200000];
+                                for (const n of notes) {
+                                    if (n > total && !suggestions.includes(n)) {
+                                        suggestions.push(n);
+                                    }
+                                }
+                                const sorted = suggestions.sort((a, b) => a - b).slice(0, 3);
+                                return sorted.map(nominal => (
+                                    <button
+                                        key={nominal}
+                                        onClick={() => setCashAmount(nominal)}
+                                        className={`py-3 px-2 rounded-xl text-xs font-black transition-all border ${
+                                            cashAmount === nominal
+                                                ? 'bg-amber-700 text-white border-amber-700 shadow-md'
+                                                : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        {formatCurrency(nominal)}
+                                    </button>
+                                ));
+                            })()}
                         </div>
                     </div>
 
@@ -676,10 +705,6 @@ const PosTerminal: React.FC = () => {
                             <Zap className="w-4 h-4 mr-2" /> Buka Halaman QRIS
                         </Button>
                     )}
-                </div>
-
-                <div className="hidden">
-                    {lastOrder && <Receipt {...lastOrder} />}
                 </div>
             </Dialog>
 

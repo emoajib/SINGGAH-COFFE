@@ -104,7 +104,7 @@ func TestInventoryUsecase_UpdateIngredientSuccess(t *testing.T) {
 
 	created, _ := uc.CreateIngredient(&entity.Ingredient{Name: "Old", Unit: "gram", CurrentStock: 100, MinStock: 10, CostPerUnit: 50})
 
-	err := uc.UpdateIngredient(created.ID, "New Name", "kg", 100, 20)
+	err := uc.UpdateIngredient(created.ID, "New Name", "Kopi", "kg", "kg", 1000, 100, 20)
 
 	assert.NoError(t, err)
 
@@ -120,7 +120,7 @@ func TestInventoryUsecase_UpdateIngredientNotFound(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createInventoryUsecase(db)
 
-	err := uc.UpdateIngredient(999, "X", "pcs", 10, 5)
+	err := uc.UpdateIngredient(999, "X", "", "pcs", "pack", 100, 10, 5)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, errors.ErrNotFound)

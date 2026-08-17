@@ -110,6 +110,45 @@ func (r *productRepository) CreateRecipeItems(items []entity.RecipeItem) error {
 	return r.db.Create(&ms).Error
 }
 
+// RecalculateCosts recalculates and updates the HPP (Cost) for products using specific ingredients (or all if omitted).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *productRepository) RecalculateCosts(ingredientID ...uint) error {
+	query := r.db.Model(&models.RecipeItem{}).Where("deleted_at IS NULL")
+	if len(ingredientID) > 0 && ingredientID[0] > 0 {
+		query = query.Where("ingredient_id = ?", ingredientID[0])
+	}
+	var productIDs []uint
+	if err := query.Distinct().Pluck("product_id", &productIDs).Error; err != nil {
+		return err
+	}
+	if len(productIDs) == 0 {
+		return nil
+	}
+
+	for _, pid := range productIDs {
+		type itemCost struct {
+			Quantity    float64 `gorm:"column:quantity"`
+			CostPerUnit float64 `gorm:"column:cost_per_unit"`
+		}
+		var items []itemCost
+		err := r.db.Table("recipe_items AS ri").
+			Select("ri.quantity, i.cost_per_unit").
+			Joins("JOIN ingredients AS i ON i.id = ri.ingredient_id AND i.deleted_at IS NULL").
+			Where("ri.product_id = ? AND ri.deleted_at IS NULL", pid).
+			Scan(&items).Error
+		if err != nil {
+			continue
+		}
+
+		var totalCost float64
+		for _, it := range items {
+			totalCost += it.Quantity * it.CostPerUnit
+		}
+		r.db.Model(&models.Product{}).Where("id = ?", pid).Update("cost", totalCost)
+	}
+	return nil
+}
+
 func toDomainProduct(m *models.Product) *entity.Product {
 	p := &entity.Product{
 		ID:          m.ID,

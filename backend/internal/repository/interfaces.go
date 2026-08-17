@@ -27,6 +27,7 @@ type ProductRepository interface {
 	Delete(id uint) error
 	DeleteRecipeByProductID(productID uint) error
 	CreateRecipeItems(items []entity.RecipeItem) error
+	RecalculateCosts(ingredientID ...uint) error
 }
 
 // IngredientRepository defines data access for ingredients
@@ -71,6 +72,7 @@ type OrderRepository interface {
 type OrderItemRepository interface {
 	Create(items []entity.OrderItem) error
 	GetTotalCogsByStatus(status string, outletID ...uint) (float64, error)
+	GetTotalCogsSince(status, since string, outletID ...uint) (float64, error)
 	GetTotalCogsRange(start, end string, outletID ...uint) (float64, error)
 	GetCategoryBreakdown(outletID ...uint) ([]entity.CatBreakdown, error)
 	GetTopProducts(limit int, outletID ...uint) ([]entity.TopProduct, error)
@@ -86,6 +88,7 @@ type ExpenseRepository interface {
 	Update(expense *entity.Expense) error
 	Delete(id uint) error
 	GetTotal(outletID ...uint) (float64, error)
+	GetTotalSince(since string, outletID ...uint) (float64, error)
 	GetBreakdownRange(start, end string, outletID ...uint) ([]entity.ExpenseDetail, error)
 	// BEP
 	GetTotalByCostType(costType, start, end string, outletID ...uint) (float64, error)

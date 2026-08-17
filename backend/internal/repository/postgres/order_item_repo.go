@@ -47,6 +47,17 @@ func (r *orderItemRepository) GetTotalCogsByStatus(status string, outletID ...ui
 	return total, err
 }
 
+func (r *orderItemRepository) GetTotalCogsSince(status, since string, outletID ...uint) (float64, error) {
+	ow, args := outletWhere("orders", outletID...)
+	var total float64
+	err := r.db.Model(&models.OrderItem{}).
+		Joins("JOIN orders ON orders.id = order_items.order_id").
+		Where("orders.status = ? AND orders.created_at >= ?"+ow, append([]interface{}{status, since}, args...)...).
+		Select("COALESCE(SUM(order_items.cost * order_items.quantity), 0)").
+		Row().Scan(&total)
+	return total, err
+}
+
 func (r *orderItemRepository) GetTotalCogsRange(start, end string, outletID ...uint) (float64, error) {
 	ow, args := outletWhere("orders", outletID...)
 	baseArgs := []interface{}{start, end, "Completed"}

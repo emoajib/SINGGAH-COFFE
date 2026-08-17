@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"fmt"
+
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 
@@ -34,10 +36,17 @@ func (r *productionTargetRepository) FindAll(outletID ...uint) ([]entity.Product
 }
 
 func (r *productionTargetRepository) FindAllWithProduct(outletID ...uint) ([]entity.ProductionTargetDetail, error) {
-	tx := r.db.Table("production_targets AS pt").
-		Select("pt.product_id, pt.target_cup, p.name AS product_name").
-		Joins("JOIN products AS p ON p.id = pt.product_id")
-	tx = scopeOutlet(tx, "pt", outletID...)
+	tx := r.db.Table("products AS p").
+		Select("p.id AS product_id, p.name AS product_name, COALESCE(pt.target_cup, 0) AS target_cup").
+		Joins("LEFT JOIN production_targets AS pt ON pt.product_id = p.id AND pt.deleted_at IS NULL" +
+			func() string {
+				if len(outletID) > 0 && outletID[0] > 0 {
+					return fmt.Sprintf(" AND pt.outlet_id = %d", outletID[0])
+				}
+				return ""
+			}()).
+		Where("p.deleted_at IS NULL").
+		Order("p.name ASC")
 	type row struct {
 		ProductID   uint    `gorm:"column:product_id"`
 		ProductName string  `gorm:"column:product_name"`

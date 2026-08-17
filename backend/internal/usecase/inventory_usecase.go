@@ -14,6 +14,7 @@ import (
 type InventoryUsecase struct {
 	db             *gorm.DB
 	ingredientRepo repository.IngredientRepository
+	productRepo    repository.ProductRepository
 	mutationRepo   repository.StockMutationRepository
 	expenseRepo    repository.ExpenseRepository
 	settingRepo    repository.SettingRepository
@@ -23,6 +24,7 @@ func NewInventoryUsecase(db *gorm.DB) *InventoryUsecase {
 	return &InventoryUsecase{
 		db:             db,
 		ingredientRepo: postgres.NewIngredientRepository(db),
+		productRepo:    postgres.NewProductRepository(db),
 		mutationRepo:   postgres.NewStockMutationRepository(db),
 		expenseRepo:    postgres.NewExpenseRepository(db),
 		settingRepo:    postgres.NewSettingRepository(db),
@@ -141,24 +143,38 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			if err := ingredientRepo.UpdateCostPerUnit(ingredientID, newCost); err != nil {
 				return err
 			}
+			productRepo := postgres.NewProductRepository(tx)
+			_ = productRepo.RecalculateCosts(ingredientID)
 		}
 
 		return nil
 	})
 }
 
-func (uc *InventoryUsecase) UpdateIngredient(id uint, name, unit string, costPerUnit, minStock float64) error {
+func (uc *InventoryUsecase) UpdateIngredient(id uint, name, category, unit, purchaseUnit string, purchaseUnitSize, costPerUnit, minStock float64) error {
 	ingredient, err := uc.ingredientRepo.FindByID(id)
 	if err != nil {
 		return domainErrors.NewNotFoundError("ingredient")
 	}
 
+	oldCost := ingredient.CostPerUnit
 	ingredient.Name = name
+	ingredient.Category = category
 	ingredient.Unit = unit
+	ingredient.PurchaseUnit = purchaseUnit
+	ingredient.PurchaseUnitSize = purchaseUnitSize
 	ingredient.CostPerUnit = costPerUnit
 	ingredient.MinStock = minStock
 
-	return uc.ingredientRepo.Update(ingredient)
+	if err := uc.ingredientRepo.Update(ingredient); err != nil {
+		return err
+	}
+
+	if oldCost != costPerUnit {
+		_ = uc.productRepo.RecalculateCosts(id)
+	}
+
+	return nil
 }
 
 func (uc *InventoryUsecase) GetLowStockAlerts(outletID ...uint) ([]entity.IngredientResponse, error) {

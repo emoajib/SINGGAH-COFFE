@@ -71,18 +71,24 @@ type CreateOrderRequest struct {
 }
 
 type CreateIngredientRequest struct {
-	Name         string  `json:"name" binding:"required"`
-	Unit         string  `json:"unit" binding:"required"`
-	CurrentStock float64 `json:"current_stock" binding:"gte=0"`
-	MinStock     float64 `json:"min_stock" binding:"gte=0"`
-	CostPerUnit  float64 `json:"cost_per_unit" binding:"required,gt=0"`
+	Name             string  `json:"name" binding:"required"`
+	Category         string  `json:"category"`
+	Unit             string  `json:"unit" binding:"required"`
+	PurchaseUnit     string  `json:"purchase_unit"`
+	PurchaseUnitSize float64 `json:"purchase_unit_size" binding:"gte=0"`
+	CurrentStock     float64 `json:"current_stock" binding:"gte=0"`
+	MinStock         float64 `json:"min_stock" binding:"gte=0"`
+	CostPerUnit      float64 `json:"cost_per_unit" binding:"required,gt=0"`
 }
 
 type UpdateIngredientRequest struct {
-	Name        string  `json:"name" binding:"required"`
-	Unit        string  `json:"unit" binding:"required"`
-	MinStock    float64 `json:"min_stock" binding:"gte=0"`
-	CostPerUnit float64 `json:"cost_per_unit" binding:"required,gt=0"`
+	Name             string  `json:"name" binding:"required"`
+	Category         string  `json:"category"`
+	Unit             string  `json:"unit" binding:"required"`
+	PurchaseUnit     string  `json:"purchase_unit"`
+	PurchaseUnitSize float64 `json:"purchase_unit_size" binding:"gte=0"`
+	MinStock         float64 `json:"min_stock" binding:"gte=0"`
+	CostPerUnit      float64 `json:"cost_per_unit" binding:"required,gt=0"`
 }
 
 type StockMutationRequest struct {

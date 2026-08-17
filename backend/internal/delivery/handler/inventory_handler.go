@@ -51,11 +51,14 @@ func (h *InventoryHandler) CreateIngredient(c *gin.Context) {
 	}
 
 	ingredient := &entity.Ingredient{
-		Name:         req.Name,
-		Unit:         req.Unit,
-		CurrentStock: req.CurrentStock,
-		MinStock:     req.MinStock,
-		CostPerUnit:  req.CostPerUnit,
+		Name:             req.Name,
+		Category:         req.Category,
+		Unit:             req.Unit,
+		PurchaseUnit:     req.PurchaseUnit,
+		PurchaseUnitSize: req.PurchaseUnitSize,
+		CurrentStock:     req.CurrentStock,
+		MinStock:         req.MinStock,
+		CostPerUnit:      req.CostPerUnit,
 	}
 
 	result, err := h.inventoryUsecase.CreateIngredient(ingredient, getOutletID(c))
@@ -80,7 +83,7 @@ func (h *InventoryHandler) UpdateIngredient(c *gin.Context) {
 		return
 	}
 
-	if err := h.inventoryUsecase.UpdateIngredient(uint(id), req.Name, req.Unit, req.CostPerUnit, req.MinStock); err != nil {
+	if err := h.inventoryUsecase.UpdateIngredient(uint(id), req.Name, req.Category, req.Unit, req.PurchaseUnit, req.PurchaseUnitSize, req.CostPerUnit, req.MinStock); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update ingredient"})
 		return
 	}

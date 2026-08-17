@@ -5,7 +5,10 @@ import { getImageUrl, formatNumber } from '../../lib/utils'
 interface Ingredient {
     id: number;
     name: string;
+    category: string;
     unit: string;
+    purchase_unit: string;
+    purchase_unit_size: number;
     current_stock: number;
     min_stock: number;
     cost_per_unit: number;

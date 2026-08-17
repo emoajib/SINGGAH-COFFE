@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"math"
+	"sort"
 	"strconv"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -116,23 +117,26 @@ func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.Requi
 					Category:     ing.Category,
 					Unit:         ing.Unit,
 					TotalNeeded:  totalNeed,
-					PurchaseUnit: ing.PurchaseUnit,
+					PurchaseUnit:     ing.PurchaseUnit,
 					PurchaseUnitSize: ing.PurchaseUnitSize,
-					EstimatedCost: totalNeed * ing.CostPerUnit,
 				}
 			}
 		}
 
 		menus = append(menus, entity.RequirementMenu{
-			ProductID: prod.ID,
+			ProductID:   prod.ID,
 			ProductName: prod.Name,
-			TargetCup: target,
-			Items: items,
+			TargetCup:   target,
+			Items:       items,
 		})
 	}
 
 	if menus == nil {
 		menus = []entity.RequirementMenu{}
+	} else {
+		sort.Slice(menus, func(i, j int) bool {
+			return menus[i].ProductName < menus[j].ProductName
+		})
 	}
 
 	var ingResults []entity.RequirementIngredient
@@ -148,6 +152,13 @@ func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.Requi
 	}
 	if ingResults == nil {
 		ingResults = []entity.RequirementIngredient{}
+	} else {
+		sort.Slice(ingResults, func(i, j int) bool {
+			if ingResults[i].Category != ingResults[j].Category {
+				return ingResults[i].Category < ingResults[j].Category
+			}
+			return ingResults[i].Name < ingResults[j].Name
+		})
 	}
 
 	avgCupPerDay := 0.0

@@ -80,6 +80,14 @@ func (r *expenseRepository) GetTotal(outletID ...uint) (float64, error) {
 	return total, err
 }
 
+func (r *expenseRepository) GetTotalSince(since string, outletID ...uint) (float64, error) {
+	tx := r.db.Model(&models.Expense{}).Where("date >= ?", since).Select("COALESCE(SUM(amount), 0)")
+	tx = scopeOutlet(tx, "expenses", outletID...)
+	var total float64
+	err := tx.Row().Scan(&total)
+	return total, err
+}
+
 func (r *expenseRepository) GetBreakdownRange(start, end string, outletID ...uint) ([]entity.ExpenseDetail, error) {
 	tx := r.db.Model(&models.Expense{}).
 		Where("date BETWEEN ? AND ?", start, end)

@@ -15,7 +15,9 @@ import { IngredientsTable } from '../components/products/IngredientsTable';
 import { ProductFormModal } from '../components/products/ProductFormModal';
 
 interface Ingredient {
-    id: number; name: string; unit: string; current_stock: number; min_stock: number; cost_per_unit: number;
+    id: number; name: string; category: string; unit: string;
+    purchase_unit: string; purchase_unit_size: number;
+    current_stock: number; min_stock: number; cost_per_unit: number;
 }
 
 interface RecipeItem {

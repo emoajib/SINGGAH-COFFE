@@ -16,7 +16,10 @@ import { Badge } from "../ui/badge";
 interface Ingredient {
     id: number;
     name: string;
+    category: string;
     unit: string;
+    purchase_unit: string;
+    purchase_unit_size: number;
     cost_per_unit: number;
 }
 
