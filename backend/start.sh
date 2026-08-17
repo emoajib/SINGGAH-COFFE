@@ -6,8 +6,15 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # metacharacters (@ $ ( ) & ? =) that make `source` abort with a syntax
 # error, leaving DATABASE_URL/JWT_SECRET unset and crashing start-up.
 # Parse KEY=value lines line-by-line so special characters are safe.
+# Check both root and backend/ subfolder for .env
 load_env_file() {
-  [ -f "$SCRIPT_DIR/.env" ] || return 0
+  if [ -f "$SCRIPT_DIR/.env" ]; then
+    ENV_PATH="$SCRIPT_DIR/.env"
+  elif [ -f "$SCRIPT_DIR/backend/.env" ]; then
+    ENV_PATH="$SCRIPT_DIR/backend/.env"
+  else
+    return 0
+  fi
   set -a
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in ''|\#*) continue ;; esac
@@ -19,7 +26,7 @@ load_env_file() {
       \'*\') value="${value#\'}"; value="${value%\'}" ;;
     esac
     [ -n "$name" ] && export "$name=${value}" 2>/dev/null || true
-  done < "$SCRIPT_DIR/.env"
+  done < "$ENV_PATH"
   set +a
 }
 load_env_file
@@ -36,8 +43,10 @@ export GOMEMLIMIT=200MiB
 
 cd "$SCRIPT_DIR"
 if [ -x "$SCRIPT_DIR/singgah-backend" ]; then
-  exec "./singgah-backend"
+  exec "$SCRIPT_DIR/singgah-backend"
+elif [ -x "$SCRIPT_DIR/backend/singgah-backend" ]; then
+  exec "$SCRIPT_DIR/backend/singgah-backend"
 else
-  echo "ERROR: singgah-backend binary not found in $SCRIPT_DIR" >&2
+  echo "ERROR: singgah-backend binary not found in $SCRIPT_DIR or $SCRIPT_DIR/backend" >&2
   exit 1
 fi
