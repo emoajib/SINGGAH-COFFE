@@ -196,6 +196,14 @@ else
     exit 1
 fi
 
+# Ensure uploads static link in public_html
+mkdir -p "$PROJ_DIR/uploads/products" "$PROJ_DIR/uploads/logo"
+chmod -R 755 "$PROJ_DIR/uploads" 2>/dev/null || true
+if [ ! -L "$WEB_DIR/uploads" ] && [ ! -d "$WEB_DIR/uploads" ]; then
+    ln -s "$PROJ_DIR/uploads" "$WEB_DIR/uploads" 2>/dev/null || cp -r "$PROJ_DIR/uploads" "$WEB_DIR/" 2>/dev/null || true
+fi
+chmod -R 755 "$WEB_DIR/uploads" 2>/dev/null || true
+
 echo ""
 echo "=== ✅ Deploy complete! ==="
 echo "Backend: http://localhost:8080"

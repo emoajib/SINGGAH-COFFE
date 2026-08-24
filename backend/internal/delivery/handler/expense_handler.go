@@ -37,11 +37,20 @@ func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 		return
 	}
 
+	costType := req.CostType
+	if costType == "" {
+		if req.Category == "Salary" || req.Category == "Maintenance" {
+			costType = "fixed"
+		} else {
+			costType = "variable"
+		}
+	}
+
 	expense := &entity.Expense{
 		Title:       req.Title,
 		Amount:      req.Amount,
 		Category:    req.Category,
-		CostType:    req.CostType,
+		CostType:    costType,
 		Date:        parseDate(req.Date),
 		Description: req.Description,
 		Notes:       req.Notes,
@@ -70,11 +79,20 @@ func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 		return
 	}
 
+	costType := req.CostType
+	if costType == "" {
+		if req.Category == "Salary" || req.Category == "Maintenance" {
+			costType = "fixed"
+		} else {
+			costType = "variable"
+		}
+	}
+
 	expense := &entity.Expense{
 		Title:       req.Title,
 		Amount:      req.Amount,
 		Category:    req.Category,
-		CostType:    req.CostType,
+		CostType:    costType,
 		Date:        parseDate(req.Date),
 		Description: req.Description,
 		Notes:       req.Notes,

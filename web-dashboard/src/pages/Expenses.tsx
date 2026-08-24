@@ -27,6 +27,7 @@ export default function Expenses() {
         title: "",
         amount: 0,
         category: "Operational",
+        cost_type: "variable",
         description: "",
         date: new Date().toISOString().split('T')[0]
     })
@@ -43,6 +44,7 @@ export default function Expenses() {
             title: "",
             amount: 0,
             category: "Operational",
+            cost_type: "variable",
             description: "",
             date: new Date().toISOString().split('T')[0]
         })
@@ -55,6 +57,7 @@ export default function Expenses() {
             title: exp.title,
             amount: exp.amount,
             category: exp.category,
+            cost_type: exp.cost_type || "variable",
             description: exp.description,
             date: new Date(exp.date).toISOString().split('T')[0]
         })
@@ -255,7 +258,11 @@ export default function Expenses() {
                             <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={formData.category}
-                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                onChange={(e) => {
+                                    const cat = e.target.value;
+                                    const autoCost = (cat === 'Salary' || cat === 'Maintenance') ? 'fixed' : 'variable';
+                                    setFormData({ ...formData, category: cat, cost_type: autoCost });
+                                }}
                             >
                                 <option value="Operational">Operasional</option>
                                 <option value="Marketing">Pemasaran</option>
@@ -265,13 +272,26 @@ export default function Expenses() {
                             </select>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Tanggal</label>
-                        <Input
-                            type="date"
-                            value={formData.date}
-                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Tanggal</label>
+                            <Input
+                                type="date"
+                                value={formData.date}
+                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Tipe Biaya (BEP)</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={formData.cost_type || "variable"}
+                                onChange={(e) => setFormData({ ...formData, cost_type: e.target.value as any })}
+                            >
+                                <option value="variable">Variabel (Harian/Operasional)</option>
+                                <option value="fixed">Tetap (Sewa/Gaji/Rutin)</option>
+                            </select>
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Deskripsi</label>

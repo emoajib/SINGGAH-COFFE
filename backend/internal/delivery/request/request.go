@@ -106,7 +106,7 @@ type CreateExpenseRequest struct {
 	Title       string  `json:"title" binding:"required"`
 	Amount      float64 `json:"amount" binding:"required,gt=0"`
 	Category    string  `json:"category" binding:"required"`
-	CostType    string  `json:"cost_type" binding:"required,oneof=fixed variable"`
+	CostType    string  `json:"cost_type" binding:"omitempty,oneof=fixed variable"`
 	Date        string  `json:"date" binding:"required"`
 	Description string  `json:"description"`
 	Notes       string  `json:"notes"`
