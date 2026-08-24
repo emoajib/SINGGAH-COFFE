@@ -231,3 +231,38 @@ func TestOrderUsecase_CreateInsufficientStock(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, errors.ErrInsufficientStock)
 }
+
+func TestOrderUsecase_CompletePayment(t *testing.T) {
+	db := setupOrderTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createOrderUsecase(db)
+
+	ing := &entity.Ingredient{Name: "Kopi", Unit: "gram", CurrentStock: 500, MinStock: 50, CostPerUnit: 20}
+	db.Create(ing)
+
+	prodID := seedProductWithRecipe(db, "Kopi Hitam", "KH-001", 12000, ing.ID, 15)
+
+	created, err := uc.Create(CreateOrderRequest{
+		OrderNumber:   "ORD-QRIS-TEST-001",
+		PaymentMethod: "QRIS",
+		CashierName:   "Kasir Ari",
+		Items: []struct {
+			ProductID uint `json:"product_id"`
+			Quantity  int  `json:"quantity"`
+		}{
+			{ProductID: prodID, Quantity: 1},
+		},
+	}, 1, "Kasir Ari")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "Pending", created.Order.Status)
+	assert.Equal(t, "Unpaid", created.Order.PaymentStatus)
+
+	// Complete payment manually
+	completed, err := uc.CompletePayment(created.Order.ID)
+	assert.NoError(t, err)
+	assert.NotNil(t, completed)
+	assert.Equal(t, "Completed", completed.Status)
+	assert.Equal(t, "Paid", completed.PaymentStatus)
+}
+

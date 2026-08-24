@@ -87,3 +87,20 @@ func (h *OrderHandler) VoidOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Order voided successfully and stock restored", "order": result})
 }
 
+func (h *OrderHandler) CompleteOrder(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
+
+	result, err := h.orderUsecase.CompletePayment(uint(id), getOutletID(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to complete order payment: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Order marked as completed and paid", "order": result})
+}
+
+

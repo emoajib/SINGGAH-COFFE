@@ -71,6 +71,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			// Orders
 			protected.GET("/orders", h.Order.GetOrders)
 			protected.POST("/orders", h.Order.CreateOrder)
+			protected.POST("/orders/:id/complete", h.Order.CompleteOrder)
 			protected.POST("/orders/:id/void", middleware.RoleMiddleware("owner", "manager"), h.Order.VoidOrder)
 
 			// Inventory

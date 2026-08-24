@@ -17,7 +17,12 @@ export function useCreateOrder() {
   return useMutation({
     mutationFn: (data: CreateOrderRequest) =>
       api.post<Order>('/orders', data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['profit-loss'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+    },
   })
 }
 
@@ -25,6 +30,25 @@ export function useVoidOrder() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => api.post(`/orders/${id}/void`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['profit-loss'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+    },
   })
 }
+
+export function useCompleteOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.post(`/orders/${id}/complete`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['profit-loss'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+    },
+  })
+}
+

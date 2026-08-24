@@ -279,3 +279,26 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 	resp := updated.ToResponse()
 	return &resp, nil
 }
+
+// CompletePayment marks a pending/unpaid order as paid and completed manually.
+func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.OrderResponse, error) {
+	order, err := uc.orderRepo.FindByIDWithItems(id)
+	if err != nil {
+		return nil, domainErrors.NewNotFoundError("order")
+	}
+
+	if order.Status == "Void" {
+		return nil, domainErrors.ErrOrderAlreadyVoided
+	}
+
+	order.PaymentStatus = "Paid"
+	order.Status = "Completed"
+
+	if err := uc.orderRepo.Update(order); err != nil {
+		return nil, err
+	}
+
+	resp := order.ToResponse()
+	return &resp, nil
+}
+

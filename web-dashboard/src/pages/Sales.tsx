@@ -4,8 +4,8 @@ import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2 } from "lucide-react"
-import { useOrders, useVoidOrder } from "../hooks/useOrders"
+import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2, CheckCircle2 } from "lucide-react"
+import { useOrders, useVoidOrder, useCompleteOrder } from "../hooks/useOrders"
 import { useToast } from "../hooks/use-toast"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
@@ -22,6 +22,19 @@ export default function Sales() {
 
     const { data: orders = [], isLoading: loading, refetch } = useOrders()
     const voidOrder = useVoidOrder()
+    const completeOrder = useCompleteOrder()
+
+    const handleComplete = async (id: number) => {
+        try {
+            await completeOrder.mutateAsync(id)
+            toast({ title: "Berhasil", description: "Pembayaran berhasil dikonfirmasi Lunas!", variant: "success" })
+            if (selectedTx && selectedTx.id === id) {
+                setSelectedTx((prev: any) => prev ? { ...prev, status: 'Completed', payment_status: 'Paid' } : null)
+            }
+        } catch (error: any) {
+            toast({ title: "Gagal", description: error.response?.data?.error || "Gagal konfirmasi pembayaran", variant: "error" })
+        }
+    }
 
     const handleVoid = async (id: number) => {
         if (!window.confirm("Are you sure you want to void this transaction? This cannot be undone.")) return
@@ -117,7 +130,18 @@ export default function Sales() {
                                                         {order.status === 'Completed' ? 'Selesai' : order.status === 'Void' ? 'Dibatalkan' : 'Pending'}
                                                     </Badge>
                                                 </td>
-                                                <td className="px-6 py-4 text-right flex justify-end gap-2">
+                                                <td className="px-6 py-4 text-right flex justify-end items-center gap-2">
+                                                    {order.status === 'Pending' && (
+                                                        <Button
+                                                            size="sm"
+                                                            className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1 px-2.5 shadow-sm"
+                                                            title="Konfirmasi Lunas / Selesaikan Pembayaran"
+                                                            onClick={() => handleComplete(order.id)}
+                                                        >
+                                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                                            <span className="hidden sm:inline">Lunas</span>
+                                                        </Button>
+                                                    )}
                                                     <Button
                                                         size="icon"
                                                         variant="ghost"
@@ -164,6 +188,14 @@ export default function Sales() {
                 footer={
                     <>
                         <Button variant="outline" className="w-full sm:w-auto" onClick={() => setSelectedTx(null)}>Tutup</Button>
+                        {selectedTx?.status === 'Pending' && (
+                            <Button
+                                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold"
+                                onClick={() => handleComplete(selectedTx.id)}
+                            >
+                                <CheckCircle2 className="w-4 h-4" /> Tandai Lunas (Selesaikan)
+                            </Button>
+                        )}
                         {user?.role === 'owner' && (
                             <Button variant="default" className="w-full sm:w-auto gap-2 opacity-50 cursor-not-allowed">
                                 <Printer className="w-4 h-4" /> Cetak Struk Fisik

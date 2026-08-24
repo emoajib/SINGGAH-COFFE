@@ -22,7 +22,7 @@ import { Input } from "../components/ui/input"
 import Receipt from "../components/pos/Receipt"
 import { getImageUrl, formatCurrency } from "../lib/utils"
 import { useProducts } from '../hooks/useProducts'
-import { useCreateOrder } from '../hooks/useOrders'
+import { useCreateOrder, useCompleteOrder } from '../hooks/useOrders'
 import { useSettings } from '../hooks/useSettings'
 import { CashRegisterService } from "../services/cashRegisterService"
 import { useDispatch, useSelector } from "react-redux"
@@ -82,6 +82,7 @@ const PosTerminal: React.FC = () => {
     const products: Product[] = dbProducts;
     const { data: settingsArr, error: settingsError } = useSettings();
     const createOrder = useCreateOrder();
+    const completeOrder = useCompleteOrder();
 
     useEffect(() => {
         if (settingsArr) {
@@ -201,6 +202,16 @@ const PosTerminal: React.FC = () => {
             alert('Checkout gagal: ' + (error.response?.data?.error || error.message));
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleCompleteLastOrder = async () => {
+        if (!lastOrder?.id) return;
+        try {
+            await completeOrder.mutateAsync(lastOrder.id);
+            setLastOrder((prev: any) => prev ? { ...prev, payment_status: 'Paid', status: 'Completed' } : null);
+        } catch (e: any) {
+            alert('Gagal konfirmasi lunas: ' + (e.response?.data?.error || e.message));
         }
     };
 
@@ -697,13 +708,24 @@ const PosTerminal: React.FC = () => {
                         </div>
                     )}
 
-                    {invoiceUrl && lastOrder?.payment_status === 'Unpaid' && (
-                        <Button
-                            className="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold mb-4"
-                            onClick={() => window.open(invoiceUrl, '_blank')}
-                        >
-                            <Zap className="w-4 h-4 mr-2" /> Buka Halaman QRIS
-                        </Button>
+                    {lastOrder?.payment_status === 'Unpaid' && (
+                        <div className="space-y-2 mb-4">
+                            <Button
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 py-3 shadow-md"
+                                onClick={handleCompleteLastOrder}
+                            >
+                                <CheckCircle2 className="w-5 h-5" /> Konfirmasi Pembayaran Lunas
+                            </Button>
+                            {invoiceUrl && (
+                                <Button
+                                    variant="outline"
+                                    className="w-full text-amber-800 border-amber-300 hover:bg-amber-50 font-bold"
+                                    onClick={() => window.open(invoiceUrl, '_blank')}
+                                >
+                                    <Zap className="w-4 h-4 mr-2" /> Buka Halaman QRIS
+                                </Button>
+                            )}
+                        </div>
                     )}
                 </div>
             </Dialog>
