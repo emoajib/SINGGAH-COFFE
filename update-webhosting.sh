@@ -87,27 +87,27 @@ fi
 # --- Step 2: Download deploy.tar.gz from latest GitHub release ---
 echo "📥 Fetching latest deploy package from GitHub Releases..."
 TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
-RELEASE_URL=$(curl -sL --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFE/releases?per_page=10" \
-    | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' \
-    | head -1 \
-    | sed 's/"browser_download_url":"//;s/"$//')
-# Fallback: try jq if available (more reliable JSON parsing)
-if [ -z "$RELEASE_URL" ] && command -v jq &>/dev/null; then
-    RELEASE_URL=$(curl -sL --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFE/releases?per_page=10" \
-        | jq -r '.[].assets[]? | select(.name == "deploy.tar.gz") | .browser_download_url' \
-        | head -1)
+
+# Try direct latest release first, fallback to releases API
+RELEASE_URL=""
+RELEASES_JSON=$(curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFE/releases?per_page=10" 2>/dev/null || true)
+if [ -n "$RELEASES_JSON" ]; then
+    RELEASE_URL=$(echo "$RELEASES_JSON" | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' | head -1 | sed 's/"browser_download_url":"//;s/"$//' || true)
 fi
 
-if [ -n "$RELEASE_URL" ]; then
-    echo "   → Downloading: $RELEASE_URL"
-    curl -sL --max-time 120 "$RELEASE_URL" -o "$TMP_DIR/deploy.tar.gz"
+# Direct fallback if API rate-limited
+if [ -z "$RELEASE_URL" ]; then
+    RELEASE_URL="https://github.com/emoajib/SINGGAH-COFFE/releases/latest/download/deploy.tar.gz"
+fi
+
+echo "   → Downloading from: $RELEASE_URL"
+if curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 180 "$RELEASE_URL" -o "$TMP_DIR/deploy.tar.gz" 2>/dev/null && [ -s "$TMP_DIR/deploy.tar.gz" ]; then
     echo "📦 Extracting deploy.tar.gz..."
     tar -xzf "$TMP_DIR/deploy.tar.gz" -C "$TMP_DIR"
     
     # Copy backend binary (preserve server's existing start.sh & .env)
     cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend 2>/dev/null || true
     chmod +x backend/singgah-backend 2>/dev/null || true
-    # Only copy .env if missing to protect existing database credentials
     if [ ! -f "backend/.env" ] && [ -f "$TMP_DIR/backend/.env" ]; then
         cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
     fi
@@ -124,8 +124,8 @@ if [ -n "$RELEASE_URL" ]; then
     cp -rf "$TMP_DIR/scripts" scripts/ 2>/dev/null || true
     
     rm -rf "$TMP_DIR"
- else
-    echo "⚠️  No deploy.tar.gz release found. Falling back to local packages..."
+else
+    echo "⚠️  Download from GitHub Releases failed. Falling back to local packages..."
     
     # Priority 1: web-fixed.zip (frontend-only, most recent)
     if [ -f "$PROJ_DIR/web-fixed.zip" ]; then
