@@ -34,7 +34,7 @@ Sistem MOKA POS for Singgah Coffee — Go backend + React/Vite frontend, MariaDB
 ### 3. CI Checks
 - **Test workflow** (`test.yml`): Go tests on push/PR to `main`
 - **CI workflow** (`main.yml`): Backend build + tests, Frontend npm build, Integration test
-- Check results: `curl -s -H "Accept: application/vnd.github+json" "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/actions/runs?per_page=3"`
+- Check results: `curl -s -H "Accept: application/vnd.github+json" "https://api.github.com/repos/emoajib/singgah-coffe/actions/runs?per_page=3"`
 
 ### 4. Deploy to Webhosting
 #### Build steps:

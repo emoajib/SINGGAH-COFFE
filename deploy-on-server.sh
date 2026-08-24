@@ -2,7 +2,7 @@
 set -e
 
 PROJ_DIR="$HOME/singgah-pos"
-REPO_URL="https://github.com/emoajib/SINGGAH-COFFEE.git"
+REPO_URL="https://github.com/emoajib/singgah-coffe.git"
 WEB_DIR="$HOME/public_html"
 BACKEND_BIN="singgah-backend"
 
@@ -28,7 +28,7 @@ if npm run build -- --minify=false 2>&1 | tail -3; then
 else
     echo "⚠️ Build gagal di server. Download pre-built dari GitHub Release..."
     cd "$PROJ_DIR/web-dashboard"
-    wget -q "https://github.com/emoajib/SINGGAH-COFFEE/releases/download/v1.0.0-security/singgah-frontend.tar.gz" -O /tmp/frontend.tar.gz
+    wget -q "https://github.com/emoajib/singgah-coffe/releases/download/v1.0.0-security/singgah-frontend.tar.gz" -O /tmp/frontend.tar.gz
     mkdir -p dist && tar -xzf /tmp/frontend.tar.gz -C dist --strip-components=0
     rm -f /tmp/frontend.tar.gz
     cp -r dist/* "$WEB_DIR/"

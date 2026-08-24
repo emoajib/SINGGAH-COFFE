@@ -16,8 +16,8 @@ set -euo pipefail
 
 PROJ_DIR="$HOME/singgah-pos"
 WEB_DIR="$HOME/public_html"
-REPO_SSH="git@github.com:emoajib/SINGGAH-COFFE.git"
-REPO_HTTPS="https://github.com/emoajib/SINGGAH-COFFE.git"
+REPO_SSH="git@github.com:emoajib/singgah-coffe.git"
+REPO_HTTPS="https://github.com/emoajib/singgah-coffe.git"
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 
 echo "=== Singgah POS Auto-Update ==="
@@ -35,7 +35,7 @@ if [ ! -d "$PROJ_DIR/.git" ]; then
     echo "📋 Repo not found. Cloning..."
     if [ -n "$TOKEN" ]; then
         # Clone via HTTPS with token (non-interactive)
-        git clone "https://oauth2:${TOKEN}@github.com/emoajib/SINGGAH-COFFE.git" "$PROJ_DIR"
+        git clone "https://oauth2:${TOKEN}@github.com/emoajib/singgah-coffe.git" "$PROJ_DIR"
     elif ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
         git clone "$REPO_SSH" "$PROJ_DIR"
     else
@@ -94,9 +94,9 @@ TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
 #      "releases/latest 404 → stale prerelease binary" failure mode.
 #   2) Newest release from the API list (fallback if /latest isn't published yet).
 CANDIDATE_URLS=()
-CANDIDATE_URLS+=("https://github.com/emoajib/SINGGAH-COFFEE/releases/latest/download/deploy.tar.gz")
+CANDIDATE_URLS+=("https://github.com/emoajib/singgah-coffe/releases/latest/download/deploy.tar.gz")
 
-RELEASES_JSON=$(curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" 2>/dev/null || true)
+RELEASES_JSON=$(curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/singgah-coffe/releases?per_page=10" 2>/dev/null || true)
 if [ -n "$RELEASES_JSON" ]; then
     API_URL=$(echo "$RELEASES_JSON" | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' | head -1 | sed 's/"browser_download_url":"//;s/"$//' || true)
     [ -n "$API_URL" ] && CANDIDATE_URLS+=("$API_URL")

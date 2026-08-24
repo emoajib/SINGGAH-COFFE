@@ -44,7 +44,7 @@
 1. `git add -A && git commit -m "feat/describe: what changed"`
 2. `git checkout main && git merge <branch> --no-edit`
 3. `git push origin main`
-4. Wait for GitHub Actions CI (Test + Singgah POS CI) — check: `curl -s -H "Accept: application/vnd.github+json" "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/actions/runs?per_page=3"`
+4. Wait for GitHub Actions CI (Test + Singgah POS CI) — check: `curl -s -H "Accept: application/vnd.github+json" "https://api.github.com/repos/emoajib/singgah-coffe/actions/runs?per_page=3"`
 5. If CI passes → create deploy package: `tar -czf deploy.tar.gz -C deploy .`
 6. If CI fails → fix, re-commit, re-push
 7. Upload `deploy.tar.gz` to `/home/sosb4282/singgah-pos/` via SFTP/cPanel → SSH → `tar -xzf deploy.tar.gz && ./start.sh &`
