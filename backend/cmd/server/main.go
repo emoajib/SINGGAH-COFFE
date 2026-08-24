@@ -49,12 +49,18 @@ func main() {
 	cashRegisterUsecase := usecase.NewCashRegisterUsecase(db)
 	productionTargetUsecase := usecase.NewProductionTargetUsecase(db)
 
+	// Context for graceful background worker shutdowns
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+
 	// Start background cleanup of expired tokens every hour
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 		for {
 			select {
+			case <-bgCtx.Done():
+				return
 			case <-ticker.C:
 				if err := authUsecase.CleanupExpiredTokens(); err != nil {
 					log.Printf("Error cleaning up expired tokens: %v", err)

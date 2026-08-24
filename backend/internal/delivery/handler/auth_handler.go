@@ -102,7 +102,11 @@ func (h *AuthHandler) DeleteUser(c *gin.Context) {
 }
 
 func (h *AuthHandler) UpdateProfile(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized user session"})
+		return
+	}
 
 	var req request.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -110,7 +114,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authUsecase.UpdateProfile(userID.(uint), req.Name, req.Email)
+	result, err := h.authUsecase.UpdateProfile(userID, req.Name, req.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
 		return
@@ -120,7 +124,11 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 }
 
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized user session"})
+		return
+	}
 
 	var req request.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -128,7 +136,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.authUsecase.ChangePassword(userID.(uint), req.CurrentPassword, req.NewPassword); err != nil {
+	if err := h.authUsecase.ChangePassword(userID, req.CurrentPassword, req.NewPassword); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to change password"})
 		return
 	}

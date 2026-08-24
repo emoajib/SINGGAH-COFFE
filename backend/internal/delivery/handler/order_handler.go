@@ -39,16 +39,20 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	userID, _ := c.Get("user_id")
-	cashierName := ""
-	if user, err := h.getCurrentUser(c); err == nil {
-		cashierName = user
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized user session"})
+		return
+	}
+	cashierName := req.CashierName
+	if cashierName == "" {
+		cashierName = getUserName(c)
 	}
 
 	ucReq := usecase.CreateOrderRequest{
 		OrderNumber:   req.OrderNumber,
 		PaymentMethod: req.PaymentMethod,
-		CashierName:   req.CashierName,
+		CashierName:   cashierName,
 		CustomerEmail: req.CustomerEmail,
 	}
 	for _, item := range req.Items {
@@ -58,7 +62,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		}{ProductID: item.ProductID, Quantity: item.Quantity})
 	}
 
-	result, err := h.orderUsecase.Create(ucReq, userID.(uint), cashierName, getOutletID(c))
+	result, err := h.orderUsecase.Create(ucReq, userID, cashierName, getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process order"})
 		return
@@ -83,7 +87,3 @@ func (h *OrderHandler) VoidOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Order voided successfully and stock restored", "order": result})
 }
 
-func (h *OrderHandler) getCurrentUser(c *gin.Context) (string, error) {
-	name, _ := c.Get("user_name")
-	return name.(string), nil
-}

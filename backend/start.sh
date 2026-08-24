@@ -41,12 +41,26 @@ export NODE_ENV="${NODE_ENV:-production}"
 export GOMAXPROCS=1
 export GOMEMLIMIT=200MiB
 
+# Vetted by AI - Manual Review Required by Senior Engineer/Manager
 cd "$SCRIPT_DIR"
+
+BIN_PATH=""
 if [ -x "$SCRIPT_DIR/singgah-backend" ]; then
-  exec "$SCRIPT_DIR/singgah-backend"
+  BIN_PATH="$SCRIPT_DIR/singgah-backend"
 elif [ -x "$SCRIPT_DIR/backend/singgah-backend" ]; then
-  exec "$SCRIPT_DIR/backend/singgah-backend"
+  BIN_PATH="$SCRIPT_DIR/backend/singgah-backend"
 else
   echo "ERROR: singgah-backend binary not found in $SCRIPT_DIR or $SCRIPT_DIR/backend" >&2
   exit 1
 fi
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Singgah Backend ($BIN_PATH)..."
+
+# Watchdog restart loop (shared hosting recovery)
+while true; do
+  "$BIN_PATH" "$@"
+  EXIT_CODE=$?
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend stopped with exit code $EXIT_CODE. Restarting in 3 seconds..." >&2
+  sleep 3
+done
+

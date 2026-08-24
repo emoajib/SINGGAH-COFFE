@@ -66,9 +66,10 @@ func (h *BackupHandler) CreateBackup(c *gin.Context) {
 		}
 
 		outFile := filepath.Join(backupDir, fmt.Sprintf("db_%s.sql.gz", ts))
-		dumpCmd := fmt.Sprintf("set -o pipefail; mysqldump -u%s -p%s -h%s -P%s --single-transaction --quick --lock-tables=false %s | gzip > %s",
-			user, pass, host, port, dbname, outFile)
+		dumpCmd := fmt.Sprintf("set -o pipefail; mysqldump -u%s -h%s -P%s --single-transaction --quick --lock-tables=false %s | gzip > %s",
+			user, host, port, dbname, outFile)
 		cmd := exec.Command("bash", "-c", dumpCmd)
+		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pass)
 		if out, e := cmd.CombinedOutput(); e != nil {
 			status = "partial"
 			results = append(results, gin.H{"type": "db", "status": "failed", "error": string(out), "details": e.Error()})
@@ -206,6 +207,11 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 		return
 	}
 
+	if strings.Contains(req.File, "..") || strings.Contains(req.File, "/") || strings.Contains(req.File, "\\") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid backup filename"})
+		return
+	}
+
 	backupDir := filepath.Join(".", "backups")
 	srcFile := filepath.Join(backupDir, req.File)
 
@@ -220,9 +226,10 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		restoreCmd := fmt.Sprintf("gunzip -c %s | mysql -u%s -p%s -h%s -P%s %s",
-			srcFile, user, pass, host, port, dbname)
+		restoreCmd := fmt.Sprintf("gunzip -c %s | mysql -u%s -h%s -P%s %s",
+			srcFile, user, host, port, dbname)
 		cmd := exec.Command("bash", "-c", restoreCmd)
+		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pass)
 		if out, e := cmd.CombinedOutput(); e != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": string(out), "exit": e.Error()})
 			return
@@ -234,7 +241,7 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 	if req.Type == "uploads" {
 		upDir := filepath.Join(".", "uploads")
 		os.MkdirAll(upDir, 0755)
-		cmd := exec.Command("bash", "-c", fmt.Sprintf("tar xzf %s -C .", srcFile))
+		cmd := exec.Command("tar", "xzf", srcFile, "-C", ".")
 		if out, e := cmd.CombinedOutput(); e != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": string(out), "exit": e.Error()})
 			return

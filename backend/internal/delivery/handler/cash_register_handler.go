@@ -26,7 +26,11 @@ func (h *CashRegisterHandler) OpenCashRegister(c *gin.Context) {
 		return
 	}
 
-	userID, _ := c.Get("user_id")
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized user session"})
+		return
+	}
 	outletID := getOutletID(c)
 
 	cashRegister := &entity.CashRegister{
@@ -34,7 +38,7 @@ func (h *CashRegisterHandler) OpenCashRegister(c *gin.Context) {
 		Notes:         req.Notes,
 	}
 
-	result, err := h.cashRegisterUsecase.OpenCashRegister(userID.(uint), outletID, cashRegister)
+	result, err := h.cashRegisterUsecase.OpenCashRegister(userID, outletID, cashRegister)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -136,9 +140,13 @@ func (h *CashRegisterHandler) CloseCashRegister(c *gin.Context) {
 		return
 	}
 
-	userID, _ := c.Get("user_id")
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized user session"})
+		return
+	}
 
-	if err := h.cashRegisterUsecase.CloseCashRegister(userID.(uint), req.ClosingAmount); err != nil {
+	if err := h.cashRegisterUsecase.CloseCashRegister(userID, req.ClosingAmount); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

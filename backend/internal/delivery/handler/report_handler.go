@@ -213,13 +213,23 @@ func formatNumberInt(n int64) string {
 	if n == 0 {
 		return "0"
 	}
+	isNegative := n < 0
+	if isNegative {
+		n = -n
+	}
 	s := ""
+	digits := 0
 	for n > 0 {
-		if len(s) > 0 && len(s)%4 == 3 {
+		if digits > 0 && digits%3 == 0 {
 			s = "." + s
 		}
 		s = string(rune('0'+n%10)) + s
 		n /= 10
+		digits++
+	}
+	if isNegative {
+		s = "-" + s
 	}
 	return s
 }
+

@@ -71,101 +71,37 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 	histStart := startOfMonth.AddDate(0, 0, -89)
 	histStartStr := histStart.Format("2006-01-02 15:04:05")
 
-	// Fetch all data in parallel using channels
-	type salesResult struct {
-		revenue float64
-		err     error
-	}
-	type cogsRes struct {
-		cogs float64
-		err  error
-	}
-	type fixedCostRes struct {
-		cost float64
-		err  error
-	}
-	type variableExpRes struct {
-		cost float64
-		err  error
-	}
-	type dailySalesRes struct {
-		data []entity.DailySales
-		err  error
-	}
-	type productSalesRes struct {
-		data []entity.ProductSalesVolume
-		err  error
-	}
-	type fcBreakdownRes struct {
-		data []entity.FixedCostItem
-		err  error
+	// Fetch all data sequentially (shared-hosting hardening to avoid thread/connection pool exhaustion)
+	totalRevenue, err := uc.orderRepo.GetTotalSalesRange(startStr, endStr, outletID...)
+	if err != nil {
+		return nil, err
 	}
 
-	revenueCh := make(chan salesResult, 1)
-	cogsCh := make(chan cogsRes, 1)
-	fixedCostCh := make(chan fixedCostRes, 1)
-	variableExpCh := make(chan variableExpRes, 1)
-	dailySalesCh := make(chan dailySalesRes, 1)
-	productSalesCh := make(chan productSalesRes, 1)
-	fcBreakdownCh := make(chan fcBreakdownRes, 1)
-
-	go func() {
-		rev, err := uc.orderRepo.GetTotalSalesRange(startStr, endStr, outletID...)
-		revenueCh <- salesResult{rev, err}
-	}()
-	go func() {
-		cogs, err := uc.orderItemRepo.GetTotalCogsRange(startStr, endStr, outletID...)
-		cogsCh <- cogsRes{cogs, err}
-	}()
-	go func() {
-		fc, err := uc.expenseRepo.GetTotalByCostType("fixed", startStr, endStr, outletID...)
-		fixedCostCh <- fixedCostRes{fc, err}
-	}()
-	go func() {
-		vc, err := uc.expenseRepo.GetTotalByCostType("variable", startStr, endStr, outletID...)
-		variableExpCh <- variableExpRes{vc, err}
-	}()
-	go func() {
-		ds, err := uc.orderRepo.GetDailySalesRange(histStartStr, endStr, outletID...)
-		dailySalesCh <- dailySalesRes{ds, err}
-	}()
-	go func() {
-		ps, err := uc.orderItemRepo.GetProductSalesVolume(startStr, endStr, outletID...)
-		productSalesCh <- productSalesRes{ps, err}
-	}()
-	go func() {
-		fcb, err := uc.expenseRepo.GetFixedCostBreakdown(startStr, endStr, outletID...)
-		fcBreakdownCh <- fcBreakdownRes{fcb, err}
-	}()
-
-	revResult := <-revenueCh
-	cogsVal := <-cogsCh
-	fcVal := <-fixedCostCh
-	vcVal := <-variableExpCh
-	dsVal := <-dailySalesCh
-	psVal := <-productSalesCh
-	fcbVal := <-fcBreakdownCh
-
-	if revResult.err != nil {
-		return nil, revResult.err
-	}
-	if cogsVal.err != nil {
-		return nil, cogsVal.err
-	}
-	if fcVal.err != nil {
-		return nil, fcVal.err
-	}
-	if vcVal.err != nil {
-		return nil, vcVal.err
+	cogs, err := uc.orderItemRepo.GetTotalCogsRange(startStr, endStr, outletID...)
+	if err != nil {
+		return nil, err
 	}
 
-	totalRevenue := revResult.revenue
-	totalVariableCost := cogsVal.cogs + vcVal.cost
-	totalFixedCost := fcVal.cost
+	fc, err := uc.expenseRepo.GetTotalByCostType("fixed", startStr, endStr, outletID...)
+	if err != nil {
+		return nil, err
+	}
 
-	var products []entity.ProductSalesVolume
-	if psVal.err == nil {
-		products = psVal.data
+	vc, err := uc.expenseRepo.GetTotalByCostType("variable", startStr, endStr, outletID...)
+	if err != nil {
+		return nil, err
+	}
+
+	dailySales, _ := uc.orderRepo.GetDailySalesRange(histStartStr, endStr, outletID...)
+	productSales, _ := uc.orderItemRepo.GetProductSalesVolume(startStr, endStr, outletID...)
+	fcBreakdown, _ := uc.expenseRepo.GetFixedCostBreakdown(startStr, endStr, outletID...)
+
+	totalVariableCost := cogs + vc
+	totalFixedCost := fc
+
+	products := productSales
+	if products == nil {
+		products = []entity.ProductSalesVolume{}
 	}
 
 	// Calculate weighted averages
@@ -195,8 +131,8 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 	}
 	report := calculator.Calculate(products)
 	report.Period = period
-	if fcbVal.err == nil {
-		report.FixedCostBreakdown = fcbVal.data
+	if fcBreakdown != nil {
+		report.FixedCostBreakdown = fcBreakdown
 	}
 
 	// Capital Analysis — Modal Awal
@@ -237,7 +173,7 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 
 	// 2. Forecast Engine (WMA + seasonal)
 	forecastEngine := &datascience.ForecastEngine{
-		DailySales: dsVal.data,
+		DailySales: dailySales,
 		FixedCost:  totalFixedCost,
 		CMRatio:    report.CMRatio,
 	}
@@ -261,17 +197,17 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 	// 4. Monte Carlo Simulation (probabilistic)
 	var mc *entity.MonteCarloResult
 	if avgPrice > avgCost && totalFixedCost > 0 {
-		stdSales := calculateStdDevFromDailySales(dsVal.data)
+		stdSales := calculateStdDevFromDailySales(dailySales)
 		monteCarlo := &datascience.MonteCarloSimulator{
 			MeanSales:     forecast.PredictedUnits,
 			StdSales:      stdSales,
 			MeanPrice:     avgPrice,
-			StdPrice:      avgPrice * 0.05,  // 5% price variability
+			StdPrice:      avgPrice * 0.05,        // 5% price variability
 			MeanCost:      avgCost,
-			StdCost:       avgCost * 0.03,   // 3% cost variability
+			StdCost:       avgCost * 0.03,         // 3% cost variability
 			MeanFixedCost: totalFixedCost,
-			StdFixedCost:  totalFixedCost * 0.05, // 5% fixed cost variability
-			Iterations:    10000,
+			StdFixedCost:  totalFixedCost * 0.05,  // 5% fixed cost variability
+			Iterations:    2000,                  // Optimized for low CPU latency on single core
 		}
 		mc = monteCarlo.Simulate()
 	}

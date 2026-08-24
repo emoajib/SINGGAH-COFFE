@@ -124,7 +124,7 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			if updateMasterPrice && newCost > 0 {
 				costToUse = newCost
 			}
-			expenseRepo.Create(&entity.Expense{
+			if err := expenseRepo.Create(&entity.Expense{
 				Title:       "Pembelian: " + ingredient.Name,
 				Amount:      quantity * costToUse,
 				Category:    "Operasional",
@@ -132,10 +132,9 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 				Description: "Auto-generated from Stock In",
 				Notes:       notes,
 				OutletID:    oid,
-			})
-		} else {
-			// Lock anyway for consistency
-			ingredientRepo.FindByIDForUpdate(ingredientID)
+			}); err != nil {
+				return err
+			}
 		}
 
 		// Update master cost per unit if requested

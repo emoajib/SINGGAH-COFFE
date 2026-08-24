@@ -243,18 +243,24 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 					if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
 						return err
 					}
-					ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add")
-					mutationRepo.Create(&entity.StockMutation{
+					if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
+						return err
+					}
+					if err := mutationRepo.Create(&entity.StockMutation{
 						IngredientID: recipeItem.IngredientID,
 						Type:         string(entity.MutationIn),
 						Quantity:     restoreAmount,
 						ReferenceID:  order.OrderNumber,
 						Notes:        "Void Return",
 						OutletID:     oid,
-					})
+					}); err != nil {
+						return err
+					}
 				}
 			} else {
-				productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add")
+				if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add"); err != nil {
+					return err
+				}
 			}
 		}
 

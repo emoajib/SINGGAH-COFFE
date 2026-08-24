@@ -111,6 +111,14 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 
 	if dashboardCache == nil {
 		dashboardCache = make(map[uint]*cacheEntry)
+	} else {
+		// Evict expired entries to prevent unbounded memory growth
+		now := time.Now()
+		for k, v := range dashboardCache {
+			if now.Sub(v.timestamp) > cacheTTL*2 {
+				delete(dashboardCache, k)
+			}
+		}
 	}
 	dashboardCache[key] = &cacheEntry{
 		data:      summary,

@@ -89,9 +89,10 @@ func (h *SyncHandler) dbBackup() (string, error) {
 	}
 	ts := time.Now().Format("20060102_150405")
 	outFile := filepath.Join(backupDir, fmt.Sprintf("db_%s.sql.gz", ts))
-	dumpCmd := fmt.Sprintf("set -o pipefail; mysqldump -u%s -p%s -h%s -P%s --single-transaction --quick --lock-tables=false %s | gzip > %s",
-		user, pass, host, port, dbname, outFile)
+	dumpCmd := fmt.Sprintf("set -o pipefail; mysqldump -u%s -h%s -P%s --single-transaction --quick --lock-tables=false %s | gzip > %s",
+		user, host, port, dbname, outFile)
 	cmd := exec.Command("bash", "-c", dumpCmd)
+	cmd.Env = append(os.Environ(), "MYSQL_PWD="+pass)
 	if out, e := cmd.CombinedOutput(); e != nil {
 		os.Remove(outFile)
 		return "", fmt.Errorf("mysqldump failed: %s", string(out))
@@ -363,6 +364,10 @@ func (h *SyncHandler) PullBackup(c *gin.Context) {
 
 // restoreLocal applies a downloaded backup file to the local database/uploads.
 func (h *SyncHandler) restoreLocal(fileName, typ string) error {
+	if strings.Contains(fileName, "..") || strings.Contains(fileName, "/") || strings.Contains(fileName, "\\") {
+		return fmt.Errorf("invalid backup filename")
+	}
+
 	backupDir := filepath.Join(".", "backups")
 	srcFile := filepath.Join(backupDir, fileName)
 	if _, err := os.Stat(srcFile); os.IsNotExist(err) {
@@ -373,9 +378,10 @@ func (h *SyncHandler) restoreLocal(fileName, typ string) error {
 		if err != nil {
 			return err
 		}
-		restoreCmd := fmt.Sprintf("gunzip -c %s | mysql -u%s -p%s -h%s -P%s %s",
-			srcFile, user, pass, host, port, dbname)
+		restoreCmd := fmt.Sprintf("gunzip -c %s | mysql -u%s -h%s -P%s %s",
+			srcFile, user, host, port, dbname)
 		cmd := exec.Command("bash", "-c", restoreCmd)
+		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pass)
 		if out, e := cmd.CombinedOutput(); e != nil {
 			return fmt.Errorf("restore failed: %s", string(out))
 		}
@@ -384,7 +390,7 @@ func (h *SyncHandler) restoreLocal(fileName, typ string) error {
 	if typ == "uploads" {
 		upDir := filepath.Join(".", "uploads")
 		os.MkdirAll(upDir, 0755)
-		cmd := exec.Command("bash", "-c", fmt.Sprintf("tar xzf %s -C .", srcFile))
+		cmd := exec.Command("tar", "xzf", srcFile, "-C", ".")
 		if out, e := cmd.CombinedOutput(); e != nil {
 			return fmt.Errorf("restore failed: %s", string(out))
 		}
