@@ -26,9 +26,17 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL
   ? import.meta.env.VITE_API_BASE_URL.replace(/\/api$/, '')
   : '';
 
+// Uploaded assets (logo, product images) live under /uploads/* and are served
+// from the web root (public_html/uploads -> backend/uploads) — the same way the
+// PWA icon/logo are referenced in index.html. Serve these relative to the current
+// origin so they load in production behind the web proxy. Only prepend API_BASE
+// (an absolute origin, e.g. http://localhost:8080) when running against a dev backend.
 export function getImageUrl(path: string | null | undefined): string {
   if (!path) return '';
   if (path.startsWith('http')) return path;
+  if (path.startsWith('/uploads')) {
+    return /^https?:\/\//.test(API_BASE) ? `${API_BASE}${path}` : path;
+  }
   return `${API_BASE}${path}`;
 }
 
