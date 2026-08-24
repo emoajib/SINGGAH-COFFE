@@ -26,10 +26,10 @@ func Connect(cfg config.Config) *gorm.DB {
 	if err != nil {
 		log.Fatalf("Failed to get sql.DB: %v", err)
 	}
-	sqlDB.SetMaxOpenConns(6)
+	sqlDB.SetMaxOpenConns(10)
 	sqlDB.SetMaxIdleConns(2)
-	sqlDB.SetConnMaxIdleTime(30 * time.Second)
-	sqlDB.SetConnMaxLifetime(2 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(60 * time.Second)
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
 	// Auto Migrate the schema with error checking
 	log.Println("Running Auto Migration...")
