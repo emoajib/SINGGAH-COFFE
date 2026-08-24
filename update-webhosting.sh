@@ -16,8 +16,8 @@ set -euo pipefail
 
 PROJ_DIR="$HOME/singgah-pos"
 WEB_DIR="$HOME/public_html"
-REPO_SSH="git@github.com:emoajib/SINGGAH-COFFEE.git"
-REPO_HTTPS="https://github.com/emoajib/SINGGAH-COFFEE.git"
+REPO_SSH="git@github.com:emoajib/SINGGAH-COFFE.git"
+REPO_HTTPS="https://github.com/emoajib/SINGGAH-COFFE.git"
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 
 echo "=== Singgah POS Auto-Update ==="
@@ -25,12 +25,17 @@ echo "Server: $(hostname)"
 echo "Time:   $(date)"
 echo ""
 
+# --- Safety: Backup existing .env before update ---
+if [ -f "$PROJ_DIR/backend/.env" ]; then
+    cp "$PROJ_DIR/backend/.env" "$PROJ_DIR/backend/.env.backup" 2>/dev/null || true
+fi
+
 # --- Step 0: Ensure repo is available ---
 if [ ! -d "$PROJ_DIR/.git" ]; then
     echo "📋 Repo not found. Cloning..."
     if [ -n "$TOKEN" ]; then
         # Clone via HTTPS with token (non-interactive)
-        git clone "https://oauth2:${TOKEN}@github.com/emoajib/SINGGAH-COFFEE.git" "$PROJ_DIR"
+        git clone "https://oauth2:${TOKEN}@github.com/emoajib/SINGGAH-COFFE.git" "$PROJ_DIR"
     elif ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
         git clone "$REPO_SSH" "$PROJ_DIR"
     else
@@ -63,12 +68,14 @@ else
     # Kill backend before pull (in case binary is locked)
     pkill -f "singgah-backend" 2>/dev/null || true
     sleep 1
-    # Aggressive reset: discard ALL local changes, then pull
+    # Aggressive reset: discard local tracking differences, then pull
     git fetch origin 2>&1 | tail -2
-    git reset --hard HEAD 2>&1 || true
-    git clean -fd 2>&1 | tail -3
     git reset --hard origin/main 2>&1
     echo "✅ Pulled to $(git rev-parse --short HEAD)"
+    # Restore .env if needed
+    if [ ! -f "$PROJ_DIR/backend/.env" ] && [ -f "$PROJ_DIR/backend/.env.backup" ]; then
+        cp "$PROJ_DIR/backend/.env.backup" "$PROJ_DIR/backend/.env"
+    fi
 fi
 
 SELF_HASH_AFTER=$(md5sum "$SELF_SCRIPT" 2>/dev/null | awk '{print $1}')
@@ -80,13 +87,13 @@ fi
 # --- Step 2: Download deploy.tar.gz from latest GitHub release ---
 echo "📥 Fetching latest deploy package from GitHub Releases..."
 TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
-RELEASE_URL=$(curl -sL --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
+RELEASE_URL=$(curl -sL --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFE/releases?per_page=10" \
     | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' \
     | head -1 \
     | sed 's/"browser_download_url":"//;s/"$//')
 # Fallback: try jq if available (more reliable JSON parsing)
 if [ -z "$RELEASE_URL" ] && command -v jq &>/dev/null; then
-    RELEASE_URL=$(curl -sL --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" \
+    RELEASE_URL=$(curl -sL --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFE/releases?per_page=10" \
         | jq -r '.[].assets[]? | select(.name == "deploy.tar.gz") | .browser_download_url' \
         | head -1)
 fi
@@ -100,16 +107,18 @@ if [ -n "$RELEASE_URL" ]; then
     # Copy backend binary (preserve server's existing start.sh & .env)
     cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend 2>/dev/null || true
     chmod +x backend/singgah-backend 2>/dev/null || true
-    # Update .env from package (server-specific overrides preserved by start.sh exports)
-    cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
+    # Only copy .env if missing to protect existing database credentials
+    if [ ! -f "backend/.env" ] && [ -f "$TMP_DIR/backend/.env" ]; then
+        cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
+    fi
     echo "✅ Backend binary updated from release"
     
-    # Deploy frontend from package + proxy files
-    rm -rf "$WEB_DIR"/*
+    # Deploy frontend from package + proxy files (preserve uploads folder)
+    find "$WEB_DIR" -mindepth 1 -maxdepth 1 ! -name 'uploads' -exec rm -rf {} + 2>/dev/null || true
     cp -r "$TMP_DIR/web"/* "$WEB_DIR/" 2>/dev/null || cp -r "$TMP_DIR"/web/* "$WEB_DIR/" 2>/dev/null || true
     cp "$TMP_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
     cp "$TMP_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
-    echo "✅ Frontend + proxy files deployed from release"
+    echo "✅ Frontend + proxy files deployed from release (uploads preserved)"
     
     # Copy scripts + docs
     cp -rf "$TMP_DIR/scripts" scripts/ 2>/dev/null || true
@@ -121,7 +130,7 @@ if [ -n "$RELEASE_URL" ]; then
     # Priority 1: web-fixed.zip (frontend-only, most recent)
     if [ -f "$PROJ_DIR/web-fixed.zip" ]; then
         echo "📦 Using web-fixed.zip (frontend-only)..."
-        rm -rf "$WEB_DIR"/*
+        find "$WEB_DIR" -mindepth 1 -maxdepth 1 ! -name 'uploads' -exec rm -rf {} + 2>/dev/null || true
         unzip -o "$PROJ_DIR/web-fixed.zip" -d "$WEB_DIR/"
         find "$WEB_DIR" -type f -exec chmod 644 {} \;
         # Restore proxy files (web-fixed.zip is frontend-only)
@@ -137,8 +146,10 @@ if [ -n "$RELEASE_URL" ]; then
         tar -xzf "$PROJ_DIR/deploy.tar.gz" -C "$TMP_DIR"
         cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend 2>/dev/null || true
         chmod +x backend/singgah-backend 2>/dev/null || true
-        cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
-        rm -rf "$WEB_DIR"/*
+        if [ ! -f "backend/.env" ] && [ -f "$TMP_DIR/backend/.env" ]; then
+            cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
+        fi
+        find "$WEB_DIR" -mindepth 1 -maxdepth 1 ! -name 'uploads' -exec rm -rf {} + 2>/dev/null || true
         cp -r "$TMP_DIR/web"/* "$WEB_DIR/" 2>/dev/null || true
         cp "$TMP_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
         cp "$TMP_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
