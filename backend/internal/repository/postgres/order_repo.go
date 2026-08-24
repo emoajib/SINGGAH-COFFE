@@ -78,6 +78,17 @@ func (r *orderRepository) GetTotalSalesRange(start, end string, outletID ...uint
 	return total, err
 }
 
+// GetSalesByPaymentMethod splits Completed-order revenue per payment_method in a date range.
+func (r *orderRepository) GetSalesByPaymentMethod(start, end string, outletID ...uint) ([]entity.PaymentBreakdown, error) {
+	tx := r.db.Model(&models.Order{}).Where("created_at BETWEEN ? AND ? AND status = ?", start, end, "Completed")
+	tx = scopeOutlet(tx, "orders", outletID...)
+	var results []entity.PaymentBreakdown
+	err := tx.Select("payment_method, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count").
+		Group("payment_method").
+		Scan(&results).Error
+	return results, err
+}
+
 func (r *orderRepository) CountSince(since string, outletID ...uint) (int64, error) {
 	tx := r.db.Model(&models.Order{}).Where("created_at >= ?", since)
 	tx = scopeOutlet(tx, "orders", outletID...)

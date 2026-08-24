@@ -173,17 +173,23 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 		totalExpenses += e.Amount
 	}
 
+	paymentBreakdown, _ := uc.orderRepo.GetSalesByPaymentMethod(start, end, outletID...)
+	if paymentBreakdown == nil {
+		paymentBreakdown = []entity.PaymentBreakdown{}
+	}
+
 	grossProfit := revenue - cogs
 	netProfit := grossProfit - totalExpenses
 
 	return &entity.ProfitLossReport{
-		StartDate:     start,
-		EndDate:       end,
-		Revenue:       revenue,
-		Cogs:          cogs,
-		GrossProfit:   grossProfit,
-		Expenses:      expenses,
-		TotalExpenses: totalExpenses,
-		NetProfit:     netProfit,
+		StartDate:        start,
+		EndDate:          end,
+		Revenue:          revenue,
+		Cogs:             cogs,
+		GrossProfit:      grossProfit,
+		Expenses:         expenses,
+		TotalExpenses:    totalExpenses,
+		NetProfit:        netProfit,
+		PaymentBreakdown: paymentBreakdown,
 	}, nil
 }

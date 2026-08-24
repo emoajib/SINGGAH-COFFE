@@ -37,6 +37,13 @@ import {
 
 const COLORS = ['#8b4513', '#d2691e', '#A0522D', '#DEB887', '#F4A460'];
 
+const paymentMethodLabel = (m: string): string => {
+    if (m === 'Cash') return 'Tunai (Cash)';
+    if (m === 'QRIS') return 'QRIS';
+    if (m === 'Transfer') return 'Transfer';
+    return m || 'Lainnya';
+};
+
 const Reports: React.FC = () => {
     const [trendType, setTrendType] = useState<'hourly' | 'weekly'>('hourly');
     const { data: _summary, isLoading } = useDashboard();
@@ -82,6 +89,7 @@ const Reports: React.FC = () => {
                     <tr><td colspan="2"></td></tr>
                     <tr><td>KETERANGAN</td><td>JUMLAH (IDR)</td></tr>
                     <tr><td>I. PENDAPATAN</td><td>${formatNumber(plData.revenue)}</td></tr>
+                    ${(plData.payment_breakdown || []).map((p: any) => `<tr><td>&nbsp;&nbsp;${paymentMethodLabel(p.payment_method)}</td><td>${formatNumber(p.total)}</td></tr><tr><td>&nbsp;&nbsp;Transaksi ${paymentMethodLabel(p.payment_method)}</td><td>${p.count}</td></tr>`).join('')}
                     <tr><td>II. HPP</td><td>(${formatNumber(plData.cogs)})</td></tr>
                     <tr><td>III. BEBAN</td><td>(${formatNumber(plData.total_expenses)})</td></tr>
                     <tr><td>LABA BERSIH</td><td>${formatNumber(plData.net_profit)}</td></tr>
@@ -240,10 +248,24 @@ const Reports: React.FC = () => {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <div className="flex justify-between font-black text-lg border-b pb-2">
-                                        <span>TOTAL PENDAPATAN</span>
-                                        <span className="text-green-600">Rp {formatNumber(plData.revenue)}</span>
+                                <div className="flex justify-between font-black text-lg border-b pb-2">
+                                    <span>TOTAL PENDAPATAN</span>
+                                    <span className="text-green-600">Rp {formatNumber(plData.revenue)}</span>
+                                </div>
+                                {plData.payment_breakdown?.length > 0 && (
+                                    <div className="space-y-1 pl-4 mt-1">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Rincian per Metode Pembayaran</p>
+                                        {plData.payment_breakdown.map((p: any, i: number) => (
+                                            <div key={i} className="flex justify-between text-sm font-medium text-gray-600">
+                                                <span>{paymentMethodLabel(p.payment_method)}</span>
+                                                <span>
+                                                    Rp {formatNumber(p.total)}
+                                                    <span className="text-xs text-gray-400 ml-1">({p.count} trx)</span>
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
+                                )}
                                     <div className="flex justify-between font-bold text-gray-600 pl-4 italic">
                                         <span>Beban Pokok Penjualan (HPP)</span>
                                         <span>(Rp {formatNumber(plData.cogs)})</span>

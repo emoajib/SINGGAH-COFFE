@@ -83,6 +83,10 @@ func (h *ReportHandler) ExportProfitLossCSV(c *gin.Context) {
 	writer.Write([]string{"Kategori", "Jumlah"})
 
 	writer.Write([]string{"Revenue", fmt.Sprintf("%.2f", report.Revenue)})
+	for _, p := range report.PaymentBreakdown {
+		writer.Write([]string{"  Pendapatan " + p.PaymentMethod, fmt.Sprintf("%.2f", p.Total)})
+		writer.Write([]string{"  Transaksi " + p.PaymentMethod, fmt.Sprintf("%d", p.Count)})
+	}
 	writer.Write([]string{"COGS", fmt.Sprintf("%.2f", report.Cogs)})
 	writer.Write([]string{"Gross Profit", fmt.Sprintf("%.2f", report.GrossProfit)})
 
@@ -169,6 +173,9 @@ func (h *ReportHandler) ExportProfitLossPDF(c *gin.Context) {
 	}
 
 	row("I. PENDAPATAN", report.Revenue, true, "green")
+	for _, p := range report.PaymentBreakdown {
+		row("   • "+p.PaymentMethod, p.Total, false, "")
+	}
 	row("II. HPP (Beban Pokok)", report.Cogs, false, "red")
 	pdf.Ln(1)
 	row("LABA KOTOR", report.GrossProfit, true, "blue")

@@ -60,6 +60,7 @@ type OrderRepository interface {
 	Update(order *entity.Order) error
 	GetTotalSalesSince(since string, outletID ...uint) (float64, error)
 	GetTotalSalesRange(start, end string, outletID ...uint) (float64, error)
+	GetSalesByPaymentMethod(start, end string, outletID ...uint) ([]entity.PaymentBreakdown, error)
 	CountSince(since string, outletID ...uint) (int64, error)
 	CountByStatus(status string, outletID ...uint) (int64, error)
 	GetSumByStatusSince(status, since, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error)
