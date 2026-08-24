@@ -88,20 +88,31 @@ fi
 echo "📥 Fetching latest deploy package from GitHub Releases..."
 TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
 
-# Try direct latest release first, fallback to releases API
-RELEASE_URL=""
-RELEASES_JSON=$(curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFE/releases?per_page=10" 2>/dev/null || true)
+# Candidate list (first successful download wins):
+#   1) "latest" release — ALWAYS excludes prereleases. This is now the reliable path
+#      because CI publishes full (non-prerelease) releases, which fixes the old
+#      "releases/latest 404 → stale prerelease binary" failure mode.
+#   2) Newest release from the API list (fallback if /latest isn't published yet).
+CANDIDATE_URLS=()
+CANDIDATE_URLS+=("https://github.com/emoajib/SINGGAH-COFFEE/releases/latest/download/deploy.tar.gz")
+
+RELEASES_JSON=$(curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/SINGGAH-COFFEE/releases?per_page=10" 2>/dev/null || true)
 if [ -n "$RELEASES_JSON" ]; then
-    RELEASE_URL=$(echo "$RELEASES_JSON" | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' | head -1 | sed 's/"browser_download_url":"//;s/"$//' || true)
+    API_URL=$(echo "$RELEASES_JSON" | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' | head -1 | sed 's/"browser_download_url":"//;s/"$//' || true)
+    [ -n "$API_URL" ] && CANDIDATE_URLS+=("$API_URL")
 fi
 
-# Direct fallback if API rate-limited
-if [ -z "$RELEASE_URL" ]; then
-    RELEASE_URL="https://github.com/emoajib/SINGGAH-COFFE/releases/latest/download/deploy.tar.gz"
-fi
+echo "   → Candidates: ${CANDIDATE_URLS[*]}"
+DOWNLOADED=false
+for RELEASE_URL in "${CANDIDATE_URLS[@]}"; do
+    echo "   → Trying: $RELEASE_URL"
+    if curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 180 "$RELEASE_URL" -o "$TMP_DIR/deploy.tar.gz" 2>/dev/null && [ -s "$TMP_DIR/deploy.tar.gz" ]; then
+        DOWNLOADED=true
+        break
+    fi
+done
 
-echo "   → Downloading from: $RELEASE_URL"
-if curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 180 "$RELEASE_URL" -o "$TMP_DIR/deploy.tar.gz" 2>/dev/null && [ -s "$TMP_DIR/deploy.tar.gz" ]; then
+if [ "$DOWNLOADED" = true ]; then
     echo "📦 Extracting deploy.tar.gz..."
     tar -xzf "$TMP_DIR/deploy.tar.gz" -C "$TMP_DIR"
     
@@ -196,11 +207,13 @@ else
     exit 1
 fi
 
-# Ensure uploads static link in public_html
-mkdir -p "$PROJ_DIR/uploads/products" "$PROJ_DIR/uploads/logo"
-chmod -R 755 "$PROJ_DIR/uploads" 2>/dev/null || true
+# Ensure uploads static link in public_html.
+# NOTE: the backend serves /uploads from its CWD ($PROJ_DIR/backend/uploads), so the
+# symlink MUST point at $PROJ_DIR/backend/uploads — not the old $PROJ_DIR/uploads.
+mkdir -p "$PROJ_DIR/backend/uploads/products" "$PROJ_DIR/backend/uploads/logo"
+chmod -R 755 "$PROJ_DIR/backend/uploads" 2>/dev/null || true
 if [ ! -L "$WEB_DIR/uploads" ] && [ ! -d "$WEB_DIR/uploads" ]; then
-    ln -s "$PROJ_DIR/uploads" "$WEB_DIR/uploads" 2>/dev/null || cp -r "$PROJ_DIR/uploads" "$WEB_DIR/" 2>/dev/null || true
+    ln -s "$PROJ_DIR/backend/uploads" "$WEB_DIR/uploads" 2>/dev/null || cp -r "$PROJ_DIR/backend/uploads" "$WEB_DIR/" 2>/dev/null || true
 fi
 chmod -R 755 "$WEB_DIR/uploads" 2>/dev/null || true
 

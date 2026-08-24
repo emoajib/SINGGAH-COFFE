@@ -186,6 +186,6 @@ jobs:
 
             Commit: ${{ github.sha }}
           files: deploy.tar.gz
-          prerelease: true
+          prerelease: false
           generate_release_notes: false
 

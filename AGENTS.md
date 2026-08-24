@@ -28,3 +28,24 @@ and makes file uploads fail (api-proxy.php). These were hard-won production inci
 ## Deploy Rule
 
 Commits land on `main` and auto-deploy via GitHub Actions. If CI fails, fix and re-push — never bypass.
+
+### Mandatory development → deploy workflow (applies to ALL AI models / agents on this repo)
+
+1. Write/modify the code locally.
+2. Run the full local test gate BEFORE committing: `go vet ./...`, `go test ./...`,
+   `npx tsc --noEmit`, and `npm run build` (web-dashboard). Do not commit if any fail.
+3. `git commit` the changes.
+4. `git push` to `main` (GitHub).
+5. Wait for the GitHub Actions workflows to finish and **check the results**.
+6. ONLY IF the GitHub tests pass, proceed to the manual webhosting update
+   (`bash update-webhosting.sh` on the server, then verify `/health` + a real file upload).
+
+Never update webhosting manually before the GitHub test run passes. If CI is red,
+fix and re-push — do not bypass or manually deploy a broken build.
+
+### Release / prerelease rule
+
+CI (` .github/workflows/main.yml`) must publish releases with `prerelease: false`
+so `releases/latest/download/deploy.tar.gz` resolves. `update-webhosting.sh` pulls
+from `releases/latest` (non-prerelease) first. Do NOT reintroduce `prerelease: true`,
+or the deployed binary silently falls back to a stale artifact.

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -33,7 +34,7 @@ func (h *ExpenseHandler) GetExpenses(c *gin.Context) {
 func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 	var req request.CreateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid input: %v", err)})
 		return
 	}
 
@@ -75,7 +76,7 @@ func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 
 	var req request.CreateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid input: %v", err)})
 		return
 	}
 
@@ -117,7 +118,7 @@ func (h *ExpenseHandler) UpdateCostType(c *gin.Context) {
 
 	var req request.UpdateCostTypeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid input: %v", err)})
 		return
 	}
 

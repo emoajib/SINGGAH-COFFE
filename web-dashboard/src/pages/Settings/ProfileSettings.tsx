@@ -88,9 +88,9 @@ export function ProfileSettings({
                             <Input
                                 placeholder="Logo URL (Otomatis terisi saat upload)"
                                 value={settings.outlet_logo_url}
-                                onChange={(e) => handleInputChange("outlet_logo_url", e.target.value)}
+                                readOnly
                             />
-                            <p className="text-[10px] text-gray-500 italic">Klik kotak gambar untuk mengunggah dari komputer Anda.</p>
+                            <p className="text-[10px] text-gray-500 italic">Klik kotak gambar untuk mengunggah dari komputer Anda. URL terisi otomatis dan ikon PWA (logo di Android) ikut diperbarui.</p>
                         </div>
                     </div>
                 </div>

@@ -8,7 +8,7 @@ export default defineConfig({
     plugins: [react(), VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'auto',
-        includeAssets: ['coffee-icon.svg'],
+        includeAssets: [],
         manifest: {
             name: 'Singgah Coffee POS',
             short_name: 'Singgah POS',
@@ -21,10 +21,10 @@ export default defineConfig({
             scope: '/',
             icons: [
                 {
-                    src: '/coffee-icon.svg',
-                    sizes: 'any',
-                    type: 'image/svg+xml',
-                    purpose: 'any'
+                    src: '/uploads/logo/pwa-icon.png',
+                    sizes: '512x512',
+                    type: 'image/png',
+                    purpose: 'any maskable'
                 }
             ]
         },

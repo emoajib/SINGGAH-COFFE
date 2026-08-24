@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"singgah-pos-backend/internal/config"
 	"singgah-pos-backend/internal/database"
 	"singgah-pos-backend/internal/delivery/handler"
@@ -27,6 +28,7 @@ func main() {
 
 	os.MkdirAll("uploads/logo", 0755)
 	os.MkdirAll("uploads/products", 0755)
+	handler.EnsureDefaultPWAIcon(filepath.Join("uploads/logo", "pwa-icon.png"))
 
 	cfg := config.LoadConfig()
 	if *port != "8080" {
