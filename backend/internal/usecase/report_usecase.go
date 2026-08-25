@@ -178,6 +178,33 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 		paymentBreakdown = []entity.PaymentBreakdown{}
 	}
 
+	displayOrder := []string{"Cash", "QRIS"}
+	bucketed := []entity.PaymentBreakdown{}
+	byMethod := make(map[string]entity.PaymentBreakdown)
+	var otherTotal float64
+	var otherCount int64
+	for _, pb := range paymentBreakdown {
+		if pb.PaymentMethod == "Cash" || pb.PaymentMethod == "QRIS" {
+			byMethod[pb.PaymentMethod] = pb
+		} else {
+			otherTotal += pb.Total
+			otherCount += pb.Count
+		}
+	}
+	for _, m := range displayOrder {
+		if pb, ok := byMethod[m]; ok {
+			bucketed = append(bucketed, pb)
+		}
+	}
+	if otherCount > 0 {
+		bucketed = append(bucketed, entity.PaymentBreakdown{
+			PaymentMethod: "Lainnya",
+			Total:         otherTotal,
+			Count:         otherCount,
+		})
+	}
+	paymentBreakdown = bucketed
+
 	grossProfit := revenue - cogs
 	netProfit := grossProfit - totalExpenses
 

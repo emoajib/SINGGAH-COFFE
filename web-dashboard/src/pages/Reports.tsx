@@ -41,7 +41,7 @@ const paymentMethodLabel = (m: string): string => {
     if (m === 'Cash') return 'Tunai (Cash)';
     if (m === 'QRIS') return 'QRIS';
     if (m === 'Transfer') return 'Transfer';
-    return m || 'Lainnya';
+    return m ? 'Lainnya (metode lain)' : 'Lainnya';
 };
 
 const Reports: React.FC = () => {
