@@ -9,6 +9,8 @@ type ProfitLossReport struct {
 	Expenses         []ExpenseDetail    `json:"expenses"`
 	TotalExpenses    float64            `json:"total_expenses"`
 	NetProfit        float64            `json:"net_profit"`
+	CashBookIncome   float64            `json:"cash_book_income"`
+	CashBookExpense  float64            `json:"cash_book_expense"`
 	PaymentBreakdown []PaymentBreakdown `json:"payment_breakdown"`
 }
 

@@ -216,6 +216,18 @@ func (h *ReportHandler) GetSalesSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, summary)
 }
 
+// GetProductPerformance returns per-product sales volume & revenue for a date range.
+func (h *ReportHandler) GetProductPerformance(c *gin.Context) {
+	start := c.Query("start")
+	end := c.Query("end")
+	vol, err := h.reportUsecase.GetProductPerformance(start, end, getOutletID(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load product performance"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"products": vol})
+}
+
 func formatNumberInt(n int64) string {
 	if n == 0 {
 		return "0"

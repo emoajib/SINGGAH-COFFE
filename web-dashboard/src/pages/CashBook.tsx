@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
 import type { CashBook } from "../types"
@@ -7,7 +7,7 @@ import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
 import { Search, Plus, Loader2, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Filter } from "lucide-react"
-import { CashBookService } from "../services/cashBookService"
+import { useCashBook } from "../hooks/useCashBook"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
 
@@ -19,8 +19,12 @@ export default function CashBookPage() {
   const [methodFilter, setMethodFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
 
-  const [items, setItems] = useState<CashBook[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const { items, isLoading, refetch, createMut, updateMut, deleteMut } = useCashBook({
+    start: startDate || undefined,
+    end: endDate || undefined,
+    method: methodFilter || undefined,
+    type: typeFilter || undefined,
+  })
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editing, setEditing] = useState<CashBook | null>(null)
@@ -34,25 +38,6 @@ export default function CashBookPage() {
   })
 
   const { toast } = useToast()
-
-  const load = async () => {
-    setIsLoading(true)
-    try {
-      const params: any = {}
-      if (startDate) params.start = startDate
-      if (endDate) params.end = endDate
-      if (methodFilter) params.method = methodFilter
-      if (typeFilter) params.type = typeFilter
-      const data = await CashBookService.getCashBooks(params)
-      setItems(Array.isArray(data) ? data : [])
-    } catch (e: any) {
-      toast({ title: "Gagal", description: e.response?.data?.error || "Gagal memuat Buku Kas", variant: "error" })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => { load() }, [startDate, endDate, methodFilter, typeFilter])
 
   const filtered = items.filter((it) =>
     it.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -91,14 +76,13 @@ export default function CashBookPage() {
   const handleSave = async () => {
     try {
       if (editing) {
-        await CashBookService.updateCashBook(editing.id, formData)
+        await updateMut.mutateAsync({ id: editing.id, d: formData })
         toast({ title: "Berhasil", description: "Entri Buku Kas diperbarui", variant: "success" })
       } else {
-        await CashBookService.createCashBook(formData)
+        await createMut.mutateAsync(formData)
         toast({ title: "Berhasil", description: "Entri Buku Kas ditambahkan", variant: "success" })
       }
       setIsModalOpen(false)
-      load()
     } catch (e: any) {
       toast({ title: "Gagal", description: e.response?.data?.error || "Gagal menyimpan", variant: "error" })
     }
@@ -107,9 +91,8 @@ export default function CashBookPage() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Hapus entri Buku Kas ini?")) return
     try {
-      await CashBookService.deleteCashBook(id)
+      await deleteMut.mutateAsync(id)
       toast({ title: "Berhasil", description: "Entri dihapus", variant: "success" })
-      load()
     } catch (e: any) {
       toast({ title: "Gagal", description: e.response?.data?.error || "Gagal menghapus", variant: "error" })
     }
@@ -136,7 +119,7 @@ export default function CashBookPage() {
           <p className="text-gray-500">Catat arus kas masuk & keluar (Cash / QRIS / Lainnya).</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={load} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Segarkan"}
           </Button>
           <Button size="sm" className="gap-1 sm:gap-2" onClick={openAdd}>

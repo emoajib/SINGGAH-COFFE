@@ -52,3 +52,27 @@ type RequirementResponse struct {
 	Menus             []RequirementMenu         `json:"menus"`
 	Ingredients       []RequirementIngredient   `json:"ingredients"`
 }
+
+// DailyTargetProduct — per-product daily target vs actual realized sales.
+type DailyTargetProduct struct {
+	ProductID   uint    `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	Category    string  `json:"category"`
+	DailyTarget float64 `json:"daily_target"`
+	Realized    float64 `json:"realized"`
+	Variance    float64 `json:"variance"`
+	AchPct      float64 `json:"achievement_pct"`
+	Status      string  `json:"status"`
+}
+
+// DailyTargetRealization — daily production target with actual sales realization, using the SAME
+// ingredient aggregation as Kebutuhan Stok so the two views never diverge.
+type DailyTargetRealization struct {
+	Date               string                `json:"date"`
+	PeriodDays         int                   `json:"period_days"`
+	PerProduct         []DailyTargetProduct  `json:"per_product"`
+	Ingredients        []RequirementIngredient `json:"ingredients"`
+	TotalTargetCup     float64               `json:"total_target_cup"`
+	TotalRealizedCup   float64               `json:"total_realized_cup"`
+	TotalEstimatedCost float64               `json:"total_estimated_cost"`
+}

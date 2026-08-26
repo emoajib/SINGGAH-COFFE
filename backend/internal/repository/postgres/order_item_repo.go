@@ -64,7 +64,7 @@ func (r *orderItemRepository) GetTotalCogsRange(start, end string, outletID ...u
 	var total float64
 	err := r.db.Model(&models.OrderItem{}).
 		Joins("JOIN orders ON orders.id = order_items.order_id").
-		Where("orders.created_at BETWEEN ? AND ? AND orders.status = ?"+ow, append(baseArgs, args...)...).
+		Where("DATE(orders.created_at) BETWEEN DATE(?) AND DATE(?) AND orders.status = ?"+ow, append(baseArgs, args...)...).
 		Select("COALESCE(SUM(order_items.cost * order_items.quantity), 0)").
 		Row().Scan(&total)
 	return total, err
@@ -119,7 +119,7 @@ func (r *orderItemRepository) GetProductSalesVolume(start, end string, outletID 
 		FROM order_items oi
 		JOIN products p ON p.id = oi.product_id
 		JOIN orders o ON o.id = oi.order_id
-		WHERE o.created_at BETWEEN ? AND ? AND o.status = 'Completed'`+ow+`
+		WHERE DATE(o.created_at) BETWEEN DATE(?) AND DATE(?) AND o.status = 'Completed'`+ow+`
 		GROUP BY p.id, p.name, p.category
 		ORDER BY quantity DESC
 	`, allArgs...).Scan(&results).Error

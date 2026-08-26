@@ -52,6 +52,55 @@ export default function Sales() {
         fetchPL()
     }, [startDate, endDate, isOwnerOrManager])
 
+    const handleToday = () => {
+        const today = new Date().toISOString().slice(0, 10)
+        setStartDate(today)
+        setEndDate(today)
+    }
+
+    const [productPerf, setProductPerf] = useState<any[]>([])
+    const [ppLoading, setPpLoading] = useState(false)
+    const [dailyTarget, setDailyTarget] = useState<any | null>(null)
+    const [dtLoading, setDtLoading] = useState(false)
+
+    useEffect(() => {
+        if (!isOwnerOrManager) return
+        const fetchPP = async () => {
+            setPpLoading(true)
+            try {
+                const params = new URLSearchParams()
+                if (startDate) params.set('start', startDate)
+                if (endDate) params.set('end', endDate)
+                const res = await api.get('/reports/product-performance', { params })
+                setProductPerf(res.data.products || [])
+            } catch {
+                setProductPerf([])
+            } finally {
+                setPpLoading(false)
+            }
+        }
+        fetchPP()
+    }, [startDate, endDate, isOwnerOrManager])
+
+    useEffect(() => {
+        if (user?.role !== 'owner') return
+        const fetchDT = async () => {
+            setDtLoading(true)
+            try {
+                const params = new URLSearchParams()
+                const date = endDate || startDate || new Date().toISOString().slice(0, 10)
+                params.set('date', date)
+                const res = await api.get('/reports/daily-target', { params })
+                setDailyTarget(res.data.daily_target)
+            } catch {
+                setDailyTarget(null)
+            } finally {
+                setDtLoading(false)
+            }
+        }
+        fetchDT()
+    }, [startDate, endDate, user?.role])
+
     const handleComplete = async (id: number) => {
         try {
             await completeOrder.mutateAsync(id)
@@ -97,7 +146,7 @@ export default function Sales() {
                     <Button variant="outline" className="gap-2" onClick={() => refetch()}>
                         <Calendar className="w-4 h-4" /> Segarkan
                     </Button>
-                    <Button variant="secondary" className="gap-2 text-primary border-primary">
+                    <Button variant="secondary" className="gap-2 text-primary border-primary" onClick={handleToday}>
                         <Filter className="w-4 h-4" /> Hari Ini
                     </Button>
                 </div>
@@ -179,6 +228,132 @@ export default function Sales() {
                         </CardContent>
                     </Card>
                 </div>
+            )}
+
+            {/* Per-Menu Performance - Owner/Manager Only */}
+            {isOwnerOrManager && (
+                <Card className="border-none shadow-sm">
+                    <CardHeader className="pb-2">
+                        <CardTitle>Performa per Menu</CardTitle>
+                        <CardDescription>Jumlah terjual, omzet, dan margin estimasi per produk.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {ppLoading ? (
+                            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-primary" /></div>
+                        ) : productPerf.length === 0 ? (
+                            <div className="text-center py-8 text-gray-400">Tidak ada data penjualan pada rentang ini.</div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left text-gray-500">
+                                    <thead className="text-xs text-gray-700 uppercase bg-gray-50/50 border-b">
+                                        <tr>
+                                            <th className="px-6 py-3">Produk</th>
+                                            <th className="px-6 py-3">Kategori</th>
+                                            <th className="px-6 py-3 text-right">Terjual</th>
+                                            <th className="px-6 py-3 text-right">Omzet</th>
+                                            <th className="px-6 py-3 text-right">Margin Est.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {productPerf.map((p) => (
+                                            <tr key={p.product_id} className="bg-white border-b hover:bg-gray-50/50">
+                                                <td className="px-6 py-4 font-bold text-gray-900">{p.name}</td>
+                                                <td className="px-6 py-4">{p.category || '-'}</td>
+                                                <td className="px-6 py-4 text-right font-bold">{p.quantity}</td>
+                                                <td className="px-6 py-4 text-right">{formatCurrency(p.revenue || 0)}</td>
+                                                <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                                                    {formatCurrency((p.revenue || 0) - (p.quantity * (p.avg_cost || 0)))}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Daily Target & Realization - Owner Only */}
+            {user?.role === 'owner' && (
+                <Card className="border-none shadow-sm">
+                    <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle>Target Harian & Realisasi</CardTitle>
+                                <CardDescription>Target per produk vs penjualan aktual ({dailyTarget?.date || '-'}).</CardDescription>
+                            </div>
+                            <Badge variant={dailyTarget && dailyTarget.total_target_cup > 0 && dailyTarget.total_realized_cup >= dailyTarget.total_target_cup ? 'success' : 'warning'}>
+                                {dailyTarget ? `${dailyTarget.total_realized_cup} / ${dailyTarget.total_target_cup} cup` : '-'}
+                            </Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {dtLoading ? (
+                            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-primary" /></div>
+                        ) : !dailyTarget || dailyTarget.per_product.length === 0 ? (
+                            <div className="text-center py-8 text-gray-400">Belum ada target produk untuk tanggal ini.</div>
+                        ) : (
+                            <>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left text-gray-500">
+                                        <thead className="text-xs text-gray-700 uppercase bg-gray-50/50 border-b">
+                                            <tr>
+                                                <th className="px-6 py-3">Produk</th>
+                                                <th className="px-6 py-3 text-right">Target</th>
+                                                <th className="px-6 py-3 text-right">Realisasi</th>
+                                                <th className="px-6 py-3 text-right">Selisih</th>
+                                                <th className="px-6 py-3 text-right">Capaian</th>
+                                                <th className="px-6 py-3">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {dailyTarget.per_product.map((p: any) => (
+                                                <tr key={p.product_id} className="bg-white border-b hover:bg-gray-50/50">
+                                                    <td className="px-6 py-4 font-bold text-gray-900">{p.product_name}</td>
+                                                    <td className="px-6 py-4 text-right">{(p.daily_target || 0).toFixed(1)}</td>
+                                                    <td className="px-6 py-4 text-right font-bold">{p.realized}</td>
+                                                    <td className="px-6 py-4 text-right">{p.variance >= 0 ? '+' : ''}{p.variance.toFixed(1)}</td>
+                                                    <td className="px-6 py-4 text-right">{p.ach_pct.toFixed(0)}%</td>
+                                                    <td className="px-6 py-4">
+                                                        <Badge variant={p.status === 'Tercapai' ? 'success' : p.status === 'Di bawah target' ? 'warning' : 'default'}>
+                                                            {p.status}
+                                                        </Badge>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Kebutuhan Bahan (Sinkron Kebutuhan Stok)</h4>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left text-gray-500">
+                                            <thead className="text-xs text-gray-700 uppercase bg-gray-50/50 border-b">
+                                                <tr>
+                                                    <th className="px-6 py-3">Bahan</th>
+                                                    <th className="px-6 py-3">Kategori</th>
+                                                    <th className="px-6 py-3 text-right">Total Butuh</th>
+                                                    <th className="px-6 py-3 text-right">@ Pembelian</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {dailyTarget.ingredients.map((ing: any) => (
+                                                    <tr key={ing.ingredient_id} className="bg-white border-b hover:bg-gray-50/50">
+                                                        <td className="px-6 py-4 font-bold text-gray-900">{ing.name}</td>
+                                                        <td className="px-6 py-4">{ing.category}</td>
+                                                        <td className="px-6 py-4 text-right">{ing.total_needed.toFixed(2)} {ing.unit}</td>
+                                                        <td className="px-6 py-4 text-right">{ing.rounded_purchase_unit} {ing.purchase_unit}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
             )}
 
             <Card className="border-none shadow-sm">

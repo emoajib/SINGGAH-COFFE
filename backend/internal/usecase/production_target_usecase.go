@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/repository"
@@ -19,6 +20,7 @@ type ProductionTargetUsecase struct {
 	productionTargetRepo repository.ProductionTargetRepository
 	ingredientRepo       repository.IngredientRepository
 	settingRepo          repository.SettingRepository
+	orderItemRepo        repository.OrderItemRepository
 }
 
 func NewProductionTargetUsecase(db *gorm.DB) *ProductionTargetUsecase {
@@ -28,6 +30,7 @@ func NewProductionTargetUsecase(db *gorm.DB) *ProductionTargetUsecase {
 		productionTargetRepo: postgres.NewProductionTargetRepository(db),
 		ingredientRepo:       postgres.NewIngredientRepository(db),
 		settingRepo:          postgres.NewSettingRepository(db),
+		orderItemRepo:        postgres.NewOrderItemRepository(db),
 	}
 }
 
@@ -118,32 +121,136 @@ func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.Requi
 	if err != nil {
 		return nil, err
 	}
+	periodDays := uc.resolvePeriodDays(outletID)
+	targetDetails, err := uc.productionTargetRepo.FindAll(outletID)
+	if err != nil {
+		return nil, err
+	}
+	targetMap, ingMap := uc.buildMaps(targetDetails, ingredients)
 
+	menus, ingredientAgg, totalTargetCup := uc.aggregateRequirements(products, ingMap, targetMap)
+	return uc.finalizeRequirements(menus, ingredientAgg, ingMap, periodDays, totalTargetCup), nil
+}
+
+// GetDailyTargetRealization returns the target per product for a single day vs the actual realized
+// sales, with the daily ingredient requirement derived from the SAME aggregation used by
+// Kebutuhan Stok so the two views never diverge.
+func (uc *ProductionTargetUsecase) GetDailyTargetRealization(outletID uint, date string) (*entity.DailyTargetRealization, error) {
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	}
+	products, err := uc.productRepo.FindAll(0, 0)
+	if err != nil {
+		return nil, err
+	}
+	ingredients, err := uc.ingredientRepo.FindAll(outletID)
+	if err != nil {
+		return nil, err
+	}
+	periodDays := uc.resolvePeriodDays(outletID)
+	targetDetails, err := uc.productionTargetRepo.FindAll(outletID)
+	if err != nil {
+		return nil, err
+	}
+	targetMap, ingMap := uc.buildMaps(targetDetails, ingredients)
+
+	dailyTargetMap := make(map[uint]float64, len(targetMap))
+	if periodDays > 0 {
+		for pid, tc := range targetMap {
+			dailyTargetMap[pid] = tc / float64(periodDays)
+		}
+	}
+
+	menus, ingredientAgg, totalDailyTarget := uc.aggregateRequirements(products, ingMap, dailyTargetMap)
+	req := uc.finalizeRequirements(menus, ingredientAgg, ingMap, periodDays, totalDailyTarget)
+
+	salesVol, err := uc.orderItemRepo.GetProductSalesVolume(date+"T00:00:00", date+"T23:59:59", outletID)
+	if err != nil {
+		return nil, err
+	}
+	realizedMap := make(map[uint]float64, len(salesVol))
+	for _, sv := range salesVol {
+		realizedMap[sv.ProductID] = float64(sv.Quantity)
+	}
+
+	perProduct := make([]entity.DailyTargetProduct, 0)
+	for _, prod := range products {
+		dailyTarget := dailyTargetMap[prod.ID]
+		realized := realizedMap[prod.ID]
+		if dailyTarget <= 0 && realized == 0 {
+			continue
+		}
+		status := "Belum ada target"
+		if dailyTarget > 0 {
+			if realized >= dailyTarget {
+				status = "Tercapai"
+			} else {
+				status = "Di bawah target"
+			}
+		}
+		achPct := 0.0
+		if dailyTarget > 0 {
+			achPct = (realized / dailyTarget) * 100
+		}
+		perProduct = append(perProduct, entity.DailyTargetProduct{
+			ProductID:   prod.ID,
+			ProductName: prod.Name,
+			Category:    prod.Category,
+			DailyTarget: dailyTarget,
+			Realized:    realized,
+			Variance:    realized - dailyTarget,
+			AchPct:      achPct,
+			Status:      status,
+		})
+	}
+	sort.Slice(perProduct, func(i, j int) bool {
+		return perProduct[i].ProductName < perProduct[j].ProductName
+	})
+
+	var totalRealized float64
+	for _, p := range perProduct {
+		totalRealized += p.Realized
+	}
+
+	return &entity.DailyTargetRealization{
+		Date:               date,
+		PeriodDays:         periodDays,
+		PerProduct:         perProduct,
+		Ingredients:        req.Ingredients,
+		TotalTargetCup:     totalDailyTarget,
+		TotalRealizedCup:   totalRealized,
+		TotalEstimatedCost: req.TotalEstimatedCost,
+	}, nil
+}
+
+func (uc *ProductionTargetUsecase) resolvePeriodDays(outletID uint) int {
 	periodDays := 10
 	if s, err := uc.settingRepo.FindByKey("stock_planning_period_days"); err == nil && s != nil {
 		if d, err := strconv.Atoi(s.Value); err == nil && d > 0 {
 			periodDays = d
 		}
 	}
+	return periodDays
+}
 
-	targetDetails, err := uc.productionTargetRepo.FindAll(outletID)
-	if err != nil {
-		return nil, err
-	}
+func (uc *ProductionTargetUsecase) buildMaps(targetDetails []entity.ProductionTarget, ingredients []entity.Ingredient) (map[uint]float64, map[uint]entity.Ingredient) {
 	targetMap := make(map[uint]float64, len(targetDetails))
 	for _, td := range targetDetails {
 		targetMap[td.ProductID] = td.TargetCup
 	}
-
 	ingMap := make(map[uint]entity.Ingredient, len(ingredients))
 	for _, ing := range ingredients {
 		ingMap[ing.ID] = ing
 	}
+	return targetMap, ingMap
+}
 
+// aggregateRequirements builds per-menu and aggregated ingredient needs from a cup target map.
+func (uc *ProductionTargetUsecase) aggregateRequirements(products []entity.Product, ingMap map[uint]entity.Ingredient, targetMap map[uint]float64) ([]entity.RequirementMenu, map[uint]*entity.RequirementIngredient, float64) {
 	ingredientAgg := make(map[uint]*entity.RequirementIngredient)
 	var menus []entity.RequirementMenu
-
 	var totalTargetCup float64
+
 	for _, prod := range products {
 		target := targetMap[prod.ID]
 		if target <= 0 {
@@ -191,7 +298,10 @@ func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.Requi
 			Items:       items,
 		})
 	}
+	return menus, ingredientAgg, totalTargetCup
+}
 
+func (uc *ProductionTargetUsecase) finalizeRequirements(menus []entity.RequirementMenu, ingredientAgg map[uint]*entity.RequirementIngredient, ingMap map[uint]entity.Ingredient, periodDays int, totalTargetCup float64) *entity.RequirementResponse {
 	if menus == nil {
 		menus = []entity.RequirementMenu{}
 	} else {
@@ -234,5 +344,5 @@ func (uc *ProductionTargetUsecase) GetRequirements(outletID uint) (*entity.Requi
 		TotalEstimatedCost: totalEstCost,
 		Menus:              menus,
 		Ingredients:        ingResults,
-	}, nil
+	}
 }

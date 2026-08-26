@@ -90,6 +90,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/reports/sales-summary", middleware.RoleMiddleware("owner", "manager"), h.Report.GetSalesSummary)
 			protected.GET("/reports/profit-loss/export/csv", middleware.RoleMiddleware("owner", "manager"), h.Report.ExportProfitLossCSV)
 			protected.GET("/reports/profit-loss/export/pdf", middleware.RoleMiddleware("owner", "manager"), h.Report.ExportProfitLossPDF)
+			protected.GET("/reports/product-performance", middleware.RoleMiddleware("owner", "manager"), h.Report.GetProductPerformance)
 			protected.GET("/integrations/logs", middleware.RoleMiddleware("owner"), h.Webhook.GetWebhookLogs)
 
 			// Settings
@@ -137,6 +138,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/production-targets", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetTargets)
 			protected.PUT("/production-targets", middleware.RoleMiddleware("owner"), h.ProductionTarget.SaveTargets)
 			protected.GET("/inventory/requirements", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetRequirements)
+			protected.GET("/reports/daily-target", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetDailyTarget)
 			protected.GET("/backup/download/:name", middleware.RoleMiddleware("owner"), h.Backup.DownloadBackup)
 			protected.POST("/backup/upload", middleware.RoleMiddleware("owner"), h.Backup.UploadBackup)
 

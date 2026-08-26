@@ -23,18 +23,20 @@ var (
 )
 
 type ReportUsecase struct {
-	orderRepo      repository.OrderRepository
-	orderItemRepo  repository.OrderItemRepository
-	expenseRepo    repository.ExpenseRepository
+	orderRepo     repository.OrderRepository
+	orderItemRepo repository.OrderItemRepository
+	expenseRepo   repository.ExpenseRepository
 	ingredientRepo repository.IngredientRepository
+	cashBookRepo  repository.CashBookRepository
 }
 
 func NewReportUsecase(db *gorm.DB) *ReportUsecase {
 	return &ReportUsecase{
-		orderRepo:      postgres.NewOrderRepository(db),
-		orderItemRepo:  postgres.NewOrderItemRepository(db),
-		expenseRepo:    postgres.NewExpenseRepository(db),
+		orderRepo:     postgres.NewOrderRepository(db),
+		orderItemRepo: postgres.NewOrderItemRepository(db),
+		expenseRepo:   postgres.NewExpenseRepository(db),
 		ingredientRepo: postgres.NewIngredientRepository(db),
+		cashBookRepo:  postgres.NewCashBookRepository(db),
 	}
 }
 
@@ -205,6 +207,7 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 	}
 	paymentBreakdown = bucketed
 
+	cbIncome, cbExpense, _ := uc.cashBookRepo.GetTotalsSince(start, outletID...)
 	grossProfit := revenue - cogs
 	netProfit := grossProfit - totalExpenses
 
@@ -217,6 +220,18 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 		Expenses:         expenses,
 		TotalExpenses:    totalExpenses,
 		NetProfit:        netProfit,
+		CashBookIncome:   cbIncome,
+		CashBookExpense:  cbExpense,
 		PaymentBreakdown: paymentBreakdown,
 	}, nil
+}
+
+// GetProductPerformance returns per-product sales volume & revenue for a date range.
+func (uc *ReportUsecase) GetProductPerformance(start, end string, outletID ...uint) ([]entity.ProductSalesVolume, error) {
+	if start == "" || end == "" {
+		now := time.Now()
+		start = now.Format("2006-01-02")
+		end = now.Format("2006-01-02")
+	}
+	return uc.orderItemRepo.GetProductSalesVolume(start, end, outletID...)
 }

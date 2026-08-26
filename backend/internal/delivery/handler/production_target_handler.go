@@ -58,3 +58,14 @@ func (h *ProductionTargetHandler) GetRequirements(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"requirements": req})
 }
+
+// GetDailyTarget returns the per-product daily target vs the realized sales for a date.
+func (h *ProductionTargetHandler) GetDailyTarget(c *gin.Context) {
+	date := c.Query("date")
+	resp, err := h.uc.GetDailyTargetRealization(getOutletID(c), date)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate daily target"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"daily_target": resp})
+}
