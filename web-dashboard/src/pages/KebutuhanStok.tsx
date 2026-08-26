@@ -12,7 +12,7 @@ import { formatCurrency, formatNumber } from "../lib/utils"
 
 export default function KebutuhanStok() {
     const { user } = useSelector((state: RootState) => state.auth)
-    const canEdit = user?.role === 'owner' || user?.role === 'manager'
+    const canEdit = user?.role === 'owner'
 
     const [targets, setTargets] = useState<ProductionTarget[]>([])
     const [requirements, setRequirements] = useState<RequirementResponse | null>(null)
@@ -46,6 +46,19 @@ export default function KebutuhanStok() {
         loadAll()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+
+    if (user?.role !== 'owner') {
+        return (
+            <div className="space-y-6">
+                <h1 className="text-xl font-black text-slate-800">Kebutuhan Stok</h1>
+                <Card>
+                    <CardContent className="py-8 text-center text-gray-500">
+                        Akses ditolak: perencanaan kebutuhan stok hanya untuk pemilik.
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     const handleTargetChange = (productID: number, value: number) => {
         setTargets(prev => prev.map(t => (t.product_id === productID ? { ...t, target_cup: value } : t)))

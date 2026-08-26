@@ -37,12 +37,13 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
     }
 
     useEffect(() => {
-        if (summary.low_stock_count > 0) {
+        const canViewStock = user?.role === 'owner' || user?.role === 'manager'
+        if (canViewStock && summary.low_stock_count > 0) {
             InventoryService.getLowStockAlerts().then(res => {
                 setLowStockItems(res.alerts || [])
             }).catch(() => {})
         }
-    }, [summary.low_stock_count])
+    }, [summary.low_stock_count, user?.role])
 
     return (
         <div className="space-y-6">

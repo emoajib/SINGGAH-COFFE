@@ -41,7 +41,12 @@ const Integration: React.FC = () => {
                 api.get('/settings')
             ]);
             setLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
-            setSettings(settingsRes.data || {});
+            const rawSettings = settingsRes.data;
+            setSettings(
+                Array.isArray(rawSettings)
+                    ? Object.fromEntries((rawSettings as { key: string; value: string }[]).map(s => [s.key, s.value]))
+                    : (rawSettings || {})
+            );
         } catch (err) {
             void err;
         } finally {

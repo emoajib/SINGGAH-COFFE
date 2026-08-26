@@ -30,7 +30,10 @@ function AppContent() {
     const auth = useSelector((state: RootState) => state.auth)
     const isAuthenticated = auth?.isAuthenticated || false
     const isCashier = auth?.user?.role === "cashier"
+    const isOwner = auth?.user?.role === "owner"
     const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
+
+    const ownerOnlyTabs = ["reports", "cash-registers", "cash-book", "bep", "kebutuhan-stok", "integration", "backup"]
 
     if (!isAuthenticated) {
         return <Login />
@@ -63,18 +66,24 @@ function AppContent() {
             <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
                 <Header onMenuClick={() => setSidebarOpen(true)} />
                 <main className="p-4 md:p-6 flex-1 overflow-y-auto">
-                    {activeTab === "dashboard" && <DashboardHome setActiveTab={setActiveTab} />}
-                    {activeTab === "products" && <ProductManagement />}
-                    {activeTab === "expenses" && <Expenses />}
-                    {activeTab === "sales" && <Sales />}
-                    {activeTab === "reports" && <Reports />}
-                    {activeTab === "cash-registers" && <CashRegister />}
-                    {activeTab === "cash-book" && <CashBookPage />}
-                    {activeTab === "bep" && <BepAnalysis />}
-                    {activeTab === "kebutuhan-stok" && <KebutuhanStok />}
-                    {activeTab === "integration" && <Integration />}
-                    {activeTab === "settings" && <Settings />}
-                    {activeTab === "backup" && <BackupManagement />}
+                    {ownerOnlyTabs.includes(activeTab) && !isOwner ? (
+                        <div className="p-8 text-center text-gray-500">Akses ditolak: halaman ini hanya untuk pemilik.</div>
+                    ) : (
+                        <>
+                            {activeTab === "dashboard" && <DashboardHome setActiveTab={setActiveTab} />}
+                            {activeTab === "products" && <ProductManagement />}
+                            {activeTab === "expenses" && <Expenses />}
+                            {activeTab === "sales" && <Sales />}
+                            {activeTab === "reports" && <Reports />}
+                            {activeTab === "cash-registers" && <CashRegister />}
+                            {activeTab === "cash-book" && <CashBookPage />}
+                            {activeTab === "bep" && <BepAnalysis />}
+                            {activeTab === "kebutuhan-stok" && <KebutuhanStok />}
+                            {activeTab === "integration" && <Integration />}
+                            {activeTab === "settings" && <Settings />}
+                            {activeTab === "backup" && <BackupManagement />}
+                        </>
+                    )}
                 </main>
             </div>
             {needsCashFloat && <CashFloatModal open={true} onSuccess={() => {}} onClose={() => dispatch(setCashFloatPending(false))} />}

@@ -147,6 +147,10 @@ export default function Settings() {
     }
 
     const handleSaveSettings = async () => {
+        if (user?.role !== 'owner') {
+            alert("Hanya pemilik yang dapat menyimpan pengaturan.")
+            return
+        }
         try {
             setSaving(true)
             await Promise.all(
