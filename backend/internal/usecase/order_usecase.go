@@ -62,6 +62,18 @@ func (uc *OrderUsecase) GetAll(limit, offset int, outletID ...uint) ([]entity.Or
 	return resp, nil
 }
 
+func (uc *OrderUsecase) GetAllFiltered(start, end, status string, limit, offset int, outletID ...uint) ([]entity.OrderResponse, error) {
+	orders, err := uc.orderRepo.FindAllFiltered(start, end, status, limit, offset, outletID...)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]entity.OrderResponse, len(orders))
+	for i, o := range orders {
+		resp[i] = o.ToResponse()
+	}
+	return resp, nil
+}
+
 func (uc *OrderUsecase) GetByID(id uint) (*entity.OrderResponse, error) {
 	order, err := uc.orderRepo.FindByIDWithItems(id)
 	if err != nil {

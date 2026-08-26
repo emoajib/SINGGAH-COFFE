@@ -2,10 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import type { Expense } from '../types'
 
-export function useExpenses() {
+export function useExpenses(start?: string, end?: string, category?: string) {
   return useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => api.get<Expense[]>('/expenses').then((r) => r.data),
+    queryKey: ['expenses', start, end, category],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (start) params.set('start', start)
+      if (end) params.set('end', end)
+      if (category) params.set('category', category)
+      const r = await api.get<Expense[]>(`/expenses?${params.toString()}`)
+      return Array.isArray(r.data) ? r.data : []
+    },
   })
 }
 

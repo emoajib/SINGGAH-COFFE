@@ -21,7 +21,18 @@ func NewExpenseHandler(expenseUsecase *usecase.ExpenseUsecase) *ExpenseHandler {
 }
 
 func (h *ExpenseHandler) GetExpenses(c *gin.Context) {
-	expenses, err := h.expenseUsecase.GetAll(getOutletID(c))
+	outletID := getOutletID(c)
+	start := c.Query("start")
+	end := c.Query("end")
+	category := c.Query("category")
+
+	var expenses []entity.ExpenseResponse
+	var err error
+	if start != "" || end != "" || category != "" {
+		expenses, err = h.expenseUsecase.GetAllFiltered(start, end, category, outletID)
+	} else {
+		expenses, err = h.expenseUsecase.GetAll(outletID)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch expenses"})
 		return

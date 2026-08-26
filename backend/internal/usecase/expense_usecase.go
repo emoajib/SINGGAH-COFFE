@@ -33,6 +33,18 @@ func (uc *ExpenseUsecase) GetAll(outletID ...uint) ([]entity.ExpenseResponse, er
 	return resp, nil
 }
 
+func (uc *ExpenseUsecase) GetAllFiltered(start, end, category string, outletID ...uint) ([]entity.ExpenseResponse, error) {
+	expenses, err := uc.expenseRepo.FindAllRange(start, end, category, outletID...)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]entity.ExpenseResponse, len(expenses))
+	for i, e := range expenses {
+		resp[i] = e.ToResponse()
+	}
+	return resp, nil
+}
+
 func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*entity.ExpenseResponse, error) {
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()

@@ -16,6 +16,7 @@ import Expenses from "./pages/Expenses"
 import BackupManagement from "./pages/BackupManagement"
 import KebutuhanStok from "./pages/KebutuhanStok"
 import CashRegister from "./pages/CashRegister"
+import CashBookPage from "./pages/CashBook"
 import Login from "./pages/Login"
 import CashFloatModal from "./components/cash/CashFloatModal"
 import { ToastProvider } from "./hooks/use-toast"
@@ -68,6 +69,7 @@ function AppContent() {
                     {activeTab === "sales" && <Sales />}
                     {activeTab === "reports" && <Reports />}
                     {activeTab === "cash-registers" && <CashRegister />}
+                    {activeTab === "cash-book" && <CashBookPage />}
                     {activeTab === "bep" && <BepAnalysis />}
                     {activeTab === "kebutuhan-stok" && <KebutuhanStok />}
                     {activeTab === "integration" && <Integration />}

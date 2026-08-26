@@ -2,11 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import type { Order, CreateOrderRequest } from '../types'
 
-export function useOrders(limit = 50, offset = 0) {
+export function useOrders(limit = 50, offset = 0, start?: string, end?: string, status?: string) {
   return useQuery({
-    queryKey: ['orders', { limit, offset }],
+    queryKey: ['orders', { limit, offset, start, end, status }],
     queryFn: async () => {
-      const r = await api.get<Order[]>(`/orders?limit=${limit}&offset=${offset}`)
+      const params = new URLSearchParams()
+      params.set('limit', limit.toString())
+      params.set('offset', offset.toString())
+      if (start) params.set('start', start)
+      if (end) params.set('end', end)
+      if (status) params.set('status', status)
+      const r = await api.get<Order[]>(`/orders?${params.toString()}`)
       return Array.isArray(r.data) ? r.data : []
     },
   })

@@ -149,3 +149,17 @@ type CashRegister struct {
 	ClosingAmount *float64   `json:"closing_amount"`            // Reserved: kas akhir saat tutup kas
 	Status        string     `json:"status" gorm:"default:open;index"` // open, closed
 }
+
+// CashBook — Buku Kas pemilik (distinct from CashRegister shift sessions)
+// Records cash inflows/outflows with method Cash/QRIS/Lainnya
+type CashBook struct {
+	BaseModel
+	OutletID    uint      `json:"outlet_id" gorm:"index"`
+	Date        time.Time `json:"date" gorm:"index"`
+	Method      string    `json:"method" gorm:"index"` // Cash, QRIS, Lainnya
+	Type        string    `json:"type" gorm:"index"`   // income, expense
+	Amount      float64   `json:"amount"`
+	Description string    `json:"description"`
+	Reference   string    `json:"reference"` // optional: order_id, expense_id, etc.
+	CreatedBy   uint      `json:"created_by" gorm:"index"`
+}

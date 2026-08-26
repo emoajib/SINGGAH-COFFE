@@ -6,13 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Receipt, Pencil } from "lucide-react"
+import { Search, Plus, Loader2, Trash2, Receipt, Pencil, Filter } from "lucide-react"
 import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } from "../hooks/useExpenses"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
 
 export default function Expenses() {
     const [search, setSearch] = useState("")
+    const [startDate, setStartDate] = useState("")
+    const [endDate, setEndDate] = useState("")
+    const [categoryFilter, setCategoryFilter] = useState("")
 
     // Auth Check
     const { user } = useSelector((state: RootState) => state.auth)
@@ -33,7 +36,7 @@ export default function Expenses() {
     })
 
     const { toast } = useToast()
-    const { data: expenses = [], isFetching: isLoading, refetch } = useExpenses()
+    const { data: expenses = [], isFetching: isLoading, refetch } = useExpenses(startDate, endDate, categoryFilter)
     const createExpense = useCreateExpense()
     const updateExpense = useUpdateExpense()
     const deleteExpense = useDeleteExpense()
@@ -122,6 +125,50 @@ export default function Expenses() {
                     )}
                 </div>
             </div>
+
+            {/* Filter Bar */}
+            <Card className="border-none shadow-sm">
+                <CardContent className="pt-0 pb-4">
+                    <div className="flex flex-wrap gap-4 items-end">
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500">Tanggal Mulai</label>
+                            <Input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="w-48"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500">Tanggal Selesai</label>
+                            <Input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="w-48"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500">Kategori</label>
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                className="flex h-10 w-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            >
+                                <option value="">Semua</option>
+                                <option value="Operational">Operasional</option>
+                                <option value="Marketing">Pemasaran</option>
+                                <option value="Maintenance">Pemeliharaan</option>
+                                <option value="Salary">Gaji</option>
+                                <option value="Other">Lainnya</option>
+                            </select>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setStartDate(""); setEndDate(""); setCategoryFilter(""); }}>
+                            <Filter className="w-4 h-4 mr-1" /> Hapus Filter
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

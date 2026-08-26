@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"singgah-pos-backend/internal/delivery/request"
+	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -22,8 +23,17 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 	outletID := getOutletID(c)
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	start := c.Query("start")
+	end := c.Query("end")
+	status := c.Query("status")
 
-	orders, err := h.orderUsecase.GetAll(limit, offset, outletID)
+	var orders []entity.OrderResponse
+	var err error
+	if start != "" || end != "" || status != "" {
+		orders, err = h.orderUsecase.GetAllFiltered(start, end, status, limit, offset, outletID)
+	} else {
+		orders, err = h.orderUsecase.GetAll(limit, offset, outletID)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
 		return

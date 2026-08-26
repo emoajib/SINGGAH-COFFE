@@ -1,16 +1,17 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2, CheckCircle2 } from "lucide-react"
+import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2, CheckCircle2, DollarSign, Wallet } from "lucide-react"
 import { useOrders, useVoidOrder, useCompleteOrder } from "../hooks/useOrders"
 import { useToast } from "../hooks/use-toast"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
 import { formatCurrency } from "../lib/utils"
 import { useSettings } from "../hooks/useSettings"
+import api from "../lib/api"
 
 export default function Sales() {
     const { user } = useSelector((state: RootState) => state.auth)
@@ -18,11 +19,38 @@ export default function Sales() {
     const outletName = settings?.outlet_name || "Singgah Coffee"
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedTx, setSelectedTx] = useState<any | null>(null)
+    const [startDate, setStartDate] = useState("")
+    const [endDate, setEndDate] = useState("")
+    const [statusFilter, setStatusFilter] = useState("")
     const { toast } = useToast()
 
-    const { data: orders = [], isLoading: loading, refetch } = useOrders()
+    const isOwnerOrManager = user?.role === 'owner' || user?.role === 'manager'
+
+    const { data: orders = [], isLoading: loading, refetch } = useOrders(50, 0, startDate, endDate, statusFilter)
     const voidOrder = useVoidOrder()
     const completeOrder = useCompleteOrder()
+
+    const [profitLoss, setProfitLoss] = useState<{ gross_profit: number; net_profit: number } | null>(null)
+    const [plLoading, setPlLoading] = useState(false)
+
+    useEffect(() => {
+        if (!isOwnerOrManager) return
+        const fetchPL = async () => {
+            setPlLoading(true)
+            try {
+                const params = new URLSearchParams()
+                if (startDate) params.set('start', startDate)
+                if (endDate) params.set('end', endDate)
+                const res = await api.get('/reports/profit-loss', { params })
+                setProfitLoss({ gross_profit: res.data.gross_profit, net_profit: res.data.net_profit })
+            } catch {
+                setProfitLoss(null)
+            } finally {
+                setPlLoading(false)
+            }
+        }
+        fetchPL()
+    }, [startDate, endDate, isOwnerOrManager])
 
     const handleComplete = async (id: number) => {
         try {
@@ -74,6 +102,84 @@ export default function Sales() {
                     </Button>
                 </div>
             </div>
+
+            {/* Filter Bar */}
+            <Card className="border-none shadow-sm">
+                <CardContent className="pt-0 pb-4">
+                    <div className="flex flex-wrap gap-4 items-end">
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500">Tanggal Mulai</label>
+                            <Input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="w-48"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500">Tanggal Selesai</label>
+                            <Input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="w-48"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500">Status</label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="flex h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            >
+                                <option value="">Semua</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Void">Void</option>
+                            </select>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setStartDate(""); setEndDate(""); setStatusFilter(""); }}>
+                            <Filter className="w-4 h-4 mr-1" /> Hapus Filter
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Profit Cards - Owner/Manager Only */}
+            {isOwnerOrManager && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-gray-500">Laba Kotor</CardTitle>
+                            <DollarSign className="w-4 h-4 text-emerald-500" />
+                        </CardHeader>
+                        <CardContent>
+                            {plLoading ? (
+                                <div className="flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                            ) : (
+                                <div className="text-2xl font-bold text-emerald-600">
+                                    Rp {formatCurrency(profitLoss?.gross_profit || 0)}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-gray-500">Laba Bersih</CardTitle>
+                            <Wallet className="w-4 h-4 text-blue-500" />
+                        </CardHeader>
+                        <CardContent>
+                            {plLoading ? (
+                                <div className="flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                            ) : (
+                                <div className="text-2xl font-bold text-blue-600">
+                                    Rp {formatCurrency(profitLoss?.net_profit || 0)}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <Card className="border-none shadow-sm">
                 <CardHeader className="pb-2">

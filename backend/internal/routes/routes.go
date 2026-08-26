@@ -23,6 +23,7 @@ type Handlers struct {
 	Backup           *handler.BackupHandler
 	Sync             *handler.SyncHandler
 	ProductionTarget *handler.ProductionTargetHandler
+	CashBook         *handler.CashBookHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
@@ -108,6 +109,13 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/cash-registers", middleware.RoleMiddleware("owner"), h.CashRegister.GetCashRegisters)
 			protected.PUT("/cash-registers/:id", middleware.RoleMiddleware("owner"), h.CashRegister.UpdateCashRegister)
 			protected.DELETE("/cash-registers/:id", middleware.RoleMiddleware("owner"), h.CashRegister.DeleteCashRegister)
+
+			// Buku Kas (Cash Book) — Owner Only
+			protected.GET("/cash-book", middleware.RoleMiddleware("owner"), h.CashBook.GetCashBooks)
+			protected.GET("/cash-book/:id", middleware.RoleMiddleware("owner"), h.CashBook.GetCashBook)
+			protected.POST("/cash-book", middleware.RoleMiddleware("owner"), h.CashBook.CreateCashBook)
+			protected.PUT("/cash-book/:id", middleware.RoleMiddleware("owner"), h.CashBook.UpdateCashBook)
+			protected.DELETE("/cash-book/:id", middleware.RoleMiddleware("owner"), h.CashBook.DeleteCashBook)
 
 			// BEP (Break-Even Point) — Owner Only
 			protected.GET("/reports/bep", middleware.RoleMiddleware("owner"), h.BEP.GetBEP)

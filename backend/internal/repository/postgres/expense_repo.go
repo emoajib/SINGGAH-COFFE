@@ -30,6 +30,30 @@ func (r *expenseRepository) FindAll(outletID ...uint) ([]entity.Expense, error) 
 	return result, nil
 }
 
+func (r *expenseRepository) FindAllRange(start, end, category string, outletID ...uint) ([]entity.Expense, error) {
+	tx := r.db.Order("date desc, id desc")
+	if start != "" {
+		tx = tx.Where("date >= ?", start)
+	}
+	if end != "" {
+		tx = tx.Where("date <= ?", end)
+	}
+	if category != "" {
+		tx = tx.Where("category = ?", category)
+	}
+	tx = scopeOutlet(tx, "expenses", outletID...)
+	var ms []models.Expense
+	err := tx.Find(&ms).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make([]entity.Expense, len(ms))
+	for i, m := range ms {
+		result[i] = *toDomainExpense(&m)
+	}
+	return result, nil
+}
+
 func (r *expenseRepository) FindByID(id uint) (*entity.Expense, error) {
 	var m models.Expense
 	if err := r.db.First(&m, id).Error; err != nil {

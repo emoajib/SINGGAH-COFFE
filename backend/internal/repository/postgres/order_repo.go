@@ -45,6 +45,29 @@ func (r *orderRepository) FindAll(limit, offset int, outletID ...uint) ([]entity
 	return result, nil
 }
 
+func (r *orderRepository) FindAllFiltered(start, end, status string, limit, offset int, outletID ...uint) ([]entity.Order, error) {
+	tx := r.db.Preload("OrderItems").Preload("OrderItems.Product").Order("created_at desc").Limit(limit).Offset(offset)
+	if start != "" {
+		tx = tx.Where("created_at >= ?", start)
+	}
+	if end != "" {
+		tx = tx.Where("created_at <= ?", end)
+	}
+	if status != "" {
+		tx = tx.Where("status = ?", status)
+	}
+	tx = scopeOutlet(tx, "orders", outletID...)
+	var ms []models.Order
+	if err := tx.Find(&ms).Error; err != nil {
+		return nil, err
+	}
+	result := make([]entity.Order, len(ms))
+	for i, m := range ms {
+		result[i] = *toDomainOrder(&m)
+	}
+	return result, nil
+}
+
 func (r *orderRepository) Create(order *entity.Order) error {
 	m := toModelOrder(order)
 	if err := r.db.Create(m).Error; err != nil {

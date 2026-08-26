@@ -56,6 +56,7 @@ type OrderRepository interface {
 	FindByID(id uint) (*entity.Order, error)
 	FindByIDWithItems(id uint) (*entity.Order, error)
 	FindAll(limit, offset int, outletID ...uint) ([]entity.Order, error)
+	FindAllFiltered(start, end, status string, limit, offset int, outletID ...uint) ([]entity.Order, error)
 	Create(order *entity.Order) error
 	Update(order *entity.Order) error
 	GetTotalSalesSince(since string, outletID ...uint) (float64, error)
@@ -84,6 +85,7 @@ type OrderItemRepository interface {
 // ExpenseRepository defines data access for expenses
 type ExpenseRepository interface {
 	FindAll(outletID ...uint) ([]entity.Expense, error)
+	FindAllRange(start, end, category string, outletID ...uint) ([]entity.Expense, error)
 	FindByID(id uint) (*entity.Expense, error)
 	Create(expense *entity.Expense) error
 	Update(expense *entity.Expense) error
@@ -146,4 +148,14 @@ type CashRegisterRepository interface {
 	Update(cashRegister *entity.CashRegister) error
 	Delete(id uint) error
 	Close(userID uint, closingAmount float64) error
+}
+
+// CashBookRepository defines data access for the owner-only Buku Kas
+type CashBookRepository interface {
+	FindAllRange(start, end, method, tipe string, outletID ...uint) ([]entity.CashBook, error)
+	FindByID(id uint) (*entity.CashBook, error)
+	Create(c *entity.CashBook) error
+	Update(c *entity.CashBook) error
+	Delete(id uint) error
+	GetTotalsSince(since string, outletID ...uint) (income float64, expense float64, err error)
 }

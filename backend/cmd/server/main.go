@@ -48,8 +48,9 @@ func main() {
 	webhookUsecase := usecase.NewWebhookUsecase(db)
 	bepUsecase := usecase.NewBEPUsecase(db)
 	outletUsecase := usecase.NewOutletUsecase(db)
-	cashRegisterUsecase := usecase.NewCashRegisterUsecase(db)
-	productionTargetUsecase := usecase.NewProductionTargetUsecase(db)
+		cashRegisterUsecase := usecase.NewCashRegisterUsecase(db)
+		cashBookUsecase := usecase.NewCashBookUsecase(db)
+		productionTargetUsecase := usecase.NewProductionTargetUsecase(db)
 
 	// Context for graceful background worker shutdowns
 	bgCtx, bgCancel := context.WithCancel(context.Background())
@@ -85,6 +86,7 @@ func main() {
 		BEP:           handler.NewBEPHandler(bepUsecase),
 		Outlet:        handler.NewOutletHandler(outletUsecase),
 		CashRegister:  handler.NewCashRegisterHandler(cashRegisterUsecase),
+		CashBook:      handler.NewCashBookHandler(cashBookUsecase),
 		Backup:        handler.NewBackupHandler(db, &cfg),
 		Sync:          handler.NewSyncHandler(&cfg),
 		ProductionTarget: handler.NewProductionTargetHandler(productionTargetUsecase),

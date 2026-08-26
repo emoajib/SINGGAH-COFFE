@@ -47,6 +47,7 @@ func Connect(cfg config.Config) *gorm.DB {
 		&entity.TokenBlacklist{},
 		&models.Outlet{},
 		&models.CashRegister{},
+		&models.CashBook{},
 		&models.ProductionTarget{},
 	)
 	if err != nil {

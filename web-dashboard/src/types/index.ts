@@ -351,6 +351,29 @@ export interface UpdateCashRegisterRequest {
   notes: string
 }
 
+// ─── Cash Book (Buku Kas) — Owner Only ─────────────────────────────────────
+export interface CashBook {
+  id: number
+  outlet_id: number
+  date: string
+  method: 'Cash' | 'QRIS' | 'Lainnya'
+  type: 'income' | 'expense'
+  amount: number
+  description: string
+  reference: string
+  created_by: number
+  created_at: string
+}
+
+export interface CashBookRequest {
+  date: string
+  method: 'Cash' | 'QRIS' | 'Lainnya'
+  type: 'income' | 'expense'
+  amount: number
+  description?: string
+  reference?: string
+}
+
 // ─── Paginated ──────────────────────────────────────────────────────────────
 export interface PaginatedResponse<T> {
   data: T[]
