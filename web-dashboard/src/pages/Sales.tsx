@@ -312,9 +312,9 @@ export default function Sales() {
                                                 <tr key={p.product_id} className="bg-white border-b hover:bg-gray-50/50">
                                                     <td className="px-6 py-4 font-bold text-gray-900">{p.product_name}</td>
                                                     <td className="px-6 py-4 text-right">{(p.daily_target || 0).toFixed(1)}</td>
-                                                    <td className="px-6 py-4 text-right font-bold">{p.realized}</td>
-                                                    <td className="px-6 py-4 text-right">{p.variance >= 0 ? '+' : ''}{p.variance.toFixed(1)}</td>
-                                                    <td className="px-6 py-4 text-right">{p.ach_pct.toFixed(0)}%</td>
+                                                    <td className="px-6 py-4 text-right font-bold">{p.realized ?? 0}</td>
+                                                    <td className="px-6 py-4 text-right">{((p.variance ?? 0) >= 0 ? '+' : '')}{(p.variance || 0).toFixed(1)}</td>
+                                                    <td className="px-6 py-4 text-right">{(p.achievement_pct || 0).toFixed(0)}%</td>
                                                     <td className="px-6 py-4">
                                                         <Badge variant={p.status === 'Tercapai' ? 'success' : p.status === 'Di bawah target' ? 'warning' : 'default'}>
                                                             {p.status}
@@ -342,7 +342,7 @@ export default function Sales() {
                                                     <tr key={ing.ingredient_id} className="bg-white border-b hover:bg-gray-50/50">
                                                         <td className="px-6 py-4 font-bold text-gray-900">{ing.name}</td>
                                                         <td className="px-6 py-4">{ing.category}</td>
-                                                        <td className="px-6 py-4 text-right">{ing.total_needed.toFixed(2)} {ing.unit}</td>
+                                                        <td className="px-6 py-4 text-right">{(ing.total_needed || 0).toFixed(2)} {ing.unit}</td>
                                                         <td className="px-6 py-4 text-right">{ing.rounded_purchase_unit} {ing.purchase_unit}</td>
                                                     </tr>
                                                 ))}
