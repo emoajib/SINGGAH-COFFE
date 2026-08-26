@@ -90,7 +90,7 @@ export default function KebutuhanStok() {
                 <div>
                     <h1 className="text-xl font-black text-slate-800">Kebutuhan Stok</h1>
                     <p className="text-sm text-gray-500 mt-0.5">
-                        Perencanaan belanja bahan baku berdasarkan target produksi menu per periode.
+                        Perencanaan belanja bahan baku berdasarkan target produksi menu per periode. Target harian (cup/hari) otomatis tampil di halaman Penjualan.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -158,7 +158,7 @@ export default function KebutuhanStok() {
 
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Target Produksi per Menu</CardTitle>
+                            <CardTitle className="text-base">Target Produksi per Menu (total untuk {periodDays || 1} hari)</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -166,16 +166,21 @@ export default function KebutuhanStok() {
                                     <div key={t.product_id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
                                         <div className="min-w-0">
                                             <p className="truncate text-sm font-semibold text-slate-800">{t.product_name}</p>
-                                            <p className="text-xs text-gray-500">cup per periode</p>
+                                            <p className="text-xs text-gray-500">
+                                                ≈ <span className="font-semibold text-primary">{(((t.target_cup || 0)) / (periodDays || 1)).toFixed(1)}</span> cup/hari
+                                            </p>
                                         </div>
-                                        <Input
-                                            type="number"
-                                            min={0}
-                                            value={t.target_cup}
-                                            disabled={!canEdit}
-                                            onChange={e => handleTargetChange(t.product_id, Number(e.target.value))}
-                                            className="w-20 text-right"
-                                        />
+                                        <div className="text-right">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                value={t.target_cup}
+                                                disabled={!canEdit}
+                                                onChange={e => handleTargetChange(t.product_id, Number(e.target.value))}
+                                                className="w-20 text-right"
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-0.5">cup / periode</p>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
