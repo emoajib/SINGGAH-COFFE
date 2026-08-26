@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -11,12 +12,25 @@ import (
 )
 
 type CashBookUsecase struct {
+	db           *gorm.DB
 	cashBookRepo repository.CashBookRepository
 }
 
 func NewCashBookUsecase(db *gorm.DB) *CashBookUsecase {
 	return &CashBookUsecase{
+		db:           db,
 		cashBookRepo: postgres.NewCashBookRepository(db),
+	}
+}
+
+func mapCashBookMethod(paymentMethod string) string {
+	switch paymentMethod {
+	case "Cash":
+		return "Cash"
+	case "QRIS":
+		return "QRIS"
+	default:
+		return "Lainnya"
 	}
 }
 
@@ -79,4 +93,110 @@ func (uc *CashBookUsecase) Delete(id uint) error {
 
 func (uc *CashBookUsecase) GetTotalsSince(since string, outletID ...uint) (income float64, expense float64, err error) {
 	return uc.cashBookRepo.GetTotalsSince(since, outletID...)
+}
+
+func (uc *CashBookUsecase) orderRef(orderID uint) string {
+	return fmt.Sprintf("order:%d", orderID)
+}
+
+func (uc *CashBookUsecase) expenseRef(expenseID uint) string {
+	return fmt.Sprintf("expense:%d", expenseID)
+}
+
+func (uc *CashBookUsecase) EnsureOrderIncome(o *entity.Order, outletID ...uint) error {
+	if o == nil || o.ID == 0 || o.PaymentStatus != "Paid" || o.Status == "Void" {
+		return nil
+	}
+	ref := uc.orderRef(o.ID)
+	exists, err := uc.cashBookRepo.ExistsByReference(ref, outletID...)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	desc := "Penjualan " + o.OrderNumber
+	if o.CashierName != "" {
+		desc += " (kasir " + o.CashierName + ")"
+	}
+	date := o.OrderTime
+	if date.IsZero() {
+		date = time.Now()
+	}
+	return uc.cashBookRepo.Create(&entity.CashBook{
+		OutletID:    o.OutletID,
+		Date:        date,
+		Method:      mapCashBookMethod(o.PaymentMethod),
+		Type:        "income",
+		Amount:      o.TotalAmount,
+		Description: desc,
+		Reference:   ref,
+	})
+}
+
+func (uc *CashBookUsecase) RemoveOrderIncome(orderID uint, outletID ...uint) error {
+	_, err := uc.cashBookRepo.DeleteByReference(uc.orderRef(orderID), outletID...)
+	return err
+}
+
+type CashBookSyncResult struct {
+	OrdersSynced   int64 `json:"orders_synced"`
+	ExpensesSynced int64 `json:"expenses_synced"`
+}
+
+func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncResult, error) {
+	result := &CashBookSyncResult{}
+
+	var orders []entity.Order
+	err := uc.db.Raw(
+		"SELECT id, order_number, total_amount, payment_method, payment_status, status, cashier_name, outlet_id, order_time "+
+			"FROM orders WHERE status = 'Completed' AND payment_status = 'Paid' AND deleted_at IS NULL AND outlet_id = ? "+
+			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('order:', orders.id) AND cb.deleted_at IS NULL)",
+		outletID,
+	).Scan(&orders).Error
+	if err != nil {
+		return nil, err
+	}
+	for i := range orders {
+		if err := uc.EnsureOrderIncome(&orders[i]); err != nil {
+			return nil, err
+		}
+		result.OrdersSynced++
+	}
+
+	type expenseRow struct {
+		ID       uint
+		Title    string
+		Amount   float64
+		Date     time.Time
+		OutletID uint
+	}
+	var expenses []expenseRow
+	err = uc.db.Raw(
+		"SELECT id, title, amount, date, outlet_id FROM expenses WHERE deleted_at IS NULL AND outlet_id = ? "+
+			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('expense:', expenses.id) AND cb.deleted_at IS NULL)",
+		outletID,
+	).Scan(&expenses).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range expenses {
+		if e.Amount <= 0 {
+			continue
+		}
+		if err := uc.cashBookRepo.Create(&entity.CashBook{
+			OutletID:    e.OutletID,
+			Date:        e.Date,
+			Method:      "Lainnya",
+			Type:        "expense",
+			Amount:      e.Amount,
+			Description: "Pengeluaran: " + e.Title,
+			Reference:   uc.expenseRef(e.ID),
+		}); err != nil {
+			return nil, err
+		}
+		result.ExpensesSynced++
+	}
+
+	return result, nil
 }

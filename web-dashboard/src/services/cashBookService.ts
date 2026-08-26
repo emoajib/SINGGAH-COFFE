@@ -30,4 +30,9 @@ export const CashBookService = {
   deleteCashBook: async (id: number): Promise<void> => {
     await api.delete(`/cash-book/${id}`)
   },
+
+  syncFromTransactions: async (): Promise<{ message: string; result: { orders_synced: number; expenses_synced: number } }> => {
+    const response = await api.post('/cash-book/sync')
+    return response.data
+  },
 }

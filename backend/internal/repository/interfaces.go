@@ -158,4 +158,6 @@ type CashBookRepository interface {
 	Update(c *entity.CashBook) error
 	Delete(id uint) error
 	GetTotalsSince(since string, outletID ...uint) (income float64, expense float64, err error)
+	ExistsByReference(ref string, outletID ...uint) (bool, error)
+	DeleteByReference(ref string, outletID ...uint) (int64, error)
 }

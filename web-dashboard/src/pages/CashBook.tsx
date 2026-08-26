@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Filter } from "lucide-react"
+import { Search, Plus, Loader2, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Filter, RefreshCw } from "lucide-react"
 import { useCashBook } from "../hooks/useCashBook"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
@@ -19,7 +19,7 @@ export default function CashBookPage() {
   const [methodFilter, setMethodFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
 
-  const { items, isLoading, refetch, createMut, updateMut, deleteMut } = useCashBook({
+  const { items, isLoading, refetch, createMut, updateMut, deleteMut, syncMut } = useCashBook({
     start: startDate || undefined,
     end: endDate || undefined,
     method: methodFilter || undefined,
@@ -98,6 +98,15 @@ export default function CashBookPage() {
     }
   }
 
+  const handleSync = async () => {
+    try {
+      const res = await syncMut.mutateAsync()
+      toast({ title: "Sinkron selesai", description: res.message, variant: "success" })
+    } catch (e: any) {
+      toast({ title: "Gagal", description: e.response?.data?.error || "Gagal sinkronisasi", variant: "error" })
+    }
+  }
+
   if (user?.role !== 'owner') {
     return (
       <div className="space-y-6">
@@ -121,6 +130,10 @@ export default function CashBookPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Segarkan"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleSync} disabled={syncMut.isPending} className="gap-1">
+            {syncMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Sinkron Transaksi
           </Button>
           <Button size="sm" className="gap-1 sm:gap-2" onClick={openAdd}>
             <Plus className="w-4 h-4" /> Tambah Entri
@@ -244,7 +257,12 @@ export default function CashBookPage() {
               </tbody>
             </table>
             {filtered.length === 0 && !isLoading && (
-              <div className="text-center py-8 text-gray-500">Belum ada entri Buku Kas.</div>
+              <div className="text-center py-8 text-gray-500">
+                Belum ada entri Buku Kas.
+                <div className="text-xs text-gray-400 mt-1">
+                  Klik "Sinkron Transaksi" untuk menarik otomatis seluruh penjualan lunas &amp; pengeluaran, atau tambah entri manual.
+                </div>
+              </div>
             )}
           </div>
         </CardContent>

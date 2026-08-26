@@ -18,10 +18,10 @@ func NewCashBookRepository(db *gorm.DB) *cashBookRepository {
 func (r *cashBookRepository) FindAllRange(start, end, method, tipe string, outletID ...uint) ([]entity.CashBook, error) {
 	tx := r.db.Order("date desc, id desc")
 	if start != "" {
-		tx = tx.Where("date >= ?", start)
+		tx = tx.Where("DATE(date) >= ?", start)
 	}
 	if end != "" {
-		tx = tx.Where("date <= ?", end)
+		tx = tx.Where("DATE(date) <= ?", end)
 	}
 	if method != "" {
 		tx = tx.Where("method = ?", method)
@@ -95,6 +95,23 @@ func (r *cashBookRepository) GetTotalsSince(since string, outletID ...uint) (inc
 		return 0, 0, err
 	}
 	return incomeTotal, expenseTotal, nil
+}
+
+func (r *cashBookRepository) ExistsByReference(ref string, outletID ...uint) (bool, error) {
+	tx := r.db.Model(&models.CashBook{}).Where("reference = ?", ref)
+	tx = scopeOutlet(tx, "cash_books", outletID...)
+	var count int64
+	if err := tx.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *cashBookRepository) DeleteByReference(ref string, outletID ...uint) (int64, error) {
+	tx := r.db.Where("reference = ?", ref)
+	tx = scopeOutlet(tx, "cash_books", outletID...)
+	res := tx.Delete(&models.CashBook{})
+	return res.RowsAffected, res.Error
 }
 
 func toDomainCashBook(m *models.CashBook) *entity.CashBook {

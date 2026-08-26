@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,7 @@ func setupOrderTestDB() *gorm.DB {
 	db.AutoMigrate(
 		&models.Order{}, &models.OrderItem{}, &models.Product{}, &models.Ingredient{},
 		&models.RecipeItem{}, &models.StockMutation{}, &models.Setting{},
+		&models.Expense{}, &models.CashBook{},
 	)
 	return db
 }
@@ -104,6 +106,12 @@ func TestOrderUsecase_CreateSuccess(t *testing.T) {
 
 	expectedTotal := 25000.0 * 2
 	assert.Equal(t, expectedTotal, resp.Order.TotalAmount)
+
+	var cb models.CashBook
+	db.Where("reference = ?", fmt.Sprintf("order:%d", resp.Order.ID)).First(&cb)
+	assert.Equal(t, "income", cb.Type)
+	assert.Equal(t, "Cash", cb.Method)
+	assert.Equal(t, expectedTotal, cb.Amount)
 
 	var updatedIng entity.Ingredient
 	db.First(&updatedIng, ing.ID)

@@ -35,6 +35,10 @@ export function useCashBook(params: CashBookParams) {
     mutationFn: (id: number) => CashBookService.deleteCashBook(id),
     onSuccess: invalidate,
   })
+  const syncMut = useMutation({
+    mutationFn: () => CashBookService.syncFromTransactions(),
+    onSuccess: invalidate,
+  })
 
   return {
     items: (query.data || []) as CashBook[],
@@ -43,5 +47,6 @@ export function useCashBook(params: CashBookParams) {
     createMut,
     updateMut,
     deleteMut,
+    syncMut,
   }
 }

@@ -211,6 +211,9 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		if err != nil {
 			return err
 		}
+		if err := NewCashBookUsecase(tx).EnsureOrderIncome(loaded); err != nil {
+			return err
+		}
 		result.Order = loaded.ToResponse()
 		return nil
 	})
@@ -277,7 +280,10 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 		}
 
 		order.Status = "Void"
-		return orderRepo.Update(order)
+		if err := orderRepo.Update(order); err != nil {
+			return err
+		}
+		return NewCashBookUsecase(tx).RemoveOrderIncome(order.ID)
 	})
 
 	if err != nil {
@@ -306,7 +312,12 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 	order.PaymentStatus = "Paid"
 	order.Status = "Completed"
 
-	if err := uc.orderRepo.Update(order); err != nil {
+	if err := uc.db.Transaction(func(tx *gorm.DB) error {
+		if err := postgres.NewOrderRepository(tx).Update(order); err != nil {
+			return err
+		}
+		return NewCashBookUsecase(tx).EnsureOrderIncome(order)
+	}); err != nil {
 		return nil, err
 	}
 

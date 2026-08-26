@@ -106,6 +106,9 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 			return nil
 		}
 
-		return orderRepo.Update(loadedOrder)
+		if err := orderRepo.Update(loadedOrder); err != nil {
+			return err
+		}
+		return NewCashBookUsecase(tx).EnsureOrderIncome(loadedOrder)
 	})
 }

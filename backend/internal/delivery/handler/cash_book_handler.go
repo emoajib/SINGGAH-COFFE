@@ -140,3 +140,18 @@ func (h *CashBookHandler) DeleteCashBook(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Cash book entry deleted successfully"})
 }
+
+func (h *CashBookHandler) SyncFromTransactions(c *gin.Context) {
+	if !requireOwner(c) {
+		return
+	}
+	result, err := h.cashBookUsecase.SyncFromTransactions(getOutletID(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync transactions"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("Sinkron selesai: %d penjualan, %d pengeluaran", result.OrdersSynced, result.ExpensesSynced),
+		"result":  result,
+	})
+}
