@@ -151,6 +151,7 @@ type CashRegisterRepository interface {
 	Delete(id uint) error
 	Close(userID uint, closingAmount, expectedCash, variance float64) error
 	SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time) (float64, error)
+	FindLatestClosed(userID uint, outletID uint) (*entity.CashRegister, error)
 }
 
 // CashBookRepository defines data access for the owner-only Buku Kas

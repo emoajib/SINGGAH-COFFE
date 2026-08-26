@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useDispatch } from "react-redux"
 import { setOpenCashRegister, setCashFloatPending } from "../../store/authSlice"
 import { CashRegisterService } from "../../services/cashRegisterService"
@@ -24,6 +24,22 @@ export default function CashFloatModal({ open, onSuccess, onClose }: CashFloatMo
         const digits = e.target.value.replace(/\D/g, '')
         setAmount(digits)
     }
+
+    useEffect(() => {
+        if (!open) return
+        let cancelled = false
+        ;(async () => {
+            try {
+                const suggested = await CashRegisterService.getSuggestedOpening()
+                if (!cancelled && suggested.amount > 0) {
+                    setAmount(String(Math.round(suggested.amount)))
+                }
+            } catch {
+                // silently ignore — user types manually
+            }
+        })()
+        return () => { cancelled = true }
+    }, [open])
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()

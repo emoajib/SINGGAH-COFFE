@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"strconv"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -16,6 +17,7 @@ type CashRegisterUsecase struct {
 	cashRegisterRepo repository.CashRegisterRepository
 	userRepo         repository.UserRepository
 	outletRepo       repository.OutletRepository
+	settingRepo      repository.SettingRepository
 }
 
 func NewCashRegisterUsecase(db *gorm.DB) *CashRegisterUsecase {
@@ -24,6 +26,7 @@ func NewCashRegisterUsecase(db *gorm.DB) *CashRegisterUsecase {
 		cashRegisterRepo: postgres.NewCashRegisterRepository(db),
 		userRepo:         postgres.NewUserRepository(db),
 		outletRepo:       postgres.NewOutletRepository(db),
+		settingRepo:      postgres.NewSettingRepository(db),
 	}
 }
 
@@ -113,4 +116,21 @@ func (uc *CashRegisterUsecase) CloseCashRegister(userID uint, closingAmount floa
 		return nil, err
 	}
 	return reg, nil
+}
+
+func (uc *CashRegisterUsecase) GetSuggestedOpening(userID uint, outletID uint) (float64, string, error) {
+	latest, err := uc.cashRegisterRepo.FindLatestClosed(userID, outletID)
+	if err == nil && latest != nil && latest.ClosingAmount != nil {
+		return *latest.ClosingAmount, "carry_over", nil
+	}
+
+	setting, err := uc.settingRepo.FindByKey("default_opening_float")
+	if err == nil && setting != nil && setting.Value != "" {
+		val, parseErr := strconv.ParseFloat(setting.Value, 64)
+		if parseErr == nil {
+			return val, "setting_default", nil
+		}
+	}
+
+	return 0, "none", nil
 }

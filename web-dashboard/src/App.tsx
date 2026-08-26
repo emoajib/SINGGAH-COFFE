@@ -30,6 +30,7 @@ function AppContent() {
     const auth = useSelector((state: RootState) => state.auth)
     const isAuthenticated = auth?.isAuthenticated || false
     const isCashier = auth?.user?.role === "cashier"
+    const isManager = auth?.user?.role === "manager"
     const isOwner = auth?.user?.role === "owner"
     const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
 
@@ -39,7 +40,7 @@ function AppContent() {
         return <Login />
     }
 
-    const needsCashFloat = isCashier && cashFloatPending
+    const needsCashFloat = (isCashier || isManager) && cashFloatPending
 
     if (activeTab === "pos") {
         return (

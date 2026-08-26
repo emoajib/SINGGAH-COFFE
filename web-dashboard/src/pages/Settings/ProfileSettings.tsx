@@ -135,6 +135,20 @@ export function ProfileSettings({
                             <p className="text-[10px] text-gray-500 italic">Digunakan untuk menghitung Payback Period & ROI.</p>
                         </div>
                         <div className="space-y-2">
+                            <label className="text-sm font-medium">Saldo Kas Awal Default (Rp)</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">Rp</span>
+                                <Input
+                                    type="number"
+                                    className="pl-10"
+                                    placeholder="e.g. 500000"
+                                    value={settings.default_opening_float || ""}
+                                    onChange={(e) => handleInputChange("default_opening_float", e.target.value)}
+                                />
+                            </div>
+                            <p className="text-[10px] text-gray-500 italic">Nominal awal kas yang diisi otomatis saat kasir/manajer membuka shift (jika tidak ada carry-over dari shift sebelumnya).</p>
+                        </div>
+                        <div className="space-y-2">
                             <label className="text-sm font-medium">Masa Amortisasi (Bulan)</label>
                             <Input
                                 type="number"

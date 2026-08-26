@@ -349,6 +349,11 @@ export interface OpenCashRegisterRequest {
   notes?: string
 }
 
+export interface SuggestedOpening {
+  amount: number
+  source: 'carry_over' | 'setting_default' | 'none'
+}
+
 export interface UpdateCashRegisterRequest {
   notes: string
 }

@@ -104,6 +104,18 @@ func (r *cashRegisterRepository) Close(userID uint, closingAmount, expectedCash,
 		}).Error
 }
 
+func (r *cashRegisterRepository) FindLatestClosed(userID uint, outletID uint) (*entity.CashRegister, error) {
+	var m models.CashRegister
+	err := r.db.Where("user_id = ? AND outlet_id = ? AND status = 'closed'", userID, outletID).
+		Order("closed_at DESC").
+		Limit(1).
+		First(&m).Error
+	if err != nil {
+		return nil, err
+	}
+	return toDomainCashRegister(&m), nil
+}
+
 func (r *cashRegisterRepository) SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time) (float64, error) {
 	var total float64
 	err := r.db.Model(&models.Order{}).

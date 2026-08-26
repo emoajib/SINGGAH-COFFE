@@ -1,5 +1,5 @@
 import api from '../lib/api'
-import type { CashRegister, OpenCashRegisterRequest, UpdateCashRegisterRequest } from '../types'
+import type { CashRegister, OpenCashRegisterRequest, UpdateCashRegisterRequest, SuggestedOpening } from '../types'
 
 export const CashRegisterService = {
   openCashRegister: async (req: OpenCashRegisterRequest): Promise<CashRegister> => {
@@ -9,6 +9,11 @@ export const CashRegisterService = {
 
   closeCashRegister: async (closingAmount: number): Promise<{ message: string; register: CashRegister }> => {
     const response = await api.post('/cash-registers/close', { closing_amount: closingAmount })
+    return response.data
+  },
+
+  getSuggestedOpening: async (): Promise<SuggestedOpening> => {
+    const response = await api.get<SuggestedOpening>('/cash-registers/suggested-opening')
     return response.data
   },
 

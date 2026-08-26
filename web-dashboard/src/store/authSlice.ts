@@ -42,7 +42,7 @@ const initialState: AuthState = {
     isAuthenticated: !!storedToken,
     isLoading: false,
     error: null,
-    cashFloatPending: getStoredUser()?.role === 'cashier' && !getStoredOpenCashRegister(),
+    cashFloatPending: (getStoredUser()?.role === 'cashier' || getStoredUser()?.role === 'manager') && !getStoredOpenCashRegister(),
     openCashRegister: getStoredOpenCashRegister(),
 }
 
@@ -59,7 +59,7 @@ const authSlice = createSlice({
             state.isAuthenticated = true
             state.user = action.payload
             state.error = null
-            state.cashFloatPending = action.payload.role === 'cashier' && !state.openCashRegister
+            state.cashFloatPending = (action.payload.role === 'cashier' || action.payload.role === 'manager') && !state.openCashRegister
         },
         loginFailure: (state, action: PayloadAction<string>) => {
             state.isLoading = false

@@ -6,7 +6,7 @@ import (
 
 	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
-	"singgah-pos-backend/internal/usecase"
+	usecase "singgah-pos-backend/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 )
@@ -153,4 +153,34 @@ func (h *CashRegisterHandler) CloseCashRegister(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cash register closed", "register": reg.ToResponse()})
+}
+
+func (h *CashRegisterHandler) GetSuggestedOpening(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	uid, ok := userID.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	outletID := getOutletID(c)
+	if outletID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "outlet_id is required"})
+		return
+	}
+
+	amount, source, err := h.cashRegisterUsecase.GetSuggestedOpening(uid, outletID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get suggested opening"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"amount": amount,
+		"source": source,
+	})
 }
