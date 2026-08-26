@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"singgah-pos-backend/internal/domain/entity"
 )
 
@@ -147,7 +149,8 @@ type CashRegisterRepository interface {
 	Create(cashRegister *entity.CashRegister) error
 	Update(cashRegister *entity.CashRegister) error
 	Delete(id uint) error
-	Close(userID uint, closingAmount float64) error
+	Close(userID uint, closingAmount, expectedCash, variance float64) error
+	SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time) (float64, error)
 }
 
 // CashBookRepository defines data access for the owner-only Buku Kas

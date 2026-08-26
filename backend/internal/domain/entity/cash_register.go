@@ -12,6 +12,8 @@ type CashRegister struct {
 	OpenedAt      time.Time
 	ClosedAt      *time.Time
 	ClosingAmount *float64
+	ExpectedCash  float64
+	Variance      float64
 	Status        string // open, closed
 }
 
@@ -26,6 +28,8 @@ type CashRegisterResponse struct {
 	OpenedAt      time.Time `json:"opened_at"`
 	ClosedAt      *time.Time `json:"closed_at"`
 	ClosingAmount *float64  `json:"closing_amount"`
+	ExpectedCash  float64   `json:"expected_cash"`
+	Variance      float64   `json:"variance"`
 	Status        string    `json:"status"`
 }
 
@@ -40,6 +44,8 @@ func (c *CashRegister) ToResponse() CashRegisterResponse {
 		OpenedAt:      c.OpenedAt,
 		ClosedAt:      c.ClosedAt,
 		ClosingAmount: c.ClosingAmount,
+		ExpectedCash:  c.ExpectedCash,
+		Variance:      c.Variance,
 		Status:        c.Status,
 	}
 }

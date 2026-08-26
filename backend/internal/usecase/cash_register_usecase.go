@@ -12,6 +12,7 @@ import (
 )
 
 type CashRegisterUsecase struct {
+	db              *gorm.DB
 	cashRegisterRepo repository.CashRegisterRepository
 	userRepo         repository.UserRepository
 	outletRepo       repository.OutletRepository
@@ -19,6 +20,7 @@ type CashRegisterUsecase struct {
 
 func NewCashRegisterUsecase(db *gorm.DB) *CashRegisterUsecase {
 	return &CashRegisterUsecase{
+		db:              db,
 		cashRegisterRepo: postgres.NewCashRegisterRepository(db),
 		userRepo:         postgres.NewUserRepository(db),
 		outletRepo:       postgres.NewOutletRepository(db),
@@ -86,6 +88,29 @@ func (uc *CashRegisterUsecase) DeleteCashRegister(id uint) error {
 	return uc.cashRegisterRepo.Delete(id)
 }
 
-func (uc *CashRegisterUsecase) CloseCashRegister(userID uint, closingAmount float64) error {
-	return uc.cashRegisterRepo.Close(userID, closingAmount)
+func (uc *CashRegisterUsecase) CloseCashRegister(userID uint, closingAmount float64) (*entity.CashRegister, error) {
+	reg, err := uc.cashRegisterRepo.FindOpenByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	cashSales, err := uc.cashRegisterRepo.SumCashSalesForShift(reg.CashierName, reg.OpenedAt, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	expectedCash := reg.OpeningAmount + cashSales
+	variance := closingAmount - expectedCash
+
+	if err := uc.cashRegisterRepo.Close(userID, closingAmount, expectedCash, variance); err != nil {
+		return nil, err
+	}
+
+	reg.ClosingAmount = &closingAmount
+	reg.ExpectedCash = expectedCash
+	reg.Variance = variance
+	if err := NewCashBookUsecase(uc.db).EnsureRegisterClose(reg, reg.OutletID); err != nil {
+		return nil, err
+	}
+	return reg, nil
 }

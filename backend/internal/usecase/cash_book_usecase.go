@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -137,6 +138,43 @@ func (uc *CashBookUsecase) EnsureOrderIncome(o *entity.Order, outletID ...uint) 
 func (uc *CashBookUsecase) RemoveOrderIncome(orderID uint, outletID ...uint) error {
 	_, err := uc.cashBookRepo.DeleteByReference(uc.orderRef(orderID), outletID...)
 	return err
+}
+
+func (uc *CashBookUsecase) registerCloseRef(registerID uint) string {
+	return fmt.Sprintf("cash-register-close:%d", registerID)
+}
+
+// EnsureRegisterClose records the cashier shift variance (selisih) into Buku Kas.
+// Surplus (variance > 0) is an income; shortage (variance < 0) is an expense.
+// No entry is written when variance is exactly zero. Idempotent via reference.
+func (uc *CashBookUsecase) EnsureRegisterClose(cr *entity.CashRegister, outletID uint) error {
+	if cr == nil || cr.ID == 0 || cr.Variance == 0 {
+		return nil
+	}
+	ref := uc.registerCloseRef(cr.ID)
+	exists, err := uc.cashBookRepo.ExistsByReference(ref, outletID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	tipe := "income"
+	label := "surplus"
+	if cr.Variance < 0 {
+		tipe = "expense"
+		label = "kekurangan"
+	}
+	desc := fmt.Sprintf("Selisih tutup kas %s (%s) Rp %.0f", cr.CashierName, label, math.Abs(cr.Variance))
+	return uc.cashBookRepo.Create(&entity.CashBook{
+		OutletID:    outletID,
+		Date:        time.Now(),
+		Method:      "Lainnya",
+		Type:        tipe,
+		Amount:      math.Abs(cr.Variance),
+		Description: desc,
+		Reference:   ref,
+	})
 }
 
 type CashBookSyncResult struct {

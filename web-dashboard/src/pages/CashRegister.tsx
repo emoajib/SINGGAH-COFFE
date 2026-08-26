@@ -136,6 +136,8 @@ export default function CashRegister() {
                                         <th className="px-4 py-3">Kasir</th>
                                         <th className="px-4 py-3">Outlet</th>
                                         <th className="px-4 py-3 text-right">Uang Receh (Rp)</th>
+                                        <th className="px-4 py-3 text-right">Kas Seharusnya (Rp)</th>
+                                        <th className="px-4 py-3 text-right">Selisih (Rp)</th>
                                         <th className="px-4 py-3">Status</th>
                                         <th className="px-4 py-3">Catatan</th>
                                         <th className="px-4 py-3 text-center">Aksi</th>
@@ -152,8 +154,18 @@ export default function CashRegister() {
                                                 </td>
                                                 <td className="px-4 py-3">{r.cashier_name}</td>
                                                 <td className="px-4 py-3">{r.outlet_name || r.outlet_id || "-"}</td>
-                                                <td className="px-4 py-3 text-right font-mono">{formatNumber(r.opening_amount)}</td>
-                                                <td className="px-4 py-3">
+                                                 <td className="px-4 py-3 text-right font-mono">{formatNumber(r.opening_amount)}</td>
+                                                 <td className="px-4 py-3 text-right font-mono">{r.expected_cash ? formatNumber(r.expected_cash) : "-"}</td>
+                                                 <td className="px-4 py-3 text-right font-mono">
+                                                     {r.expected_cash ? (
+                                                         <span className={(r.variance ?? 0) < 0 ? "text-red-600" : (r.variance ?? 0) > 0 ? "text-green-600" : ""}>
+                                                             {(r.variance ?? 0) < 0 ? "-" : ""}{formatNumber(Math.abs(r.variance ?? 0))}
+                                                         </span>
+                                                     ) : (
+                                                         "-"
+                                                     )}
+                                                 </td>
+                                                 <td className="px-4 py-3">
                                                     <Badge
                                                         variant={r.status === "open" ? "default" : "secondary"}
                                                         className={

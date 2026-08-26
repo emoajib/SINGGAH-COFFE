@@ -147,6 +147,8 @@ type CashRegister struct {
 	OpenedAt      time.Time  `json:"opened_at" gorm:"index"`    // Waktu buka kas
 	ClosedAt      *time.Time `json:"closed_at"`                 // Reserved: waktu tutup kas
 	ClosingAmount *float64   `json:"closing_amount"`            // Reserved: kas akhir saat tutup kas
+	ExpectedCash  float64    `json:"expected_cash"`             // kas diharapkan (awal + penjualan tunai shift)
+	Variance      float64    `json:"variance"`                  // selisih: closing - expected
 	Status        string     `json:"status" gorm:"default:open;index"` // open, closed
 }
 

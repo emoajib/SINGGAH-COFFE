@@ -91,7 +91,7 @@ func (r *cashRegisterRepository) Delete(id uint) error {
 	return r.db.Where("id = ?", id).Delete(&models.CashRegister{}).Error
 }
 
-func (r *cashRegisterRepository) Close(userID uint, closingAmount float64) error {
+func (r *cashRegisterRepository) Close(userID uint, closingAmount, expectedCash, variance float64) error {
 	now := time.Now()
 	return r.db.Model(&models.CashRegister{}).
 		Where("user_id = ? AND status = 'open'", userID).
@@ -99,7 +99,22 @@ func (r *cashRegisterRepository) Close(userID uint, closingAmount float64) error
 			"status":         "closed",
 			"closed_at":       &now,
 			"closing_amount":  &closingAmount,
+			"expected_cash":   expectedCash,
+			"variance":        variance,
 		}).Error
+}
+
+func (r *cashRegisterRepository) SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time) (float64, error) {
+	var total float64
+	err := r.db.Model(&models.Order{}).
+		Where("payment_method = 'Cash' AND status = 'Completed' AND payment_status = 'Paid' AND cashier_name = ? AND order_time >= ? AND order_time <= ?",
+			cashierName, openedAt, closedAt).
+		Select("COALESCE(SUM(total_amount),0)").
+		Scan(&total).Error
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
 }
 
 func toDomainCashRegister(m *models.CashRegister) *entity.CashRegister {

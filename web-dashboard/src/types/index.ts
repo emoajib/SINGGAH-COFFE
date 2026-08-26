@@ -339,6 +339,8 @@ export interface CashRegister {
   opened_at: string
   closed_at: string | null
   closing_amount: number | null
+  expected_cash: number | null
+  variance: number | null
   status: 'open' | 'closed'
 }
 

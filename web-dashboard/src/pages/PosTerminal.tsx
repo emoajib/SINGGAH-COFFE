@@ -70,6 +70,7 @@ const PosTerminal: React.FC = () => {
     const [closingAmount, setClosingAmount] = useState("");
     const [closeError, setCloseError] = useState("");
     const [closeLoading, setCloseLoading] = useState(false);
+    const [closeSummary, setCloseSummary] = useState<{ variance: number; expected: number; closing: number } | null>(null);
 
     const dispatch = useDispatch()
     const { openCashRegister } = useSelector((state: RootState) => state.auth)
@@ -133,18 +134,27 @@ const PosTerminal: React.FC = () => {
               setCloseError("Nominal harus diisi dan lebih dari 0")
               return
           }
-          setCloseLoading(true)
-          try {
-              await CashRegisterService.closeCashRegister(num)
-              dispatch(setOpenCashRegister(null))
-              setShowCloseModal(false)
-              setClosingAmount("")
-          } catch (err: any) {
-              setCloseError(err.response?.data?.error || "Gagal menutup kas")
-          } finally {
-              setCloseLoading(false)
-          }
-      }
+           setCloseLoading(true)
+           try {
+               const res = await CashRegisterService.closeCashRegister(num)
+               setCloseSummary({
+                   variance: res.register.variance ?? 0,
+                   expected: res.register.expected_cash ?? 0,
+                   closing: res.register.closing_amount ?? 0,
+               })
+               setClosingAmount("")
+           } catch (err: any) {
+               setCloseError(err.response?.data?.error || "Gagal menutup kas")
+           } finally {
+               setCloseLoading(false)
+           }
+       }
+
+       const handleFinishClose = () => {
+           dispatch(setOpenCashRegister(null))
+           setShowCloseModal(false)
+           setCloseSummary(null)
+       }
 
       const displayClosingAmount = closingAmount ? formatCurrency(parseInt(closingAmount.replace(/\./g, ''))) : ""
 
@@ -771,20 +781,52 @@ const PosTerminal: React.FC = () => {
                                     required
                                 />
                             </div>
-                            {closeError && <p className="text-sm text-red-600">{closeError}</p>}
-                        </div>
-                        <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
-                            <Button variant="ghost" onClick={() => { setShowCloseModal(false); setCloseError(""); setClosingAmount("") }}>
-                                Batal
-                            </Button>
-                            <Button
-                                onClick={handleCloseCashRegister}
-                                disabled={closeLoading}
-                                className="bg-red-600 hover:bg-red-700 text-white"
-                            >
-                                {closeLoading ? "Menyimpan..." : "Simpan & Tutup Kas"}
-                            </Button>
-                        </div>
+                             {closeError && <p className="text-sm text-red-600">{closeError}</p>}
+
+                             {closeSummary && (
+                                 <div className="rounded-lg border p-3 text-sm space-y-1 bg-slate-50">
+                                     <div className="flex justify-between">
+                                         <span className="text-gray-600">Kas Akhir (Rp):</span>
+                                         <span className="font-bold">{formatCurrency(closeSummary.closing)}</span>
+                                     </div>
+                                     <div className="flex justify-between">
+                                         <span className="text-gray-600">Kas Seharusnya (Rp):</span>
+                                         <span className="font-bold">{formatCurrency(closeSummary.expected)}</span>
+                                     </div>
+                                     <div className="flex justify-between">
+                                         <span className="text-gray-600">Selisih (Rp):</span>
+                                         <span className={`font-bold ${closeSummary.variance < 0 ? "text-red-600" : "text-green-600"}`}>
+                                             {closeSummary.variance < 0 ? "-" : ""}{formatCurrency(Math.abs(closeSummary.variance))}
+                                         </span>
+                                     </div>
+                                     <p className="text-xs text-slate-500 pt-1">
+                                         {closeSummary.variance === 0
+                                             ? "Sesuai, tidak ada selisih."
+                                             : `Selisih ${closeSummary.variance < 0 ? "kekurangan" : "surplus"} otomatis tercatat di Buku Kas.`}
+                                     </p>
+                                 </div>
+                             )}
+                         </div>
+                         <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+                             {closeSummary ? (
+                                 <Button onClick={handleFinishClose} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                                     Selesai
+                                 </Button>
+                             ) : (
+                                 <>
+                                     <Button variant="ghost" onClick={() => { setShowCloseModal(false); setCloseError(""); setClosingAmount("") }}>
+                                         Batal
+                                     </Button>
+                                     <Button
+                                         onClick={handleCloseCashRegister}
+                                         disabled={closeLoading}
+                                         className="bg-red-600 hover:bg-red-700 text-white"
+                                     >
+                                         {closeLoading ? "Menyimpan..." : "Simpan & Tutup Kas"}
+                                     </Button>
+                                 </>
+                             )}
+                         </div>
                     </div>
                 </div>
             )}

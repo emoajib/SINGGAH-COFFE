@@ -146,10 +146,11 @@ func (h *CashRegisterHandler) CloseCashRegister(c *gin.Context) {
 		return
 	}
 
-	if err := h.cashRegisterUsecase.CloseCashRegister(userID, req.ClosingAmount); err != nil {
+	reg, err := h.cashRegisterUsecase.CloseCashRegister(userID, req.ClosingAmount)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Cash register closed"})
+	c.JSON(http.StatusOK, gin.H{"message": "Cash register closed", "register": reg.ToResponse()})
 }
