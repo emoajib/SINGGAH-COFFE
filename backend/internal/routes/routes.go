@@ -137,11 +137,13 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/backup/history", middleware.RoleMiddleware("owner"), h.Backup.GetBackupHistory)
 			protected.GET("/backup/status", middleware.RoleMiddleware("owner"), h.Backup.GetBackupStatus)
 
-			// Production Targets & Requirements (Owner Only)
+			// Production Targets & Requirements
+			// GET targets dan requirements dapat diakses manager (view-only untuk perencanaan belanja).
+			// Hanya Owner yang bisa EDIT target produksi.
 			protected.GET("/production-targets", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetTargets)
 			protected.PUT("/production-targets", middleware.RoleMiddleware("owner"), h.ProductionTarget.SaveTargets)
-			protected.GET("/inventory/requirements", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetRequirements)
-			protected.GET("/reports/daily-target", middleware.RoleMiddleware("owner"), h.ProductionTarget.GetDailyTarget)
+			protected.GET("/inventory/requirements", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.GetRequirements)
+			protected.GET("/reports/daily-target", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.GetDailyTarget)
 			protected.GET("/backup/download/:name", middleware.RoleMiddleware("owner"), h.Backup.DownloadBackup)
 			protected.POST("/backup/upload", middleware.RoleMiddleware("owner"), h.Backup.UploadBackup)
 

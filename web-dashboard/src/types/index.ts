@@ -429,6 +429,7 @@ export interface RequirementIngredient {
   name: string
   category: string
   unit: string
+  current_stock?: number
   total_needed: number
   purchase_unit: string
   purchase_unit_size: number

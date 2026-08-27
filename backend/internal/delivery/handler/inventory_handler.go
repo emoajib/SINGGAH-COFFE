@@ -113,7 +113,11 @@ func (h *InventoryHandler) GetStockHistory(c *gin.Context) {
 		return
 	}
 
-	history, err := h.inventoryUsecase.GetStockHistory(uint(id))
+	// Filter riwayat per outlet agar tidak bocor data antar outlet (multi-outlet).
+	outletRaw, _ := c.Get("outlet_id")
+	oid, _ := outletRaw.(uint)
+
+	history, err := h.inventoryUsecase.GetStockHistory(uint(id), oid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stock history"})
 		return

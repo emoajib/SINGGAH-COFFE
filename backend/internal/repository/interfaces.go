@@ -50,7 +50,7 @@ type IngredientRepository interface {
 // StockMutationRepository defines data access for stock mutations
 type StockMutationRepository interface {
 	Create(mutation *entity.StockMutation) error
-	FindByIngredientID(ingredientID uint) ([]entity.StockMutation, error)
+	FindByIngredientID(ingredientID uint, outletID ...uint) ([]entity.StockMutation, error)
 }
 
 // OrderRepository defines data access for orders

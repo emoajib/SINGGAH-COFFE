@@ -5,7 +5,7 @@ import type { ProductionTarget, RequirementResponse } from "../types"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
-import { Loader2, Save, ShoppingCart, Target } from "lucide-react"
+import { Loader2, Save, ShoppingCart, Target, Info } from "lucide-react"
 import { RequirementService } from "../services/requirementService"
 import { useToast } from "../hooks/use-toast"
 import { formatCurrency, formatNumber } from "../lib/utils"
@@ -24,13 +24,21 @@ export default function KebutuhanStok() {
     const loadAll = async () => {
         setIsLoading(true)
         try {
-            const [tg, req] = await Promise.all([
-                RequirementService.getTargets(),
-                RequirementService.getRequirements(),
-            ])
-            setTargets(tg)
-            setRequirements(req)
-            setPeriodDays(req.period_days || 10)
+            if (canEdit) {
+                // Owner: load targets (untuk edit) dan requirements
+                const [tg, req] = await Promise.all([
+                    RequirementService.getTargets(),
+                    RequirementService.getRequirements(),
+                ])
+                setTargets(tg)
+                setRequirements(req)
+                setPeriodDays(req.period_days || 10)
+            } else {
+                // Manager: hanya bisa lihat requirements (view-only)
+                const req = await RequirementService.getRequirements()
+                setRequirements(req)
+                setPeriodDays(req.period_days || 10)
+            }
         } catch (err) {
             toast({
                 title: "Error",
@@ -47,18 +55,6 @@ export default function KebutuhanStok() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    if (user?.role !== 'owner') {
-        return (
-            <div className="space-y-6">
-                <h1 className="text-xl font-black text-slate-800">Kebutuhan Stok</h1>
-                <Card>
-                    <CardContent className="py-8 text-center text-gray-500">
-                        Akses ditolak: perencanaan kebutuhan stok hanya untuk pemilik.
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
 
     const handleTargetChange = (productID: number, value: number) => {
         setTargets(prev => prev.map(t => (t.product_id === productID ? { ...t, target_cup: value } : t)))
@@ -90,24 +86,30 @@ export default function KebutuhanStok() {
                 <div>
                     <h1 className="text-xl font-black text-slate-800">Kebutuhan Stok</h1>
                     <p className="text-sm text-gray-500 mt-0.5">
-                        Perencanaan belanja bahan baku berdasarkan target produksi menu per periode. Target harian (cup/hari) otomatis tampil di halaman Penjualan.
+                        Perencanaan belanja bahan baku berdasarkan target produksi menu per periode.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-gray-600">Periode (hari)</label>
-                    <Input
-                        type="number"
-                        min={1}
-                        value={periodDays}
-                        onChange={e => setPeriodDays(Number(e.target.value))}
-                        className="w-24"
-                        disabled={!canEdit}
-                    />
-                    <Button size="sm" onClick={handleSave} disabled={!canEdit || isSaving} className="gap-1.5">
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Simpan
-                    </Button>
-                </div>
+                {canEdit ? (
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-600">Periode (hari)</label>
+                        <Input
+                            type="number"
+                            min={1}
+                            value={periodDays}
+                            onChange={e => setPeriodDays(Number(e.target.value))}
+                            className="w-24"
+                        />
+                        <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1.5">
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            Simpan
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-1.5 rounded-md bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs text-blue-700">
+                        <Info className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>Anda dapat melihat kebutuhan belanja. Edit target hanya untuk Owner.</span>
+                    </div>
+                )}
             </div>
 
             {isLoading ? (
@@ -198,40 +200,53 @@ export default function KebutuhanStok() {
                                         <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-gray-500">
                                             <th className="py-2 pr-3 font-semibold">Bahan</th>
                                             <th className="py-2 pr-3 font-semibold">Kategori</th>
+                                            <th className="py-2 pr-3 text-right font-semibold">Stok Saat Ini</th>
                                             <th className="py-2 pr-3 text-right font-semibold">Total Kebutuhan</th>
                                             <th className="py-2 pr-3 text-right font-semibold">Belanja (Satuan Beli)</th>
                                             <th className="py-2 pr-3 text-right font-semibold">Estimasi Biaya</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {requirements?.ingredients.map(i => (
-                                            <tr key={i.ingredient_id} className="border-b border-slate-100">
-                                                <td className="py-2 pr-3 font-medium text-slate-800">{i.name}</td>
-                                                <td className="py-2 pr-3 text-gray-500">
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
-                                                        {i.category || "Lainnya"}
-                                                    </span>
-                                                </td>
-                                                <td className="py-2 pr-3 text-right text-slate-700">
-                                                    {formatNumber(i.total_needed)} {i.unit}
-                                                </td>
-                                                <td className="py-2 pr-3 text-right text-slate-700">
-                                                    <span className="font-bold text-slate-900">
-                                                        {formatNumber(i.rounded_purchase_unit || Math.ceil(i.need_in_purchase_unit || 0))} {i.purchase_unit || (i.unit === 'gram' ? 'kg' : i.unit === 'ml' ? 'liter' : i.unit)}
-                                                    </span>
-                                                    {i.need_in_purchase_unit > 0 && i.need_in_purchase_unit !== i.rounded_purchase_unit && i.purchase_unit && (
-                                                        <span className="text-gray-400 text-[11px] ml-1 block font-normal">
-                                                            ({i.need_in_purchase_unit.toFixed(2)} {i.purchase_unit})
+                                        {requirements?.ingredients.map(i => {
+                                            const currentStock = i.current_stock ?? 0
+                                            const stockOk = currentStock >= i.total_needed
+                                            return (
+                                                <tr key={i.ingredient_id} className="border-b border-slate-100">
+                                                    <td className="py-2 pr-3 font-medium text-slate-800">{i.name}</td>
+                                                    <td className="py-2 pr-3 text-gray-500">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
+                                                            {i.category || "Lainnya"}
                                                         </span>
-                                                    )}
-                                                </td>
-                                                <td className="py-2 pr-3 text-right font-semibold text-slate-800">
-                                                    {formatCurrency(i.estimated_cost)}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                    </td>
+                                                    <td className="py-2 pr-3 text-right">
+                                                        <span className={`font-semibold ${stockOk ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                            {formatNumber(currentStock)} {i.unit}
+                                                        </span>
+                                                        <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${stockOk ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                                                            {stockOk ? 'Cukup' : 'Perlu Beli'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-2 pr-3 text-right text-slate-700">
+                                                        {formatNumber(i.total_needed)} {i.unit}
+                                                    </td>
+                                                    <td className="py-2 pr-3 text-right text-slate-700">
+                                                        <span className="font-bold text-slate-900">
+                                                            {formatNumber(i.rounded_purchase_unit || Math.ceil(i.need_in_purchase_unit || 0))} {i.purchase_unit || (i.unit === 'gram' ? 'kg' : i.unit === 'ml' ? 'liter' : i.unit)}
+                                                        </span>
+                                                        {i.need_in_purchase_unit > 0 && i.need_in_purchase_unit !== i.rounded_purchase_unit && i.purchase_unit && (
+                                                            <span className="text-gray-400 text-[11px] ml-1 block font-normal">
+                                                                ({i.need_in_purchase_unit.toFixed(2)} {i.purchase_unit})
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 pr-3 text-right font-semibold text-slate-800">
+                                                        {formatCurrency(i.estimated_cost)}
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
                                         <tr>
-                                            <td colSpan={4} className="py-3 pr-3 text-right font-bold text-slate-800">
+                                            <td colSpan={5} className="py-3 pr-3 text-right font-bold text-slate-800">
                                                 TOTAL ESTIMASI
                                             </td>
                                             <td className="py-3 text-right font-black text-emerald-600">

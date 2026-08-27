@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -52,8 +53,8 @@ func (uc *InventoryUsecase) GetByID(id uint) (*entity.IngredientResponse, error)
 	return &resp, nil
 }
 
-func (uc *InventoryUsecase) GetStockHistory(ingredientID uint) ([]entity.StockMutationResponse, error) {
-	mutations, err := uc.mutationRepo.FindByIngredientID(ingredientID)
+func (uc *InventoryUsecase) GetStockHistory(ingredientID uint, outletID ...uint) ([]entity.StockMutationResponse, error) {
+	mutations, err := uc.mutationRepo.FindByIngredientID(ingredientID, outletID...)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +115,9 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			return err
 		}
 
-		// Create expense record for purchase stock-in
+		// Create expense record for purchase stock-in dan sync ke Buku Kas
+		// dalam transaksi yang sama agar atomik.
+		// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 		if isPurchase && mutationType == string(entity.MutationIn) {
 			ingredient, err := ingredientRepo.FindByIDForUpdate(ingredientID)
 			if err != nil {
@@ -124,7 +127,7 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			if updateMasterPrice && newCost > 0 {
 				costToUse = newCost
 			}
-			if err := expenseRepo.Create(&entity.Expense{
+			exp := &entity.Expense{
 				Title:       "Pembelian: " + ingredient.Name,
 				Amount:      quantity * costToUse,
 				Category:    "Operasional",
@@ -132,8 +135,28 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 				Description: "Auto-generated from Stock In",
 				Notes:       notes,
 				OutletID:    oid,
-			}); err != nil {
+			}
+			if err := expenseRepo.Create(exp); err != nil {
 				return err
+			}
+			// Sync ke Buku Kas dalam transaksi yang sama.
+			// Pola idempoten reference "expense:{id}" mencegah duplikasi
+			// saat Owner menjalankan SyncFromTransactions di kemudian hari.
+			if exp.ID > 0 && exp.Amount > 0 {
+				cashBookRepo := postgres.NewCashBookRepository(tx)
+				ref := fmt.Sprintf("expense:%d", exp.ID)
+				exists, _ := cashBookRepo.ExistsByReference(ref, oid)
+				if !exists {
+					_ = cashBookRepo.Create(&entity.CashBook{
+						OutletID:    oid,
+						Date:        exp.Date,
+						Method:      "Lainnya",
+						Type:        "expense",
+						Amount:      exp.Amount,
+						Description: "Pengeluaran: " + exp.Title,
+						Reference:   ref,
+					})
+				}
 			}
 		}
 

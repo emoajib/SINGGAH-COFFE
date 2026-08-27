@@ -129,6 +129,9 @@ func (r *cashRegisterRepository) SumCashSalesForShift(cashierName string, opened
 	return total, nil
 }
 
+// toDomainCashRegister memetakan semua field model ke domain entity,
+// termasuk ExpectedCash dan Variance yang diperlukan untuk tampilan riwayat shift.
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func toDomainCashRegister(m *models.CashRegister) *entity.CashRegister {
 	return &entity.CashRegister{
 		ID:            m.ID,
@@ -140,6 +143,8 @@ func toDomainCashRegister(m *models.CashRegister) *entity.CashRegister {
 		OpenedAt:      m.OpenedAt,
 		ClosedAt:      m.ClosedAt,
 		ClosingAmount: m.ClosingAmount,
+		ExpectedCash:  m.ExpectedCash, // FIX: sebelumnya tidak di-map → selalu 0
+		Variance:      m.Variance,     // FIX: sebelumnya tidak di-map → selalu 0
 		Status:        m.Status,
 	}
 }

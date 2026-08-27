@@ -19,6 +19,7 @@ type RequirementIngredient struct {
 	Name                 string  `json:"name"`
 	Category             string  `json:"category"`
 	Unit                 string  `json:"unit"`
+	CurrentStock         float64 `json:"current_stock"`
 	TotalNeeded          float64 `json:"total_needed"`
 	PurchaseUnit         string  `json:"purchase_unit"`
 	PurchaseUnitSize     float64 `json:"purchase_unit_size"`

@@ -284,6 +284,7 @@ func (uc *ProductionTargetUsecase) aggregateRequirements(products []entity.Produ
 					Name:             ing.Name,
 					Category:         cat,
 					Unit:             ing.Unit,
+					CurrentStock:     ing.CurrentStock,
 					TotalNeeded:      totalNeed,
 					PurchaseUnit:     pUnit,
 					PurchaseUnitSize: pSize,

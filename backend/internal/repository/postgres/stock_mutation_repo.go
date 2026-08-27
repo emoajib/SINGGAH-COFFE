@@ -30,9 +30,17 @@ func (r *stockMutationRepository) Create(mutation *entity.StockMutation) error {
 	return r.db.Create(m).Error
 }
 
-func (r *stockMutationRepository) FindByIngredientID(ingredientID uint) ([]entity.StockMutation, error) {
+// FindByIngredientID mengembalikan riwayat mutasi stok untuk bahan tertentu.
+// outletID bersifat opsional — jika diberikan, hanya mengembalikan mutasi dari outlet tersebut
+// sehingga mencegah kebocoran data antar outlet dalam setup multi-outlet.
+// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *stockMutationRepository) FindByIngredientID(ingredientID uint, outletID ...uint) ([]entity.StockMutation, error) {
 	var ms []models.StockMutation
-	if err := r.db.Where("ingredient_id = ?", ingredientID).Order("created_at desc").Find(&ms).Error; err != nil {
+	tx := r.db.Where("ingredient_id = ?", ingredientID)
+	if len(outletID) > 0 && outletID[0] > 0 {
+		tx = tx.Where("outlet_id = ?", outletID[0])
+	}
+	if err := tx.Order("created_at desc").Find(&ms).Error; err != nil {
 		return nil, err
 	}
 	result := make([]entity.StockMutation, len(ms))
