@@ -4,7 +4,7 @@ import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2, CheckCircle2, DollarSign, Wallet } from "lucide-react"
+import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2, CheckCircle2, DollarSign, Wallet, Clock, CreditCard, Banknote } from "lucide-react"
 import { useOrders, useVoidOrder, useCompleteOrder } from "../hooks/useOrders"
 import { useToast } from "../hooks/use-toast"
 import { useSelector } from "react-redux"
@@ -21,7 +21,10 @@ export default function Sales() {
     const [selectedTx, setSelectedTx] = useState<any | null>(null)
     const [startDate, setStartDate] = useState("")
     const [endDate, setEndDate] = useState("")
+    const [startTime, setStartTime] = useState("")
+    const [endTime, setEndTime] = useState("")
     const [statusFilter, setStatusFilter] = useState("")
+    const [paymentMethodFilter, setPaymentMethodFilter] = useState("")
     const { toast } = useToast()
 
     const isOwnerOrManager = user?.role === 'owner' || user?.role === 'manager'
@@ -56,6 +59,8 @@ export default function Sales() {
         const today = new Date().toISOString().slice(0, 10)
         setStartDate(today)
         setEndDate(today)
+        setStartTime("")
+        setEndTime("")
     }
 
     const [productPerf, setProductPerf] = useState<any[]>([])
@@ -131,16 +136,32 @@ export default function Sales() {
         }
     }
 
-    const filteredOrders = orders.filter(order =>
-        order.order_number.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const filteredOrders = orders.filter(order => {
+        const matchesSearch = order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (order.cashier_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+        const matchesPayment = !paymentMethodFilter || order.payment_method === paymentMethodFilter
+
+        let matchesTime = true
+        if (startTime || endTime) {
+            const ordDateObj = new Date(order.created_at || order.order_time)
+            if (!isNaN(ordDateObj.getTime())) {
+                const hours = ordDateObj.getHours().toString().padStart(2, '0')
+                const minutes = ordDateObj.getMinutes().toString().padStart(2, '0')
+                const ordTimeStr = `${hours}:${minutes}`
+                if (startTime && ordTimeStr < startTime) matchesTime = false
+                if (endTime && ordTimeStr > endTime) matchesTime = false
+            }
+        }
+
+        return matchesSearch && matchesPayment && matchesTime
+    })
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-xl md:text-3xl font-bold text-gray-900">Penjualan & Transaksi</h1>
-                    <p className="text-gray-500">Pantau semua pembayaran yang berhasil dan tertunda.</p>
+                    <p className="text-gray-500">Pantau semua pembayaran yang berhasil, tertunda, dan filter per jam/waktu.</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" className="gap-2" onClick={() => refetch()}>
@@ -155,14 +176,14 @@ export default function Sales() {
             {/* Filter Bar */}
             <Card className="border-none shadow-sm">
                 <CardContent className="pt-0 pb-4">
-                    <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex flex-wrap gap-3 items-end">
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-gray-500">Tanggal Mulai</label>
                             <Input
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-48"
+                                className="w-36 sm:w-40"
                             />
                         </div>
                         <div className="space-y-1">
@@ -171,7 +192,29 @@ export default function Sales() {
                                 type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-48"
+                                className="w-36 sm:w-40"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" /> Jam Mulai
+                            </label>
+                            <Input
+                                type="time"
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                                className="w-28"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" /> Jam Selesai
+                            </label>
+                            <Input
+                                type="time"
+                                value={endTime}
+                                onChange={(e) => setEndTime(e.target.value)}
+                                className="w-28"
                             />
                         </div>
                         <div className="space-y-1">
@@ -179,17 +222,43 @@ export default function Sales() {
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="flex h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="flex h-10 w-36 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
                             >
-                                <option value="">Semua</option>
+                                <option value="">Semua Status</option>
                                 <option value="Pending">Pending</option>
                                 <option value="Completed">Completed</option>
                                 <option value="Void">Void</option>
                             </select>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => { setStartDate(""); setEndDate(""); setStatusFilter(""); }}>
-                            <Filter className="w-4 h-4 mr-1" /> Hapus Filter
-                        </Button>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500">Metode Bayar</label>
+                            <select
+                                value={paymentMethodFilter}
+                                onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                                className="flex h-10 w-36 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
+                            >
+                                <option value="">Semua Metode</option>
+                                <option value="Cash">Cash (Tunai)</option>
+                                <option value="QRIS">QRIS / Bank</option>
+                            </select>
+                        </div>
+                        {(startDate || endDate || startTime || endTime || statusFilter || paymentMethodFilter) && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setStartDate("")
+                                    setEndDate("")
+                                    setStartTime("")
+                                    setEndTime("")
+                                    setStatusFilter("")
+                                    setPaymentMethodFilter("")
+                                }}
+                                className="gap-1"
+                            >
+                                <Filter className="w-3.5 h-3.5" /> Hapus Filter
+                            </Button>
+                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -405,7 +474,18 @@ export default function Sales() {
                                                 <td className="px-6 py-4 font-bold text-gray-900">
                                                     {formatCurrency(order.total_amount)}
                                                 </td>
-                                                <td className="px-6 py-4 uppercase text-xs">{order.payment_method}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                                        order.payment_method === 'QRIS'
+                                                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                                            : order.payment_method === 'Cash'
+                                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                            : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                                    }`}>
+                                                        {order.payment_method === 'QRIS' ? <CreditCard className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
+                                                        {order.payment_method}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <Badge variant={order.status === 'Completed' ? 'success' : 'warning'}>
                                                         {order.status === 'Completed' ? 'Selesai' : order.status === 'Void' ? 'Dibatalkan' : 'Pending'}
