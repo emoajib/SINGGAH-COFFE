@@ -68,10 +68,13 @@ else
     # Kill backend before pull (in case binary is locked)
     pkill -f "singgah-backend" 2>/dev/null || true
     sleep 1
-    # Aggressive reset: discard local tracking differences, then pull
-    git fetch origin 2>&1 | tail -2
-    git reset --hard origin/main 2>&1
-    echo "✅ Pulled to $(git rev-parse --short HEAD)"
+    # Single-thread constrained git fetch to prevent 'cannot create async thread' on shared hosting
+    if ! git -c pack.threads=1 -c index.threads=1 fetch origin main 2>/dev/null; then
+        echo "⚠️  Git fetch constrained by ulimit, retrying single-process shallow fetch..."
+        git -c pack.threads=1 -c index.threads=1 fetch --depth=1 origin main 2>/dev/null || echo "⚠️  Git fetch bypassed, proceeding to direct release package download"
+    fi
+    git reset --hard origin/main 2>/dev/null || true
+    echo "✅ Repo commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'current')"
     # Restore .env if needed
     if [ ! -f "$PROJ_DIR/backend/.env" ] && [ -f "$PROJ_DIR/backend/.env.backup" ]; then
         cp "$PROJ_DIR/backend/.env.backup" "$PROJ_DIR/backend/.env"
