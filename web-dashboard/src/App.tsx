@@ -34,7 +34,10 @@ function AppContent() {
     const isOwner = auth?.user?.role === "owner"
     const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
 
-    const ownerOnlyTabs = ["reports", "cash-registers", "cash-book", "bep", "kebutuhan-stok", "integration", "backup"]
+    // Tab eksklusif owner saja
+    const ownerOnlyTabs = ["reports", "cash-book", "bep", "kebutuhan-stok", "integration", "backup"]
+    // Tab yang boleh diakses manager (tapi bukan cashier)
+    const managerOnlyTabs = ["cash-registers"]
 
     if (!isAuthenticated) {
         return <Login />
@@ -69,6 +72,8 @@ function AppContent() {
                 <main className="p-4 md:p-6 flex-1 overflow-y-auto">
                     {ownerOnlyTabs.includes(activeTab) && !isOwner ? (
                         <div className="p-8 text-center text-gray-500">Akses ditolak: halaman ini hanya untuk pemilik.</div>
+                    ) : managerOnlyTabs.includes(activeTab) && !isOwner && !isManager ? (
+                        <div className="p-8 text-center text-gray-500">Akses ditolak: halaman ini hanya untuk manajer dan pemilik.</div>
                     ) : (
                         <>
                             {activeTab === "dashboard" && <DashboardHome setActiveTab={setActiveTab} />}

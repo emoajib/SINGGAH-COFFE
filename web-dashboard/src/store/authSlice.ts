@@ -88,7 +88,9 @@ const authSlice = createSlice({
         },
         setOpenCashRegister: (state, action: PayloadAction<CashRegister | null>) => {
             state.openCashRegister = action.payload
-            state.cashFloatPending = action.payload === null
+            // BUG FIX: payload===null berarti tutup kas → cashFloatPending HARUS false.
+            // Sebelumnya: null===null → true → modal buka kas muncul lagi setelah tutup kas.
+            state.cashFloatPending = false
             if (action.payload) {
                 localStorage.setItem('open_cash_register', JSON.stringify(action.payload))
             } else {

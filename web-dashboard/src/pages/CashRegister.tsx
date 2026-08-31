@@ -21,6 +21,8 @@ function formatDate(dateStr: string) {
 
 export default function CashRegister() {
     const { user } = useSelector((state: RootState) => state.auth)
+    const isOwner = user?.role === "owner"
+    const isManager = user?.role === "manager"
     const [cashierName, setCashierName] = useState("")
     const [dateFrom, setDateFrom] = useState("")
     const [dateTo, setDateTo] = useState("")
@@ -40,7 +42,10 @@ export default function CashRegister() {
                 limit: 100,
                 offset: 0,
             }),
-        enabled: user?.role === "owner",
+        // BUG FIX: sebelumnya hanya owner yang bisa fetch → manager tidak bisa lihat data.
+        // Sekarang manager dan owner bisa fetch (backend scope by outlet_id via JWT).
+        enabled: isOwner || isManager,
+        refetchInterval: 30_000, // real-time: refresh otomatis setiap 30 detik
     })
 
     const updateMutation = useMutation({
@@ -181,23 +186,28 @@ export default function CashRegister() {
                                                     {r.notes || "-"}
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button
-                                                            onClick={() => handleEdit(r)}
-                                                            className="p-1 text-blue-600 hover:text-blue-800"
-                                                            title="Edit catatan"
-                                                        >
-                                                            <Pencil className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(r.id)}
-                                                            className="p-1 text-red-600 hover:text-red-800"
-                                                            title="Hapus"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
+                                                     {/* Hanya owner yang bisa edit/hapus; manager hanya bisa baca */}
+                                                     {isOwner ? (
+                                                     <div className="flex items-center justify-center gap-2">
+                                                         <button
+                                                             onClick={() => handleEdit(r)}
+                                                             className="p-1 text-blue-600 hover:text-blue-800"
+                                                             title="Edit catatan"
+                                                         >
+                                                             <Pencil className="w-4 h-4" />
+                                                         </button>
+                                                         <button
+                                                             onClick={() => handleDelete(r.id)}
+                                                             className="p-1 text-red-600 hover:text-red-800"
+                                                             title="Hapus"
+                                                         >
+                                                             <Trash2 className="w-4 h-4" />
+                                                         </button>
+                                                     </div>
+                                                     ) : (
+                                                         <span className="text-xs text-slate-400">Pantau saja</span>
+                                                     )}
+                                                 </td>
                                             </tr>
                                         )
                                     })}

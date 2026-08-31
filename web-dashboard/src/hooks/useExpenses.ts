@@ -21,7 +21,13 @@ export function useCreateExpense() {
   return useMutation({
     mutationFn: (data: Partial<Expense>) =>
       api.post<Expense>('/expenses', data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] })
+      // BUG FIX: expense baru harus langsung sync ke Buku Kas, BEP, dan P&L
+      qc.invalidateQueries({ queryKey: ['cashBooks'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+      qc.invalidateQueries({ queryKey: ['profit-loss'] })
+    },
   })
 }
 
@@ -30,7 +36,13 @@ export function useUpdateExpense() {
   return useMutation({
     mutationFn: ({ id, ...data }: Partial<Expense> & { id: number }) =>
       api.put<Expense>(`/expenses/${id}`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] })
+      // BUG FIX: update expense harus sync ke Buku Kas, BEP, dan P&L
+      qc.invalidateQueries({ queryKey: ['cashBooks'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+      qc.invalidateQueries({ queryKey: ['profit-loss'] })
+    },
   })
 }
 
@@ -38,7 +50,13 @@ export function useDeleteExpense() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => api.delete(`/expenses/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] })
+      // BUG FIX: hapus expense harus hapus juga dari Buku Kas, BEP, dan P&L
+      qc.invalidateQueries({ queryKey: ['cashBooks'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+      qc.invalidateQueries({ queryKey: ['profit-loss'] })
+    },
   })
 }
 

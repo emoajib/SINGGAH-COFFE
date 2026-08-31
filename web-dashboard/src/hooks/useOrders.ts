@@ -28,6 +28,8 @@ export function useCreateOrder() {
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['profit-loss'] })
       qc.invalidateQueries({ queryKey: ['bep'] })
+      // BUG FIX: order baru harus langsung sync ke Buku Kas
+      qc.invalidateQueries({ queryKey: ['cashBooks'] })
     },
   })
 }
@@ -41,6 +43,8 @@ export function useVoidOrder() {
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['profit-loss'] })
       qc.invalidateQueries({ queryKey: ['bep'] })
+      // BUG FIX: void order harus update Buku Kas
+      qc.invalidateQueries({ queryKey: ['cashBooks'] })
     },
   })
 }
@@ -54,6 +58,8 @@ export function useCompleteOrder() {
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['profit-loss'] })
       qc.invalidateQueries({ queryKey: ['bep'] })
+      // BUG FIX: complete order (Cash/QRIS paid) harus sync ke Buku Kas
+      qc.invalidateQueries({ queryKey: ['cashBooks'] })
     },
   })
 }
