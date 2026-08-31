@@ -167,7 +167,7 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 			annualProfit := netProfit * 12 / float64(daysInPeriod)
 			report.ROIAnnual = math.Round((annualProfit/initialCapital)*10000) / 100
 		} else {
-			report.PaybackLabel = "Tidak terbalikan"
+			report.PaybackLabel = "Belum balik modal"
 		}
 	}
 
