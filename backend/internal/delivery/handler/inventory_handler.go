@@ -161,9 +161,18 @@ func parseDate(dateStr string) time.Time {
 	if dateStr == "" {
 		return time.Now()
 	}
-	t, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		return time.Now()
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02",
 	}
-	return t
+	for _, layout := range layouts {
+		if t, err := time.ParseInLocation(layout, dateStr, time.Local); err == nil {
+			return t
+		}
+	}
+	return time.Now()
 }

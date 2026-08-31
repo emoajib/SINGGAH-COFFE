@@ -33,10 +33,18 @@ func (r *expenseRepository) FindAll(outletID ...uint) ([]entity.Expense, error) 
 func (r *expenseRepository) FindAllRange(start, end, category string, outletID ...uint) ([]entity.Expense, error) {
 	tx := r.db.Order("date desc, id desc")
 	if start != "" {
-		tx = tx.Where("date >= ?", start)
+		if len(start) == 10 {
+			tx = tx.Where("DATE(date) >= ?", start)
+		} else {
+			tx = tx.Where("date >= ?", start)
+		}
 	}
 	if end != "" {
-		tx = tx.Where("date <= ?", end)
+		if len(end) == 10 {
+			tx = tx.Where("DATE(date) <= ?", end)
+		} else {
+			tx = tx.Where("date <= ?", end)
+		}
 	}
 	if category != "" {
 		tx = tx.Where("category = ?", category)

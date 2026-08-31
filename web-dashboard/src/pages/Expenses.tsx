@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Receipt, Pencil, Coffee, ClipboardList, Edit3 } from "lucide-react"
+import { Search, Plus, Loader2, Trash2, Receipt, Pencil, Coffee, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter } from "lucide-react"
 import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } from "../hooks/useExpenses"
 import { useIngredients } from "../hooks/useIngredients"
 import { useToast } from "../hooks/use-toast"
@@ -35,6 +35,8 @@ export default function Expenses() {
     const [search, setSearch] = useState("")
     const [startDate, setStartDate] = useState("")
     const [endDate, setEndDate] = useState("")
+    const [startTime, setStartTime] = useState("")
+    const [endTime, setEndTime] = useState("")
     const [categoryFilter, setCategoryFilter] = useState("")
     const [paymentMethodFilter, setPaymentMethodFilter] = useState("")
 
@@ -48,6 +50,9 @@ export default function Expenses() {
     const [entryType, setEntryType] = useState<'ingredient' | 'routine' | 'custom'>('ingredient')
     const [selectedIngredientId, setSelectedIngredientId] = useState<string>("")
     const [selectedRoutineName, setSelectedRoutineName] = useState<string>("")
+
+    // Form Time State
+    const [formTime, setFormTime] = useState(new Date().toTimeString().slice(0, 5))
 
     // Form State
     const [formData, setFormData] = useState<Partial<Expense>>({
@@ -72,6 +77,8 @@ export default function Expenses() {
         setEntryType('ingredient')
         setSelectedIngredientId("")
         setSelectedRoutineName("")
+        const now = new Date()
+        setFormTime(now.toTimeString().slice(0, 5))
         setFormData({
             title: "",
             amount: 0,
@@ -79,7 +86,7 @@ export default function Expenses() {
             cost_type: "variable",
             payment_method: "Cash",
             description: "",
-            date: new Date().toISOString().split('T')[0]
+            date: now.toISOString().split('T')[0]
         })
         setIsModalOpen(true)
     }
@@ -87,15 +94,32 @@ export default function Expenses() {
     const handleOpenEdit = (exp: Expense) => {
         setEditingExpense(exp)
         setEntryType('custom')
-        setFormData({
-            title: exp.title,
-            amount: exp.amount,
-            category: exp.category,
-            cost_type: exp.cost_type || "variable",
-            payment_method: exp.payment_method || "Cash",
-            description: exp.description,
-            date: new Date(exp.date).toISOString().split('T')[0]
-        })
+        const expDate = new Date(exp.date)
+        if (!isNaN(expDate.getTime())) {
+            const h = expDate.getHours().toString().padStart(2, '0')
+            const m = expDate.getMinutes().toString().padStart(2, '0')
+            setFormTime(`${h}:${m}`)
+            setFormData({
+                title: exp.title,
+                amount: exp.amount,
+                category: exp.category,
+                cost_type: exp.cost_type || "variable",
+                payment_method: exp.payment_method || "Cash",
+                description: exp.description,
+                date: expDate.toISOString().split('T')[0]
+            })
+        } else {
+            setFormTime(new Date().toTimeString().slice(0, 5))
+            setFormData({
+                title: exp.title,
+                amount: exp.amount,
+                category: exp.category,
+                cost_type: exp.cost_type || "variable",
+                payment_method: exp.payment_method || "Cash",
+                description: exp.description,
+                date: new Date().toISOString().split('T')[0]
+            })
+        }
         setIsModalOpen(true)
     }
 
@@ -139,12 +163,21 @@ export default function Expenses() {
             return
         }
 
+        const datePart = formData.date ? formData.date.split('T')[0] : new Date().toISOString().split('T')[0]
+        const fullDate = formTime ? `${datePart}T${formTime}:00` : datePart
+
+        const payload = {
+            ...formData,
+            date: fullDate,
+            payment_method: formData.payment_method || "Cash",
+        }
+
         try {
             if (editingExpense) {
-                await updateExpense.mutateAsync({ id: editingExpense.id, ...formData })
+                await updateExpense.mutateAsync({ id: editingExpense.id, ...payload })
                 toast({ title: "Success", description: "Pengeluaran berhasil diperbarui", variant: "success" })
             } else {
-                await createExpense.mutateAsync(formData)
+                await createExpense.mutateAsync(payload)
                 toast({ title: "Success", description: "Pengeluaran berhasil dicatat", variant: "success" })
             }
             setIsModalOpen(false)
@@ -175,12 +208,25 @@ export default function Expenses() {
         const matchesSearch = exp.title.toLowerCase().includes(search.toLowerCase()) ||
             exp.category.toLowerCase().includes(search.toLowerCase())
         const matchesMethod = !paymentMethodFilter || (exp.payment_method || 'Cash') === paymentMethodFilter
-        return matchesSearch && matchesMethod
+        
+        let matchesTime = true
+        if (startTime || endTime) {
+            const expDateObj = new Date(exp.date)
+            if (!isNaN(expDateObj.getTime())) {
+                const hours = expDateObj.getHours().toString().padStart(2, '0')
+                const minutes = expDateObj.getMinutes().toString().padStart(2, '0')
+                const expTimeStr = `${hours}:${minutes}`
+                if (startTime && expTimeStr < startTime) matchesTime = false
+                if (endTime && expTimeStr > endTime) matchesTime = false
+            }
+        }
+
+        return matchesSearch && matchesMethod && matchesTime
     })
 
-    const totalExpenseAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0)
-    const totalCashExpense = expenses.filter(exp => (exp.payment_method || 'Cash') === 'Cash').reduce((sum, exp) => sum + exp.amount, 0)
-    const totalQrisExpense = expenses.filter(exp => exp.payment_method === 'QRIS').reduce((sum, exp) => sum + exp.amount, 0)
+    const totalExpenseAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
+    const totalCashExpense = filteredExpenses.filter(exp => (exp.payment_method || 'Cash') === 'Cash').reduce((sum, exp) => sum + exp.amount, 0)
+    const totalQrisExpense = filteredExpenses.filter(exp => exp.payment_method === 'QRIS').reduce((sum, exp) => sum + exp.amount, 0)
 
     const selectedIngObj = ingredients.find(i => i.id === Number(selectedIngredientId))
 
@@ -189,7 +235,7 @@ export default function Expenses() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-xl md:text-3xl font-bold text-gray-900">Pelacakan Pengeluaran</h1>
-                    <p className="text-gray-500">Kelola biaya operasional dan pengeluaran Anda.</p>
+                    <p className="text-gray-500">Kelola biaya operasional, pembelian bahan baku, dan pengeluaran kas/QRIS.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
@@ -206,14 +252,14 @@ export default function Expenses() {
             {/* Filter Bar */}
             <Card className="border-none shadow-sm">
                 <CardContent className="pt-0 pb-4">
-                    <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex flex-wrap gap-3 items-end">
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-gray-500">Tanggal Mulai</label>
                             <Input
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-44"
+                                className="w-36 sm:w-40"
                             />
                         </div>
                         <div className="space-y-1">
@@ -222,13 +268,35 @@ export default function Expenses() {
                                 type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-44"
+                                className="w-36 sm:w-40"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" /> Jam Mulai
+                            </label>
+                            <Input
+                                type="time"
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                                className="w-28"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" /> Jam Selesai
+                            </label>
+                            <Input
+                                type="time"
+                                value={endTime}
+                                onChange={(e) => setEndTime(e.target.value)}
+                                className="w-28"
                             />
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-gray-500">Kategori</label>
                             <select
-                                className="flex h-10 w-40 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="flex h-10 w-36 rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={categoryFilter}
                                 onChange={(e) => setCategoryFilter(e.target.value)}
                             >
@@ -243,28 +311,31 @@ export default function Expenses() {
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-gray-500">Metode Bayar</label>
                             <select
-                                className="flex h-10 w-40 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="flex h-10 w-36 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
                                 value={paymentMethodFilter}
                                 onChange={(e) => setPaymentMethodFilter(e.target.value)}
                             >
                                 <option value="">Semua Metode</option>
                                 <option value="Cash">Cash (Tunai)</option>
-                                <option value="QRIS">QRIS</option>
+                                <option value="QRIS">QRIS / Bank</option>
                                 <option value="Lainnya">Lainnya</option>
                             </select>
                         </div>
-                        {(startDate || endDate || categoryFilter || paymentMethodFilter) && (
+                        {(startDate || endDate || startTime || endTime || categoryFilter || paymentMethodFilter) && (
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => {
                                     setStartDate("")
                                     setEndDate("")
+                                    setStartTime("")
+                                    setEndTime("")
                                     setCategoryFilter("")
                                     setPaymentMethodFilter("")
                                 }}
+                                className="gap-1"
                             >
-                                Hapus Filter
+                                <Filter className="w-3.5 h-3.5" /> Hapus Filter
                             </Button>
                         )}
                     </div>
@@ -337,77 +408,85 @@ export default function Expenses() {
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50/50">
                                     <tr>
-                                        <th className="px-4 py-3">Tanggal</th>
+                                        <th className="px-4 py-3">Tanggal & Waktu</th>
                                         <th className="px-4 py-3">Judul</th>
                                         <th className="px-4 py-3">Kategori</th>
-                                        <th className="px-4 py-3">Metode</th>
+                                        <th className="px-4 py-3">Metode Bayar</th>
                                         <th className="px-4 py-3">Tipe Biaya</th>
                                         <th className="px-4 py-3 text-right">Jumlah</th>
                                         {canEdit && <th className="px-4 py-3 text-right">Aksi</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredExpenses.map((exp) => (
-                                        <tr key={exp.id} className="border-b hover:bg-gray-50/50">
-                                            <td className="px-4 py-3 whitespace-nowrap">
-                                                {new Date(exp.date).toLocaleDateString("id-ID")}
-                                            </td>
-                                            <td className="px-4 py-3 font-medium text-gray-900">
-                                                <div>{exp.title}</div>
-                                                {exp.description && (
-                                                    <div className="text-xs text-gray-400 font-normal">{exp.description}</div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                                                    {exp.category}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                                                    (exp.payment_method || 'Cash') === 'QRIS'
-                                                        ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                                        : (exp.payment_method || 'Cash') === 'Cash'
-                                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                                        : 'bg-slate-100 text-slate-700 border border-slate-200'
-                                                }`}>
-                                                    {exp.payment_method || 'Cash'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                                                    exp.cost_type === 'fixed' 
-                                                        ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                }`}>
-                                                    {exp.cost_type === 'fixed' ? 'Tetap (Fixed)' : 'Variabel'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                                Rp {formatNumber(exp.amount)}
-                                            </td>
-                                            {canEdit && (
-                                                <td className="px-4 py-3 text-right space-x-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={() => handleOpenEdit(exp)}
-                                                    >
-                                                        <Pencil className="w-4 h-4 text-gray-500 hover:text-blue-600" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                        onClick={() => handleDeleteExpense(exp.id)}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
+                                    {filteredExpenses.map((exp) => {
+                                        const d = new Date(exp.date)
+                                        const dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : exp.date
+                                        const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) : ""
+
+                                        return (
+                                            <tr key={exp.id} className="border-b hover:bg-gray-50/50">
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <div className="font-semibold text-slate-800">{dateStr}</div>
+                                                    {timeStr && <div className="text-[11px] text-slate-400 flex items-center gap-0.5 mt-0.5"><Clock className="w-3 h-3" /> {timeStr}</div>}
                                                 </td>
-                                            )}
-                                        </tr>
-                                    ))}
+                                                <td className="px-4 py-3 font-medium text-gray-900">
+                                                    <div>{exp.title}</div>
+                                                    {exp.description && (
+                                                        <div className="text-xs text-gray-400 font-normal">{exp.description}</div>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                                                        {exp.category}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                                        (exp.payment_method || 'Cash') === 'QRIS'
+                                                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                                            : (exp.payment_method || 'Cash') === 'Cash'
+                                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                            : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                                    }`}>
+                                                        {(exp.payment_method || 'Cash') === 'QRIS' ? <CreditCard className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
+                                                        {exp.payment_method || 'Cash'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                                                        exp.cost_type === 'fixed' 
+                                                            ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                    }`}>
+                                                        {exp.cost_type === 'fixed' ? 'Tetap (Fixed)' : 'Variabel'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-bold text-gray-900">
+                                                    Rp {formatNumber(exp.amount)}
+                                                </td>
+                                                {canEdit && (
+                                                    <td className="px-4 py-3 text-right space-x-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                            onClick={() => handleOpenEdit(exp)}
+                                                        >
+                                                            <Pencil className="w-4 h-4 text-gray-500 hover:text-blue-600" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                            onClick={() => handleDeleteExpense(exp.id)}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        )
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -430,7 +509,6 @@ export default function Expenses() {
                 }
             >
                 <div className="space-y-4">
-                    {/* Mode Selector Tabs (Only when adding new expense) */}
                     {!editingExpense && (
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -450,7 +528,7 @@ export default function Expenses() {
                                     }`}
                                 >
                                     <Coffee className="w-3.5 h-3.5" />
-                                    <span>Bahan Baku</span>
+                                    Bahan Baku
                                 </button>
                                 <button
                                     type="button"
@@ -465,11 +543,20 @@ export default function Expenses() {
                                     }`}
                                 >
                                     <ClipboardList className="w-3.5 h-3.5" />
-                                    <span>Operasional</span>
+                                    Operasional
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setEntryType('custom')}
+                                    onClick={() => {
+                                        setEntryType('custom')
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            title: "",
+                                            category: "Operational",
+                                            cost_type: "variable",
+                                            description: "",
+                                        }))
+                                    }}
                                     className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
                                         entryType === 'custom'
                                             ? 'bg-white text-primary shadow-sm font-semibold'
@@ -477,13 +564,12 @@ export default function Expenses() {
                                     }`}
                                 >
                                     <Edit3 className="w-3.5 h-3.5" />
-                                    <span>Manual</span>
+                                    Manual
                                 </button>
                             </div>
                         </div>
                     )}
 
-                    {/* Mode 1: Bahan Baku Dropdown */}
                     {!editingExpense && entryType === 'ingredient' && (
                         <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
                             <label className="text-sm font-semibold text-amber-900 flex items-center gap-1.5">
@@ -505,13 +591,12 @@ export default function Expenses() {
                             {selectedIngObj && (
                                 <p className="text-xs text-amber-700">
                                     💡 Biaya standar: <b>Rp {formatNumber(selectedIngObj.cost_per_unit)}</b> / {selectedIngObj.unit}
-                                    {selectedIngObj.purchase_unit && ` (Rp ${formatNumber(selectedIngObj.cost_per_unit * selectedIngObj.purchase_unit_size)} / ${selectedIngObj.purchase_unit})`}
+                                    {selectedIngObj.purchase_unit && ` (Rp ${formatNumber(selectedIngObj.cost_per_unit * (selectedIngObj.purchase_unit_size || 1))} / ${selectedIngObj.purchase_unit})`}
                                 </p>
                             )}
                         </div>
                     )}
 
-                    {/* Mode 2: Operasional Rutin Dropdown */}
                     {!editingExpense && entryType === 'routine' && (
                         <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3">
                             <label className="text-sm font-semibold text-blue-900 flex items-center gap-1.5">
@@ -533,9 +618,64 @@ export default function Expenses() {
                         </div>
                     )}
 
-                    {/* Judul Pengeluaran */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Judul Pengeluaran</label>
+                    {/* METODE PEMBAYARAN: Visual Toggle Cards */}
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-700 block">
+                            Metode Pembayaran (Sumber Kas)
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, payment_method: 'Cash' })}
+                                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border-2 transition-all text-left ${
+                                    (formData.payment_method || 'Cash') === 'Cash'
+                                        ? 'border-emerald-500 bg-emerald-50/80 shadow-sm text-emerald-900 font-bold'
+                                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                }`}
+                            >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <Banknote className={`w-4 h-4 ${(formData.payment_method || 'Cash') === 'Cash' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                    <span className="text-xs">Cash (Tunai)</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-normal">Kas Toko / Kasir</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, payment_method: 'QRIS' })}
+                                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border-2 transition-all text-left ${
+                                    formData.payment_method === 'QRIS'
+                                        ? 'border-purple-500 bg-purple-50/80 shadow-sm text-purple-900 font-bold'
+                                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                }`}
+                            >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <CreditCard className={`w-4 h-4 ${formData.payment_method === 'QRIS' ? 'text-purple-600' : 'text-slate-400'}`} />
+                                    <span className="text-xs">QRIS / Bank</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-normal">Transfer Non-Tunai</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, payment_method: 'Lainnya' })}
+                                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border-2 transition-all text-left ${
+                                    formData.payment_method === 'Lainnya'
+                                        ? 'border-blue-500 bg-blue-50/80 shadow-sm text-blue-900 font-bold'
+                                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                }`}
+                            >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <Receipt className={`w-4 h-4 ${formData.payment_method === 'Lainnya' ? 'text-blue-600' : 'text-slate-400'}`} />
+                                    <span className="text-xs">Lainnya</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-normal">Giro / Bon / Tempo</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">Judul Pengeluaran</label>
                         <Input
                             placeholder="cth. Pembelian: Susu Full Cream UHT / Tagihan Listrik"
                             value={formData.title}
@@ -544,20 +684,21 @@ export default function Expenses() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Jumlah Nominal (Rp)</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">Jumlah Nominal (Rp)</label>
                             <Input
                                 type="number"
                                 min={0}
                                 placeholder="0"
                                 value={formData.amount || ''}
                                 onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) || 0 })}
+                                className="font-bold text-base text-slate-900"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Kategori</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">Kategori</label>
                             <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
                                 value={formData.category}
                                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                             >
@@ -570,31 +711,29 @@ export default function Expenses() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Tanggal</label>
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">Tanggal</label>
                             <Input
                                 type="date"
                                 value={formData.date}
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Metode Bayar</label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                value={formData.payment_method || "Cash"}
-                                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as any })}
-                            >
-                                <option value="Cash">Cash (Tunai)</option>
-                                <option value="QRIS">QRIS</option>
-                                <option value="Lainnya">Lainnya</option>
-                            </select>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" /> Jam
+                            </label>
+                            <Input
+                                type="time"
+                                value={formTime}
+                                onChange={(e) => setFormTime(e.target.value)}
+                            />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Tipe Biaya (BEP)</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">Tipe Biaya (BEP)</label>
                             <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
                                 value={formData.cost_type || "variable"}
                                 onChange={(e) => setFormData({ ...formData, cost_type: e.target.value as any })}
                             >
@@ -604,8 +743,8 @@ export default function Expenses() {
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Deskripsi / Catatan (Opsional)</label>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">Deskripsi / Catatan (Opsional)</label>
                         <Input
                             placeholder="Detail pembelian, kuantiti, supplier, dll..."
                             value={formData.description}
