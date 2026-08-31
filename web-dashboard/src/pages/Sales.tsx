@@ -207,7 +207,7 @@ export default function Sales() {
                                 <div className="flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
                             ) : (
                                 <div className="text-2xl font-bold text-emerald-600">
-                                    Rp {formatCurrency(profitLoss?.gross_profit || 0)}
+                                    {formatCurrency(profitLoss?.gross_profit || 0)}
                                 </div>
                             )}
                         </CardContent>
@@ -222,7 +222,7 @@ export default function Sales() {
                                 <div className="flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
                             ) : (
                                 <div className="text-2xl font-bold text-blue-600">
-                                    Rp {formatCurrency(profitLoss?.net_profit || 0)}
+                                    {formatCurrency(profitLoss?.net_profit || 0)}
                                 </div>
                             )}
                         </CardContent>

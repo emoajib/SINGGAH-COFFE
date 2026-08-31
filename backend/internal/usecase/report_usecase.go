@@ -205,9 +205,7 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 			Count:         otherCount,
 		})
 	}
-	paymentBreakdown = bucketed
-
-	cbIncome, cbExpense, _ := uc.cashBookRepo.GetTotalsSince(start, outletID...)
+	cbIncome, cbExpense, _ := uc.cashBookRepo.GetTotalsRange(start, end, outletID...)
 	grossProfit := revenue - cogs
 	netProfit := grossProfit - totalExpenses
 

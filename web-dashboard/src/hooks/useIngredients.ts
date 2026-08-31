@@ -14,7 +14,10 @@ export function useCreateIngredient() {
   return useMutation({
     mutationFn: (data: CreateIngredientRequest) =>
       api.post<Ingredient>('/ingredients', data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['ingredients'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ingredients'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }
 
@@ -23,7 +26,12 @@ export function useUpdateIngredient(id: number) {
   return useMutation({
     mutationFn: (data: Partial<CreateIngredientRequest>) =>
       api.put<Ingredient>(`/ingredients/${id}`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['ingredients'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ingredients'] })
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }
 
@@ -31,7 +39,12 @@ export function useDeleteIngredient() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => api.delete(`/ingredients/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['ingredients'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ingredients'] })
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }
 
@@ -51,6 +64,9 @@ export function useCreateStockMutation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ingredients'] })
       qc.invalidateQueries({ queryKey: ['stock-mutations'] })
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
     },
   })
 }

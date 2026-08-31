@@ -97,6 +97,34 @@ func (r *cashBookRepository) GetTotalsSince(since string, outletID ...uint) (inc
 	return incomeTotal, expenseTotal, nil
 }
 
+func (r *cashBookRepository) GetTotalsRange(start, end string, outletID ...uint) (income float64, expense float64, err error) {
+	tx := r.db.Model(&models.CashBook{})
+	if start != "" {
+		tx = tx.Where("DATE(date) >= ?", start)
+	}
+	if end != "" {
+		tx = tx.Where("DATE(date) <= ?", end)
+	}
+	tx = scopeOutlet(tx, "cash_books", outletID...)
+	var incomeTotal, expenseTotal float64
+	if err = tx.Where("type = ?", "income").Select("COALESCE(SUM(amount), 0)").Row().Scan(&incomeTotal); err != nil {
+		return 0, 0, err
+	}
+
+	tx2 := r.db.Model(&models.CashBook{})
+	if start != "" {
+		tx2 = tx2.Where("DATE(date) >= ?", start)
+	}
+	if end != "" {
+		tx2 = tx2.Where("DATE(date) <= ?", end)
+	}
+	tx2 = scopeOutlet(tx2, "cash_books", outletID...)
+	if err = tx2.Where("type = ?", "expense").Select("COALESCE(SUM(amount), 0)").Row().Scan(&expenseTotal); err != nil {
+		return 0, 0, err
+	}
+	return incomeTotal, expenseTotal, nil
+}
+
 func (r *cashBookRepository) ExistsByReference(ref string, outletID ...uint) (bool, error) {
 	tx := r.db.Model(&models.CashBook{}).Where("reference = ?", ref)
 	tx = scopeOutlet(tx, "cash_books", outletID...)

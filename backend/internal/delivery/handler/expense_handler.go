@@ -58,14 +58,20 @@ func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 		}
 	}
 
+	paymentMethod := req.PaymentMethod
+	if paymentMethod == "" {
+		paymentMethod = "Cash"
+	}
+
 	expense := &entity.Expense{
-		Title:       req.Title,
-		Amount:      req.Amount,
-		Category:    req.Category,
-		CostType:    costType,
-		Date:        parseDate(req.Date),
-		Description: req.Description,
-		Notes:       req.Notes,
+		Title:         req.Title,
+		Amount:        req.Amount,
+		Category:      req.Category,
+		CostType:      costType,
+		PaymentMethod: paymentMethod,
+		Date:          parseDate(req.Date),
+		Description:   req.Description,
+		Notes:         req.Notes,
 	}
 
 	result, err := h.expenseUsecase.Create(expense, getOutletID(c))
@@ -100,14 +106,20 @@ func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 		}
 	}
 
+	paymentMethod := req.PaymentMethod
+	if paymentMethod == "" {
+		paymentMethod = "Cash"
+	}
+
 	expense := &entity.Expense{
-		Title:       req.Title,
-		Amount:      req.Amount,
-		Category:    req.Category,
-		CostType:    costType,
-		Date:        parseDate(req.Date),
-		Description: req.Description,
-		Notes:       req.Notes,
+		Title:         req.Title,
+		Amount:        req.Amount,
+		Category:      req.Category,
+		CostType:      costType,
+		PaymentMethod: paymentMethod,
+		Date:          parseDate(req.Date),
+		Description:   req.Description,
+		Notes:         req.Notes,
 	}
 
 	result, err := h.expenseUsecase.Update(uint(id), expense)

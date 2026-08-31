@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -175,7 +176,8 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 
 		orderNumber := req.OrderNumber
 		if orderNumber == "" {
-			orderNumber = "ORD-" + time.Now().Format("20060102150405")
+			now := time.Now()
+			orderNumber = fmt.Sprintf("ORD-%s%03d", now.Format("20060102150405"), now.Nanosecond()/1e6)
 		}
 
 		order := &entity.Order{

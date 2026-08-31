@@ -103,13 +103,14 @@ type StockMutationRequest struct {
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 type CreateExpenseRequest struct {
-	Title       string  `json:"title" binding:"required"`
-	Amount      float64 `json:"amount" binding:"required,gt=0"`
-	Category    string  `json:"category" binding:"required"`
-	CostType    string  `json:"cost_type" binding:"omitempty,oneof=fixed variable"`
-	Date        string  `json:"date" binding:"required"`
-	Description string  `json:"description"`
-	Notes       string  `json:"notes"`
+	Title         string  `json:"title" binding:"required"`
+	Amount        float64 `json:"amount" binding:"required,gt=0"`
+	Category      string  `json:"category" binding:"required"`
+	CostType      string  `json:"cost_type" binding:"omitempty,oneof=fixed variable"`
+	PaymentMethod string  `json:"payment_method" binding:"omitempty,oneof=Cash QRIS Lainnya"`
+	Date          string  `json:"date" binding:"required"`
+	Description   string  `json:"description"`
+	Notes         string  `json:"notes"`
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager

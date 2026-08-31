@@ -36,6 +36,7 @@ export default function Expenses() {
     const [startDate, setStartDate] = useState("")
     const [endDate, setEndDate] = useState("")
     const [categoryFilter, setCategoryFilter] = useState("")
+    const [paymentMethodFilter, setPaymentMethodFilter] = useState("")
 
     // Auth Check
     const { user } = useSelector((state: RootState) => state.auth)
@@ -54,6 +55,7 @@ export default function Expenses() {
         amount: 0,
         category: "Operational",
         cost_type: "variable",
+        payment_method: "Cash",
         description: "",
         date: new Date().toISOString().split('T')[0]
     })
@@ -75,6 +77,7 @@ export default function Expenses() {
             amount: 0,
             category: "Operational",
             cost_type: "variable",
+            payment_method: "Cash",
             description: "",
             date: new Date().toISOString().split('T')[0]
         })
@@ -89,6 +92,7 @@ export default function Expenses() {
             amount: exp.amount,
             category: exp.category,
             cost_type: exp.cost_type || "variable",
+            payment_method: exp.payment_method || "Cash",
             description: exp.description,
             date: new Date(exp.date).toISOString().split('T')[0]
         })
@@ -167,12 +171,16 @@ export default function Expenses() {
         }
     }
 
-    const filteredExpenses = expenses.filter(exp =>
-        exp.title.toLowerCase().includes(search.toLowerCase()) ||
-        exp.category.toLowerCase().includes(search.toLowerCase())
-    )
+    const filteredExpenses = expenses.filter(exp => {
+        const matchesSearch = exp.title.toLowerCase().includes(search.toLowerCase()) ||
+            exp.category.toLowerCase().includes(search.toLowerCase())
+        const matchesMethod = !paymentMethodFilter || (exp.payment_method || 'Cash') === paymentMethodFilter
+        return matchesSearch && matchesMethod
+    })
 
     const totalExpenseAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0)
+    const totalCashExpense = expenses.filter(exp => (exp.payment_method || 'Cash') === 'Cash').reduce((sum, exp) => sum + exp.amount, 0)
+    const totalQrisExpense = expenses.filter(exp => exp.payment_method === 'QRIS').reduce((sum, exp) => sum + exp.amount, 0)
 
     const selectedIngObj = ingredients.find(i => i.id === Number(selectedIngredientId))
 
@@ -205,7 +213,7 @@ export default function Expenses() {
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-48"
+                                className="w-44"
                             />
                         </div>
                         <div className="space-y-1">
@@ -214,17 +222,17 @@ export default function Expenses() {
                                 type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-48"
+                                className="w-44"
                             />
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-gray-500">Kategori</label>
                             <select
-                                className="flex h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="flex h-10 w-40 rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={categoryFilter}
                                 onChange={(e) => setCategoryFilter(e.target.value)}
                             >
-                                <option value="">Semua</option>
+                                <option value="">Semua Kategori</option>
                                 <option value="Operational">Operasional</option>
                                 <option value="Marketing">Pemasaran</option>
                                 <option value="Maintenance">Pemeliharaan</option>
@@ -232,7 +240,20 @@ export default function Expenses() {
                                 <option value="Other">Lainnya</option>
                             </select>
                         </div>
-                        {(startDate || endDate || categoryFilter) && (
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-500">Metode Bayar</label>
+                            <select
+                                className="flex h-10 w-40 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={paymentMethodFilter}
+                                onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                            >
+                                <option value="">Semua Metode</option>
+                                <option value="Cash">Cash (Tunai)</option>
+                                <option value="QRIS">QRIS</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+                        {(startDate || endDate || categoryFilter || paymentMethodFilter) && (
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -240,6 +261,7 @@ export default function Expenses() {
                                     setStartDate("")
                                     setEndDate("")
                                     setCategoryFilter("")
+                                    setPaymentMethodFilter("")
                                 }}
                             >
                                 Hapus Filter
@@ -249,16 +271,38 @@ export default function Expenses() {
                 </CardContent>
             </Card>
 
-            {/* Summary Card */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Card className="border-none shadow-sm bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-amber-500">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-amber-800">Total Pengeluaran</CardTitle>
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-amber-800">Total Pengeluaran</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-amber-900">Rp {formatNumber(totalExpenseAmount)}</div>
                         <p className="text-xs text-amber-600 mt-1">
                             {filteredExpenses.length} transaksi tercatat
+                        </p>
+                    </CardContent>
+                </Card>
+                <Card className="border-none shadow-sm bg-gradient-to-br from-emerald-50 to-green-50 border-l-4 border-emerald-500">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Pengeluaran Tunai (Cash)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-emerald-900">Rp {formatNumber(totalCashExpense)}</div>
+                        <p className="text-xs text-emerald-600 mt-1">
+                            Arus keluar kas fisik warung
+                        </p>
+                    </CardContent>
+                </Card>
+                <Card className="border-none shadow-sm bg-gradient-to-br from-purple-50 to-indigo-50 border-l-4 border-purple-500">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-purple-800">Pengeluaran QRIS / Bank</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-purple-900">Rp {formatNumber(totalQrisExpense)}</div>
+                        <p className="text-xs text-purple-600 mt-1">
+                            Arus keluar saldo non-tunai
                         </p>
                     </CardContent>
                 </Card>
@@ -296,6 +340,7 @@ export default function Expenses() {
                                         <th className="px-4 py-3">Tanggal</th>
                                         <th className="px-4 py-3">Judul</th>
                                         <th className="px-4 py-3">Kategori</th>
+                                        <th className="px-4 py-3">Metode</th>
                                         <th className="px-4 py-3">Tipe Biaya</th>
                                         <th className="px-4 py-3 text-right">Jumlah</th>
                                         {canEdit && <th className="px-4 py-3 text-right">Aksi</th>}
@@ -316,6 +361,17 @@ export default function Expenses() {
                                             <td className="px-4 py-3">
                                                 <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
                                                     {exp.category}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                                    (exp.payment_method || 'Cash') === 'QRIS'
+                                                        ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                                        : (exp.payment_method || 'Cash') === 'Cash'
+                                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                                }`}>
+                                                    {exp.payment_method || 'Cash'}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3">
@@ -514,7 +570,7 @@ export default function Expenses() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Tanggal</label>
                             <Input
@@ -524,14 +580,26 @@ export default function Expenses() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Tipe Biaya (Analisis BEP)</label>
+                            <label className="text-sm font-medium">Metode Bayar</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={formData.payment_method || "Cash"}
+                                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as any })}
+                            >
+                                <option value="Cash">Cash (Tunai)</option>
+                                <option value="QRIS">QRIS</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Tipe Biaya (BEP)</label>
                             <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={formData.cost_type || "variable"}
                                 onChange={(e) => setFormData({ ...formData, cost_type: e.target.value as any })}
                             >
-                                <option value="variable">Variabel (Bahan Baku / Harian)</option>
-                                <option value="fixed">Tetap (Sewa / Gaji / Rutin Bulanan)</option>
+                                <option value="variable">Variabel (Harian)</option>
+                                <option value="fixed">Tetap (Rutin)</option>
                             </select>
                         </div>
                     </div>

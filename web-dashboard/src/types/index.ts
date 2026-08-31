@@ -167,6 +167,7 @@ export interface Expense {
   amount: number
   category: string
   cost_type: string
+  payment_method?: 'Cash' | 'QRIS' | 'Lainnya'
   date: string
   description?: string
   notes?: string

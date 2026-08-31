@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Filter, RefreshCw } from "lucide-react"
+import { Search, Plus, Loader2, Trash2, Pencil, Wallet, TrendingUp, Filter, RefreshCw, Banknote, CreditCard } from "lucide-react"
 import { useCashBook } from "../hooks/useCashBook"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
@@ -46,6 +46,17 @@ export default function CashBookPage() {
 
   const totalIncome = items.filter(i => i.type === 'income').reduce((s, i) => s + i.amount, 0)
   const totalExpense = items.filter(i => i.type === 'expense').reduce((s, i) => s + i.amount, 0)
+
+  // Saldo breakdown per metode pembayaran
+  const incomeCash = items.filter(i => i.type === 'income' && i.method === 'Cash').reduce((s, i) => s + i.amount, 0)
+  const expenseCash = items.filter(i => i.type === 'expense' && i.method === 'Cash').reduce((s, i) => s + i.amount, 0)
+  const saldoCash = incomeCash - expenseCash
+
+  const incomeQris = items.filter(i => i.type === 'income' && i.method === 'QRIS').reduce((s, i) => s + i.amount, 0)
+  const expenseQris = items.filter(i => i.type === 'expense' && i.method === 'QRIS').reduce((s, i) => s + i.amount, 0)
+  const saldoQris = incomeQris - expenseQris
+
+  const totalSaldo = totalIncome - totalExpense
 
   const openAdd = () => {
     setEditing(null)
@@ -125,7 +136,7 @@ export default function CashBookPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl md:text-3xl font-bold text-gray-900">Buku Kas</h1>
-          <p className="text-gray-500">Catat arus kas masuk & keluar (Cash / QRIS / Lainnya).</p>
+          <p className="text-gray-500">Catat arus kas masuk & keluar serta pantau saldo Cash dan QRIS secara real-time.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
@@ -158,7 +169,7 @@ export default function CashBookPage() {
               <select value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}
                 className="flex h-10 w-40 rounded-md border border-input bg-background px-3 py-2 text-sm">
                 <option value="">Semua</option>
-                <option value="Cash">Cash</option>
+                <option value="Cash">Cash (Tunai)</option>
                 <option value="QRIS">QRIS</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
@@ -179,28 +190,70 @@ export default function CashBookPage() {
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Pemasukan</CardTitle>
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
+      {/* Saldo & Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Saldo Tunai (Cash) */}
+        <Card className="border-none shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50 border-l-4 border-emerald-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Saldo Tunai (Cash)</CardTitle>
+            <Banknote className="w-4 h-4 text-emerald-600" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-emerald-600">Rp {formatNumber(totalIncome)}</div></CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-900">Rp {formatNumber(saldoCash)}</div>
+            <div className="text-[11px] text-emerald-700 mt-1 flex flex-col gap-0.5">
+              <span>Masuk: Rp {formatNumber(incomeCash)}</span>
+              <span>Keluar: Rp {formatNumber(expenseCash)}</span>
+            </div>
+          </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Pengeluaran</CardTitle>
-            <TrendingDown className="w-4 h-4 text-red-500" />
+
+        {/* Saldo QRIS */}
+        <Card className="border-none shadow-sm bg-gradient-to-br from-purple-50 to-indigo-50 border-l-4 border-purple-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-purple-800">Saldo QRIS / Bank</CardTitle>
+            <CreditCard className="w-4 h-4 text-purple-600" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-red-600">Rp {formatNumber(totalExpense)}</div></CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-900">Rp {formatNumber(saldoQris)}</div>
+            <div className="text-[11px] text-purple-700 mt-1 flex flex-col gap-0.5">
+              <span>Masuk: Rp {formatNumber(incomeQris)}</span>
+              <span>Keluar: Rp {formatNumber(expenseQris)}</span>
+            </div>
+          </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Saldo Buku Kas</CardTitle>
-            <Wallet className="w-4 h-4 text-blue-500" />
+
+        {/* Arus Kas Masuk & Keluar Total */}
+        <Card className="border-none shadow-sm bg-gradient-to-br from-slate-50 to-gray-100 border-l-4 border-slate-400">
+          <CardHeader className="flex flex-row items-center justify-between pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-700">Total Arus Kas</CardTitle>
+            <TrendingUp className="w-4 h-4 text-slate-600" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-blue-600">Rp {formatNumber(totalIncome - totalExpense)}</div></CardContent>
+          <CardContent>
+            <div className="text-sm font-semibold text-emerald-700 flex items-center justify-between">
+              <span>Pemasukan:</span>
+              <span>+ Rp {formatNumber(totalIncome)}</span>
+            </div>
+            <div className="text-sm font-semibold text-red-600 flex items-center justify-between mt-1">
+              <span>Pengeluaran:</span>
+              <span>- Rp {formatNumber(totalExpense)}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Saldo Kas Keseluruhan */}
+        <Card className="border-none shadow-sm bg-gradient-to-br from-blue-50 to-sky-50 border-l-4 border-blue-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-blue-800">Total Saldo Kas</CardTitle>
+            <Wallet className="w-4 h-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totalSaldo >= 0 ? 'text-blue-900' : 'text-red-700'}`}>
+              Rp {formatNumber(totalSaldo)}
+            </div>
+            <p className="text-[11px] text-blue-600 mt-1">
+              Total saldo bersih (Cash + QRIS + Lainnya)
+            </p>
+          </CardContent>
         </Card>
       </div>
 

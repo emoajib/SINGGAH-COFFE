@@ -203,15 +203,16 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 	}
 
 	type expenseRow struct {
-		ID       uint
-		Title    string
-		Amount   float64
-		Date     time.Time
-		OutletID uint
+		ID            uint
+		Title         string
+		Amount        float64
+		PaymentMethod string
+		Date          time.Time
+		OutletID      uint
 	}
 	var expenses []expenseRow
 	err = uc.db.Raw(
-		"SELECT id, title, amount, date, outlet_id FROM expenses WHERE deleted_at IS NULL AND outlet_id = ? "+
+		"SELECT id, title, amount, date, outlet_id, COALESCE(payment_method, 'Cash') as payment_method FROM expenses WHERE deleted_at IS NULL AND outlet_id = ? "+
 			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('expense:', expenses.id) AND cb.deleted_at IS NULL)",
 		outletID,
 	).Scan(&expenses).Error
@@ -222,10 +223,14 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 		if e.Amount <= 0 {
 			continue
 		}
+		method := e.PaymentMethod
+		if method == "" {
+			method = "Cash"
+		}
 		if err := uc.cashBookRepo.Create(&entity.CashBook{
 			OutletID:    e.OutletID,
 			Date:        e.Date,
-			Method:      "Lainnya",
+			Method:      method,
 			Type:        "expense",
 			Amount:      e.Amount,
 			Description: "Pengeluaran: " + e.Title,

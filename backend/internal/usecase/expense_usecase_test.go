@@ -20,7 +20,7 @@ func setupExpenseTestDB() *gorm.DB {
 	}
 	
 	// Migrate the schema
-	db.AutoMigrate(&models.Expense{})
+	db.AutoMigrate(&models.Expense{}, &models.CashBook{})
 	return db
 }
 
@@ -41,11 +41,12 @@ func TestExpenseUsecase_CreateSuccess(t *testing.T) {
 
 	// Execute
 	expense := &entity.Expense{
-		Title:     "Test Expense",
-		Amount:    100.50,
-		Category:  "Operational",
-		CostType:  "fixed",
-		Description: "Test expense description",
+		Title:         "Test Expense",
+		Amount:        100.50,
+		Category:      "Operational",
+		CostType:      "fixed",
+		PaymentMethod: "QRIS",
+		Description:   "Test expense description",
 	}
 	resp, err := uc.Create(expense)
 
@@ -56,6 +57,7 @@ func TestExpenseUsecase_CreateSuccess(t *testing.T) {
 	assert.Equal(t, 100.50, resp.Amount)
 	assert.Equal(t, "Operational", resp.Category)
 	assert.Equal(t, "fixed", resp.CostType)
+	assert.Equal(t, "QRIS", resp.PaymentMethod)
 	assert.Equal(t, "Test expense description", resp.Description)
 }
 

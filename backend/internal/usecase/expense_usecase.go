@@ -46,13 +46,17 @@ func (uc *ExpenseUsecase) syncExpenseToCashBook(expense *entity.Expense) {
 	if date.IsZero() {
 		date = time.Now()
 	}
-	// Hapus entry lama untuk memastikan amount selalu terbaru (upsert logis).
+	method := expense.PaymentMethod
+	if method == "" {
+		method = "Cash"
+	}
+	// Hapus entry lama untuk memastikan amount dan method selalu terbaru (upsert logis).
 	_, _ = uc.cashBookRepo.DeleteByReference(ref, expense.OutletID)
-	// Buat entry baru.
+	// Buat entry baru dengan metode pembayaran yang sesuai (Cash / QRIS / Lainnya).
 	_ = uc.cashBookRepo.Create(&entity.CashBook{
 		OutletID:    expense.OutletID,
 		Date:        date,
-		Method:      "Lainnya",
+		Method:      method,
 		Type:        "expense",
 		Amount:      expense.Amount,
 		Description: "Pengeluaran: " + expense.Title,
@@ -90,6 +94,9 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*en
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()
 	}
+	if expense.PaymentMethod == "" {
+		expense.PaymentMethod = "Cash"
+	}
 	if len(outletID) > 0 {
 		expense.OutletID = outletID[0]
 	}
@@ -115,6 +122,9 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 	existing.Amount = expense.Amount
 	existing.Category = expense.Category
 	existing.CostType = expense.CostType
+	if expense.PaymentMethod != "" {
+		existing.PaymentMethod = expense.PaymentMethod
+	}
 	if !expense.Date.IsZero() {
 		existing.Date = expense.Date
 	}

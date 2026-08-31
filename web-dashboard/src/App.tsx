@@ -43,7 +43,8 @@ function AppContent() {
         return <Login />
     }
 
-    const needsCashFloat = (isCashier || isManager) && cashFloatPending
+    const needsCashFloatForPos = (isCashier || isManager) && cashFloatPending
+    const needsGlobalCashFloat = isCashier && cashFloatPending
 
     if (activeTab === "pos") {
         return (
@@ -58,7 +59,7 @@ function AppContent() {
                     </button>
                 </div>
                 <div className="flex-1 min-h-0 overflow-hidden">
-                    {needsCashFloat ? <CashFloatModal open={true} onSuccess={() => setActiveTab("pos")} onClose={() => dispatch(setCashFloatPending(false))} /> : <PosTerminal />}
+                    {needsCashFloatForPos ? <CashFloatModal open={true} onSuccess={() => setActiveTab("pos")} onClose={() => dispatch(setCashFloatPending(false))} /> : <PosTerminal />}
                 </div>
             </div>
         )
@@ -92,7 +93,7 @@ function AppContent() {
                     )}
                 </main>
             </div>
-            {needsCashFloat && <CashFloatModal open={true} onSuccess={() => {}} onClose={() => dispatch(setCashFloatPending(false))} />}
+            {needsGlobalCashFloat && <CashFloatModal open={true} onSuccess={() => {}} onClose={() => dispatch(setCashFloatPending(false))} />}
         </div>
     )
 }

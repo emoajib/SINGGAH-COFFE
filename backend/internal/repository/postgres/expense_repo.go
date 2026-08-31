@@ -63,32 +63,43 @@ func (r *expenseRepository) FindByID(id uint) (*entity.Expense, error) {
 }
 
 func (r *expenseRepository) Create(expense *entity.Expense) error {
+	method := expense.PaymentMethod
+	if method == "" {
+		method = "Cash"
+	}
 	m := &models.Expense{
-		Title:       expense.Title,
-		Amount:      expense.Amount,
-		Category:    expense.Category,
-		CostType:    expense.CostType,
-		Date:        expense.Date,
-		Description: expense.Description,
-		Notes:       expense.Notes,
-		OutletID:    expense.OutletID,
+		Title:         expense.Title,
+		Amount:        expense.Amount,
+		Category:      expense.Category,
+		CostType:      expense.CostType,
+		PaymentMethod: method,
+		Date:          expense.Date,
+		Description:   expense.Description,
+		Notes:         expense.Notes,
+		OutletID:      expense.OutletID,
 	}
 	if err := r.db.Create(m).Error; err != nil {
 		return err
 	}
 	expense.ID = m.ID
+	expense.PaymentMethod = method
 	return nil
 }
 
 func (r *expenseRepository) Update(expense *entity.Expense) error {
+	method := expense.PaymentMethod
+	if method == "" {
+		method = "Cash"
+	}
 	return r.db.Model(&models.Expense{}).Where("id = ?", expense.ID).Updates(map[string]interface{}{
-		"title":       expense.Title,
-		"amount":      expense.Amount,
-		"category":    expense.Category,
-		"cost_type":   expense.CostType,
-		"date":        expense.Date,
-		"description": expense.Description,
-		"notes":       expense.Notes,
+		"title":          expense.Title,
+		"amount":         expense.Amount,
+		"category":       expense.Category,
+		"cost_type":      expense.CostType,
+		"payment_method": method,
+		"date":           expense.Date,
+		"description":    expense.Description,
+		"notes":          expense.Notes,
 	}).Error
 }
 
@@ -146,16 +157,21 @@ func (r *expenseRepository) GetFixedCostBreakdown(start, end string, outletID ..
 }
 
 func toDomainExpense(m *models.Expense) *entity.Expense {
+	method := m.PaymentMethod
+	if method == "" {
+		method = "Cash"
+	}
 	return &entity.Expense{
-		ID:          m.ID,
-		Title:       m.Title,
-		Amount:      m.Amount,
-		Category:    m.Category,
-		CostType:    m.CostType,
-		Date:        m.Date,
-		Description: m.Description,
-		Notes:       m.Notes,
-		OutletID:    m.OutletID,
-		CreatedAt:   m.CreatedAt,
+		ID:            m.ID,
+		Title:         m.Title,
+		Amount:        m.Amount,
+		Category:      m.Category,
+		CostType:      m.CostType,
+		PaymentMethod: method,
+		Date:          m.Date,
+		Description:   m.Description,
+		Notes:         m.Notes,
+		OutletID:      m.OutletID,
+		CreatedAt:     m.CreatedAt,
 	}
 }
