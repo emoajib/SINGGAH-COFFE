@@ -64,7 +64,7 @@ func (r *orderItemRepository) GetTotalCogsRange(start, end string, outletID ...u
 	var total float64
 	err := r.db.Model(&models.OrderItem{}).
 		Joins("JOIN orders ON orders.id = order_items.order_id").
-		Where("DATE(orders.created_at) BETWEEN DATE(?) AND DATE(?) AND orders.status = ?"+ow, append(baseArgs, args...)...).
+		Where("orders.created_at BETWEEN ? AND ? AND orders.status = ?"+ow, append(baseArgs, args...)...).
 		Select("COALESCE(SUM(order_items.cost * order_items.quantity), 0)").
 		Row().Scan(&total)
 	return total, err

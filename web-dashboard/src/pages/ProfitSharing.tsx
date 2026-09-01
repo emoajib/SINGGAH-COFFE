@@ -27,7 +27,9 @@ export default function ProfitSharing() {
   } = useProfitSharing()
 
   const [startDate, setStartDate] = useState("")
+  const [startTime, setStartTime] = useState("00:00")
   const [endDate, setEndDate] = useState("")
+  const [endTime, setEndTime] = useState("23:59")
   const [ratio, setRatio] = useState(50)
   const [preview, setPreview] = useState<ProfitSharingPreview | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -37,8 +39,10 @@ export default function ProfitSharing() {
       toast({ title: "Error", description: "Pilih tanggal mulai dan akhir", variant: "error" })
       return
     }
+    const startDT = `${startDate}T${startTime}:00`
+    const endDT = `${endDate}T${endTime}:00`
     try {
-      const result = await previewMutation.mutateAsync({ start: startDate, end: endDate, ratio })
+      const result = await previewMutation.mutateAsync({ start: startDT, end: endDT, ratio })
       setPreview(result)
       setShowPreview(true)
     } catch (e: any) {
@@ -101,25 +105,33 @@ export default function ProfitSharing() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jam Mulai</label>
+              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Akhir</label>
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jam Akhir</label>
+              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Rasio Keeper (%)</label>
               <Input type="number" min={0} max={100} value={ratio} onChange={(e) => setRatio(Number(e.target.value))} />
             </div>
-            <div className="flex items-end">
-              <Button onClick={handlePreview} disabled={previewMutation.isPending} className="w-full">
-                {previewMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Calculator className="w-4 h-4 mr-2" />}
-                Hitung Preview
-              </Button>
-            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button onClick={handlePreview} disabled={previewMutation.isPending} className="w-full md:w-auto">
+              {previewMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Calculator className="w-4 h-4 mr-2" />}
+              Hitung Preview
+            </Button>
           </div>
         </CardContent>
       </Card>

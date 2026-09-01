@@ -139,8 +139,8 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		tx.Rollback()
 		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa di-finalize")
 	}
-	start := period.PeriodStart.Format("2006-01-02")
-	end := period.PeriodEnd.Format("2006-01-02")
+	start := period.PeriodStart.Format("2006-01-02 15:04:05")
+	end := period.PeriodEnd.Format("2006-01-02 15:04:05")
 
 	basis, err := uc.periodRepo.GetTotalRevenue(start, end, outletID...)
 	if err != nil {
@@ -252,8 +252,8 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
 		uc.cashBookRepo.DeleteByReference(ref, outletID...)
 	}
-	start := existing.PeriodStart.Format("2006-01-02")
-	end := existing.PeriodEnd.Format("2006-01-02")
+	start := existing.PeriodStart.Format("2006-01-02 15:04:05")
+	end := existing.PeriodEnd.Format("2006-01-02 15:04:05")
 
 	basis, err := uc.periodRepo.GetTotalRevenue(start, end, outletID...)
 	if err != nil {
@@ -315,6 +315,13 @@ func (uc *ProfitSharingUsecase) GetAll(outletID ...uint) ([]entity.ProfitSharing
 }
 
 func parseDatePS(s string) time.Time {
-	t, _ := time.Parse("2006-01-02", s)
+	// Coba format datetime dulu, fallback ke date-only
+	t, err := time.Parse("2006-01-02T15:04:00", s)
+	if err != nil {
+		t, _ = time.Parse("2006-01-02T15:04", s)
+	}
+	if err != nil {
+		t, _ = time.Parse("2006-01-02", s)
+	}
 	return t
 }

@@ -112,7 +112,7 @@ func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outle
 	var total float64
 	err := r.db.Model(&models.OrderItem{}).
 		Joins("JOIN orders o ON o.id = order_items.order_id").
-		Where("DATE(o.created_at) BETWEEN DATE(?) AND DATE(?) AND o.status = ?"+ow, append(baseArgs, args...)...).
+		Where("o.created_at BETWEEN ? AND ? AND o.status = ?"+ow, append(baseArgs, args...)...).
 		Select("COALESCE(SUM(order_items.price * order_items.quantity), 0)").
 		Row().Scan(&total)
 	return total, err
@@ -120,7 +120,7 @@ func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outle
 
 func (r *profitSharingPeriodRepository) GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error) {
 	tx := r.db.Model(&models.Expense{}).
-		Where("DATE(date) BETWEEN DATE(?) AND DATE(?)", start, end)
+		Where("date BETWEEN ? AND ?", start, end)
 	tx = scopeOutlet(tx, "expenses", outletID...)
 	if len(excluded) > 0 {
 		tx = tx.Where("category NOT IN ?", excluded)
