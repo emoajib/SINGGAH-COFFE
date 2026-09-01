@@ -51,12 +51,14 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 	}
 	grossMargin := basis - cogs
 	netProfit := grossMargin - expenses // actual value (can be negative for display)
-	netContrib := netProfit
-	if netContrib < 0 {
-		netContrib = 0
+
+	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
+	sharingBasis := netProfit
+	if sharingBasis < 0 {
+		sharingBasis = grossMargin
 	}
-	keeperAmount := math.Round(netContrib*ratio/100*100) / 100
-	ownerAmount := netContrib - keeperAmount
+	keeperAmount := math.Round(sharingBasis*ratio/100*100) / 100
+	ownerAmount := sharingBasis - keeperAmount
 
 	products, _ := uc.orderItemRepo.GetProductSalesVolume(start, end, outletID)
 	perProduct := make([]entity.ProductSharingDetail, len(products))
@@ -80,7 +82,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		BasisAmount:   basis,
 		TotalCogs:     cogs,
 		TotalExpenses: expenses,
-		NetProfit:     netContrib,
+		NetProfit:     netProfit,
 		Ratio:         ratio,
 		KeeperAmount:  keeperAmount,
 		OwnerAmount:   ownerAmount,
@@ -108,7 +110,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			TotalCogs:     cogs,
 			GrossProfit:   grossMargin,
 			TotalExpenses: expenses,
-			NetProfit:     netProfit, // actual value (can be negative)
+			NetProfit:     netProfit,
 			Ratio:         ratio,
 			KeeperShare:   keeperAmount,
 			OwnerShare:    ownerAmount,
@@ -157,12 +159,14 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	}
 	grossMargin := basis - cogs
 	netProfit := grossMargin - expenses // actual value (can be negative for display)
-	netContrib := netProfit
-	if netContrib < 0 {
-		netContrib = 0
+
+	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
+	sharingBasis := netProfit
+	if sharingBasis < 0 {
+		sharingBasis = grossMargin
 	}
-	keeperAmount := math.Round(netContrib*ratio/100*100) / 100
-	ownerAmount := netContrib - keeperAmount
+	keeperAmount := math.Round(sharingBasis*ratio/100*100) / 100
+	ownerAmount := sharingBasis - keeperAmount
 
 	products, _ := uc.orderItemRepo.GetProductSalesVolume(start, end, outletID...)
 	perProduct := make([]entity.ProductSharingDetail, len(products))
@@ -181,7 +185,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	period.BasisAmount = basis
 	period.TotalCogs = cogs
 	period.TotalExpenses = expenses
-	period.NetProfit = netProfit // actual value (can be negative)
+	period.NetProfit = netProfit
 	period.Ratio = ratio
 	period.KeeperAmount = keeperAmount
 	period.OwnerAmount = ownerAmount
@@ -262,17 +266,19 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	}
 	grossMargin := basis - cogs
 	netProfit := grossMargin - expenses // actual value (can be negative for display)
-	netContrib := netProfit
-	if netContrib < 0 {
-		netContrib = 0
+
+	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
+	sharingBasis := netProfit
+	if sharingBasis < 0 {
+		sharingBasis = grossMargin
 	}
-	keeperAmount := math.Round(netContrib*ratio/100*100) / 100
-	ownerAmount := netContrib - keeperAmount
+	keeperAmount := math.Round(sharingBasis*ratio/100*100) / 100
+	ownerAmount := sharingBasis - keeperAmount
 
 	existing.BasisAmount = basis
 	existing.TotalCogs = cogs
 	existing.TotalExpenses = expenses
-	existing.NetProfit = netProfit // actual value (can be negative)
+	existing.NetProfit = netProfit
 	existing.Ratio = ratio
 	existing.KeeperAmount = keeperAmount
 	existing.OwnerAmount = ownerAmount

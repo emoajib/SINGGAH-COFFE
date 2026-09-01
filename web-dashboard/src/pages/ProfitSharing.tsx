@@ -236,6 +236,12 @@ export default function ProfitSharing() {
                           {products.map((pp, i) => (
                             <tr key={i} className="border-b"><td className="py-2">{pp.product_name}</td><td className="text-right">{formatNumber(pp.revenue)}</td><td className="text-right">{formatNumber(pp.cogs)}</td><td className="text-right font-medium">{formatNumber(pp.gross_margin)}</td></tr>
                           ))}
+                          <tr className="border-b bg-gray-50 font-bold">
+                            <td className="py-2">Total</td>
+                            <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.revenue, 0))}</td>
+                            <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.cogs, 0))}</td>
+                            <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.gross_margin, 0))}</td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
@@ -265,6 +271,11 @@ export default function ProfitSharing() {
                 <div><span className="text-sm text-gray-500">Total Pengeluaran (non-bagi hasil)</span><p className="font-medium">{formatNumber(preview.calculation.total_expenses)}</p></div>
                 <div className="bg-gray-50 p-3 rounded-lg"><span className="text-sm text-gray-600">Laba Bersih</span><p className="font-bold text-lg">{formatNumber(preview.calculation.net_profit)}</p></div>
                 <div></div>
+                {preview.calculation.net_profit < 0 && (
+                  <div className="col-span-2 bg-yellow-50 border border-yellow-200 p-2 rounded text-xs text-yellow-700">
+                    Laba bersih negatif — pembagian dihitung dari Laba Kotor ({formatNumber(preview.calculation.gross_profit)})
+                  </div>
+                )}
                 <div className="bg-green-50 p-3 rounded-lg"><span className="text-sm text-green-600">Bagian Keeper ({preview.calculation.ratio}%)</span><p className="font-bold text-xl text-green-700">{formatNumber(preview.calculation.keeper_share)}</p></div>
                 <div className="bg-blue-50 p-3 rounded-lg"><span className="text-sm text-blue-600">Bagian Owner ({100 - preview.calculation.ratio}%)</span><p className="font-bold text-xl text-blue-700">{formatNumber(preview.calculation.owner_share)}</p></div>
               </div>
@@ -290,6 +301,12 @@ export default function ProfitSharing() {
                       {preview.calculation.per_product.map((pp, i) => (
                         <tr key={i} className="border-b"><td className="py-2">{pp.product_name}</td><td className="text-right">{formatNumber(pp.revenue)}</td><td className="text-right">{formatNumber(pp.cogs)}</td><td className="text-right font-medium">{formatNumber(pp.gross_margin)}</td></tr>
                       ))}
+                      <tr className="border-b bg-gray-50 font-bold">
+                        <td className="py-2">Total</td>
+                        <td className="text-right">{formatNumber(preview.calculation.per_product.reduce((s, p) => s + p.revenue, 0))}</td>
+                        <td className="text-right">{formatNumber(preview.calculation.per_product.reduce((s, p) => s + p.cogs, 0))}</td>
+                        <td className="text-right">{formatNumber(preview.calculation.per_product.reduce((s, p) => s + p.gross_margin, 0))}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
