@@ -50,7 +50,8 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		return nil, err
 	}
 	grossMargin := basis - cogs
-	netContrib := grossMargin - expenses
+	netProfit := grossMargin - expenses // actual value (can be negative for display)
+	netContrib := netProfit
 	if netContrib < 0 {
 		netContrib = 0
 	}
@@ -107,7 +108,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			TotalCogs:     cogs,
 			GrossProfit:   grossMargin,
 			TotalExpenses: expenses,
-			NetProfit:     netContrib,
+			NetProfit:     netProfit, // actual value (can be negative)
 			Ratio:         ratio,
 			KeeperShare:   keeperAmount,
 			OwnerShare:    ownerAmount,
@@ -155,7 +156,8 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		return err
 	}
 	grossMargin := basis - cogs
-	netContrib := grossMargin - expenses
+	netProfit := grossMargin - expenses // actual value (can be negative for display)
+	netContrib := netProfit
 	if netContrib < 0 {
 		netContrib = 0
 	}
@@ -179,7 +181,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	period.BasisAmount = basis
 	period.TotalCogs = cogs
 	period.TotalExpenses = expenses
-	period.NetProfit = netContrib
+	period.NetProfit = netProfit // actual value (can be negative)
 	period.Ratio = ratio
 	period.KeeperAmount = keeperAmount
 	period.OwnerAmount = ownerAmount
@@ -259,7 +261,8 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		return err
 	}
 	grossMargin := basis - cogs
-	netContrib := grossMargin - expenses
+	netProfit := grossMargin - expenses // actual value (can be negative for display)
+	netContrib := netProfit
 	if netContrib < 0 {
 		netContrib = 0
 	}
@@ -269,7 +272,7 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	existing.BasisAmount = basis
 	existing.TotalCogs = cogs
 	existing.TotalExpenses = expenses
-	existing.NetProfit = netContrib
+	existing.NetProfit = netProfit // actual value (can be negative)
 	existing.Ratio = ratio
 	existing.KeeperAmount = keeperAmount
 	existing.OwnerAmount = ownerAmount
