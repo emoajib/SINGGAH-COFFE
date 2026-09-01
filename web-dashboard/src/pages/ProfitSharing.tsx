@@ -184,14 +184,24 @@ export default function ProfitSharing() {
                             </>
                           )}
                           {p.status === "finalized" && (
-                            <Button variant="ghost" size="sm" onClick={() => handleMarkPaid(p.id)} disabled={markPaidMutation.isPending}>
-                              <DollarSign className="w-4 h-4 text-green-500" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => handleMarkPaid(p.id)} disabled={markPaidMutation.isPending}>
+                                <DollarSign className="w-4 h-4 text-green-500" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} disabled={deleteMutation.isPending}>
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </Button>
+                            </>
                           )}
-                          {p.status === "draft" && (
-                            <Button variant="ghost" size="sm" onClick={() => handleRecalculate(p.id)} disabled={recalculateMutation.isPending}>
-                              <RefreshCw className="w-4 h-4 text-orange-500" />
-                            </Button>
+                          {p.status === "paid" && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => handleRecalculate(p.id)} disabled={recalculateMutation.isPending} title="Edit (kembali ke draft)">
+                                <RefreshCw className="w-4 h-4 text-orange-500" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} disabled={deleteMutation.isPending} title="Hapus periode">
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>

@@ -246,8 +246,11 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	if existing.OutletID != outletID[0] {
 		return domainErrors.NewUnauthorizedError("tidak punya akses ke periode ini")
 	}
+
+	// Reverse cashbook entry jika periode sudah dibayar
 	if existing.Status == "paid" {
-		return domainErrors.NewInvalidInputError("tidak bisa hitung ulang periode yang sudah dibayar")
+		ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
+		uc.cashBookRepo.DeleteByReference(ref, outletID...)
 	}
 	start := existing.PeriodStart.Format("2006-01-02")
 	end := existing.PeriodEnd.Format("2006-01-02")
@@ -298,8 +301,11 @@ func (uc *ProfitSharingUsecase) Delete(id uint, outletID ...uint) error {
 	if existing.OutletID != outletID[0] {
 		return domainErrors.NewUnauthorizedError("tidak punya akses ke periode ini")
 	}
-	if existing.Status != "draft" {
-		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa dihapus")
+
+	// Reverse cashbook entry jika periode sudah dibayar
+	if existing.Status == "paid" {
+		ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
+		uc.cashBookRepo.DeleteByReference(ref, outletID...)
 	}
 	return uc.periodRepo.Delete(id)
 }
