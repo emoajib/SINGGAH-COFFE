@@ -3,23 +3,23 @@ package entity
 import "time"
 
 type ProfitSharingPeriod struct {
-	ID            uint
-	OutletID      uint
-	PeriodStart   time.Time
-	PeriodEnd     time.Time
-	BasisAmount   float64
-	TotalExpenses float64
-	TotalCogs     float64
-	NetProfit     float64
-	Ratio         float64
-	KeeperAmount  float64
-	OwnerAmount   float64
-	Status        string
-	PerProduct    string
-	PaymentNote   string
-	TaxNote       string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID            uint      `json:"id"`
+	OutletID      uint      `json:"outlet_id"`
+	PeriodStart   time.Time `json:"period_start"`
+	PeriodEnd     time.Time `json:"period_end"`
+	BasisAmount   float64   `json:"basis_amount"`
+	TotalExpenses float64   `json:"total_expenses"`
+	TotalCogs     float64   `json:"total_cogs"`
+	NetProfit     float64   `json:"net_profit"`
+	Ratio         float64   `json:"ratio"`
+	KeeperAmount  float64   `json:"keeper_amount"`
+	OwnerAmount   float64   `json:"owner_amount"`
+	Status        string    `json:"status"`
+	PerProduct    string    `json:"per_product"`
+	PaymentNote   string    `json:"payment_note"`
+	TaxNote       string    `json:"tax_note"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type ProductSharingDetail struct {
