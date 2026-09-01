@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
+
+	"gorm.io/gorm"
 )
 
 // UserRepository defines data access for users
@@ -152,6 +154,20 @@ type CashRegisterRepository interface {
 	Close(userID uint, closingAmount, expectedCash, variance float64) error
 	SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time) (float64, error)
 	FindLatestClosed(userID uint, outletID uint) (*entity.CashRegister, error)
+}
+
+// ProfitSharingPeriodRepository defines data access for profit sharing periods
+type ProfitSharingPeriodRepository interface {
+	FindByID(id uint) (*entity.ProfitSharingPeriod, error)
+	FindByIDForUpdate(id uint, tx *gorm.DB) (*entity.ProfitSharingPeriod, error)
+	FindAll(outletID ...uint) ([]entity.ProfitSharingPeriod, error)
+	FindOverlappingPeriod(outletID uint, start, end time.Time, excludeID uint) (*entity.ProfitSharingPeriod, error)
+	Create(period *entity.ProfitSharingPeriod) error
+	Update(period *entity.ProfitSharingPeriod) error
+	Delete(id uint) error
+	GetTotalRevenue(start, end string, outletID ...uint) (float64, error)
+	GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error)
+	GetProductSales(start, end string, outletID ...uint) ([]entity.ProductSalesVolume, error)
 }
 
 // CashBookRepository defines data access for the owner-only Buku Kas

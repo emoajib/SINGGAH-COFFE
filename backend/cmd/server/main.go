@@ -51,6 +51,7 @@ func main() {
 		cashRegisterUsecase := usecase.NewCashRegisterUsecase(db)
 		cashBookUsecase := usecase.NewCashBookUsecase(db)
 		productionTargetUsecase := usecase.NewProductionTargetUsecase(db)
+		profitSharingUsecase := usecase.NewProfitSharingUsecase(db)
 
 	// Context for graceful background worker shutdowns
 	bgCtx, bgCancel := context.WithCancel(context.Background())
@@ -90,6 +91,7 @@ func main() {
 		Backup:        handler.NewBackupHandler(db, &cfg),
 		Sync:          handler.NewSyncHandler(&cfg),
 		ProductionTarget: handler.NewProductionTargetHandler(productionTargetUsecase),
+		ProfitSharing:    handler.NewProfitSharingHandler(profitSharingUsecase),
 	}
 
 	r := gin.New()
@@ -109,7 +111,7 @@ func main() {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, X-Outlet-ID")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
 		// Security headers

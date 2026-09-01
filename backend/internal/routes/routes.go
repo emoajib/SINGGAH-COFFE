@@ -24,6 +24,7 @@ type Handlers struct {
 	Sync             *handler.SyncHandler
 	ProductionTarget *handler.ProductionTargetHandler
 	CashBook         *handler.CashBookHandler
+	ProfitSharing    *handler.ProfitSharingHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
@@ -152,6 +153,14 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			// Sync (Owner Only) — forward backup to/from production server
 			protected.POST("/backup/push", middleware.RoleMiddleware("owner"), h.Sync.PushBackup)
 			protected.POST("/backup/pull", middleware.RoleMiddleware("owner"), h.Sync.PullBackup)
+
+			// Profit Sharing — Owner Only
+			protected.GET("/profit-sharing", middleware.RoleMiddleware("owner"), h.ProfitSharing.GetAll)
+			protected.GET("/profit-sharing/preview", middleware.RoleMiddleware("owner"), h.ProfitSharing.Preview)
+			protected.POST("/profit-sharing/:id/finalize", middleware.RoleMiddleware("owner"), h.ProfitSharing.Finalize)
+			protected.POST("/profit-sharing/:id/mark-paid", middleware.RoleMiddleware("owner"), h.ProfitSharing.MarkAsPaid)
+			protected.POST("/profit-sharing/:id/recalculate", middleware.RoleMiddleware("owner"), h.ProfitSharing.Recalculate)
+			protected.DELETE("/profit-sharing/:id", middleware.RoleMiddleware("owner"), h.ProfitSharing.Delete)
 		}
 	}
 

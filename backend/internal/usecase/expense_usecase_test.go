@@ -43,7 +43,7 @@ func TestExpenseUsecase_CreateSuccess(t *testing.T) {
 	expense := &entity.Expense{
 		Title:         "Test Expense",
 		Amount:        100.50,
-		Category:      "Operational",
+		Category:      "Rent",
 		CostType:      "fixed",
 		PaymentMethod: "QRIS",
 		Description:   "Test expense description",
@@ -55,7 +55,7 @@ func TestExpenseUsecase_CreateSuccess(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, "Test Expense", resp.Title)
 	assert.Equal(t, 100.50, resp.Amount)
-	assert.Equal(t, "Operational", resp.Category)
+	assert.Equal(t, "Rent", resp.Category)
 	assert.Equal(t, "fixed", resp.CostType)
 	assert.Equal(t, "QRIS", resp.PaymentMethod)
 	assert.Equal(t, "Test expense description", resp.Description)
@@ -94,13 +94,13 @@ func TestExpenseUsecase_GetAllWithData(t *testing.T) {
 	expense1 := &entity.Expense{
 		Title:     "Expense One",
 		Amount:    50.00,
-		Category:  "Operational",
+		Category:  "Rent",
 		CostType:  "fixed",
 	}
 	expense2 := &entity.Expense{
 		Title:     "Expense Two",
 		Amount:    75.25,
-		Category:  "Marketing",
+		Category:  "Utilities",
 		CostType:  "variable",
 	}
 	uc.Create(expense1)
@@ -132,7 +132,7 @@ func TestExpenseUsecase_UpdateSuccess(t *testing.T) {
 	expense := &entity.Expense{
 		Title:     "Original Title",
 		Amount:    100.00,
-		Category:  "Operational",
+		Category:  "Rent",
 		CostType:  "fixed",
 	}
 	createdResp, err := uc.Create(expense)
@@ -143,7 +143,7 @@ func TestExpenseUsecase_UpdateSuccess(t *testing.T) {
 	updatedExpense := &entity.Expense{
 		Title:     "Updated Title",
 		Amount:    150.00,
-		Category:  "Marketing",
+		Category:  "Utilities",
 		CostType:  "variable",
 		Description: "Updated description",
 	}
@@ -154,7 +154,7 @@ func TestExpenseUsecase_UpdateSuccess(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, "Updated Title", resp.Title)
 	assert.Equal(t, 150.00, resp.Amount)
-	assert.Equal(t, "Marketing", resp.Category)
+	assert.Equal(t, "Utilities", resp.Category)
 	assert.Equal(t, "variable", resp.CostType)
 	assert.Equal(t, "Updated description", resp.Description)
 }
@@ -173,7 +173,7 @@ func TestExpenseUsecase_UpdateNotFound(t *testing.T) {
 	expense := &entity.Expense{
 		Title:     "Non-existent Expense",
 		Amount:    100.00,
-		Category:  "Operational",
+		Category:  "Rent",
 		CostType:  "fixed",
 	}
 	_, err := uc.Update(999, expense) // Non-existent ID
@@ -197,7 +197,7 @@ func TestExpenseUsecase_DeleteSuccess(t *testing.T) {
 	expense := &entity.Expense{
 		Title:     "Expense to Delete",
 		Amount:    100.00,
-		Category:  "Operational",
+		Category:  "Rent",
 		CostType:  "fixed",
 	}
 	createdResp, err := uc.Create(expense)
@@ -231,7 +231,7 @@ func TestExpenseUsecase_UpdateCostTypeSuccess(t *testing.T) {
 	expense := &entity.Expense{
 		Title:     "Expense for CostType Update",
 		Amount:    100.00,
-		Category:  "Operational",
+		Category:  "Rent",
 		CostType:  "fixed",
 	}
 	createdResp, err := uc.Create(expense)

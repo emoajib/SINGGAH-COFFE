@@ -17,6 +17,7 @@ import BackupManagement from "./pages/BackupManagement"
 import KebutuhanStok from "./pages/KebutuhanStok"
 import CashRegister from "./pages/CashRegister"
 import CashBookPage from "./pages/CashBook"
+import ProfitSharing from "./pages/ProfitSharing"
 import Login from "./pages/Login"
 import CashFloatModal from "./components/cash/CashFloatModal"
 import { ToastProvider } from "./hooks/use-toast"
@@ -35,7 +36,7 @@ function AppContent() {
     const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
 
     // Tab eksklusif owner saja
-    const ownerOnlyTabs = ["reports", "cash-book", "bep", "kebutuhan-stok", "integration", "backup"]
+    const ownerOnlyTabs = ["reports", "cash-book", "bep", "kebutuhan-stok", "integration", "backup", "profit-sharing"]
     // Tab yang boleh diakses manager (tapi bukan cashier)
     const managerOnlyTabs = ["cash-registers"]
 
@@ -89,6 +90,7 @@ function AppContent() {
                             {activeTab === "integration" && <Integration />}
                             {activeTab === "settings" && <Settings />}
                             {activeTab === "backup" && <BackupManagement />}
+                            {activeTab === "profit-sharing" && <ProfitSharing />}
                         </>
                     )}
                 </main>

@@ -473,3 +473,56 @@ export interface BackupResult {
   results: { type: string; status: string; file?: string; size?: string; error?: string; details?: string }[]
 }
 
+export interface ProductSharingDetail {
+  product_id: number
+  product_name: string
+  revenue: number
+  cogs: number
+  gross_margin: number
+}
+
+export interface ExpenseBreakdown {
+  category: string
+  amount: number
+}
+
+export interface ProfitSharingPeriod {
+  id: number
+  outlet_id: number
+  period_start: string
+  period_end: string
+  basis_amount: number
+  total_expenses: number
+  total_cogs: number
+  net_profit: number
+  ratio: number
+  keeper_amount: number
+  owner_amount: number
+  status: string
+  per_product: string
+  payment_note: string
+  tax_note: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ProfitSharingCalculation {
+  basis_amount: number
+  total_cogs: number
+  gross_profit: number
+  total_expenses: number
+  net_profit: number
+  ratio: number
+  keeper_share: number
+  owner_share: number
+  breakdown: ExpenseBreakdown[]
+  per_product: ProductSharingDetail[]
+  status: string
+  note: string
+}
+
+export interface ProfitSharingPreview {
+  period: ProfitSharingPeriod
+  calculation: ProfitSharingCalculation
+}
+

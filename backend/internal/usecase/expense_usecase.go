@@ -12,6 +12,13 @@ import (
 	"gorm.io/gorm"
 )
 
+var protectedExpenseCategories = map[string]bool{
+	"Operational": true,
+	"Marketing":   true,
+	"Maintenance": true,
+	"Misc":        true,
+}
+
 // ExpenseUsecase mengelola logika bisnis pengeluaran.
 // Setiap operasi CRUD expense secara otomatis disinkronkan ke Buku Kas
 // menggunakan pola idempoten reference "expense:{id}" yang sama dengan Order.
@@ -91,6 +98,9 @@ func (uc *ExpenseUsecase) GetAllFiltered(start, end, category string, outletID .
 // Create menyimpan expense dan langsung sync ke Buku Kas secara real-time.
 // GAP 1 FIX: sebelumnya tidak ada sync ke Buku Kas sama sekali.
 func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*entity.ExpenseResponse, error) {
+	if protectedExpenseCategories[expense.Category] {
+		return nil, domainErrors.NewInvalidInputError("kategori ini tidak bisa dibuat secara manual")
+	}
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()
 	}
@@ -116,6 +126,9 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 	existing, err := uc.expenseRepo.FindByID(id)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("expense not found")
+	}
+	if protectedExpenseCategories[existing.Category] {
+		return nil, domainErrors.NewInvalidInputError("kategori ini tidak bisa diubah")
 	}
 
 	existing.Title = expense.Title
