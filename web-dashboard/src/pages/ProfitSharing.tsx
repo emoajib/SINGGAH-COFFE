@@ -88,7 +88,7 @@ export default function ProfitSharing() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bagi Hasil</h1>
-          <p className="text-sm text-gray-500">Hitung dan kelola pembagian profit dengan owner</p>
+          <p className="text-sm text-gray-500">Hitung dan kelola pembagian keuntungan dengan owner</p>
         </div>
       </div>
 
@@ -146,7 +146,7 @@ export default function ProfitSharing() {
                   <tr className="border-b">
                     <th className="text-left py-3 px-2">Periode</th>
                     <th className="text-right py-3 px-2">Basis</th>
-                    <th className="text-right py-3 px-2">Net Profit</th>
+                    <th className="text-right py-3 px-2">Laba Bersih</th>
                     <th className="text-right py-3 px-2">Keeper</th>
                     <th className="text-right py-3 px-2">Owner</th>
                     <th className="text-center py-3 px-2">Status</th>
@@ -216,10 +216,10 @@ export default function ProfitSharing() {
               <div className="grid grid-cols-2 gap-4">
                 <div><span className="text-sm text-gray-500">Status</span><p className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${STATUS_COLORS[detailPeriod.status]}`}>{STATUS_LABELS[detailPeriod.status]}</p></div>
                 <div><span className="text-sm text-gray-500">Rasio</span><p className="font-medium">{detailPeriod.ratio}%</p></div>
-                <div><span className="text-sm text-gray-500">Basis (Revenue Pre-Tax)</span><p className="font-medium">{formatNumber(detailPeriod.basis_amount)}</p></div>
-                <div><span className="text-sm text-gray-500">Total COGS</span><p className="font-medium">{formatNumber(detailPeriod.total_cogs)}</p></div>
-                <div><span className="text-sm text-gray-500">Total Pengeluaran</span><p className="font-medium">{formatNumber(detailPeriod.total_expenses)}</p></div>
-                <div><span className="text-sm text-gray-500">Net Profit</span><p className="font-bold text-lg">{formatNumber(detailPeriod.net_profit)}</p></div>
+                <div><span className="text-sm text-gray-500">Basis (Pendapatan Kotor)</span><p className="font-medium">{formatNumber(detailPeriod.basis_amount)}</p></div>
+                <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(detailPeriod.total_cogs)}</p></div>
+                <div><span className="text-sm text-gray-500">Total Pengeluaran (non-bagi hasil)</span><p className="font-medium">{formatNumber(detailPeriod.total_expenses)}</p></div>
+                <div><span className="text-sm text-gray-500">Laba Bersih</span><p className="font-bold text-lg">{formatNumber(detailPeriod.net_profit)}</p></div>
                 <div className="bg-green-50 p-3 rounded-lg"><span className="text-sm text-green-600">Bagian Keeper</span><p className="font-bold text-lg text-green-700">{formatNumber(detailPeriod.keeper_amount)}</p></div>
                 <div className="bg-blue-50 p-3 rounded-lg"><span className="text-sm text-blue-600">Bagian Owner</span><p className="font-bold text-lg text-blue-700">{formatNumber(detailPeriod.owner_amount)}</p></div>
               </div>
@@ -231,7 +231,7 @@ export default function ProfitSharing() {
                     <div>
                       <h3 className="font-semibold text-sm mb-2">Rincian per Produk</h3>
                       <table className="w-full text-sm">
-                        <thead><tr className="border-b"><th className="text-left py-2">Produk</th><th className="text-right py-2">Revenue</th><th className="text-right py-2">COGS</th><th className="text-right py-2">Gross Margin</th></tr></thead>
+                        <thead><tr className="border-b"><th className="text-left py-2">Produk</th><th className="text-right py-2">Pendapatan</th><th className="text-right py-2">Modal</th><th className="text-right py-2">Laba Kotor</th></tr></thead>
                         <tbody>
                           {products.map((pp, i) => (
                             <tr key={i} className="border-b"><td className="py-2">{pp.product_name}</td><td className="text-right">{formatNumber(pp.revenue)}</td><td className="text-right">{formatNumber(pp.cogs)}</td><td className="text-right font-medium">{formatNumber(pp.gross_margin)}</td></tr>
@@ -259,18 +259,18 @@ export default function ProfitSharing() {
               <div className="grid grid-cols-2 gap-4">
                 <div><span className="text-sm text-gray-500">Periode</span><p className="font-medium">{preview.period.period_start} - {preview.period.period_end}</p></div>
                 <div><span className="text-sm text-gray-500">Rasio Keeper</span><p className="font-medium">{preview.calculation.ratio}%</p></div>
-                <div><span className="text-sm text-gray-500">Revenue Pre-Tax</span><p className="font-medium">{formatNumber(preview.calculation.basis_amount)}</p></div>
-                <div><span className="text-sm text-gray-500">Total COGS</span><p className="font-medium">{formatNumber(preview.calculation.total_cogs)}</p></div>
-                <div><span className="text-sm text-gray-500">Gross Profit</span><p className="font-medium">{formatNumber(preview.calculation.gross_profit)}</p></div>
-                <div><span className="text-sm text-gray-500">Total Pengeluaran (non-sharing)</span><p className="font-medium">{formatNumber(preview.calculation.total_expenses)}</p></div>
-                <div className="bg-gray-50 p-3 rounded-lg"><span className="text-sm text-gray-600">Net Profit</span><p className="font-bold text-lg">{formatNumber(preview.calculation.net_profit)}</p></div>
+                <div><span className="text-sm text-gray-500">Pendapatan Kotor (sebelum pajak)</span><p className="font-medium">{formatNumber(preview.calculation.basis_amount)}</p></div>
+                <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(preview.calculation.total_cogs)}</p></div>
+                <div><span className="text-sm text-gray-500">Laba Kotor</span><p className="font-medium">{formatNumber(preview.calculation.gross_profit)}</p></div>
+                <div><span className="text-sm text-gray-500">Total Pengeluaran (non-bagi hasil)</span><p className="font-medium">{formatNumber(preview.calculation.total_expenses)}</p></div>
+                <div className="bg-gray-50 p-3 rounded-lg"><span className="text-sm text-gray-600">Laba Bersih</span><p className="font-bold text-lg">{formatNumber(preview.calculation.net_profit)}</p></div>
                 <div></div>
                 <div className="bg-green-50 p-3 rounded-lg"><span className="text-sm text-green-600">Bagian Keeper ({preview.calculation.ratio}%)</span><p className="font-bold text-xl text-green-700">{formatNumber(preview.calculation.keeper_share)}</p></div>
                 <div className="bg-blue-50 p-3 rounded-lg"><span className="text-sm text-blue-600">Bagian Owner ({100 - preview.calculation.ratio}%)</span><p className="font-bold text-xl text-blue-700">{formatNumber(preview.calculation.owner_share)}</p></div>
               </div>
               {preview.calculation.breakdown && preview.calculation.breakdown.length > 0 && (
                 <div>
-                  <h3 className="font-semibold text-sm mb-2">Breakdown Pengeluaran</h3>
+                      <h3 className="font-semibold text-sm mb-2">Rincian Pengeluaran</h3>
                   <table className="w-full text-sm">
                     <thead><tr className="border-b"><th className="text-left py-2">Kategori</th><th className="text-right py-2">Jumlah</th></tr></thead>
                     <tbody>
@@ -285,7 +285,7 @@ export default function ProfitSharing() {
                 <div>
                   <h3 className="font-semibold text-sm mb-2">Rincian per Produk</h3>
                   <table className="w-full text-sm">
-                    <thead><tr className="border-b"><th className="text-left py-2">Produk</th><th className="text-right py-2">Revenue</th><th className="text-right py-2">COGS</th><th className="text-right py-2">Gross Margin</th></tr></thead>
+                    <thead><tr className="border-b"><th className="text-left py-2">Produk</th><th className="text-right py-2">Pendapatan</th><th className="text-right py-2">Modal</th><th className="text-right py-2">Laba Kotor</th></tr></thead>
                     <tbody>
                       {preview.calculation.per_product.map((pp, i) => (
                         <tr key={i} className="border-b"><td className="py-2">{pp.product_name}</td><td className="text-right">{formatNumber(pp.revenue)}</td><td className="text-right">{formatNumber(pp.cogs)}</td><td className="text-right font-medium">{formatNumber(pp.gross_margin)}</td></tr>

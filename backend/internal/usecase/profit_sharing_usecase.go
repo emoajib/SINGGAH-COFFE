@@ -86,7 +86,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		OwnerAmount:   ownerAmount,
 		Status:        "draft",
 		PerProduct:    string(perProductJSON),
-		TaxNote:       "Revenue sebelum pajak (10%) & service charge (5%)",
+		TaxNote:       "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)",
 	}
 
 	overlapping, _ := uc.periodRepo.FindOverlappingPeriod(outletID, parseDatePS(start), parseDatePS(end), 0)
@@ -114,7 +114,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			OwnerShare:    ownerAmount,
 			PerProduct:    perProduct,
 			Status:        "draft",
-			Note:          "Revenue sebelum pajak & service charge",
+			Note:          "Pendapatan kotor sebelum pajak & biaya layanan",
 		},
 	}, nil
 }
@@ -187,7 +187,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	period.OwnerAmount = ownerAmount
 	period.Status = "finalized"
 	period.PerProduct = string(perProductJSON)
-	period.TaxNote = "Revenue sebelum pajak (10%) & service charge (5%)"
+	period.TaxNote = "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)"
 
 	if err := tx.Save(period).Error; err != nil {
 		tx.Rollback()
