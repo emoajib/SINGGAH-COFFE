@@ -1,227 +1,128 @@
 #!/bin/bash
 # ====================================================================
-# update-webhosting.sh — Automated deploy script for Singgah POS
-# Run this on your webhosting server (sosb4282@sosiomen.com) via SSH
+# update-webhosting.sh — Lightweight deploy for shared hosting
+# Runs on: sosb4282@colorado.iixcp.rumahweb.net
+# Fork-safe: no git, no pkill, no find -exec, no setsid
 #
 # USAGE:
-#   chmod +x update-webhosting.sh
-#   ./update-webhosting.sh          # interactive — will prompt for GitHub token if needed
-#   GH_TOKEN=token ./update-webhosting.sh  # non-interactive (token in env)
-#
-# PREREQUISITES (one-time setup):
-#   • SSH key configured for github.com, OR GitHub PAT (Settings → Developer → Personal Access Tokens)
-#   • Repo must be cloned once to $REPO_DIR (script will do this if GH_TOKEN is set)
+#   ./update-webhosting.sh              # download from GitHub Releases
+#   ./update-webhosting.sh --skip-pull  # use existing deploy.tar.gz in /tmp
 # ====================================================================
-set -euo pipefail
 
 PROJ_DIR="$HOME/singgah-pos"
 WEB_DIR="$HOME/public_html"
-REPO_SSH="git@github.com:emoajib/singgah-coffe.git"
-REPO_HTTPS="https://github.com/emoajib/singgah-coffe.git"
-TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+DEPLOY_URL="https://github.com/emoajib/singgah-coffe/releases/latest/download/deploy.tar.gz"
+PIDFILE="$PROJ_DIR/backend/backend.pid"
+LOGFILE="$PROJ_DIR/logs/backend.log"
 
-echo "=== Singgah POS Auto-Update ==="
-echo "Server: $(hostname)"
-echo "Time:   $(date)"
-echo ""
+# --- Helpers ---
+log()  { echo "[$(date '+%H:%M:%S')] $*"; }
+die()  { log "FATAL: $*"; exit 1; }
 
-# --- Safety: Backup existing .env before update ---
-if [ -f "$PROJ_DIR/backend/.env" ]; then
-    cp "$PROJ_DIR/backend/.env" "$PROJ_DIR/backend/.env.backup" 2>/dev/null || true
-fi
-
-# --- Step 0: Ensure repo is available ---
-if [ ! -d "$PROJ_DIR/.git" ]; then
-    echo "📋 Repo not found. Cloning..."
-    if [ -n "$TOKEN" ]; then
-        # Clone via HTTPS with token (non-interactive)
-        git clone "https://oauth2:${TOKEN}@github.com/emoajib/singgah-coffe.git" "$PROJ_DIR"
-    elif ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-        git clone "$REPO_SSH" "$PROJ_DIR"
-    else
-        echo "❌ ERROR: Need GitHub access."
-        echo "   Option A: Set GH_TOKEN env var then re-run"
-        echo "   Option B: Configure SSH key for github.com"
-        echo "   Option C: Manually upload deploy.tar.gz to $PROJ_DIR/"
-        exit 1
+safe_kill() {
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE" 2>/dev/null)
+        if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+            log "Killing backend PID $PID..."
+            kill "$PID" 2>/dev/null; sleep 2
+            kill -9 "$PID" 2>/dev/null; sleep 1
+        fi
+        rm -f "$PIDFILE"
     fi
-fi
+    # Fallback: kill by port (simple lsof, no fork)
+    PID_ON_PORT=$(lsof -ti:8080 2>/dev/null)
+    if [ -n "$PID_ON_PORT" ]; then
+        log "Killing process on port 8080: $PID_ON_PORT"
+        kill -9 $PID_ON_PORT 2>/dev/null; sleep 2
+    fi
+}
 
 # --- Step 0: Parse args ---
 SKIP_PULL=false
 for arg in "$@"; do
-    case "$arg" in
-        --skip-pull) SKIP_PULL=true; shift ;;
-    esac
+    [ "$arg" = "--skip-pull" ] && SKIP_PULL=true
 done
 
-# --- Step 1: Pull latest code ---
-SELF_SCRIPT="$0"
-SELF_HASH_BEFORE=$(md5sum "$SELF_SCRIPT" 2>/dev/null | awk '{print $1}')
+log "=== Singgah POS Deploy (Shared Hosting) ==="
+log "Server: $(hostname)"
 
+# --- Step 1: Kill old backend ---
+log "Step 1: Stopping old backend..."
+safe_kill
+
+# --- Step 2: Backup .env ---
+if [ -f "$PROJ_DIR/backend/.env" ]; then
+    cp "$PROJ_DIR/backend/.env" "$PROJ_DIR/backend/.env.backup" 2>/dev/null || true
+    log "Backed up .env"
+fi
+
+# --- Step 3: Download deploy.tar.gz ---
 if [ "$SKIP_PULL" = true ]; then
-    echo "⏭️  Skipping git pull (--skip-pull)"
-    echo "✅ On $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+    log "Step 2: Using existing /tmp/deploy.tar.gz (--skip-pull)"
+    [ -f /tmp/deploy.tar.gz ] || die "No /tmp/deploy.tar.gz found. Run without --skip-pull first."
 else
-    echo "📥 Pulling latest code..."
-    cd "$PROJ_DIR"
-    # Kill backend before pull (in case binary is locked)
-    pkill -f "singgah-backend" 2>/dev/null || true
-    sleep 1
-    # Single-thread constrained git fetch to prevent 'cannot create async thread' on shared hosting
-    if ! git -c pack.threads=1 -c index.threads=1 fetch origin main 2>/dev/null; then
-        echo "⚠️  Git fetch constrained by ulimit, retrying single-process shallow fetch..."
-        git -c pack.threads=1 -c index.threads=1 fetch --depth=1 origin main 2>/dev/null || echo "⚠️  Git fetch bypassed, proceeding to direct release package download"
-    fi
-    git reset --hard origin/main 2>/dev/null || true
-    echo "✅ Repo commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'current')"
-    # Restore .env if needed
-    if [ ! -f "$PROJ_DIR/backend/.env" ] && [ -f "$PROJ_DIR/backend/.env.backup" ]; then
-        cp "$PROJ_DIR/backend/.env.backup" "$PROJ_DIR/backend/.env"
-    fi
+    log "Step 2: Downloading deploy.tar.gz..."
+    curl -sL -H "User-Agent: SinggahPOS-Deploy" \
+        --max-time 180 --connect-timeout 10 \
+        "$DEPLOY_URL" -o /tmp/deploy.tar.gz \
+        || die "Download failed. Check network or GitHub Releases."
+    [ -s /tmp/deploy.tar.gz ] || die "Downloaded file is empty."
+    log "Downloaded $(wc -c < /tmp/deploy.tar.gz) bytes"
 fi
 
-SELF_HASH_AFTER=$(md5sum "$SELF_SCRIPT" 2>/dev/null | awk '{print $1}')
-if [ "$SKIP_PULL" = false ] && [ -n "$SELF_HASH_BEFORE" ] && [ "$SELF_HASH_BEFORE" != "$SELF_HASH_AFTER" ]; then
-    echo "↻ Script updated during pull — re-running with latest version..."
-    exec bash "$SELF_SCRIPT" "$@"
+# --- Step 4: Extract ---
+log "Step 3: Extracting..."
+cd "$PROJ_DIR" || die "Cannot cd to $PROJ_DIR"
+tar xzf /tmp/deploy.tar.gz --overwrite 2>&1 || die "tar extraction failed"
+chmod +x singgah-pos-backend 2>/dev/null || true
+log "Binary: $(ls -la singgah-pos-backend 2>/dev/null || echo 'NOT FOUND')"
+
+# --- Step 5: Restore .env ---
+if [ ! -f "$PROJ_DIR/backend/.env" ] && [ -f "$PROJ_DIR/backend/.env.backup" ]; then
+    cp "$PROJ_DIR/backend/.env.backup" "$PROJ_DIR/backend/.env"
+    log "Restored .env from backup"
 fi
 
-# --- Step 2: Download deploy.tar.gz from latest GitHub release ---
-echo "📥 Fetching latest deploy package from GitHub Releases..."
-TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
-
-# Candidate list (first successful download wins):
-#   1) "latest" release — ALWAYS excludes prereleases. This is now the reliable path
-#      because CI publishes full (non-prerelease) releases, which fixes the old
-#      "releases/latest 404 → stale prerelease binary" failure mode.
-#   2) Newest release from the API list (fallback if /latest isn't published yet).
-CANDIDATE_URLS=()
-CANDIDATE_URLS+=("https://github.com/emoajib/singgah-coffe/releases/latest/download/deploy.tar.gz")
-
-RELEASES_JSON=$(curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 15 --connect-timeout 5 "https://api.github.com/repos/emoajib/singgah-coffe/releases?per_page=10" 2>/dev/null || true)
-if [ -n "$RELEASES_JSON" ]; then
-    API_URL=$(echo "$RELEASES_JSON" | grep -o '"browser_download_url":"[^"]*deploy.tar.gz"' | head -1 | sed 's/"browser_download_url":"//;s/"$//' || true)
-    [ -n "$API_URL" ] && CANDIDATE_URLS+=("$API_URL")
+# --- Step 6: Deploy frontend ---
+log "Step 4: Deploying frontend..."
+if [ -d "$PROJ_DIR/web" ]; then
+    # Simple cp, no find -exec
+    rm -rf "$WEB_DIR"/apps "$WEB_DIR"/assets "$WEB_DIR"/favicon.ico "$WEB_DIR"/index.html "$WEB_DIR"/vite.svg 2>/dev/null || true
+    cp -r "$PROJ_DIR"/web/* "$WEB_DIR/" 2>/dev/null || true
 fi
+cp -f "$PROJ_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
+cp -f "$PROJ_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
+log "Frontend deployed"
 
-echo "   → Candidates: ${CANDIDATE_URLS[*]}"
-DOWNLOADED=false
-for RELEASE_URL in "${CANDIDATE_URLS[@]}"; do
-    echo "   → Trying: $RELEASE_URL"
-    if curl -sL -H "User-Agent: SinggahPOS-Deploy" --max-time 180 "$RELEASE_URL" -o "$TMP_DIR/deploy.tar.gz" 2>/dev/null && [ -s "$TMP_DIR/deploy.tar.gz" ]; then
-        DOWNLOADED=true
-        break
-    fi
-done
-
-if [ "$DOWNLOADED" = true ]; then
-    echo "📦 Extracting deploy.tar.gz..."
-    tar -xzf "$TMP_DIR/deploy.tar.gz" -C "$TMP_DIR"
-    
-    # Copy backend binary (preserve server's existing start.sh & .env)
-    cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend 2>/dev/null || true
-    chmod +x backend/singgah-backend 2>/dev/null || true
-    if [ ! -f "backend/.env" ] && [ -f "$TMP_DIR/backend/.env" ]; then
-        cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
-    fi
-    echo "✅ Backend binary updated from release"
-    
-    # Deploy frontend from package + proxy files (preserve uploads folder)
-    find "$WEB_DIR" -mindepth 1 -maxdepth 1 ! -name 'uploads' -exec rm -rf {} + 2>/dev/null || true
-    cp -r "$TMP_DIR/web"/* "$WEB_DIR/" 2>/dev/null || cp -r "$TMP_DIR"/web/* "$WEB_DIR/" 2>/dev/null || true
-    cp "$TMP_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
-    cp "$TMP_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
-    echo "✅ Frontend + proxy files deployed from release (uploads preserved)"
-    
-    # Copy scripts + docs
-    cp -rf "$TMP_DIR/scripts" scripts/ 2>/dev/null || true
-    
-    rm -rf "$TMP_DIR"
-else
-    echo "⚠️  Download from GitHub Releases failed. Falling back to local packages..."
-    
-    # Priority 1: web-fixed.zip (frontend-only, most recent)
-    if [ -f "$PROJ_DIR/web-fixed.zip" ]; then
-        echo "📦 Using web-fixed.zip (frontend-only)..."
-        find "$WEB_DIR" -mindepth 1 -maxdepth 1 ! -name 'uploads' -exec rm -rf {} + 2>/dev/null || true
-        unzip -o "$PROJ_DIR/web-fixed.zip" -d "$WEB_DIR/"
-        find "$WEB_DIR" -type f -exec chmod 644 {} \;
-        # Restore proxy files (web-fixed.zip is frontend-only)
-        cp "$PROJ_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
-        cp "$PROJ_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
-        echo "✅ Frontend + proxy files deployed from web-fixed.zip"
-    fi
-    
-    # Priority 2: local deploy.tar.gz (full package)
-    if [ -f "$PROJ_DIR/deploy.tar.gz" ] && [ ! -f "$WEB_DIR/api-proxy.php" ]; then
-        echo "📦 Using local deploy.tar.gz..."
-        TMP_DIR=$(mktemp -d /tmp/singgah-deploy.XXXXXX)
-        tar -xzf "$PROJ_DIR/deploy.tar.gz" -C "$TMP_DIR"
-        cp -f "$TMP_DIR/backend/singgah-backend" backend/singgah-backend 2>/dev/null || true
-        chmod +x backend/singgah-backend 2>/dev/null || true
-        if [ ! -f "backend/.env" ] && [ -f "$TMP_DIR/backend/.env" ]; then
-            cp -f "$TMP_DIR/backend/.env" backend/.env 2>/dev/null || true
-        fi
-        find "$WEB_DIR" -mindepth 1 -maxdepth 1 ! -name 'uploads' -exec rm -rf {} + 2>/dev/null || true
-        cp -r "$TMP_DIR/web"/* "$WEB_DIR/" 2>/dev/null || true
-        cp "$TMP_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
-        cp "$TMP_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
-        rm -rf "$TMP_DIR"
-        echo "✅ Full deploy from local deploy.tar.gz"
-    fi
-    
-    # If no package found, try building from source
-    if [ ! -f "$WEB_DIR/api-proxy.php" ]; then
-        echo "🌐 No pre-built package found. Building from source..."
-        if [ -d "web-dashboard/dist" ]; then
-            rm -rf "$WEB_DIR"/*
-            cp -r web-dashboard/dist/* "$WEB_DIR/"
-            cp api-proxy.php "$WEB_DIR/api-proxy.php"
-            cp .htaccess "$WEB_DIR/.htaccess" 2>/dev/null || true
-            echo "✅ Frontend deployed from build/dist/"
-        else
-            echo "⚠️  No pre-built frontend found — skipping frontend update"
-        fi
-    fi
-fi
-
-# --- Step 4: Restart backend ---
-echo "🔄 Restarting backend..."
-pkill -f "singgah-backend" 2>/dev/null || true
-pkill -f "backend/main" 2>/dev/null || true
-sleep 2
-
-chmod +x backend/singgah-backend 2>/dev/null || true
-mkdir -p logs
-GOMAXPROCS=1 setsid nohup ./backend/start.sh > logs/backend.log 2>&1 &
-BACKEND_PID=$!
-disown 2>/dev/null || true
-echo "✅ Backend started (PID: $BACKEND_PID)"
-
-# --- Step 5: Health check ---
-echo "🩺 Health check..."
-sleep 3
-if curl -s http://localhost:8080/health | grep -q "ok"; then
-    echo "✅ Backend is healthy"
-else
-    echo "⚠️  Health check failed. Check logs:"
-    tail -20 logs/backend.log
-    exit 1
-fi
-
-# Ensure uploads static link in public_html.
-# NOTE: the backend serves /uploads from its CWD ($PROJ_DIR/backend/uploads), so the
-# symlink MUST point at $PROJ_DIR/backend/uploads — not the old $PROJ_DIR/uploads.
-mkdir -p "$PROJ_DIR/backend/uploads/products" "$PROJ_DIR/backend/uploads/logo"
+# --- Step 7: Uploads symlink ---
+mkdir -p "$PROJ_DIR/backend/uploads/products" "$PROJ_DIR/backend/uploads/logo" 2>/dev/null || true
 chmod -R 755 "$PROJ_DIR/backend/uploads" 2>/dev/null || true
 if [ ! -L "$WEB_DIR/uploads" ] && [ ! -d "$WEB_DIR/uploads" ]; then
-    ln -s "$PROJ_DIR/backend/uploads" "$WEB_DIR/uploads" 2>/dev/null || cp -r "$PROJ_DIR/backend/uploads" "$WEB_DIR/" 2>/dev/null || true
+    ln -s "$PROJ_DIR/backend/uploads" "$WEB_DIR/uploads" 2>/dev/null || true
 fi
-chmod -R 755 "$WEB_DIR/uploads" 2>/dev/null || true
 
-echo ""
-echo "=== ✅ Deploy complete! ==="
-echo "Backend: http://localhost:8080"
-echo "Frontend: $WEB_DIR"
-echo "Logs: $PROJ_DIR/logs/backend.log"
+# --- Step 8: Start backend ---
+log "Step 5: Starting backend..."
+mkdir -p "$PROJ_DIR/logs"
+cd "$PROJ_DIR" || die "Cannot cd to $PROJ_DIR"
+GOMAXPROCS=1 GOMEMLIMIT=200MiB nohup ./singgah-pos-backend > "$LOGFILE" 2>&1 &
+echo $! > "$PIDFILE"
+log "Backend started (PID: $!)"
+
+# --- Step 9: Health check ---
+log "Step 6: Health check..."
+sleep 4
+HEALTH=$(curl -s http://127.0.0.1:8080/health 2>/dev/null)
+if echo "$HEALTH" | grep -q "ok"; then
+    log "✅ Backend is healthy: $HEALTH"
+else
+    log "⚠️  Health check failed. Last 10 lines of log:"
+    tail -10 "$LOGFILE" 2>/dev/null
+    die "Backend not healthy"
+fi
+
+log ""
+log "=== Deploy complete! ==="
+log "Backend: http://localhost:8080"
+log "Frontend: $WEB_DIR"
+log "Log: tail -f $LOGFILE"
