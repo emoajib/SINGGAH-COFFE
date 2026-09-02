@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -74,9 +75,11 @@ func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 		Notes:         req.Notes,
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	result, err := h.expenseUsecase.Create(expense, getOutletID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create expense"})
+		log.Printf("[ERROR] CreateExpense failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -124,7 +127,8 @@ func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 
 	result, err := h.expenseUsecase.Update(uint(id), expense)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update expense"})
+		log.Printf("[ERROR] UpdateExpense failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -146,7 +150,8 @@ func (h *ExpenseHandler) UpdateCostType(c *gin.Context) {
 	}
 
 	if err := h.expenseUsecase.UpdateCostType(uint(id), req.CostType); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cost type"})
+		log.Printf("[ERROR] UpdateCostType failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -161,7 +166,8 @@ func (h *ExpenseHandler) DeleteExpense(c *gin.Context) {
 	}
 
 	if err := h.expenseUsecase.Delete(uint(id)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete expense"})
+		log.Printf("[ERROR] DeleteExpense failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
