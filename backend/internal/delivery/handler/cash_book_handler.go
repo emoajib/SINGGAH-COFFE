@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -20,19 +21,26 @@ func NewCashBookHandler(cashBookUsecase *usecase.CashBookUsecase) *CashBookHandl
 	return &CashBookHandler{cashBookUsecase: cashBookUsecase}
 }
 
-// requireOwner only allows true owner role (Buku Kas is owner-only)
+// requireOwner only allows true owner role (SyncFromTransactions is owner-only)
 func requireOwner(c *gin.Context) bool {
 	if getUserRole(c) != "owner" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: hanya pemilik yang dapat mengelola Buku Kas"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: hanya pemilik yang dapat melakukan aksi ini"})
 		return false
 	}
 	return true
 }
 
-func (h *CashBookHandler) GetCashBooks(c *gin.Context) {
-	if !requireOwner(c) {
-		return
+func requireOwnerOrManager(c *gin.Context) bool {
+	role := getUserRole(c)
+	if role != "owner" && role != "manager" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: hanya pemilik dan manajer yang dapat menghapus entri Buku Kas"})
+		return false
 	}
+	return true
+}
+
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
+func (h *CashBookHandler) GetCashBooks(c *gin.Context) {
 	outletID := getOutletID(c)
 	start := c.Query("start")
 	end := c.Query("end")
@@ -41,16 +49,15 @@ func (h *CashBookHandler) GetCashBooks(c *gin.Context) {
 
 	items, err := h.cashBookUsecase.GetAllFiltered(start, end, method, tipe, outletID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cash book"})
+		log.Printf("[ERROR] GetCashBooks failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, items)
 }
 
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (h *CashBookHandler) GetCashBook(c *gin.Context) {
-	if !requireOwner(c) {
-		return
-	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cash book ID"})
@@ -64,10 +71,8 @@ func (h *CashBookHandler) GetCashBook(c *gin.Context) {
 	c.JSON(http.StatusOK, item)
 }
 
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (h *CashBookHandler) CreateCashBook(c *gin.Context) {
-	if !requireOwner(c) {
-		return
-	}
 	var req request.CreateCashBookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid input: %v", err)})
@@ -88,16 +93,15 @@ func (h *CashBookHandler) CreateCashBook(c *gin.Context) {
 
 	result, err := h.cashBookUsecase.Create(item, getOutletID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cash book entry"})
+		log.Printf("[ERROR] CreateCashBook failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, result)
 }
 
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (h *CashBookHandler) UpdateCashBook(c *gin.Context) {
-	if !requireOwner(c) {
-		return
-	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cash book ID"})
@@ -119,14 +123,16 @@ func (h *CashBookHandler) UpdateCashBook(c *gin.Context) {
 	}
 	result, err := h.cashBookUsecase.Update(uint(id), item)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cash book entry"})
+		log.Printf("[ERROR] UpdateCashBook failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
 }
 
+// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (h *CashBookHandler) DeleteCashBook(c *gin.Context) {
-	if !requireOwner(c) {
+	if !requireOwnerOrManager(c) {
 		return
 	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -135,7 +141,8 @@ func (h *CashBookHandler) DeleteCashBook(c *gin.Context) {
 		return
 	}
 	if err := h.cashBookUsecase.Delete(uint(id)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete cash book entry"})
+		log.Printf("[ERROR] DeleteCashBook failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Cash book entry deleted successfully"})
@@ -147,7 +154,8 @@ func (h *CashBookHandler) SyncFromTransactions(c *gin.Context) {
 	}
 	result, err := h.cashBookUsecase.SyncFromTransactions(getOutletID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync transactions"})
+		log.Printf("[ERROR] SyncFromTransactions failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

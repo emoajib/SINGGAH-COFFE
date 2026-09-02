@@ -116,13 +116,14 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.PUT("/cash-registers/:id", middleware.RoleMiddleware("owner"), h.CashRegister.UpdateCashRegister)
 			protected.DELETE("/cash-registers/:id", middleware.RoleMiddleware("owner"), h.CashRegister.DeleteCashRegister)
 
-			// Buku Kas (Cash Book) — Owner Only
-			protected.GET("/cash-book", middleware.RoleMiddleware("owner"), h.CashBook.GetCashBooks)
+			// Buku Kas (Cash Book)
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			protected.GET("/cash-book", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.GetCashBooks)
 			protected.POST("/cash-book/sync", middleware.RoleMiddleware("owner"), h.CashBook.SyncFromTransactions)
-			protected.GET("/cash-book/:id", middleware.RoleMiddleware("owner"), h.CashBook.GetCashBook)
-			protected.POST("/cash-book", middleware.RoleMiddleware("owner"), h.CashBook.CreateCashBook)
-			protected.PUT("/cash-book/:id", middleware.RoleMiddleware("owner"), h.CashBook.UpdateCashBook)
-			protected.DELETE("/cash-book/:id", middleware.RoleMiddleware("owner"), h.CashBook.DeleteCashBook)
+			protected.GET("/cash-book/:id", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.GetCashBook)
+			protected.POST("/cash-book", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.CreateCashBook)
+			protected.PUT("/cash-book/:id", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.UpdateCashBook)
+			protected.DELETE("/cash-book/:id", middleware.RoleMiddleware("owner", "manager"), h.CashBook.DeleteCashBook)
 
 			// BEP (Break-Even Point) — Owner Only
 			protected.GET("/reports/bep", middleware.RoleMiddleware("owner"), h.BEP.GetBEP)

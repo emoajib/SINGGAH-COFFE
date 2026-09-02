@@ -118,18 +118,8 @@ export default function CashBookPage() {
     }
   }
 
-  if (user?.role !== 'owner') {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-xl md:text-3xl font-bold text-gray-900">Buku Kas</h1>
-        <Card>
-          <CardContent className="py-8 text-center text-gray-500">
-            Akses ditolak: hanya pemilik yang dapat mengelola Buku Kas.
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  const isOwner = user?.role === 'owner'
+  const canDelete = user?.role === 'owner' || user?.role === 'manager'
 
   return (
     <div className="space-y-6">
@@ -142,10 +132,12 @@ export default function CashBookPage() {
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Segarkan"}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleSync} disabled={syncMut.isPending} className="gap-1">
-            {syncMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Sinkron Transaksi
-          </Button>
+          {isOwner && (
+            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncMut.isPending} className="gap-1">
+              {syncMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              Sinkron Transaksi
+            </Button>
+          )}
           <Button size="sm" className="gap-1 sm:gap-2" onClick={openAdd}>
             <Plus className="w-4 h-4" /> Tambah Entri
           </Button>
@@ -300,9 +292,11 @@ export default function CashBookPage() {
                         <Button size="sm" variant="ghost" onClick={() => openEdit(it)} className="text-primary hover:bg-primary/5">
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleDelete(it.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {canDelete && (
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete(it.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

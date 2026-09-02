@@ -36,7 +36,7 @@ function AppContent() {
     const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
 
     // Tab eksklusif owner saja
-    const ownerOnlyTabs = ["reports", "cash-book", "bep", "kebutuhan-stok", "integration", "backup", "profit-sharing"]
+    const ownerOnlyTabs = ["reports", "bep", "kebutuhan-stok", "integration", "backup", "profit-sharing"]
     // Tab yang boleh diakses manager (tapi bukan cashier)
     const managerOnlyTabs = ["cash-registers"]
 

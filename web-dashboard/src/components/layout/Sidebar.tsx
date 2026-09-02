@@ -44,7 +44,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         { id: "sales", label: "Penjualan", icon: CreditCard, roles: ["owner", "manager"] },
         { id: "reports", label: "Laporan", icon: BarChart3, roles: ["owner"] },
         { id: "cash-registers", label: "Kas", icon: Banknote, roles: ["owner", "manager"] },
-        { id: "cash-book", label: "Buku Kas", icon: BookOpen, roles: ["owner"] },
+        { id: "cash-book", label: "Buku Kas", icon: BookOpen, roles: ["owner", "manager", "cashier"] },
         { id: "profit-sharing", label: "Bagi Hasil", icon: Users, roles: ["owner"] },
         { id: "bep", label: "Analisis BEP", icon: TrendingUp, roles: ["owner"] },
         { id: "kebutuhan-stok", label: "Kebutuhan Stok", icon: ShoppingCart, roles: ["owner"] },
