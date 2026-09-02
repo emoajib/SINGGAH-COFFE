@@ -290,9 +290,9 @@ export default function ProfitSharing() {
                 <div>
                   <span className="text-sm text-gray-500">Periode</span>
                   <p className="font-medium">
-                    {formatDateTime(preview.period.period_start) !== '-' ? formatDateTime(preview.period.period_start) : `${startDate} ${startTime}`}
-                    {' — '}
-                    {formatDateTime(preview.period.period_end) !== '-' ? formatDateTime(preview.period.period_end) : `${endDate} ${endTime}`}
+                    {startDate && endDate
+                      ? `${formatDateTime(`${startDate}T${startTime}:00+07:00`)} — ${formatDateTime(`${endDate}T${endTime}:00+07:00`)}`
+                      : `${formatDateTime(preview.period.period_start)} — ${formatDateTime(preview.period.period_end)}`}
                   </p>
                 </div>
                 <div><span className="text-sm text-gray-500">Rasio Keeper</span><p className="font-medium">{preview.calculation.ratio}%</p></div>
