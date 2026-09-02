@@ -34,7 +34,12 @@ safe_kill() {
         fi
     done
 
-    # 2. Kill process on port 8080 (backend) if helper tools exist
+    # 2. Kill all lingering singgah-backend and start.sh of current user
+    pkill -9 -f "singgah-backend" 2>/dev/null || true
+    pkill -9 -f "start.sh" 2>/dev/null || true
+    sleep 1
+
+    # 3. Kill process on port 8080 (backend) if helper tools exist
     if command -v lsof >/dev/null 2>&1; then
         PID_ON_PORT=$(lsof -ti:8080 2>/dev/null)
         if [ -n "$PID_ON_PORT" ]; then

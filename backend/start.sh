@@ -57,8 +57,21 @@ fi
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Singgah Backend ($BIN_PATH)..."
 
 # Watchdog restart loop (shared hosting recovery)
+CHILD_PID=""
+cleanup() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Terminating Singgah Backend (PID: $CHILD_PID)..."
+  [ -n "$CHILD_PID" ] && kill -9 "$CHILD_PID" 2>/dev/null || true
+  rm -f "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/backend/backend.pid" 2>/dev/null || true
+  exit 0
+}
+trap cleanup SIGTERM SIGINT SIGHUP
+
 while true; do
-  "$BIN_PATH" "$@"
+  "$BIN_PATH" "$@" &
+  CHILD_PID=$!
+  echo "$CHILD_PID" > "$SCRIPT_DIR/backend.pid" 2>/dev/null || true
+  echo "$CHILD_PID" > "$SCRIPT_DIR/backend/backend.pid" 2>/dev/null || true
+  wait "$CHILD_PID"
   EXIT_CODE=$?
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend stopped with exit code $EXIT_CODE. Restarting in 3 seconds..." >&2
   sleep 3
