@@ -88,6 +88,8 @@ func (r *profitSharingPeriodRepository) Create(period *entity.ProfitSharingPerio
 
 func (r *profitSharingPeriodRepository) Update(period *entity.ProfitSharingPeriod) error {
 	return r.db.Model(&models.ProfitSharingPeriod{}).Where("id = ?", period.ID).Updates(map[string]interface{}{
+		"period_start":   period.PeriodStart,
+		"period_end":     period.PeriodEnd,
 		"basis_amount":   period.BasisAmount,
 		"total_expenses": period.TotalExpenses,
 		"total_cogs":     period.TotalCogs,

@@ -9,6 +9,7 @@ import (
 
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
+	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 
@@ -216,7 +217,21 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	period.PerProduct = string(perProductJSON)
 	period.TaxNote = "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)"
 
-	if err := tx.Save(period).Error; err != nil {
+	if err := tx.Model(&models.ProfitSharingPeriod{}).Where("id = ?", period.ID).Updates(map[string]interface{}{
+		"period_start":   period.PeriodStart,
+		"period_end":     period.PeriodEnd,
+		"basis_amount":   period.BasisAmount,
+		"total_expenses": period.TotalExpenses,
+		"total_cogs":     period.TotalCogs,
+		"net_profit":     period.NetProfit,
+		"ratio":          period.Ratio,
+		"keeper_amount":  period.KeeperAmount,
+		"owner_amount":   period.OwnerAmount,
+		"status":         period.Status,
+		"per_product":    period.PerProduct,
+		"payment_note":   period.PaymentNote,
+		"tax_note":       period.TaxNote,
+	}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -302,6 +317,20 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	keeperAmount := math.Round(sharingBasis*ratio/100*100) / 100
 	ownerAmount := sharingBasis - keeperAmount
 
+	products, _ := uc.orderItemRepo.GetProductSalesVolume(start, end, outletID...)
+	perProduct := make([]entity.ProductSharingDetail, len(products))
+	for i, p := range products {
+		productCogs := p.AvgCost * float64(p.Quantity)
+		perProduct[i] = entity.ProductSharingDetail{
+			ProductID:   p.ProductID,
+			ProductName: p.Name,
+			Revenue:     p.Revenue,
+			Cogs:        productCogs,
+			GrossMargin: p.Revenue - productCogs,
+		}
+	}
+	perProductJSON, _ := json.Marshal(perProduct)
+
 	existing.BasisAmount = basis
 	existing.TotalCogs = cogs
 	existing.TotalExpenses = expenses
@@ -310,6 +339,7 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	existing.KeeperAmount = keeperAmount
 	existing.OwnerAmount = ownerAmount
 	existing.Status = "draft"
+	existing.PerProduct = string(perProductJSON)
 
 	return uc.periodRepo.Update(existing)
 }
