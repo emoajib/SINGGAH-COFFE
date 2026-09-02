@@ -75,6 +75,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/orders", h.Order.CreateOrder)
 			protected.POST("/orders/:id/complete", h.Order.CompleteOrder)
 			protected.POST("/orders/:id/void", middleware.RoleMiddleware("owner", "manager"), h.Order.VoidOrder)
+			protected.PUT("/orders/:id/payment-method", middleware.RoleMiddleware("owner"), h.Order.UpdatePaymentMethod)
 
 			// Inventory
 			protected.GET("/ingredients", h.Inventory.GetIngredients)
@@ -117,7 +118,6 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 
 			// Buku Kas (Cash Book) — Owner Only
 			protected.GET("/cash-book", middleware.RoleMiddleware("owner"), h.CashBook.GetCashBooks)
-			protected.GET("/cash-book/sync", middleware.RoleMiddleware("owner"), h.CashBook.SyncFromTransactions)
 			protected.POST("/cash-book/sync", middleware.RoleMiddleware("owner"), h.CashBook.SyncFromTransactions)
 			protected.GET("/cash-book/:id", middleware.RoleMiddleware("owner"), h.CashBook.GetCashBook)
 			protected.POST("/cash-book", middleware.RoleMiddleware("owner"), h.CashBook.CreateCashBook)

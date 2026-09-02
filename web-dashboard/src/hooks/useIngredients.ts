@@ -1,19 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
-import type { Ingredient, CreateIngredientRequest, CreateStockMutationRequest, StockMutation } from '../types'
+import type { CreateIngredientRequest, CreateStockMutationRequest, StockMutation } from '../types'
+
+import { InventoryService } from '../services/inventoryService'
 
 export function useIngredients() {
   return useQuery({
     queryKey: ['ingredients'],
-    queryFn: () => api.get<Ingredient[]>('/ingredients').then((r) => r.data),
+    queryFn: () => InventoryService.getAll(),
   })
 }
 
 export function useCreateIngredient() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: CreateIngredientRequest) =>
-      api.post<Ingredient>('/ingredients', data).then((r) => r.data),
+    mutationFn: (data: CreateIngredientRequest) => InventoryService.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ingredients'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
@@ -24,8 +25,7 @@ export function useCreateIngredient() {
 export function useUpdateIngredient(id: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: Partial<CreateIngredientRequest>) =>
-      api.put<Ingredient>(`/ingredients/${id}`, data).then((r) => r.data),
+    mutationFn: (data: Partial<CreateIngredientRequest>) => InventoryService.update(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ingredients'] })
       qc.invalidateQueries({ queryKey: ['products'] })
@@ -38,7 +38,7 @@ export function useUpdateIngredient(id: number) {
 export function useDeleteIngredient() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => api.delete(`/ingredients/${id}`),
+    mutationFn: (id: number) => InventoryService.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ingredients'] })
       qc.invalidateQueries({ queryKey: ['products'] })

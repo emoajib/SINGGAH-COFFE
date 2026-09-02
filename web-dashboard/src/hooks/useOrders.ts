@@ -64,3 +64,17 @@ export function useCompleteOrder() {
   })
 }
 
+export function useUpdatePaymentMethod() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payment_method }: { id: number; payment_method: string }) =>
+      api.put(`/orders/${id}/payment-method`, { payment_method }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['profit-loss'] })
+      qc.invalidateQueries({ queryKey: ['cashBooks'] })
+    },
+  })
+}
+

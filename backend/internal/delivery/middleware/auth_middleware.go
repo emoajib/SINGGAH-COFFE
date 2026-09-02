@@ -7,12 +7,12 @@ import (
 
 	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/pkg/jwt"
-	"singgah-pos-backend/internal/repository/postgres"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -25,22 +25,15 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 		tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 		claims, err := jwt.ValidateToken(tokenString)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			if err.Error() == "token has been revoked" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
+			} else if err.Error() == "unable to verify token" {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to verify token"})
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			}
 			c.Abort()
 			return
-		}
-
-		if claims.ID != "" {
-			tokenBlacklistRepo := postgres.NewTokenBlacklistRepository(db)
-			if isBlacklisted, err := tokenBlacklistRepo.IsJtiBlacklisted(claims.ID); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to verify token"})
-				c.Abort()
-				return
-			} else if isBlacklisted {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
-				c.Abort()
-				return
-			}
 		}
 
 		outletID := claims.OutletID

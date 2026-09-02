@@ -13,12 +13,12 @@ interface AuthState {
 export type { User }
 
 // Helper to get initial state from localStorage safely
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 const getStoredUser = () => {
     try {
         const storedUser = localStorage.getItem('user')
         return storedUser ? JSON.parse(storedUser) : null
-    } catch (e) {
-            void e
+    } catch {
         localStorage.removeItem('user')
         return null
     }
@@ -30,8 +30,7 @@ const getStoredOpenCashRegister = () => {
     try {
         const stored = localStorage.getItem('open_cash_register')
         return stored ? JSON.parse(stored) : null
-    } catch (e) {
-        void e
+    } catch {
         localStorage.removeItem('open_cash_register')
         return null
     }

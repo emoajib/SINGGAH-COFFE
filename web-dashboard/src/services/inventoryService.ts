@@ -23,6 +23,19 @@ export const InventoryService = {
         return response.data;
     },
 
+    // Update ingredient
+    // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+    update: async (id: number, item: Partial<CreateIngredientRequest>): Promise<Ingredient> => {
+        const response = await api.put(`/ingredients/${id}`, item);
+        return response.data;
+    },
+
+    // Delete ingredient
+    // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+    delete: async (id: number): Promise<void> => {
+        await api.delete(`/ingredients/${id}`);
+    },
+
     // Update stock (Mutation)
     mutateStock: async (mutation: CreateStockMutationRequest): Promise<void> => {
         await api.post('/inventory/mutation', mutation);

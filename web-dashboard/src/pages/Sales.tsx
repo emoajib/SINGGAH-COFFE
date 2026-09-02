@@ -4,8 +4,8 @@ import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2, CheckCircle2, DollarSign, Wallet, Clock, CreditCard, Banknote } from "lucide-react"
-import { useOrders, useVoidOrder, useCompleteOrder } from "../hooks/useOrders"
+import { Search, Calendar, Filter, Printer, Eye, Loader2, Trash2, CheckCircle2, DollarSign, Wallet, Clock, CreditCard, Banknote, Edit2 } from "lucide-react"
+import { useOrders, useVoidOrder, useCompleteOrder, useUpdatePaymentMethod } from "../hooks/useOrders"
 import { useToast } from "../hooks/use-toast"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
@@ -32,6 +32,9 @@ export default function Sales() {
     const { data: orders = [], isLoading: loading, refetch } = useOrders(50, 0, startDate, endDate, statusFilter)
     const voidOrder = useVoidOrder()
     const completeOrder = useCompleteOrder()
+    const updatePaymentMethod = useUpdatePaymentMethod()
+    const [editingOrder, setEditingOrder] = useState<any | null>(null)
+    const [newPaymentMethod, setNewPaymentMethod] = useState<string>("")
 
     const [profitLoss, setProfitLoss] = useState<{ gross_profit: number; net_profit: number } | null>(null)
     const [plLoading, setPlLoading] = useState(false)
@@ -125,6 +128,22 @@ export default function Sales() {
             toast({ title: "Success", description: "Transaction voided successfully", variant: "success" })
         } catch (error: any) {
             toast({ title: "Error", description: error.response?.data?.error || "Failed to void transaction", variant: "error" })
+        }
+    }
+
+    const handleUpdatePayment = async () => {
+        if (!editingOrder || !newPaymentMethod) return
+        if (newPaymentMethod === editingOrder.payment_method) {
+            setEditingOrder(null)
+            return
+        }
+        try {
+            await updatePaymentMethod.mutateAsync({ id: editingOrder.id, payment_method: newPaymentMethod })
+            toast({ title: "Berhasil", description: `Metode pembayaran diubah ke ${newPaymentMethod}`, variant: "success" })
+            setEditingOrder(null)
+            setNewPaymentMethod("")
+        } catch (error: any) {
+            toast({ title: "Gagal", description: error.response?.data?.error || "Gagal mengubah metode pembayaran", variant: "error" })
         }
     }
 
@@ -526,6 +545,20 @@ export default function Sales() {
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>
                                                     )}
+                                                    {user?.role === 'owner' && order.status !== 'Void' && (
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="h-8 w-8 text-blue-500 hover:bg-blue-50"
+                                                            title="Ubah Metode Pembayaran"
+                                                            onClick={() => {
+                                                                setEditingOrder(order)
+                                                                setNewPaymentMethod(order.payment_method)
+                                                            }}
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </Button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         )
@@ -602,6 +635,80 @@ export default function Sales() {
                              *** Terima kasih telah memilih {outletName} ***<br />
                             Simpan struk Anda untuk keperluan pertanyaan atau klaim.
                         </div>
+                    </div>
+                )}
+            </Dialog>
+
+            {/* Edit Payment Method Modal */}
+            <Dialog
+                isOpen={!!editingOrder}
+                onClose={() => { setEditingOrder(null); setNewPaymentMethod("") }}
+                title="Ubah Metode Pembayaran"
+                description={`Pesanan: ${editingOrder?.order_number}`}
+                footer={
+                    <>
+                        <Button variant="outline" onClick={() => { setEditingOrder(null); setNewPaymentMethod("") }}>Batal</Button>
+                        <Button
+                            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                            onClick={handleUpdatePayment}
+                            disabled={!newPaymentMethod || newPaymentMethod === editingOrder?.payment_method}
+                        >
+                            Simpan Perubahan
+                        </Button>
+                    </>
+                }
+            >
+                {editingOrder && (
+                    <div className="space-y-4">
+                        <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                            <div className="flex justify-between mb-1">
+                                <span className="text-gray-500">Metode Saat Ini:</span>
+                                <span className="font-bold">{editingOrder.payment_method}</span>
+                            </div>
+                            <div className="flex justify-between mb-1">
+                                <span className="text-gray-500">Total:</span>
+                                <span className="font-bold">{formatCurrency(editingOrder.total_amount)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Status:</span>
+                                <Badge variant={editingOrder.status === 'Completed' ? 'success' : 'warning'}>
+                                    {editingOrder.status === 'Completed' ? 'Selesai' : 'Pending'}
+                                </Badge>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Ubah Ke:</label>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant={newPaymentMethod === "Cash" ? "default" : "outline"}
+                                    className={`flex-1 gap-2 h-14 ${newPaymentMethod === "Cash" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                                    onClick={() => setNewPaymentMethod("Cash")}
+                                >
+                                    <Banknote className="w-5 h-5" />
+                                    Cash (Tunai)
+                                </Button>
+                                <Button
+                                    variant={newPaymentMethod === "QRIS" ? "default" : "outline"}
+                                    className={`flex-1 gap-2 h-14 ${newPaymentMethod === "QRIS" ? "bg-purple-600 hover:bg-purple-700 text-white" : ""}`}
+                                    onClick={() => setNewPaymentMethod("QRIS")}
+                                >
+                                    <CreditCard className="w-5 h-5" />
+                                    QRIS / Bank
+                                </Button>
+                            </div>
+                        </div>
+
+                        {newPaymentMethod && newPaymentMethod !== editingOrder.payment_method && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+                                {newPaymentMethod === "Cash" && editingOrder.payment_method === "QRIS" && (
+                                    <>Pesanan akan ditandai sebagai <strong>Lunas (Completed)</strong> dan akan masuk ke Buku Kas.</>
+                                )}
+                                {newPaymentMethod === "QRIS" && editingOrder.payment_method === "Cash" && (
+                                    <>Pesanan akan dikembalikan ke status <strong>Pending (Belum Bayar)</strong> dan entri Buku Kas akan dihapus sampai pembayaran dikonfirmasi.</>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </Dialog>

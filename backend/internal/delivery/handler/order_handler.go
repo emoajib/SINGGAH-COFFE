@@ -97,6 +97,32 @@ func (h *OrderHandler) VoidOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Order voided successfully and stock restored", "order": result})
 }
 
+// UpdatePaymentMethod lets the owner correct a payment method mistake
+// (e.g. cashier typed QRIS instead of Cash).
+func (h *OrderHandler) UpdatePaymentMethod(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
+
+	var req struct {
+		PaymentMethod string `json:"payment_method" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payment_method wajib diisi (Cash / QRIS)"})
+		return
+	}
+
+	result, err := h.orderUsecase.UpdatePaymentMethod(uint(id), req.PaymentMethod, getOutletID(c))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Metode pembayaran berhasil diperbarui", "order": result})
+}
+
 func (h *OrderHandler) CompleteOrder(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

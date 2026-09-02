@@ -137,25 +137,29 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 				Cost:      product.Cost,
 			})
 
-			// Deduct stock
-			if len(product.Recipe) > 0 {
-				for _, recipeItem := range product.Recipe {
-					deductionAmount := recipeItem.Quantity * float64(itemInput.Quantity)
-					if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+			// Cash: deduct stock immediately.
+			// QRIS: defer deduction until CompletePayment to avoid
+			// permanent stock loss on abandoned/unpaid orders.
+			if req.PaymentMethod == "Cash" {
+				if len(product.Recipe) > 0 {
+					for _, recipeItem := range product.Recipe {
+						deductionAmount := recipeItem.Quantity * float64(itemInput.Quantity)
+						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						mutationRepo.Create(&entity.StockMutation{
+							IngredientID: recipeItem.IngredientID,
+							Type:         string(entity.MutationOut),
+							Quantity:     deductionAmount,
+							ReferenceID:  req.OrderNumber,
+							Notes:        "Sales Deduction",
+							OutletID:     oid,
+						})
+					}
+				} else {
+					if err := productRepo.UpdateStockAtomic(product.ID, float64(itemInput.Quantity), "sub"); err != nil {
 						return err
 					}
-				mutationRepo.Create(&entity.StockMutation{
-					IngredientID: recipeItem.IngredientID,
-					Type:         string(entity.MutationOut),
-					Quantity:     deductionAmount,
-					ReferenceID:  req.OrderNumber,
-					Notes:        "Sales Deduction",
-					OutletID:     oid,
-				})
-				}
-			} else {
-				if err := productRepo.UpdateStockAtomic(product.ID, float64(itemInput.Quantity), "sub"); err != nil {
-					return err
 				}
 			}
 		}
@@ -248,35 +252,43 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 			oid = outletID[0]
 		}
 
-		for _, item := range order.OrderItems {
-			product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
-			if err != nil {
-				continue
-			}
+		// Only restore stock if it was actually deducted.
+		// Cash orders: stock always deducted at creation.
+		// QRIS Completed: stock deducted at CompletePayment.
+		// QRIS Pending: stock NEVER deducted → skip restoration.
+		needsStockRestore := order.PaymentMethod == "Cash" || order.Status == "Completed"
 
-			if len(product.Recipe) > 0 {
-				for _, recipeItem := range product.Recipe {
-					restoreAmount := recipeItem.Quantity * float64(item.Quantity)
-					if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
-						return err
-					}
-					if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
-						return err
-					}
-					if err := mutationRepo.Create(&entity.StockMutation{
-						IngredientID: recipeItem.IngredientID,
-						Type:         string(entity.MutationIn),
-						Quantity:     restoreAmount,
-						ReferenceID:  order.OrderNumber,
-						Notes:        "Void Return",
-						OutletID:     oid,
-					}); err != nil {
-						return err
-					}
+		if needsStockRestore {
+			for _, item := range order.OrderItems {
+				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
+				if err != nil {
+					return fmt.Errorf("gagal mengembalikan stok untuk item order: produk ID %d tidak ditemukan", item.ProductID)
 				}
-			} else {
-				if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add"); err != nil {
-					return err
+
+				if len(product.Recipe) > 0 {
+					for _, recipeItem := range product.Recipe {
+						restoreAmount := recipeItem.Quantity * float64(item.Quantity)
+						if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
+							return err
+						}
+						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
+							return err
+						}
+						if err := mutationRepo.Create(&entity.StockMutation{
+							IngredientID: recipeItem.IngredientID,
+							Type:         string(entity.MutationIn),
+							Quantity:     restoreAmount,
+							ReferenceID:  order.OrderNumber,
+							Notes:        "Void Return",
+							OutletID:     oid,
+						}); err != nil {
+							return err
+						}
+					}
+				} else {
+					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add"); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -300,7 +312,140 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 	return &resp, nil
 }
 
+// UpdatePaymentMethod allows the owner to correct a payment method mistake
+// (e.g. cashier typed QRIS instead of Cash). Adjusts PaymentStatus, Status,
+// and syncs the Cash Book entry accordingly.
+func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID ...uint) (*entity.OrderResponse, error) {
+	if newMethod != "Cash" && newMethod != "QRIS" {
+		return nil, fmt.Errorf("metode pembayaran tidak valid: %s", newMethod)
+	}
+
+	var result entity.OrderResponse
+
+	err := uc.db.Transaction(func(tx *gorm.DB) error {
+		orderRepo := postgres.NewOrderRepository(tx)
+		order, err := orderRepo.FindByIDWithItems(id)
+		if err != nil {
+			return domainErrors.NewNotFoundError("order")
+		}
+		if order.Status == "Void" {
+			return domainErrors.ErrOrderAlreadyVoided
+		}
+
+		// Same method — nothing to do
+		if order.PaymentMethod == newMethod {
+			result = order.ToResponse()
+			return nil
+		}
+
+		// Remove old Cash Book entry
+		cashBookUC := NewCashBookUsecase(tx)
+		if err := cashBookUC.RemoveOrderIncome(order.ID); err != nil {
+			return err
+		}
+
+		// Update order fields
+		oldMethod := order.PaymentMethod
+		order.PaymentMethod = newMethod
+		if newMethod == "Cash" {
+			order.PaymentStatus = "Paid"
+			order.Status = "Completed"
+		} else {
+			order.PaymentStatus = "Unpaid"
+			order.Status = "Pending"
+		}
+
+		if err := orderRepo.Update(order); err != nil {
+			return err
+		}
+
+		// Handle stock adjustment based on method change direction
+		productRepo := postgres.NewProductRepository(tx)
+		ingredientRepo := postgres.NewIngredientRepository(tx)
+		mutationRepo := postgres.NewStockMutationRepository(tx)
+
+		if oldMethod == "QRIS" && newMethod == "Cash" {
+			// QRIS (Pending, stock NOT deducted) → Cash: deduct stock now
+			for _, item := range order.OrderItems {
+				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
+				if err != nil {
+					return fmt.Errorf("produk ID %d tidak ditemukan: %w", item.ProductID, err)
+				}
+				if len(product.Recipe) > 0 {
+					for _, recipeItem := range product.Recipe {
+						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
+						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						if err := mutationRepo.Create(&entity.StockMutation{
+							IngredientID: recipeItem.IngredientID,
+							Type:         string(entity.MutationOut),
+							Quantity:     deductionAmount,
+							ReferenceID:  order.OrderNumber,
+							Notes:        "Payment method corrected to Cash - Sales Deduction",
+							OutletID:     order.OutletID,
+						}); err != nil {
+							return err
+						}
+					}
+				} else {
+					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "sub"); err != nil {
+						return err
+					}
+				}
+			}
+		} else if oldMethod == "Cash" && newMethod == "QRIS" {
+			// Cash (Completed, stock deducted) → QRIS: restore stock
+			for _, item := range order.OrderItems {
+				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
+				if err != nil {
+					continue
+				}
+				if len(product.Recipe) > 0 {
+					for _, recipeItem := range product.Recipe {
+						restoreAmount := recipeItem.Quantity * float64(item.Quantity)
+						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
+							return err
+						}
+						if err := mutationRepo.Create(&entity.StockMutation{
+							IngredientID: recipeItem.IngredientID,
+							Type:         string(entity.MutationIn),
+							Quantity:     restoreAmount,
+							ReferenceID:  order.OrderNumber,
+							Notes:        "Payment method corrected to QRIS - Stock Restore",
+							OutletID:     order.OutletID,
+						}); err != nil {
+							return err
+						}
+					}
+				} else {
+					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add"); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		// Create new Cash Book entry with correct method
+		if newMethod == "Cash" {
+			if err := cashBookUC.EnsureOrderIncome(order); err != nil {
+				return err
+			}
+		}
+		// QRIS: no Cash Book entry until CompletePayment is called
+
+		result = order.ToResponse()
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // CompletePayment marks a pending/unpaid order as paid and completed manually.
+// For QRIS orders, this is also where stock is actually deducted (deferred from Create).
 func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.OrderResponse, error) {
 	order, err := uc.orderRepo.FindByIDWithItems(id)
 	if err != nil {
@@ -315,9 +460,49 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 	order.Status = "Completed"
 
 	if err := uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := postgres.NewOrderRepository(tx).Update(order); err != nil {
+		orderRepo := postgres.NewOrderRepository(tx)
+		productRepo := postgres.NewProductRepository(tx)
+		ingredientRepo := postgres.NewIngredientRepository(tx)
+		mutationRepo := postgres.NewStockMutationRepository(tx)
+
+		if err := orderRepo.Update(order); err != nil {
 			return err
 		}
+
+		// QRIS orders: stock was NOT deducted at creation.
+		// Deduct now that payment is confirmed.
+		if order.PaymentMethod == "QRIS" {
+			oid := order.OutletID
+			for _, item := range order.OrderItems {
+				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
+				if err != nil {
+					return fmt.Errorf("produk ID %d tidak ditemukan saat deduct stok: %w", item.ProductID, err)
+				}
+				if len(product.Recipe) > 0 {
+					for _, recipeItem := range product.Recipe {
+						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
+						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						if err := mutationRepo.Create(&entity.StockMutation{
+							IngredientID: recipeItem.IngredientID,
+							Type:         string(entity.MutationOut),
+							Quantity:     deductionAmount,
+							ReferenceID:  order.OrderNumber,
+							Notes:        "QRIS Payment Confirmed - Sales Deduction",
+							OutletID:     oid,
+						}); err != nil {
+							return err
+						}
+					}
+				} else {
+					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "sub"); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
 		return NewCashBookUsecase(tx).EnsureOrderIncome(order)
 	}); err != nil {
 		return nil, err

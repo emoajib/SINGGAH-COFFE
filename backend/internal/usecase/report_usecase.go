@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -69,13 +70,22 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	since := startOfDay.Format("2006-01-02 15:04:05")
 	sinceWeek := startOfSevenDays.Format("2006-01-02 15:04:05")
 
-	totalSales, _ := uc.orderRepo.GetTotalSalesSince(since, outletID...)
+	totalSales, err := uc.orderRepo.GetTotalSalesSince(since, outletID...)
+	if err != nil {
+		log.Printf("[WARN] dashboard: failed to fetch total sales: %v", err)
+	}
 	transactionsToday, _ := uc.orderRepo.CountSince(since, outletID...)
 	activeOrders, _ := uc.orderRepo.CountByStatus("Pending", outletID...)
 	lowStockCount, _ := uc.ingredientRepo.CountLowStock(outletID...)
 
-	totalCogs, _ := uc.orderItemRepo.GetTotalCogsSince("Completed", since, outletID...)
-	totalExpenses, _ := uc.expenseRepo.GetTotalSince(since, outletID...)
+	totalCogs, err := uc.orderItemRepo.GetTotalCogsSince("Completed", since, outletID...)
+	if err != nil {
+		log.Printf("[WARN] dashboard: failed to fetch COGS: %v", err)
+	}
+	totalExpenses, err := uc.expenseRepo.GetTotalSince(since, outletID...)
+	if err != nil {
+		log.Printf("[WARN] dashboard: failed to fetch total expenses: %v", err)
+	}
 
 	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, "%H:00", outletID...)
 	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "%d %b", outletID...)

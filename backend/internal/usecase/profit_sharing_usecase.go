@@ -45,6 +45,11 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 	}
 }
 
+// Preview calculates profit sharing for a period and persists a draft record.
+// NOTE: This method writes to the database to create/update a draft period
+// that can later be finalized or recalculated. The draft is overwritten on
+// each call (idempotent per overlapping period). If a read-only calculation
+// is needed, use the calculation logic inline without the DB write.
 func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio float64) (*entity.ProfitSharingPreview, error) {
 	startDate := parseDatePS(start)
 	endDate := parseDatePS(end)

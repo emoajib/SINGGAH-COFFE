@@ -3,7 +3,7 @@ import { Info } from 'lucide-react';
 import { Dialog } from "../ui/dialog"
 import { Input } from "../ui/input"
 import { Button } from "../ui/button"
-import api from '../../lib/api'
+import { InventoryService } from '../../services/inventoryService'
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 
@@ -79,9 +79,9 @@ export function IngredientFormModal({ isOpen, onClose, editingIngredient, onSave
             };
 
             if (editingIngredient) {
-                await api.put(`/ingredients/${editingIngredient.id}`, payload);
+                await InventoryService.update(editingIngredient.id, payload as any);
             } else {
-                await api.post('/ingredients', payload);
+                await InventoryService.create(payload as any);
             }
             onSaved();
             onClose();

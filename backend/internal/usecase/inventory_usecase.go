@@ -212,11 +212,35 @@ func (uc *InventoryUsecase) GetLowStockAlerts(outletID ...uint) ([]entity.Ingred
 }
 
 func (uc *InventoryUsecase) DeleteIngredient(id uint) error {
+	// Cek apakah ada produk yang masih menggunakan bahan ini di resepnya
+	type Dep struct {
+		ProductID   uint
+		ProductName string
+	}
+	var deps []Dep
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	uc.db.Raw(`
+		SELECT ri.product_id, p.name AS product_name
+		FROM recipe_items ri
+		JOIN products p ON p.id = ri.product_id
+		WHERE ri.ingredient_id = ? AND p.deleted_at IS NULL
+	`, id).Scan(&deps)
+
+	if len(deps) > 0 {
+		names := ""
+		for i, d := range deps {
+			if i > 0 {
+				names += ", "
+			}
+			names += d.ProductName
+		}
+		return fmt.Errorf("bahan ini masih digunakan di resep produk: %s. Hapus resep terlebih dahulu sebelum menghapus bahan", names)
+	}
+
 	return uc.db.Transaction(func(tx *gorm.DB) error {
 		ingredientRepo := postgres.NewIngredientRepository(tx)
 
-		// Clean up associated recipe items and mutations before deleting
-		tx.Exec("DELETE FROM recipe_items WHERE ingredient_id = ?", id)
+		// Clean up associated stock mutations
 		tx.Exec("DELETE FROM stock_mutations WHERE ingredient_id = ?", id)
 
 		return ingredientRepo.Delete(id)

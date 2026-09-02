@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 )
 
@@ -18,11 +19,18 @@ var JwtKey []byte
 
 // db is set during initialization for token blacklist checking
 var db *gorm.DB
+var blacklistRepo repository.TokenBlacklistRepository
 
 // Init initializes the JWT package with a secret and database connection
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func Init(secret string, database *gorm.DB) {
 	JwtKey = []byte(secret)
 	db = database
+	if database != nil {
+		blacklistRepo = postgres.NewTokenBlacklistRepository(database)
+	} else {
+		blacklistRepo = nil
+	}
 }
 
 type Claims struct {
@@ -87,9 +95,8 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	}
 
 	// Check if token is blacklisted
-	if db != nil {
-		tokenBlacklistRepo := postgres.NewTokenBlacklistRepository(db)
-		if isBlacklisted, err := tokenBlacklistRepo.IsJtiBlacklisted(claims.ID); err != nil {
+	if blacklistRepo != nil && claims.ID != "" {
+		if isBlacklisted, err := blacklistRepo.IsJtiBlacklisted(claims.ID); err != nil {
 			return nil, errors.New("unable to verify token")
 		} else if isBlacklisted {
 			return nil, errors.New("token has been revoked")

@@ -10,16 +10,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type apiLimiter struct {
+	mu       sync.Mutex
 	limiter  *rate.Limiter
 	lastSeen time.Time
 }
 
 var (
-	apiLimiters    sync.Map
-	loginLimiters  sync.Map
+	apiLimiters     sync.Map
+	loginLimiters   sync.Map
 	webhookLimiters sync.Map
-	cleanupOnce    sync.Once
+	cleanupOnce     sync.Once
 )
 
 func init() {
@@ -32,11 +34,15 @@ func cleanupLoop() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
+		now := time.Now()
 		for _, m := range []*sync.Map{&apiLimiters, &loginLimiters, &webhookLimiters} {
 			m.Range(func(key, value interface{}) bool {
 				ip := key.(string)
 				al := value.(*apiLimiter)
-				if time.Since(al.lastSeen) > 10*time.Minute {
+				al.mu.Lock()
+				idle := now.Sub(al.lastSeen) > 10*time.Minute
+				al.mu.Unlock()
+				if idle {
 					m.Delete(ip)
 				}
 				return true
@@ -51,7 +57,9 @@ func getAPILimiter(ip string) *rate.Limiter {
 		lastSeen: time.Now(),
 	})
 	al := val.(*apiLimiter)
+	al.mu.Lock()
 	al.lastSeen = time.Now()
+	al.mu.Unlock()
 	return al.limiter
 }
 
@@ -61,7 +69,9 @@ func getLoginLimiter(ip string) *rate.Limiter {
 		lastSeen: time.Now(),
 	})
 	al := val.(*apiLimiter)
+	al.mu.Lock()
 	al.lastSeen = time.Now()
+	al.mu.Unlock()
 	return al.limiter
 }
 
@@ -71,7 +81,9 @@ func getWebhookLimiter(ip string) *rate.Limiter {
 		lastSeen: time.Now(),
 	})
 	al := val.(*apiLimiter)
+	al.mu.Lock()
 	al.lastSeen = time.Now()
+	al.mu.Unlock()
 	return al.limiter
 }
 
@@ -80,7 +92,11 @@ func APIRateLimiter() gin.HandlerFunc {
 		ip := c.ClientIP()
 		limiter := getAPILimiter(ip)
 		if !limiter.Allow() {
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
+			c.Header("Retry-After", "5")
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"error":       "Rate limit exceeded",
+				"retry_after": 5,
+			})
 			return
 		}
 		c.Next()
@@ -92,7 +108,11 @@ func LoginRateLimiter() gin.HandlerFunc {
 		ip := c.ClientIP()
 		limiter := getLoginLimiter(ip)
 		if !limiter.Allow() {
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Too many login attempts. Please try again later."})
+			c.Header("Retry-After", "30")
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"error":       "Too many login attempts. Please try again later.",
+				"retry_after": 30,
+			})
 			return
 		}
 		c.Next()
@@ -104,7 +124,11 @@ func WebhookRateLimiter() gin.HandlerFunc {
 		ip := c.ClientIP()
 		limiter := getWebhookLimiter(ip)
 		if !limiter.Allow() {
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
+			c.Header("Retry-After", "5")
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"error":       "Rate limit exceeded",
+				"retry_after": 5,
+			})
 			return
 		}
 		c.Next()

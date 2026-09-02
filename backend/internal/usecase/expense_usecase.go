@@ -12,11 +12,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// Hanya kategori "Salary" yang dilindungi karena di-generate otomatis dari
+// profit sharing. Kategori lain ("Operational", "Marketing", "Maintenance",
+// "Misc") sah dibuat manual oleh kasir/manager.
 var protectedExpenseCategories = map[string]bool{
-	"Operational": true,
-	"Marketing":   true,
-	"Maintenance": true,
-	"Misc":        true,
+	"Salary": true,
 }
 
 // ExpenseUsecase mengelola logika bisnis pengeluaran.
@@ -165,8 +165,15 @@ func (uc *ExpenseUsecase) UpdateCostType(id uint, costType string) error {
 
 // Delete menghapus expense dan membersihkan entry Buku Kas terkait.
 // GAP 2 FIX: sebelumnya hapus expense meninggalkan orphan entry di Buku Kas.
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// Mencegah hapus expense dengan kategori terlindung (Salary dari profit sharing).
 func (uc *ExpenseUsecase) Delete(id uint) error {
+	existing, err := uc.expenseRepo.FindByID(id)
+	if err != nil {
+		return domainErrors.NewNotFoundError("expense not found")
+	}
+	if protectedExpenseCategories[existing.Category] {
+		return domainErrors.NewInvalidInputError("kategori ini tidak bisa dihapus")
+	}
 	// Hapus entry Buku Kas terlebih dahulu (best-effort, tidak memblok).
 	_, _ = uc.cashBookRepo.DeleteByReference(expenseRef(id))
 	return uc.expenseRepo.Delete(id)
