@@ -90,7 +90,7 @@ cd "$PROJ_DIR" || die "Cannot cd to $PROJ_DIR"
 # Prevent "Text file busy" by unlinking existing binaries before tar overwrite
 rm -f "$PROJ_DIR/backend/singgah-backend" "$PROJ_DIR/singgah-backend" "$PROJ_DIR/singgah-pos-backend" 2>/dev/null || true
 
-tar xzf /tmp/deploy.tar.gz --unlink-first 2>&1 || die "tar extraction failed"
+tar -xzf /tmp/deploy.tar.gz 2>&1 || die "tar extraction failed"
 chmod +x backend/singgah-backend start.sh 2>/dev/null || true
 log "Binary: $(ls -la backend/singgah-backend 2>/dev/null || echo 'NOT FOUND')"
 
