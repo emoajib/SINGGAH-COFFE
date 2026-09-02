@@ -34,12 +34,16 @@ safe_kill() {
         fi
     done
 
-    # 2. Kill process on port 8080 (backend)
-    PID_ON_PORT=$(lsof -ti:8080 2>/dev/null)
-    if [ -n "$PID_ON_PORT" ]; then
-        log "Killing process on port 8080: $PID_ON_PORT"
-        kill -9 $PID_ON_PORT 2>/dev/null || true
-        sleep 1
+    # 2. Kill process on port 8080 (backend) if helper tools exist
+    if command -v lsof >/dev/null 2>&1; then
+        PID_ON_PORT=$(lsof -ti:8080 2>/dev/null)
+        if [ -n "$PID_ON_PORT" ]; then
+            log "Killing process on port 8080: $PID_ON_PORT"
+            kill -9 $PID_ON_PORT 2>/dev/null || true
+            sleep 1
+        fi
+    elif command -v fuser >/dev/null 2>&1; then
+        fuser -k 8080/tcp 2>/dev/null || true
     fi
 }
 
@@ -86,7 +90,7 @@ cd "$PROJ_DIR" || die "Cannot cd to $PROJ_DIR"
 # Prevent "Text file busy" by unlinking existing binaries before tar overwrite
 rm -f "$PROJ_DIR/backend/singgah-backend" "$PROJ_DIR/singgah-backend" "$PROJ_DIR/singgah-pos-backend" 2>/dev/null || true
 
-tar xzf /tmp/deploy.tar.gz --unlink-first --overwrite 2>&1 || die "tar extraction failed"
+tar xzf /tmp/deploy.tar.gz --unlink-first 2>&1 || die "tar extraction failed"
 chmod +x backend/singgah-backend start.sh 2>/dev/null || true
 log "Binary: $(ls -la backend/singgah-backend 2>/dev/null || echo 'NOT FOUND')"
 
