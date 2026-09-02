@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Receipt, Pencil, Coffee, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter } from "lucide-react"
+import { Search, Plus, Loader2, Trash2, Receipt, Pencil, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter } from "lucide-react"
 import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } from "../hooks/useExpenses"
-import { useIngredients } from "../hooks/useIngredients"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
 
@@ -47,8 +46,7 @@ export default function Expenses() {
     // Modals & Mode
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
-    const [entryType, setEntryType] = useState<'ingredient' | 'routine' | 'custom'>('ingredient')
-    const [selectedIngredientId, setSelectedIngredientId] = useState<string>("")
+    const [entryType, setEntryType] = useState<'routine' | 'custom'>('routine')
     const [selectedRoutineName, setSelectedRoutineName] = useState<string>("")
 
     // Form Time State
@@ -67,15 +65,13 @@ export default function Expenses() {
 
     const { toast } = useToast()
     const { data: expenses = [], isFetching: isLoading, refetch } = useExpenses(startDate, endDate, categoryFilter)
-    const { data: ingredients = [] } = useIngredients()
     const createExpense = useCreateExpense()
     const updateExpense = useUpdateExpense()
     const deleteExpense = useDeleteExpense()
 
     const handleOpenAdd = () => {
         setEditingExpense(null)
-        setEntryType('ingredient')
-        setSelectedIngredientId("")
+        setEntryType('routine')
         setSelectedRoutineName("")
         const now = new Date()
         setFormTime(now.toTimeString().slice(0, 5))
@@ -121,21 +117,6 @@ export default function Expenses() {
             })
         }
         setIsModalOpen(true)
-    }
-
-    const handleIngredientSelect = (ingIdStr: string) => {
-        setSelectedIngredientId(ingIdStr)
-        if (!ingIdStr) return
-        const ing = ingredients.find(i => i.id === Number(ingIdStr))
-        if (ing) {
-            setFormData(prev => ({
-                ...prev,
-                title: `Pembelian: ${ing.name}`,
-                category: "Operational",
-                cost_type: "variable",
-                description: `Bahan baku resep (${ing.category || 'Bahan'}) - Satuan: ${ing.unit}`,
-            }))
-        }
     }
 
     const handleRoutineSelect = (routineName: string) => {
@@ -227,8 +208,6 @@ export default function Expenses() {
     const totalExpenseAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
     const totalCashExpense = filteredExpenses.filter(exp => (exp.payment_method || 'Cash') === 'Cash').reduce((sum, exp) => sum + exp.amount, 0)
     const totalQrisExpense = filteredExpenses.filter(exp => exp.payment_method === 'QRIS').reduce((sum, exp) => sum + exp.amount, 0)
-
-    const selectedIngObj = ingredients.find(i => i.id === Number(selectedIngredientId))
 
     return (
         <div className="space-y-6">
@@ -514,22 +493,7 @@ export default function Expenses() {
                             <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                                 Jenis Pengeluaran
                             </label>
-                            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-lg">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setEntryType('ingredient')
-                                        handleIngredientSelect(selectedIngredientId)
-                                    }}
-                                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
-                                        entryType === 'ingredient'
-                                            ? 'bg-white text-primary shadow-sm font-semibold'
-                                            : 'text-slate-600 hover:text-slate-900'
-                                    }`}
-                                >
-                                    <Coffee className="w-3.5 h-3.5" />
-                                    Bahan Baku
-                                </button>
+                            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-lg">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -543,7 +507,7 @@ export default function Expenses() {
                                     }`}
                                 >
                                     <ClipboardList className="w-3.5 h-3.5" />
-                                    Operasional
+                                    Operasional (Template Rutin)
                                 </button>
                                 <button
                                     type="button"
@@ -567,33 +531,6 @@ export default function Expenses() {
                                     Manual
                                 </button>
                             </div>
-                        </div>
-                    )}
-
-                    {!editingExpense && entryType === 'ingredient' && (
-                        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                            <label className="text-sm font-semibold text-amber-900 flex items-center gap-1.5">
-                                <Coffee className="w-4 h-4 text-amber-600" />
-                                Pilih Bahan Baku Resep:
-                            </label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-amber-500"
-                                value={selectedIngredientId}
-                                onChange={(e) => handleIngredientSelect(e.target.value)}
-                            >
-                                <option value="">-- Pilih dari Master Bahan --</option>
-                                {ingredients.map((ing) => (
-                                    <option key={ing.id} value={ing.id}>
-                                        {ing.name} ({ing.category || 'Bahan'}) - Stok: {formatNumber(ing.current_stock)} {ing.unit}
-                                    </option>
-                                ))}
-                            </select>
-                            {selectedIngObj && (
-                                <p className="text-xs text-amber-700">
-                                    💡 Biaya standar: <b>Rp {formatNumber(selectedIngObj.cost_per_unit)}</b> / {selectedIngObj.unit}
-                                    {selectedIngObj.purchase_unit && ` (Rp ${formatNumber(selectedIngObj.cost_per_unit * (selectedIngObj.purchase_unit_size || 1))} / ${selectedIngObj.purchase_unit})`}
-                                </p>
-                            )}
                         </div>
                     )}
 
