@@ -14,6 +14,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// wib adalah zona waktu WIB (UTC+7) yang digunakan sebagai referensi lokal.
+// loc=Local di DSN MySQL mengikuti timezone sistem server, yang di production
+// kemungkinan UTC. Untuk konsistensi, semua datetime di-parse/format ke UTC
+// agar cocok dengan nilai yang tersimpan di kolom TIMESTAMP MySQL (selalu UTC).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+var wib = time.FixedZone("WIB", 7*60*60)
+
 var alwaysExcludedFromSharing = []string{
 	"Operational", "Marketing", "Maintenance", "Misc",
 }
@@ -37,15 +44,21 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 }
 
 func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio float64) (*entity.ProfitSharingPreview, error) {
-	basis, err := uc.periodRepo.GetTotalRevenue(start, end, outletID)
+	// Normalisasi datetime string dari frontend ke format DB yang konsisten.
+	// parseDatePS meng-interpret string lokal sebagai WIB lalu formatForDB
+	// mengkonversinya ke UTC untuk query BETWEEN pada kolom TIMESTAMP MySQL.
+	startNorm := formatForDB(parseDatePS(start))
+	endNorm := formatForDB(parseDatePS(end))
+
+	basis, err := uc.periodRepo.GetTotalRevenue(startNorm, endNorm, outletID)
 	if err != nil {
 		return nil, err
 	}
-	cogs, err := uc.orderItemRepo.GetTotalCogsRange(start, end, outletID)
+	cogs, err := uc.orderItemRepo.GetTotalCogsRange(startNorm, endNorm, outletID)
 	if err != nil {
 		return nil, err
 	}
-	expenses, err := uc.periodRepo.GetTotalExpensesExcluding(start, end, alwaysExcludedFromSharing, outletID)
+	expenses, err := uc.periodRepo.GetTotalExpensesExcluding(startNorm, endNorm, alwaysExcludedFromSharing, outletID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +73,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 	keeperAmount := math.Round(sharingBasis*ratio/100*100) / 100
 	ownerAmount := sharingBasis - keeperAmount
 
-	products, _ := uc.orderItemRepo.GetProductSalesVolume(start, end, outletID)
+	products, _ := uc.orderItemRepo.GetProductSalesVolume(startNorm, endNorm, outletID)
 	perProduct := make([]entity.ProductSharingDetail, len(products))
 	for i, p := range products {
 		productCogs := p.AvgCost * float64(p.Quantity)
@@ -77,7 +90,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 
 	period := entity.ProfitSharingPeriod{
 		OutletID:      outletID,
-		PeriodStart:   parseDatePS(start),
+		PeriodStart:   parseDatePS(start),  // disimpan ke DB; GORM akan gunakan loc=Local dari DSN
 		PeriodEnd:     parseDatePS(end),
 		BasisAmount:   basis,
 		TotalCogs:     cogs,
@@ -92,6 +105,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 	}
 
 	overlapping, _ := uc.periodRepo.FindOverlappingPeriod(outletID, parseDatePS(start), parseDatePS(end), 0)
+
 	if overlapping != nil {
 		period.ID = overlapping.ID
 		if err := uc.periodRepo.Update(&period); err != nil {
@@ -139,8 +153,10 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		tx.Rollback()
 		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa di-finalize")
 	}
-	start := period.PeriodStart.Format("2006-01-02 15:04:05")
-	end := period.PeriodEnd.Format("2006-01-02 15:04:05")
+	// Gunakan formatForDB (UTC) agar BETWEEN query cocok dengan data yang
+	// disimpan MySQL sebagai TIMESTAMP (selalu UTC di server).
+	start := formatForDB(period.PeriodStart)
+	end := formatForDB(period.PeriodEnd)
 
 	basis, err := uc.periodRepo.GetTotalRevenue(start, end, outletID...)
 	if err != nil {
@@ -252,8 +268,9 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
 		uc.cashBookRepo.DeleteByReference(ref, outletID...)
 	}
-	start := existing.PeriodStart.Format("2006-01-02 15:04:05")
-	end := existing.PeriodEnd.Format("2006-01-02 15:04:05")
+	// Gunakan formatForDB (UTC) agar BETWEEN query konsisten dengan Finalize.
+	start := formatForDB(existing.PeriodStart)
+	end := formatForDB(existing.PeriodEnd)
 
 	basis, err := uc.periodRepo.GetTotalRevenue(start, end, outletID...)
 	if err != nil {
@@ -314,14 +331,38 @@ func (uc *ProfitSharingUsecase) GetAll(outletID ...uint) ([]entity.ProfitSharing
 	return uc.periodRepo.FindAll(outletID...)
 }
 
+// parseDatePS mem-parse string datetime dari frontend sebagai WIB (UTC+7).
+// String dari frontend selalu dalam konteks lokal WIB (tidak ada timezone offset
+// karena input <date>+<time> dari browser).
+// Format yang didukung (dengan atau tanpa offset timezone):
+//   - "2006-01-02T15:04:05Z07:00"  (ISO8601 dengan offset)
+//   - "2006-01-02T15:04:05"        (tanpa offset → diasumsikan WIB)
+//   - "2006-01-02T15:04"           (tanpa detik, tanpa offset)
+//   - "2006-01-02"                 (date-only → 00:00:00 WIB)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func parseDatePS(s string) time.Time {
-	// Coba format datetime dulu, fallback ke date-only
-	t, err := time.Parse("2006-01-02T15:04:00", s)
-	if err != nil {
-		t, _ = time.Parse("2006-01-02T15:04", s)
+	// Format dengan timezone offset eksplisit
+	if t, err := time.Parse("2006-01-02T15:04:05Z07:00", s); err == nil {
+		return t.In(wib)
 	}
-	if err != nil {
-		t, _ = time.Parse("2006-01-02", s)
+	// Format tanpa offset — interpret sebagai WIB
+	if t, err := time.Parse("2006-01-02T15:04:05", s); err == nil {
+		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, wib)
 	}
-	return t
+	if t, err := time.Parse("2006-01-02T15:04", s); err == nil {
+		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, wib)
+	}
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, wib)
+	}
+	return time.Time{}
+}
+
+// formatForDB mengkonversi time.Time ke string UTC "2006-01-02 15:04:05"
+// untuk digunakan dalam query BETWEEN pada kolom TIMESTAMP MySQL.
+// MySQL menyimpan TIMESTAMP selalu dalam UTC, sehingga perbandingan
+// harus menggunakan UTC — bukan waktu lokal server.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func formatForDB(t time.Time) string {
+	return t.UTC().Format("2006-01-02 15:04:05")
 }

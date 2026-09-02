@@ -39,8 +39,10 @@ export default function ProfitSharing() {
       toast({ title: "Error", description: "Pilih tanggal mulai dan akhir", variant: "error" })
       return
     }
-    const startDT = `${startDate}T${startTime}:00`
-    const endDT = `${endDate}T${endTime}:00`
+    // Tambahkan offset WIB (+07:00) agar backend mengenali timezone dengan benar.
+    // Tanpa ini parseDatePS akan menginterpretasi waktu sebagai UTC → geser 7 jam.
+    const startDT = `${startDate}T${startTime}:00+07:00`
+    const endDT = `${endDate}T${endTime}:00+07:00`
     try {
       const result = await previewMutation.mutateAsync({ start: startDT, end: endDT, ratio })
       setPreview(result)
