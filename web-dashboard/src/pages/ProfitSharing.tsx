@@ -287,7 +287,14 @@ export default function ProfitSharing() {
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><span className="text-sm text-gray-500">Periode</span><p className="font-medium">{formatDateTime(preview.period.period_start)} — {formatDateTime(preview.period.period_end)}</p></div>
+                <div>
+                  <span className="text-sm text-gray-500">Periode</span>
+                  <p className="font-medium">
+                    {formatDateTime(preview.period.period_start) !== '-' ? formatDateTime(preview.period.period_start) : `${startDate} ${startTime}`}
+                    {' — '}
+                    {formatDateTime(preview.period.period_end) !== '-' ? formatDateTime(preview.period.period_end) : `${endDate} ${endTime}`}
+                  </p>
+                </div>
                 <div><span className="text-sm text-gray-500">Rasio Keeper</span><p className="font-medium">{preview.calculation.ratio}%</p></div>
                 <div><span className="text-sm text-gray-500">Pendapatan Kotor (sebelum pajak)</span><p className="font-medium">{formatNumber(preview.calculation.basis_amount)}</p></div>
                 <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(preview.calculation.total_cogs)}</p></div>

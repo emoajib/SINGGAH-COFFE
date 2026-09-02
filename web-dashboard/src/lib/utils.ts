@@ -25,7 +25,10 @@ export function formatNumber(value: number): string {
 export function formatDateTime(dateStr: string | null | undefined): string {
   if (!dateStr || dateStr.startsWith('0001-01-01')) return '-'
   try {
-    const d = new Date(dateStr)
+    const normalized = typeof dateStr === 'string' && dateStr.includes(' ') && !dateStr.includes('T')
+      ? dateStr.replace(' ', 'T')
+      : dateStr
+    const d = new Date(normalized)
     if (isNaN(d.getTime())) return dateStr
     return new Intl.DateTimeFormat('id-ID', {
       day: '2-digit',
@@ -36,7 +39,7 @@ export function formatDateTime(dateStr: string | null | undefined): string {
       hour12: false,
     }).format(d)
   } catch {
-    return dateStr
+    return dateStr || '-'
   }
 }
 
