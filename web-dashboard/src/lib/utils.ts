@@ -22,6 +22,24 @@ export function formatNumber(value: number): string {
   }).format(value)
 }
 
+export function formatDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr || dateStr.startsWith('0001-01-01')) return '-'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    return new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(d)
+  } catch {
+    return dateStr
+  }
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL
   ? import.meta.env.VITE_API_BASE_URL.replace(/\/api$/, '')
   : '';

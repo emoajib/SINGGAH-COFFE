@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input"
 import { Loader2, Calculator, CheckCircle, Trash2, RefreshCw, DollarSign, FileText } from "lucide-react"
 import { useProfitSharing } from "../hooks/useProfitSharing"
 import { useToast } from "../hooks/use-toast"
-import { formatNumber } from "../lib/utils"
+import { formatNumber, formatDateTime } from "../lib/utils"
 import type { ProfitSharingPreview, ProfitSharingPeriod } from "../types"
 
 const STATUS_LABELS: Record<string, string> = {
@@ -171,7 +171,7 @@ export default function ProfitSharing() {
                   {periods.map((p) => (
                     <tr key={p.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-2">
-                        <div className="font-medium">{p.period_start} - {p.period_end}</div>
+                        <div className="font-medium">{formatDateTime(p.period_start)} — {formatDateTime(p.period_end)}</div>
                       </td>
                       <td className="py-3 px-2 text-right">{formatNumber(p.basis_amount)}</td>
                       <td className="py-3 px-2 text-right font-medium">{formatNumber(p.net_profit)}</td>
@@ -233,7 +233,7 @@ export default function ProfitSharing() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailPeriod(null)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b flex items-center justify-between">
-              <h2 className="text-lg font-bold">Detail Periode {detailPeriod.period_start} - {detailPeriod.period_end}</h2>
+              <h2 className="text-lg font-bold">Detail Periode: {formatDateTime(detailPeriod.period_start)} — {formatDateTime(detailPeriod.period_end)}</h2>
               <button onClick={() => setDetailPeriod(null)} className="text-gray-400 hover:text-gray-600">&times;</button>
             </div>
             <div className="p-6 space-y-4">
@@ -287,7 +287,7 @@ export default function ProfitSharing() {
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><span className="text-sm text-gray-500">Periode</span><p className="font-medium">{preview.period.period_start} - {preview.period.period_end}</p></div>
+                <div><span className="text-sm text-gray-500">Periode</span><p className="font-medium">{formatDateTime(preview.period.period_start)} — {formatDateTime(preview.period.period_end)}</p></div>
                 <div><span className="text-sm text-gray-500">Rasio Keeper</span><p className="font-medium">{preview.calculation.ratio}%</p></div>
                 <div><span className="text-sm text-gray-500">Pendapatan Kotor (sebelum pajak)</span><p className="font-medium">{formatNumber(preview.calculation.basis_amount)}</p></div>
                 <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(preview.calculation.total_cogs)}</p></div>

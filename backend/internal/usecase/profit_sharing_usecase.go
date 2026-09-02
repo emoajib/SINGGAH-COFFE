@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -44,11 +45,17 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 }
 
 func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio float64) (*entity.ProfitSharingPreview, error) {
+	startDate := parseDatePS(start)
+	endDate := parseDatePS(end)
+	if startDate.IsZero() || endDate.IsZero() {
+		return nil, domainErrors.NewInvalidInputError("format tanggal mulai atau akhir tidak valid")
+	}
+
 	// Normalisasi datetime string dari frontend ke format DB yang konsisten.
 	// parseDatePS meng-interpret string lokal sebagai WIB lalu formatForDB
 	// mengkonversinya ke UTC untuk query BETWEEN pada kolom TIMESTAMP MySQL.
-	startNorm := formatForDB(parseDatePS(start))
-	endNorm := formatForDB(parseDatePS(end))
+	startNorm := formatForDB(startDate)
+	endNorm := formatForDB(endDate)
 
 	basis, err := uc.periodRepo.GetTotalRevenue(startNorm, endNorm, outletID)
 	if err != nil {
@@ -90,8 +97,8 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 
 	period := entity.ProfitSharingPeriod{
 		OutletID:      outletID,
-		PeriodStart:   parseDatePS(start),  // disimpan ke DB; GORM akan gunakan loc=Local dari DSN
-		PeriodEnd:     parseDatePS(end),
+		PeriodStart:   startDate, // disimpan ke DB; GORM akan gunakan loc=Local dari DSN
+		PeriodEnd:     endDate,
 		BasisAmount:   basis,
 		TotalCogs:     cogs,
 		TotalExpenses: expenses,
@@ -104,7 +111,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		TaxNote:       "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)",
 	}
 
-	overlapping, _ := uc.periodRepo.FindOverlappingPeriod(outletID, parseDatePS(start), parseDatePS(end), 0)
+	overlapping, _ := uc.periodRepo.FindOverlappingPeriod(outletID, startDate, endDate, 0)
 
 	if overlapping != nil {
 		period.ID = overlapping.ID
@@ -331,30 +338,51 @@ func (uc *ProfitSharingUsecase) GetAll(outletID ...uint) ([]entity.ProfitSharing
 	return uc.periodRepo.FindAll(outletID...)
 }
 
-// parseDatePS mem-parse string datetime dari frontend sebagai WIB (UTC+7).
-// String dari frontend selalu dalam konteks lokal WIB (tidak ada timezone offset
-// karena input <date>+<time> dari browser).
-// Format yang didukung (dengan atau tanpa offset timezone):
-//   - "2006-01-02T15:04:05Z07:00"  (ISO8601 dengan offset)
-//   - "2006-01-02T15:04:05"        (tanpa offset → diasumsikan WIB)
-//   - "2006-01-02T15:04"           (tanpa detik, tanpa offset)
-//   - "2006-01-02"                 (date-only → 00:00:00 WIB)
+// parseDatePS mem-parse string datetime dari frontend dengan toleransi berbagai format.
+// Menangani kasus URL decode di mana karakter '+' pada timezone offset berubah menjadi spasi ' '.
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func parseDatePS(s string) time.Time {
-	// Format dengan timezone offset eksplisit
-	if t, err := time.Parse("2006-01-02T15:04:05Z07:00", s); err == nil {
-		return t.In(wib)
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}
 	}
-	// Format tanpa offset — interpret sebagai WIB
-	if t, err := time.Parse("2006-01-02T15:04:05", s); err == nil {
-		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, wib)
+
+	// Normalisasi URL-decoded '+' yang berubah menjadi space pada timezone offset:
+	// misal "2026-08-23T16:00:00 07:00" -> "2026-08-23T16:00:00+07:00"
+	// misal "2026-08-23 16:00:00 07:00" -> "2026-08-23T16:00:00+07:00"
+	if idx := strings.LastIndex(s, " "); idx != -1 && idx+6 == len(s) {
+		offsetPart := s[idx+1:]
+		if len(offsetPart) == 5 && offsetPart[2] == ':' {
+			s = s[:idx] + "+" + offsetPart
+		}
 	}
-	if t, err := time.Parse("2006-01-02T15:04", s); err == nil {
-		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, wib)
+
+	formatsWithZone := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05Z07:00",
+		"2006-01-02 15:04Z07:00",
+		"2006-01-02T15:04Z07:00",
 	}
-	if t, err := time.Parse("2006-01-02", s); err == nil {
-		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, wib)
+	for _, f := range formatsWithZone {
+		if t, err := time.Parse(f, s); err == nil {
+			return t.In(wib)
+		}
 	}
+
+	formatsNoZone := []string{
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+		"2006-01-02",
+	}
+	for _, f := range formatsNoZone {
+		if t, err := time.Parse(f, s); err == nil {
+			return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, wib)
+		}
+	}
+
 	return time.Time{}
 }
 
