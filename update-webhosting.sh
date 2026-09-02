@@ -13,6 +13,7 @@ PROJ_DIR="$HOME/singgah-pos"
 WEB_DIR="$HOME/public_html"
 DEPLOY_URL="https://github.com/emoajib/singgah-coffe/releases/latest/download/deploy.tar.gz"
 PIDFILE="$PROJ_DIR/backend/backend.pid"
+ROOT_PIDFILE="$PROJ_DIR/backend.pid"
 LOGFILE="$PROJ_DIR/logs/backend.log"
 
 # --- Helpers ---
@@ -20,20 +21,25 @@ log()  { echo "[$(date '+%H:%M:%S')] $*"; }
 die()  { log "FATAL: $*"; exit 1; }
 
 safe_kill() {
-    if [ -f "$PIDFILE" ]; then
-        PID=$(cat "$PIDFILE" 2>/dev/null)
-        if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-            log "Killing backend PID $PID..."
-            kill "$PID" 2>/dev/null; sleep 2
-            kill -9 "$PID" 2>/dev/null; sleep 1
+    # 1. Kill by PID files if exist
+    for pf in "$PIDFILE" "$ROOT_PIDFILE"; do
+        if [ -f "$pf" ]; then
+            PID=$(cat "$pf" 2>/dev/null)
+            if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+                log "Killing backend PID $PID (from $pf)..."
+                kill "$PID" 2>/dev/null; sleep 1
+                kill -9 "$PID" 2>/dev/null || true
+            fi
+            rm -f "$pf"
         fi
-        rm -f "$PIDFILE"
-    fi
-    # Fallback: kill by port (simple lsof, no fork)
+    done
+
+    # 2. Kill process on port 8080 (backend)
     PID_ON_PORT=$(lsof -ti:8080 2>/dev/null)
     if [ -n "$PID_ON_PORT" ]; then
         log "Killing process on port 8080: $PID_ON_PORT"
-        kill -9 $PID_ON_PORT 2>/dev/null; sleep 2
+        kill -9 $PID_ON_PORT 2>/dev/null || true
+        sleep 1
     fi
 }
 
@@ -54,6 +60,9 @@ safe_kill
 if [ -f "$PROJ_DIR/backend/.env" ]; then
     cp "$PROJ_DIR/backend/.env" "$PROJ_DIR/backend/.env.backup" 2>/dev/null || true
     log "Backed up .env"
+elif [ -f "$PROJ_DIR/.env" ]; then
+    cp "$PROJ_DIR/.env" "$PROJ_DIR/.env.backup" 2>/dev/null || true
+    log "Backed up .env"
 fi
 
 # --- Step 3: Download deploy.tar.gz ---
@@ -73,13 +82,20 @@ fi
 # --- Step 4: Extract ---
 log "Step 3: Extracting..."
 cd "$PROJ_DIR" || die "Cannot cd to $PROJ_DIR"
-tar xzf /tmp/deploy.tar.gz --overwrite 2>&1 || die "tar extraction failed"
-chmod +x singgah-pos-backend 2>/dev/null || true
-log "Binary: $(ls -la singgah-pos-backend 2>/dev/null || echo 'NOT FOUND')"
+
+# Prevent "Text file busy" by unlinking existing binaries before tar overwrite
+rm -f "$PROJ_DIR/backend/singgah-backend" "$PROJ_DIR/singgah-backend" "$PROJ_DIR/singgah-pos-backend" 2>/dev/null || true
+
+tar xzf /tmp/deploy.tar.gz --unlink-first --overwrite 2>&1 || die "tar extraction failed"
+chmod +x backend/singgah-backend start.sh 2>/dev/null || true
+log "Binary: $(ls -la backend/singgah-backend 2>/dev/null || echo 'NOT FOUND')"
 
 # --- Step 5: Restore .env ---
 if [ ! -f "$PROJ_DIR/backend/.env" ] && [ -f "$PROJ_DIR/backend/.env.backup" ]; then
     cp "$PROJ_DIR/backend/.env.backup" "$PROJ_DIR/backend/.env"
+    log "Restored backend/.env from backup"
+elif [ ! -f "$PROJ_DIR/.env" ] && [ -f "$PROJ_DIR/.env.backup" ]; then
+    cp "$PROJ_DIR/.env.backup" "$PROJ_DIR/.env"
     log "Restored .env from backup"
 fi
 
@@ -105,9 +121,20 @@ fi
 log "Step 5: Starting backend..."
 mkdir -p "$PROJ_DIR/logs"
 cd "$PROJ_DIR" || die "Cannot cd to $PROJ_DIR"
-GOMAXPROCS=1 GOMEMLIMIT=200MiB nohup ./singgah-pos-backend > "$LOGFILE" 2>&1 &
-echo $! > "$PIDFILE"
-log "Backend started (PID: $!)"
+
+if [ -f "./start.sh" ]; then
+    chmod +x ./start.sh ./backend/singgah-backend 2>/dev/null || true
+    nohup ./start.sh > "$LOGFILE" 2>&1 &
+    echo $! > "$PIDFILE"
+    log "Backend started via start.sh (PID: $!)"
+elif [ -f "./backend/singgah-backend" ]; then
+    chmod +x ./backend/singgah-backend 2>/dev/null || true
+    GOMAXPROCS=1 GOMEMLIMIT=200MiB nohup ./backend/singgah-backend > "$LOGFILE" 2>&1 &
+    echo $! > "$PIDFILE"
+    log "Backend started (PID: $!)"
+else
+    die "Backend binary not found"
+fi
 
 # --- Step 9: Health check ---
 log "Step 6: Health check..."
