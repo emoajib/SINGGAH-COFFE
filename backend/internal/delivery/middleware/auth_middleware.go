@@ -90,8 +90,9 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 			return
 		}
 
+		userRoleClean := strings.ToLower(strings.TrimSpace(roleStr))
 		for _, role := range allowedRoles {
-			if roleStr == role {
+			if userRoleClean == strings.ToLower(strings.TrimSpace(role)) {
 				c.Next()
 				return
 			}
