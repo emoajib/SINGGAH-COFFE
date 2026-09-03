@@ -185,17 +185,28 @@ type CashBookSyncResult struct {
 func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncResult, error) {
 	result := &CashBookSyncResult{}
 
+	var queryOrders string
+	var argsOrders []interface{}
+	if outletID > 0 {
+		queryOrders = "SELECT id, order_number, total_amount, payment_method, payment_status, status, cashier_name, outlet_id, order_time " +
+			"FROM orders WHERE status = 'Completed' AND payment_status = 'Paid' AND deleted_at IS NULL AND (outlet_id = ? OR outlet_id = 0 OR outlet_id IS NULL) " +
+			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('order:', orders.id) AND cb.deleted_at IS NULL)"
+		argsOrders = []interface{}{outletID}
+	} else {
+		queryOrders = "SELECT id, order_number, total_amount, payment_method, payment_status, status, cashier_name, outlet_id, order_time " +
+			"FROM orders WHERE status = 'Completed' AND payment_status = 'Paid' AND deleted_at IS NULL " +
+			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('order:', orders.id) AND cb.deleted_at IS NULL)"
+	}
+
 	var orders []entity.Order
-	err := uc.db.Raw(
-		"SELECT id, order_number, total_amount, payment_method, payment_status, status, cashier_name, outlet_id, order_time "+
-			"FROM orders WHERE status = 'Completed' AND payment_status = 'Paid' AND deleted_at IS NULL AND outlet_id = ? "+
-			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('order:', orders.id) AND cb.deleted_at IS NULL)",
-		outletID,
-	).Scan(&orders).Error
+	err := uc.db.Raw(queryOrders, argsOrders...).Scan(&orders).Error
 	if err != nil {
 		return nil, err
 	}
 	for i := range orders {
+		if orders[i].OutletID == 0 && outletID > 0 {
+			orders[i].OutletID = outletID
+		}
 		if err := uc.EnsureOrderIncome(&orders[i]); err != nil {
 			return nil, err
 		}
@@ -210,12 +221,19 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 		Date          time.Time
 		OutletID      uint
 	}
+	var queryExpenses string
+	var argsExpenses []interface{}
+	if outletID > 0 {
+		queryExpenses = "SELECT id, title, amount, date, outlet_id, COALESCE(payment_method, 'Cash') as payment_method FROM expenses WHERE deleted_at IS NULL AND (outlet_id = ? OR outlet_id = 0 OR outlet_id IS NULL) " +
+			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('expense:', expenses.id) AND cb.deleted_at IS NULL)"
+		argsExpenses = []interface{}{outletID}
+	} else {
+		queryExpenses = "SELECT id, title, amount, date, outlet_id, COALESCE(payment_method, 'Cash') as payment_method FROM expenses WHERE deleted_at IS NULL " +
+			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('expense:', expenses.id) AND cb.deleted_at IS NULL)"
+	}
+
 	var expenses []expenseRow
-	err = uc.db.Raw(
-		"SELECT id, title, amount, date, outlet_id, COALESCE(payment_method, 'Cash') as payment_method FROM expenses WHERE deleted_at IS NULL AND outlet_id = ? "+
-			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('expense:', expenses.id) AND cb.deleted_at IS NULL)",
-		outletID,
-	).Scan(&expenses).Error
+	err = uc.db.Raw(queryExpenses, argsExpenses...).Scan(&expenses).Error
 	if err != nil {
 		return nil, err
 	}
@@ -227,8 +245,12 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 		if method == "" {
 			method = "Cash"
 		}
+		oid := e.OutletID
+		if oid == 0 && outletID > 0 {
+			oid = outletID
+		}
 		if err := uc.cashBookRepo.Create(&entity.CashBook{
-			OutletID:    e.OutletID,
+			OutletID:    oid,
 			Date:        e.Date,
 			Method:      method,
 			Type:        "expense",

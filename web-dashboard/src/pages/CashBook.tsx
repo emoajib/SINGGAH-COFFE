@@ -118,7 +118,7 @@ export default function CashBookPage() {
     }
   }
 
-  const isOwner = user?.role === 'owner'
+  const canSync = user?.role === 'owner' || user?.role === 'manager'
   const canDelete = user?.role === 'owner' || user?.role === 'manager'
 
   return (
@@ -132,7 +132,7 @@ export default function CashBookPage() {
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Segarkan"}
           </Button>
-          {isOwner && (
+          {canSync && (
             <Button variant="outline" size="sm" onClick={handleSync} disabled={syncMut.isPending} className="gap-1">
               {syncMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
               Sinkron Transaksi
@@ -306,9 +306,15 @@ export default function CashBookPage() {
             {filtered.length === 0 && !isLoading && (
               <div className="text-center py-8 text-gray-500">
                 Belum ada entri Buku Kas.
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-gray-400 mt-1 mb-3">
                   Klik "Sinkron Transaksi" untuk menarik otomatis seluruh penjualan lunas &amp; pengeluaran, atau tambah entri manual.
                 </div>
+                {canSync && (
+                  <Button size="sm" variant="outline" onClick={handleSync} disabled={syncMut.isPending} className="gap-1.5">
+                    {syncMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    Sinkron Transaksi Sekarang
+                  </Button>
+                )}
               </div>
             )}
           </div>

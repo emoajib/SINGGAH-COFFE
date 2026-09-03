@@ -149,7 +149,7 @@ func (h *CashBookHandler) DeleteCashBook(c *gin.Context) {
 }
 
 func (h *CashBookHandler) SyncFromTransactions(c *gin.Context) {
-	if !requireOwner(c) {
+	if !requireOwnerOrManager(c) {
 		return
 	}
 	result, err := h.cashBookUsecase.SyncFromTransactions(getOutletID(c))

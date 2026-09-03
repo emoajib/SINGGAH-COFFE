@@ -218,7 +218,7 @@ func toDomainOrder(m *models.Order) *entity.Order {
 
 func scopeOutlet(tx *gorm.DB, table string, outletID ...uint) *gorm.DB {
 	if len(outletID) > 0 && outletID[0] > 0 {
-		return tx.Where(table+".outlet_id = ?", outletID[0])
+		return tx.Where("("+table+".outlet_id = ? OR "+table+".outlet_id = 0 OR "+table+".outlet_id IS NULL)", outletID[0])
 	}
 	return tx
 }
