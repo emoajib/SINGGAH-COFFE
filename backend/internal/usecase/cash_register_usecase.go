@@ -109,9 +109,12 @@ func (uc *CashRegisterUsecase) CloseCashRegister(userID uint, closingAmount floa
 		return nil, err
 	}
 
+	now := time.Now()
 	reg.ClosingAmount = &closingAmount
 	reg.ExpectedCash = expectedCash
 	reg.Variance = variance
+	reg.Status = "closed"
+	reg.ClosedAt = &now
 	if err := NewCashBookUsecase(uc.db).EnsureRegisterClose(reg, reg.OutletID); err != nil {
 		return nil, err
 	}
