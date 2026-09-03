@@ -286,15 +286,22 @@ const PosTerminal: React.FC = () => {
                     </div>
 
                         {openCashRegister && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowCloseModal(true)}
-                                className="border-red-200 text-red-600 hover:bg-red-50"
-                            >
-                                <Banknote className="w-4 h-4 mr-1" />
-                                Tutup Kas
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-800 shadow-sm">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span>Kas: {formatCurrency(openCashRegister.opening_amount)}</span>
+                                    <span className="text-emerald-600">({openCashRegister.cashier_name})</span>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowCloseModal(true)}
+                                    className="border-red-200 text-red-600 hover:bg-red-50"
+                                >
+                                    <Banknote className="w-4 h-4 mr-1" />
+                                    Tutup Kas
+                                </Button>
+                            </div>
                         )}
                 </header>
 

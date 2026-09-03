@@ -21,8 +21,10 @@ function formatDate(dateStr: string) {
 
 export default function CashRegister() {
     const { user } = useSelector((state: RootState) => state.auth)
-    const isOwner = user?.role === "owner"
-    const isManager = user?.role === "manager"
+    const role = (user?.role || "").toLowerCase().trim()
+    const isOwner = role === "owner"
+    const isManager = role === "manager"
+    const isCashier = role === "cashier"
     const [cashierName, setCashierName] = useState("")
     const [dateFrom, setDateFrom] = useState("")
     const [dateTo, setDateTo] = useState("")
@@ -42,9 +44,7 @@ export default function CashRegister() {
                 limit: 100,
                 offset: 0,
             }),
-        // BUG FIX: sebelumnya hanya owner yang bisa fetch → manager tidak bisa lihat data.
-        // Sekarang manager dan owner bisa fetch (backend scope by outlet_id via JWT).
-        enabled: isOwner || isManager,
+        enabled: isOwner || isManager || isCashier,
         refetchInterval: 30_000, // real-time: refresh otomatis setiap 30 detik
     })
 

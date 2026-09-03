@@ -263,5 +263,47 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 		result.ExpensesSynced++
 	}
 
+	// Sinkronkan modal kas awal dari cash registers yang belum tercatat di Buku Kas
+	type registerRow struct {
+		ID            uint
+		CashierName   string
+		OpeningAmount float64
+		OpenedAt      time.Time
+		OutletID      uint
+	}
+	var registers []registerRow
+	var queryRegs string
+	var argsRegs []interface{}
+	if outletID > 0 {
+		queryRegs = "SELECT id, cashier_name, opening_amount, opened_at, outlet_id FROM cash_registers WHERE deleted_at IS NULL AND opening_amount > 0 AND (outlet_id = ? OR outlet_id = 0 OR outlet_id IS NULL) " +
+			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('cash_register_open:', cash_registers.id) AND cb.deleted_at IS NULL)"
+		argsRegs = []interface{}{outletID}
+	} else {
+		queryRegs = "SELECT id, cashier_name, opening_amount, opened_at, outlet_id FROM cash_registers WHERE deleted_at IS NULL AND opening_amount > 0 " +
+			"AND NOT EXISTS (SELECT 1 FROM cash_books cb WHERE cb.reference = CONCAT('cash_register_open:', cash_registers.id) AND cb.deleted_at IS NULL)"
+	}
+	if err := uc.db.Raw(queryRegs, argsRegs...).Scan(&registers).Error; err == nil {
+		for _, r := range registers {
+			oid := r.OutletID
+			if oid == 0 && outletID > 0 {
+				oid = outletID
+			}
+			cashier := r.CashierName
+			if cashier == "" {
+				cashier = "Kasir"
+			}
+			_ = uc.cashBookRepo.Create(&entity.CashBook{
+				OutletID:    oid,
+				Date:        r.OpenedAt,
+				Method:      "Cash",
+				Type:        "income",
+				Amount:      r.OpeningAmount,
+				Description: fmt.Sprintf("Modal Awal Kasir (%s)", cashier),
+				Reference:   fmt.Sprintf("cash_register_open:%d", r.ID),
+			})
+			result.OrdersSynced++
+		}
+	}
+
 	return result, nil
 }

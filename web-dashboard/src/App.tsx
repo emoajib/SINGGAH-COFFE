@@ -30,15 +30,16 @@ function AppContent() {
     const dispatch = useDispatch()
     const auth = useSelector((state: RootState) => state.auth)
     const isAuthenticated = auth?.isAuthenticated || false
-    const isCashier = auth?.user?.role === "cashier"
-    const isManager = auth?.user?.role === "manager"
-    const isOwner = auth?.user?.role === "owner"
+    const userRole = (auth?.user?.role || "").toLowerCase().trim()
+    const isCashier = userRole === "cashier"
+    const isManager = userRole === "manager"
+    const isOwner = userRole === "owner"
     const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
 
     // Tab eksklusif owner saja
     const ownerOnlyTabs = ["reports", "bep", "kebutuhan-stok", "integration", "backup", "profit-sharing"]
-    // Tab yang boleh diakses manager (tapi bukan cashier)
-    const managerOnlyTabs = ["cash-registers"]
+    // Tab yang boleh diakses manager & owner (bukan cashier)
+    const managerOnlyTabs: string[] = []
 
     if (!isAuthenticated) {
         return <Login />

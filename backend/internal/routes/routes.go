@@ -112,7 +112,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/cash-registers/suggested-opening", h.CashRegister.GetSuggestedOpening)
 			// BUG FIX: manager boleh GET riwayat kas outlet mereka (outlet_id auto-scope via JWT).
 			// Edit dan Delete tetap hanya owner untuk menjaga integritas data.
-			protected.GET("/cash-registers", middleware.RoleMiddleware("owner", "manager"), h.CashRegister.GetCashRegisters)
+			protected.GET("/cash-registers", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashRegister.GetCashRegisters)
 			protected.PUT("/cash-registers/:id", middleware.RoleMiddleware("owner"), h.CashRegister.UpdateCashRegister)
 			protected.DELETE("/cash-registers/:id", middleware.RoleMiddleware("owner"), h.CashRegister.DeleteCashRegister)
 

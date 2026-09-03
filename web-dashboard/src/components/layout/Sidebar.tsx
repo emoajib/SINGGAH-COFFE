@@ -29,7 +29,7 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen }: SidebarProps) {
     const { user } = useSelector((state: RootState) => state.auth)
-    const role = user?.role || 'cashier'
+    const role = (user?.role || 'cashier').toLowerCase().trim()
 
     const { data: settings } = useSettings()
 
@@ -43,7 +43,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         { id: "expenses", label: "Pengeluaran", icon: Wallet, roles: ["owner", "manager"] },
         { id: "sales", label: "Penjualan", icon: CreditCard, roles: ["owner", "manager"] },
         { id: "reports", label: "Laporan", icon: BarChart3, roles: ["owner"] },
-        { id: "cash-registers", label: "Kas", icon: Banknote, roles: ["owner", "manager"] },
+        { id: "cash-registers", label: "Kas", icon: Banknote, roles: ["owner", "manager", "cashier"] },
         { id: "cash-book", label: "Buku Kas", icon: BookOpen, roles: ["owner", "manager", "cashier"] },
         { id: "profit-sharing", label: "Bagi Hasil", icon: Users, roles: ["owner"] },
         { id: "bep", label: "Analisis BEP", icon: TrendingUp, roles: ["owner"] },

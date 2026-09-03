@@ -160,7 +160,7 @@ func TestEndToEnd_CashFlowAndShiftSimulation(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 50000.0, totalIncomeCash)      // Penjualan Cash
+	assert.Equal(t, 250000.0, totalIncomeCash)     // Modal Awal (200.000) + Penjualan Cash (50.000)
 	assert.Equal(t, 20000.0, totalExpenseCash)     // Pengeluaran Kasir
 	assert.Equal(t, 75000.0, totalIncomeQRIS)      // Penjualan QRIS
 	assert.Equal(t, 300000.0, totalExpenseLainnya) // Pembelian Luar Owner
