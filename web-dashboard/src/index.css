@@ -112,6 +112,46 @@
     @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
 }
 
+/* Landscape mode adjustments for mobile */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+    /* Reduce padding in landscape mode */
+    .p-4 {
+        padding: 0.5rem !important;
+    }
+    .p-2 {
+        padding: 0.25rem !important;
+    }
+    .px-2 {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+    .py-1 {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+    .mb-2 {
+        margin-bottom: 0.25rem !important;
+    }
+    
+    /* Adjust font sizes for landscape */
+    .text-lg {
+        font-size: 0.875rem !important;
+        line-height: 1.25rem !important;
+    }
+    .text-sm {
+        font-size: 0.75rem !important;
+        line-height: 1rem !important;
+    }
+    
+    /* Ensure content fits in landscape */
+    .min-h-screen {
+        min-height: 100svh !important;
+    }
+    .h-screen {
+        height: 100svh !important;
+    }
+}
+
 /* Receipt & Report Print Styles */
 @media print {
     /* RESET GLOBAL LAYOUT FOR PRINT */
