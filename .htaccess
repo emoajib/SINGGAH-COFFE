@@ -25,6 +25,10 @@ RewriteRule ^api(/?)(.*)$ api-proxy.php [L,QSA]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^uploads(/.*)?$ api-proxy.php [L,QSA]
 
+# Health check — diteruskan ke backend Go
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^health$ api-proxy.php [L]
+
 # Biarkan file statis dilayani langsung
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

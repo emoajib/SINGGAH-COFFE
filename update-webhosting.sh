@@ -145,26 +145,42 @@ else
     echo "   ⚠️ No uploads backup to restore"
 fi
 
-# 7. FIX PERMISSIONS
+# 7. DEPLOY .htaccess & api-proxy.php ke web root
 echo ""
-echo "🔐 Step 7: Fixing permissions..."
+echo "🌐 Step 7: Deploying .htaccess & api-proxy.php to web root..."
+if [ -f "$PROJ_DIR/.htaccess" ]; then
+    cp "$PROJ_DIR/.htaccess" "$WEB_DIR/.htaccess"
+    echo "   ✅ .htaccess deployed to $WEB_DIR"
+else
+    echo "   ⚠️ .htaccess not found in $PROJ_DIR — skipping"
+fi
+if [ -f "$PROJ_DIR/api-proxy.php" ]; then
+    cp "$PROJ_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php"
+    echo "   ✅ api-proxy.php deployed to $WEB_DIR"
+else
+    echo "   ⚠️ api-proxy.php not found in $PROJ_DIR — skipping"
+fi
+
+# 8. FIX PERMISSIONS
+echo ""
+echo "🔐 Step 8: Fixing permissions..."
 chmod +x "$PROJ_DIR/start.sh" 2>/dev/null || true
 chmod +x "$PROJ_DIR/backend/$BACKEND_BIN" 2>/dev/null || true
 chmod +x "$PROJ_DIR/backend/main" 2>/dev/null || true
 chmod -R 755 "$PROJ_DIR/uploads" 2>/dev/null || true
 echo "   ✅ Permissions fixed"
 
-# 8. RESTART BACKEND
+# 9. RESTART BACKEND
 echo ""
-echo "🚀 Step 8: Restarting backend..."
+echo "🚀 Step 9: Restarting backend..."
 cd "$PROJ_DIR"
 setsid nohup ./start.sh > logs/backend.log 2>&1 &
 disown 2>/dev/null || true
 echo "   ✅ Backend started (PID: $!)"
 
-# 9. WAIT & HEALTH CHECK
+# 10. WAIT & HEALTH CHECK
 echo ""
-echo "🏥 Step 9: Health check..."
+echo "🏥 Step 10: Health check..."
 sleep 5
 HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health 2>/dev/null || echo "000")
 if [ "$HEALTH" = "200" ]; then
@@ -179,9 +195,9 @@ else
     echo "   cd $PROJ_DIR && ./start.sh"
 fi
 
-# 10. CLEANUP OLD BACKUPS (keep last 5)
+# 11. CLEANUP OLD BACKUPS (keep last 5)
 echo ""
-echo "🧹 Step 10: Cleaning up old backups..."
+echo "🧹 Step 11: Cleaning up old backups..."
 ls -dt "$HOME/backups"/*/ 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
 echo "   ✅ Old backups cleaned"
 
