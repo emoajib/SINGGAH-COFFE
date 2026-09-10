@@ -89,8 +89,16 @@ if [ -d "$PROJ_DIR/uploads" ] && [ ! -d "$BACKUP_DIR/uploads" ]; then
     echo "❌ ERROR: Uploads backup missing! Aborting to prevent data loss."
     BACKUP_OK=false
 fi
+# Verify database backup if database exists
+DB_URL_CHECK=$(grep DATABASE_URL "$PROJ_DIR/backend/.env" 2>/dev/null | head -1 | cut -d'=' -f2-)
+if [ -n "$DB_URL_CHECK" ]; then
+    if [ ! -f "$BACKUP_DIR/database.sql" ] || [ ! -s "$BACKUP_DIR/database.sql" ]; then
+        echo "❌ ERROR: Database backup missing or empty! Aborting to prevent data loss."
+        echo "   Backup directory: $BACKUP_DIR"
+        BACKUP_OK=false
+    fi
+fi
 if [ "$BACKUP_OK" = false ]; then
-    echo "   Backup directory: $BACKUP_DIR"
     exit 1
 fi
 echo "   ✅ Backup verified"
