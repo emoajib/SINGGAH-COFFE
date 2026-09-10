@@ -22,7 +22,11 @@ func (h *ProfitSharingHandler) Preview(c *gin.Context) {
 	end := c.Query("end")
 	outletID := getOutletID(c)
 	ratioStr := c.DefaultQuery("ratio", "50")
-	ratio, _ := strconv.ParseFloat(ratioStr, 64)
+	ratio, err := strconv.ParseFloat(ratioStr, 64)
+	if err != nil || ratio < 0 || ratio > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ratio harus antara 0 sampai 100"})
+		return
+	}
 
 	preview, err := h.usecase.Preview(start, end, outletID, ratio)
 	if err != nil {
@@ -40,7 +44,11 @@ func (h *ProfitSharingHandler) Finalize(c *gin.Context) {
 	}
 	outletID := getOutletID(c)
 	ratioStr := c.DefaultQuery("ratio", "50")
-	ratio, _ := strconv.ParseFloat(ratioStr, 64)
+	ratio, err := strconv.ParseFloat(ratioStr, 64)
+	if err != nil || ratio < 0 || ratio > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ratio harus antara 0 sampai 100"})
+		return
+	}
 
 	if err := h.usecase.Finalize(uint(id), ratio, outletID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -72,7 +80,11 @@ func (h *ProfitSharingHandler) Recalculate(c *gin.Context) {
 	}
 	outletID := getOutletID(c)
 	ratioStr := c.DefaultQuery("ratio", "50")
-	ratio, _ := strconv.ParseFloat(ratioStr, 64)
+	ratio, err := strconv.ParseFloat(ratioStr, 64)
+	if err != nil || ratio < 0 || ratio > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ratio harus antara 0 sampai 100"})
+		return
+	}
 
 	if err := h.usecase.Recalculate(uint(id), ratio, outletID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

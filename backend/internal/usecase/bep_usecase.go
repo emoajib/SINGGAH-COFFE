@@ -173,9 +173,10 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 
 	// 2. Forecast Engine (WMA + seasonal)
 	forecastEngine := &datascience.ForecastEngine{
-		DailySales: dailySales,
-		FixedCost:  totalFixedCost,
-		CMRatio:    report.CMRatio,
+		DailySales:      dailySales,
+		FixedCost:       totalFixedCost,
+		CMRatio:         report.CMRatio,
+		AvgSellingPrice: avgPrice,
 	}
 	nextPeriodDays := 30
 	forecast := forecastEngine.Forecast(nextPeriodDays)
@@ -197,10 +198,14 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 	// 4. Monte Carlo Simulation (probabilistic)
 	var mc *entity.MonteCarloResult
 	if avgPrice > avgCost && totalFixedCost > 0 {
-		stdSales := calculateStdDevFromDailySales(dailySales)
+		stdSalesRevenue := calculateStdDevFromDailySales(dailySales)
+		stdSalesUnits := 0.0
+		if avgPrice > 0 {
+			stdSalesUnits = stdSalesRevenue / avgPrice
+		}
 		monteCarlo := &datascience.MonteCarloSimulator{
 			MeanSales:     forecast.PredictedUnits,
-			StdSales:      stdSales,
+			StdSales:      stdSalesUnits,
 			MeanPrice:     avgPrice,
 			StdPrice:      avgPrice * 0.05,        // 5% price variability
 			MeanCost:      avgCost,

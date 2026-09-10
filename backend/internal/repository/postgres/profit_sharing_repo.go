@@ -123,7 +123,8 @@ func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outle
 func (r *profitSharingPeriodRepository) GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error) {
 	tx := r.db.Model(&models.Expense{}).
 		Where("date BETWEEN ? AND ?", start, end)
-	tx = scopeOutlet(tx, "expenses", outletID...)
+	ow, args := outletWhere("expenses", outletID...)
+	tx = tx.Where(ow, args...)
 	if len(excluded) > 0 {
 		tx = tx.Where("category NOT IN ?", excluded)
 	}
@@ -145,11 +146,12 @@ func (r *profitSharingPeriodRepository) GetProductSales(start, end string, outle
 			SUM(oi.quantity) as quantity,
 			AVG(oi.price) as avg_price,
 			AVG(oi.cost) as avg_cost,
-			SUM(oi.price * oi.quantity) as revenue
+			SUM(oi.price * oi.quantity) as revenue,
+			SUM(oi.cost * oi.quantity) as total_cogs
 		FROM order_items oi
 		JOIN products p ON p.id = oi.product_id
 		JOIN orders o ON o.id = oi.order_id
-		WHERE DATE(o.created_at) BETWEEN DATE(?) AND DATE(?) AND o.status = 'Completed'`+ow+`
+		WHERE o.created_at BETWEEN ? AND ? AND o.status = 'Completed'`+ow+`
 		GROUP BY p.id, p.name, p.category
 		ORDER BY revenue DESC
 	`, allArgs...).Scan(&results).Error

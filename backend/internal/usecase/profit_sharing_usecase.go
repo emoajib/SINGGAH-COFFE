@@ -23,6 +23,9 @@ import (
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 var wib = time.FixedZone("WIB", 7*60*60)
 
+// alwaysExcludedFromSharing menentukan kategori pengeluaran yang SELALU
+// dikecualikan dari perhitungan bagi hasil. Kategori ini mewakili biaya
+// operasional inti yang menjadi tanggung jawab operasional outlet.
 var alwaysExcludedFromSharing = []string{
 	"Operational", "Marketing", "Maintenance", "Misc",
 }
@@ -42,6 +45,69 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 		orderItemRepo: postgres.NewOrderItemRepository(db),
 		expenseRepo:   postgres.NewExpenseRepository(db),
 		cashBookRepo:  postgres.NewCashBookRepository(db),
+	}
+}
+
+// calcResult holds the result of a shared calculation used by Preview, Finalize, and Recalculate.
+type calcResult struct {
+	Basis        float64
+	Cogs         float64
+	Expenses     float64
+	GrossMargin  float64
+	NetProfit    float64
+	SharingBasis float64
+	KeeperAmount float64
+	OwnerAmount  float64
+	Products     []entity.ProductSalesVolume
+	PerProduct   []entity.ProductSharingDetail
+	PerProductJSON string
+}
+
+// calcFinancials computes profit-sharing amounts from raw financial data.
+// C1: rounds to nearest 250 IDR (integer).
+// C2: clamps negative sharingBasis to 0 (no one pays when there's a loss).
+func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume) calcResult {
+	grossMargin := basis - cogs
+	netProfit := grossMargin - expenses
+
+	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
+	sharingBasis := netProfit
+	if sharingBasis < 0 {
+		sharingBasis = grossMargin
+	}
+	// C2: Clamp — tidak ada yang bayar saat rugi
+	if sharingBasis < 0 {
+		sharingBasis = 0
+	}
+
+	// C1: Bulatkan ke 250 terdekat (Rupiah tidak punya pecahan kecil)
+	keeperAmount := math.Round(sharingBasis*ratio/100/250) * 250
+	ownerAmount := sharingBasis - keeperAmount
+
+	perProduct := make([]entity.ProductSharingDetail, len(products))
+	for i, p := range products {
+		perProduct[i] = entity.ProductSharingDetail{
+			ProductID:   p.ProductID,
+			ProductName: p.Name,
+			Revenue:     p.Revenue,
+			Cogs:        p.TotalCogs,
+			GrossMargin: p.Revenue - p.TotalCogs,
+		}
+	}
+	perProductJSON, _ := json.Marshal(perProduct)
+
+	return calcResult{
+		Basis:          basis,
+		Cogs:           cogs,
+		Expenses:       expenses,
+		GrossMargin:    grossMargin,
+		NetProfit:      netProfit,
+		SharingBasis:   sharingBasis,
+		KeeperAmount:   keeperAmount,
+		OwnerAmount:    ownerAmount,
+		Products:       products,
+		PerProduct:     perProduct,
+		PerProductJSON: string(perProductJSON),
 	}
 }
 
@@ -75,49 +141,37 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 	if err != nil {
 		return nil, err
 	}
-	grossMargin := basis - cogs
-	netProfit := grossMargin - expenses // actual value (can be negative for display)
 
-	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
-	sharingBasis := netProfit
-	if sharingBasis < 0 {
-		sharingBasis = grossMargin
-	}
-	keeperAmount := math.Round(sharingBasis*ratio/100*100) / 100
-	ownerAmount := sharingBasis - keeperAmount
-
-	products, _ := uc.orderItemRepo.GetProductSalesVolume(startNorm, endNorm, outletID)
-	perProduct := make([]entity.ProductSharingDetail, len(products))
-	for i, p := range products {
-		productCogs := p.AvgCost * float64(p.Quantity)
-		perProduct[i] = entity.ProductSharingDetail{
-			ProductID:   p.ProductID,
-			ProductName: p.Name,
-			Revenue:     p.Revenue,
-			Cogs:        productCogs,
-			GrossMargin: p.Revenue - productCogs,
-		}
+	// M2: Handle error dari GetProductSalesVolume
+	products, err := uc.orderItemRepo.GetProductSalesVolume(startNorm, endNorm, outletID)
+	if err != nil {
+		products = nil
 	}
 
-	perProductJSON, _ := json.Marshal(perProduct)
+	result := calcFinancials(basis, cogs, expenses, ratio, products)
 
 	period := entity.ProfitSharingPeriod{
 		OutletID:      outletID,
 		PeriodStart:   startDate, // disimpan ke DB; GORM akan gunakan loc=Local dari DSN
 		PeriodEnd:     endDate,
-		BasisAmount:   basis,
-		TotalCogs:     cogs,
-		TotalExpenses: expenses,
-		NetProfit:     netProfit,
+		BasisAmount:   result.Basis,
+		TotalCogs:     result.Cogs,
+		TotalExpenses: result.Expenses,
+		NetProfit:     result.NetProfit,
 		Ratio:         ratio,
-		KeeperAmount:  keeperAmount,
-		OwnerAmount:   ownerAmount,
+		KeeperAmount:  result.KeeperAmount,
+		OwnerAmount:   result.OwnerAmount,
 		Status:        "draft",
-		PerProduct:    string(perProductJSON),
+		PerProduct:    result.PerProductJSON,
 		TaxNote:       "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)",
 	}
 
-	overlapping, _ := uc.periodRepo.FindOverlappingPeriod(outletID, startDate, endDate, 0)
+	// M3: Handle error dari FindOverlappingPeriod
+	overlapping, err := uc.periodRepo.FindOverlappingPeriod(outletID, startDate, endDate, 0)
+	if err != nil && overlapping == nil {
+		// DB error — bukan "record not found", return error
+		return nil, err
+	}
 
 	if overlapping != nil {
 		period.ID = overlapping.ID
@@ -133,19 +187,36 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 	return &entity.ProfitSharingPreview{
 		Period: period,
 		Calculation: entity.Calculation{
-			BasisAmount:   basis,
-			TotalCogs:     cogs,
-			GrossProfit:   grossMargin,
-			TotalExpenses: expenses,
-			NetProfit:     netProfit,
+			BasisAmount:   result.Basis,
+			TotalCogs:     result.Cogs,
+			GrossProfit:   result.GrossMargin,
+			TotalExpenses: result.Expenses,
+			NetProfit:     result.NetProfit,
 			Ratio:         ratio,
-			KeeperShare:   keeperAmount,
-			OwnerShare:    ownerAmount,
-			PerProduct:    perProduct,
+			KeeperShare:   result.KeeperAmount,
+			OwnerShare:    result.OwnerAmount,
+			PerProduct:    result.PerProduct,
 			Status:        "draft",
 			Note:          "Pendapatan kotor sebelum pajak & biaya layanan",
 		},
 	}, nil
+}
+
+// M1: fetchFinancialsWithTx runs the 3 financial queries inside a transaction for read consistency.
+func (uc *ProfitSharingUsecase) fetchFinancialsWithTx(tx *gorm.DB, start, end string, outletID uint) (basis, cogs, expenses float64, err error) {
+	txPeriodRepo := postgres.NewProfitSharingPeriodRepository(tx)
+	txOrderItemRepo := postgres.NewOrderItemRepository(tx)
+
+	basis, err = txPeriodRepo.GetTotalRevenue(start, end, outletID)
+	if err != nil {
+		return
+	}
+	cogs, err = txOrderItemRepo.GetTotalCogsRange(start, end, outletID)
+	if err != nil {
+		return
+	}
+	expenses, err = txPeriodRepo.GetTotalExpensesExcluding(start, end, alwaysExcludedFromSharing, outletID)
+	return
 }
 
 func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uint) error {
@@ -171,71 +242,35 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	start := formatForDB(period.PeriodStart)
 	end := formatForDB(period.PeriodEnd)
 
-	basis, err := uc.periodRepo.GetTotalRevenue(start, end, outletID...)
+	// M1: Jalankan query keuangan di dalam transaction untuk konsistensi baca
+	basis, cogs, expenses, err := uc.fetchFinancialsWithTx(tx, start, end, outletID[0])
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
-	cogs, err := uc.orderItemRepo.GetTotalCogsRange(start, end, outletID...)
+
+	// M2: Handle error dari GetProductSalesVolume
+	products, err := uc.orderItemRepo.GetProductSalesVolume(start, end, outletID[0])
 	if err != nil {
-		tx.Rollback()
-		return err
+		products = nil
 	}
-	expenses, err := uc.periodRepo.GetTotalExpensesExcluding(start, end, alwaysExcludedFromSharing, outletID...)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	grossMargin := basis - cogs
-	netProfit := grossMargin - expenses // actual value (can be negative for display)
 
-	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
-	sharingBasis := netProfit
-	if sharingBasis < 0 {
-		sharingBasis = grossMargin
-	}
-	keeperAmount := math.Round(sharingBasis*ratio/100*100) / 100
-	ownerAmount := sharingBasis - keeperAmount
-
-	products, _ := uc.orderItemRepo.GetProductSalesVolume(start, end, outletID...)
-	perProduct := make([]entity.ProductSharingDetail, len(products))
-	for i, p := range products {
-		productCogs := p.AvgCost * float64(p.Quantity)
-		perProduct[i] = entity.ProductSharingDetail{
-			ProductID:   p.ProductID,
-			ProductName: p.Name,
-			Revenue:     p.Revenue,
-			Cogs:        productCogs,
-			GrossMargin: p.Revenue - productCogs,
-		}
-	}
-	perProductJSON, _ := json.Marshal(perProduct)
-
-	period.BasisAmount = basis
-	period.TotalCogs = cogs
-	period.TotalExpenses = expenses
-	period.NetProfit = netProfit
-	period.Ratio = ratio
-	period.KeeperAmount = keeperAmount
-	period.OwnerAmount = ownerAmount
-	period.Status = "finalized"
-	period.PerProduct = string(perProductJSON)
-	period.TaxNote = "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)"
+	result := calcFinancials(basis, cogs, expenses, ratio, products)
 
 	if err := tx.Model(&models.ProfitSharingPeriod{}).Where("id = ?", period.ID).Updates(map[string]interface{}{
 		"period_start":   period.PeriodStart,
 		"period_end":     period.PeriodEnd,
-		"basis_amount":   period.BasisAmount,
-		"total_expenses": period.TotalExpenses,
-		"total_cogs":     period.TotalCogs,
-		"net_profit":     period.NetProfit,
-		"ratio":          period.Ratio,
-		"keeper_amount":  period.KeeperAmount,
-		"owner_amount":   period.OwnerAmount,
-		"status":         period.Status,
-		"per_product":    period.PerProduct,
+		"basis_amount":   result.Basis,
+		"total_expenses": result.Expenses,
+		"total_cogs":     result.Cogs,
+		"net_profit":     result.NetProfit,
+		"ratio":          ratio,
+		"keeper_amount":  result.KeeperAmount,
+		"owner_amount":   result.OwnerAmount,
+		"status":         "finalized",
+		"per_product":    result.PerProductJSON,
 		"payment_note":   period.PaymentNote,
-		"tax_note":       period.TaxNote,
+		"tax_note":       "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)",
 	}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -243,30 +278,45 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	return tx.Commit().Error
 }
 
+// M6: MarkAsPaid dijalankan dalam satu transaction untuk atomicitas.
 func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 	if len(outletID) == 0 {
 		return domainErrors.NewInvalidInputError("outlet ID required")
 	}
+
+	tx := uc.db.Begin()
+
 	existing, err := uc.periodRepo.FindByID(id)
 	if err != nil {
+		tx.Rollback()
 		return domainErrors.NewNotFoundError("periode")
 	}
 	if existing.OutletID != outletID[0] {
+		tx.Rollback()
 		return domainErrors.NewUnauthorizedError("tidak punya akses ke periode ini")
 	}
 	if existing.Status != "finalized" {
+		tx.Rollback()
 		return domainErrors.NewInvalidInputError("hanya periode finalized yang bisa ditandai sebagai dibayar")
 	}
+
 	ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
 	exists, _ := uc.cashBookRepo.ExistsByReference(ref, outletID...)
 	if exists {
+		tx.Rollback()
 		return nil
 	}
+
 	existing.Status = "paid"
-	if err := uc.periodRepo.Update(existing); err != nil {
+	if err := tx.Model(&models.ProfitSharingPeriod{}).Where("id = ?", existing.ID).Updates(map[string]interface{}{
+		"status": "paid",
+	}).Error; err != nil {
+		tx.Rollback()
 		return err
 	}
-	err = uc.cashBookRepo.Create(&entity.CashBook{
+
+	// Cash book entry dibuat dengan tanggal pembayaran, bukan tanggal periode
+	if err := tx.Create(&models.CashBook{
 		OutletID:    outletID[0],
 		Date:        time.Now(),
 		Method:      "Lainnya",
@@ -274,79 +324,76 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 		Amount:      existing.KeeperAmount,
 		Description: fmt.Sprintf("Bagi hasil periode %s - %s", existing.PeriodStart.Format("02 Jan 2006"), existing.PeriodEnd.Format("02 Jan 2006")),
 		Reference:   ref,
-	})
-	return err
+	}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
+// M5: Recalculate dijalankan dalam transaction untuk atomicitas.
 func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...uint) error {
 	if len(outletID) == 0 {
 		return domainErrors.NewInvalidInputError("outlet ID required")
 	}
+
+	tx := uc.db.Begin()
+
 	existing, err := uc.periodRepo.FindByID(id)
 	if err != nil {
+		tx.Rollback()
 		return domainErrors.NewNotFoundError("periode")
 	}
 	if existing.OutletID != outletID[0] {
+		tx.Rollback()
 		return domainErrors.NewUnauthorizedError("tidak punya akses ke periode ini")
 	}
 
 	// Reverse cashbook entry jika periode sudah dibayar
 	if existing.Status == "paid" {
 		ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
-		uc.cashBookRepo.DeleteByReference(ref, outletID...)
+		if _, err := uc.cashBookRepo.DeleteByReference(ref, outletID...); err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
+
 	// Gunakan formatForDB (UTC) agar BETWEEN query konsisten dengan Finalize.
 	start := formatForDB(existing.PeriodStart)
 	end := formatForDB(existing.PeriodEnd)
 
-	basis, err := uc.periodRepo.GetTotalRevenue(start, end, outletID...)
+	// M1: Jalankan query keuangan di dalam transaction
+	basis, cogs, expenses, err := uc.fetchFinancialsWithTx(tx, start, end, outletID[0])
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
-	cogs, err := uc.orderItemRepo.GetTotalCogsRange(start, end, outletID...)
+
+	// M2: Handle error dari GetProductSalesVolume
+	products, err := uc.orderItemRepo.GetProductSalesVolume(start, end, outletID[0])
 	if err != nil {
+		products = nil
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products)
+
+	if err := tx.Model(&models.ProfitSharingPeriod{}).Where("id = ?", existing.ID).Updates(map[string]interface{}{
+		"basis_amount":   result.Basis,
+		"total_cogs":     result.Cogs,
+		"total_expenses": result.Expenses,
+		"net_profit":     result.NetProfit,
+		"ratio":          ratio,
+		"keeper_amount":  result.KeeperAmount,
+		"owner_amount":   result.OwnerAmount,
+		"status":         "draft",
+		"per_product":    result.PerProductJSON,
+	}).Error; err != nil {
+		tx.Rollback()
 		return err
 	}
-	expenses, err := uc.periodRepo.GetTotalExpensesExcluding(start, end, alwaysExcludedFromSharing, outletID...)
-	if err != nil {
-		return err
-	}
-	grossMargin := basis - cogs
-	netProfit := grossMargin - expenses // actual value (can be negative for display)
 
-	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
-	sharingBasis := netProfit
-	if sharingBasis < 0 {
-		sharingBasis = grossMargin
-	}
-	keeperAmount := math.Round(sharingBasis*ratio/100*100) / 100
-	ownerAmount := sharingBasis - keeperAmount
-
-	products, _ := uc.orderItemRepo.GetProductSalesVolume(start, end, outletID...)
-	perProduct := make([]entity.ProductSharingDetail, len(products))
-	for i, p := range products {
-		productCogs := p.AvgCost * float64(p.Quantity)
-		perProduct[i] = entity.ProductSharingDetail{
-			ProductID:   p.ProductID,
-			ProductName: p.Name,
-			Revenue:     p.Revenue,
-			Cogs:        productCogs,
-			GrossMargin: p.Revenue - productCogs,
-		}
-	}
-	perProductJSON, _ := json.Marshal(perProduct)
-
-	existing.BasisAmount = basis
-	existing.TotalCogs = cogs
-	existing.TotalExpenses = expenses
-	existing.NetProfit = netProfit
-	existing.Ratio = ratio
-	existing.KeeperAmount = keeperAmount
-	existing.OwnerAmount = ownerAmount
-	existing.Status = "draft"
-	existing.PerProduct = string(perProductJSON)
-
-	return uc.periodRepo.Update(existing)
+	return tx.Commit().Error
 }
 
 func (uc *ProfitSharingUsecase) Delete(id uint, outletID ...uint) error {
@@ -375,6 +422,7 @@ func (uc *ProfitSharingUsecase) GetAll(outletID ...uint) ([]entity.ProfitSharing
 
 // parseDatePS mem-parse string datetime dari frontend dengan toleransi berbagai format.
 // Menangani kasus URL decode di mana karakter '+' pada timezone offset berubah menjadi spasi ' '.
+// H1: Date-only strings (e.g. "2026-09-10") diinterpretasi sebagai akhir hari (23:59:59 WIB).
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func parseDatePS(s string) time.Time {
 	s = strings.TrimSpace(s)
@@ -414,7 +462,12 @@ func parseDatePS(s string) time.Time {
 	}
 	for _, f := range formatsNoZone {
 		if t, err := time.Parse(f, s); err == nil {
-			return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, wib)
+			result := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, wib)
+			// H1: Date-only → set ke 23:59:59 WIB (akhir hari)
+			if f == "2006-01-02" && result.Hour() == 0 && result.Minute() == 0 && result.Second() == 0 {
+				result = time.Date(result.Year(), result.Month(), result.Day(), 23, 59, 59, 0, wib)
+			}
+			return result
 		}
 	}
 

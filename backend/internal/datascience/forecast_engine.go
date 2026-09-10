@@ -17,9 +17,10 @@ import (
 
 // ForecastEngine performs WMA + seasonal sales forecasting
 type ForecastEngine struct {
-	DailySales []entity.DailySales
-	FixedCost  float64
-	CMRatio    float64
+	DailySales      []entity.DailySales
+	FixedCost       float64
+	CMRatio         float64
+	AvgSellingPrice float64
 }
 
 // Forecast generates a WMA-based sales forecast for the next period
@@ -68,7 +69,7 @@ func (e *ForecastEngine) Forecast(nextPeriodDays int) *entity.BEPForecast {
 
 	return &entity.BEPForecast{
 		PredictedRevenue:    math.Ceil(predictedRevenue),
-		PredictedUnits:      math.Ceil(predictedRevenue / e.CMRatio),
+		PredictedUnits:      math.Ceil(predictedRevenue / e.AvgSellingPrice),
 		ConfidenceLower:     math.Ceil(predictedRevenue - ci),
 		ConfidenceUpper:     math.Ceil(predictedRevenue + ci),
 		ProbabilityAboveBEP: math.Round(probAboveBEP*100) / 100,

@@ -62,6 +62,7 @@ type ProductSalesVolume struct {
 	AvgPrice  float64 `json:"avg_price"`
 	AvgCost   float64 `json:"avg_cost"`
 	Revenue   float64 `json:"revenue"`
+	TotalCogs float64 `json:"total_cogs"`
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager

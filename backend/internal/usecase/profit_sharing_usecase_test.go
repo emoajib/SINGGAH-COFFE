@@ -36,7 +36,7 @@ func TestParseDatePS(t *testing.T) {
 		},
 		{
 			input:    "2026-08-23",
-			expected: "2026-08-23 00:00:00",
+			expected: "2026-08-23 23:59:59", // H1: date-only → end of day
 		},
 	}
 

@@ -302,9 +302,14 @@ export default function ProfitSharing() {
                 <div><span className="text-sm text-gray-500">Total Pengeluaran (non-bagi hasil)</span><p className="font-medium">{formatNumber(preview.calculation.total_expenses)}</p></div>
                 <div className="bg-gray-50 p-3 rounded-lg"><span className="text-sm text-gray-600">Laba Bersih</span><p className="font-bold text-lg">{formatNumber(preview.calculation.net_profit)}</p></div>
                 <div></div>
-                {preview.calculation.net_profit < 0 && (
+                {preview.calculation.net_profit < 0 && preview.calculation.gross_profit >= 0 && (
                   <div className="col-span-2 bg-yellow-50 border border-yellow-200 p-2 rounded text-xs text-yellow-700">
                     Laba bersih negatif — pembagian dihitung dari Laba Kotor ({formatNumber(preview.calculation.gross_profit)})
+                  </div>
+                )}
+                {preview.calculation.gross_profit < 0 && (
+                  <div className="col-span-2 bg-red-50 border border-red-200 p-2 rounded text-xs text-red-700">
+                    Laba kotor negatif — tidak ada bagi hasil bulan ini
                   </div>
                 )}
                 <div className="bg-green-50 p-3 rounded-lg"><span className="text-sm text-green-600">Bagian Keeper ({preview.calculation.ratio}%)</span><p className="font-bold text-xl text-green-700">{formatNumber(preview.calculation.keeper_share)}</p></div>
