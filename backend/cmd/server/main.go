@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -134,6 +135,21 @@ func main() {
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
 		staticFile := *staticDir + path
+
+		// For manifest.webinject version-bust the PWA icon URL so the browser
+		// always fetches the latest logo after the owner uploads a new one.
+		if strings.HasSuffix(path, "/manifest.webmanifest") || path == "manifest.webmanifest" {
+			if data, err := os.ReadFile(staticFile); err == nil {
+				iconPath := filepath.Join("uploads", "logo", "pwa-icon.png")
+				if info, err := os.Stat(iconPath); err == nil {
+					v := fmt.Sprintf("%d", info.ModTime().Unix())
+					data = []byte(strings.ReplaceAll(string(data), "/uploads/logo/pwa-icon.png", "/uploads/logo/pwa-icon.png?v="+v))
+				}
+				c.Data(http.StatusOK, "application/manifest+json", data)
+				return
+			}
+		}
+
 		if info, err := os.Stat(staticFile); err == nil && !info.IsDir() {
 			c.File(staticFile)
 			return
