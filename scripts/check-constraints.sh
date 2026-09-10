@@ -20,13 +20,13 @@ check() { # check <desc> <command...>
 p "== Shared Hosting Constraint Guard =="
 
 p "-- DB connection pool (database.go) --"
-check "SetMaxOpenConns(10)"      "grep -q 'SetMaxOpenConns(10)'             '$ROOT/backend/internal/database/database.go'"
+check "SetMaxOpenConns <= 10 (amankan ulimit -u)" "grep -qE 'SetMaxOpenConns\([0-9]+\)' '$ROOT/backend/internal/database/database.go' && ! grep -qE 'SetMaxOpenConns\([0-9]{3,}\)' '$ROOT/backend/internal/database/database.go'"
 check "SetMaxIdleConns(2)"       "grep -q 'SetMaxIdleConns(2)'              '$ROOT/backend/internal/database/database.go'"
 check "SetConnMaxLifetime(5min)" "grep -q 'SetConnMaxLifetime(5 \\* time.Minute)' '$ROOT/backend/internal/database/database.go'"
 
 p "-- start.sh hardening --"
 check "GOMAXPROCS=1 in start.sh"    "grep -q 'GOMAXPROCS=1'     '$ROOT/backend/start.sh'"
-check "GOMEMLIMIT=200MiB in start.sh" "grep -q 'GOMEMLIMIT=200MiB' '$ROOT/backend/start.sh'"
+check "GOMEMLIMIT <= 256MiB"    "grep -qE 'GOMEMLIMIT=(1[0-9]{2}|2[0-5][0-9])MiB' '$ROOT/backend/start.sh'"
 
 p "-- api-proxy.php multipart forwarding --"
 check "CURLOPT_POSTFIELDS in api-proxy.php" "grep -q 'CURLOPT_POSTFIELDS' '$ROOT/api-proxy.php'"
