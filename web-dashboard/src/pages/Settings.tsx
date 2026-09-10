@@ -41,6 +41,8 @@ export default function Settings() {
         notification_email: user?.email || "",
         outlet_description: "",
         outlet_logo_url: "",
+        pwa_background_color: "#4B3621",
+        pwa_theme_color: "#F5F0E6",
         sop_manager: "",
         sop_cashier: "",
         printer_ip: "",

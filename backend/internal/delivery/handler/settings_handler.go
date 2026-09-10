@@ -31,6 +31,17 @@ func NewSettingsHandler(settingsUsecase *usecase.SettingsUsecase) *SettingsHandl
 	return &SettingsHandler{settingsUsecase: settingsUsecase}
 }
 
+// GetBranding returns public branding info (logo URL, outlet name) for the login page.
+// No auth required — this is a public endpoint.
+func (h *SettingsHandler) GetBranding(c *gin.Context) {
+	logoURL := h.getSettingValue("outlet_logo_url")
+	outletName := h.getSettingValue("outlet_name")
+	c.JSON(http.StatusOK, gin.H{
+		"logo_url":    logoURL,
+		"outlet_name": outletName,
+	})
+}
+
 func (h *SettingsHandler) GetSettings(c *gin.Context) {
 	group := c.Query("group")
 	settings, err := h.settingsUsecase.GetAll(group)

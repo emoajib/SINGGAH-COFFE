@@ -46,6 +46,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 		// Public Routes
 		api.POST("/auth/login", middleware.LoginRateLimiter(), h.Auth.Login)
 		api.POST("/webhooks/xendit", middleware.WebhookRateLimiter(), h.Webhook.HandleXenditWebhook)
+		api.GET("/branding", h.Settings.GetBranding)
 
 	// Protected Routes
 	protected := api.Group("/")

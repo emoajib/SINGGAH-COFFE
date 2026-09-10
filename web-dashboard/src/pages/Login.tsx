@@ -2,15 +2,22 @@ import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../components/ui/card"
 import { Coffee, Loader2, Eye, EyeOff } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useLogin } from "../hooks/useAuth"
+import { getImageUrl } from "../lib/utils"
+import api from "../lib/api"
 
 export default function Login() {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [showPassword, setShowPassword] = useState(false)
+    const [branding, setBranding] = useState<{ logo_url: string; outlet_name: string }>({ logo_url: "", outlet_name: "" })
 
     const loginMutation = useLogin()
+
+    useEffect(() => {
+        api.get("/branding").then((r) => setBranding(r.data)).catch(() => {})
+    }, [])
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault()
@@ -22,14 +29,21 @@ export default function Login() {
         ? (loginMutation.error as any)?.response?.data?.error || loginMutation.error.message
         : null
 
+    const logoUrl = getImageUrl(branding.logo_url)
+    const outletName = branding.outlet_name || "Singgah Coffee"
+
     return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1 items-center text-center">
-                    <div className="bg-primary/10 p-3 rounded-full mb-2">
-                        <Coffee className="w-8 h-8 text-primary" />
-                    </div>
-                    <CardTitle className="text-2xl font-bold text-primary">Singgah Coffee</CardTitle>
+                    {logoUrl ? (
+                        <img src={logoUrl} alt={outletName} className="w-16 h-16 rounded-full object-cover mb-2" />
+                    ) : (
+                        <div className="bg-primary/10 p-3 rounded-full mb-2">
+                            <Coffee className="w-8 h-8 text-primary" />
+                        </div>
+                    )}
+                    <CardTitle className="text-2xl font-bold text-primary">{outletName}</CardTitle>
                     <CardDescription>Masukkan kredensial Anda untuk mengakses dashboard</CardDescription>
                 </CardHeader>
                 <form onSubmit={handleLogin}>
