@@ -99,6 +99,21 @@ func Connect(cfg config.Config) *gorm.DB {
 		log.Println("Seeded default settings")
 	}
 
+	// Ensure PWA color settings exist for older databases
+	pwaKeys := []string{"pwa_background_color", "pwa_theme_color"}
+	pwaDefaults := map[string]string{
+		"pwa_background_color": "#4B3621",
+		"pwa_theme_color":      "#F5F0E6",
+	}
+	for _, key := range pwaKeys {
+		var count int64
+		db.Model(&models.Setting{}).Where("`key` = ?", key).Count(&count)
+		if count == 0 {
+			db.Create(&models.Setting{Key: key, Value: pwaDefaults[key], SettingGroup: "appearance"})
+			log.Printf("Seeded missing setting: %s", key)
+		}
+	}
+
 	// Seed Default Outlet if not exists
 	var outletCount int64
 	db.Model(&models.Outlet{}).Count(&outletCount)
