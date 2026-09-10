@@ -95,6 +95,46 @@ export function ProfileSettings({
                     </div>
                 </div>
                 <div className="space-y-2">
+                    <label className="text-sm font-medium">Warna Aplikasi (PWA)</label>
+                    <p className="text-[10px] text-gray-500 italic">Warna background ikon aplikasi dan theme color browser. Setelah mengubah, reinstall PWA di smartphone untuk melihat perubahan.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-500">Background Ikon</label>
+                            <div className="flex gap-2 items-center">
+                                <input
+                                    type="color"
+                                    className="w-10 h-10 rounded border cursor-pointer"
+                                    value={settings.pwa_background_color || "#4B3621"}
+                                    onChange={(e) => handleInputChange("pwa_background_color", e.target.value)}
+                                />
+                                <Input
+                                    value={settings.pwa_background_color || "#4B3621"}
+                                    onChange={(e) => handleInputChange("pwa_background_color", e.target.value)}
+                                    placeholder="#4B3621"
+                                    className="font-mono text-xs"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-500">Theme Color Browser</label>
+                            <div className="flex gap-2 items-center">
+                                <input
+                                    type="color"
+                                    className="w-10 h-10 rounded border cursor-pointer"
+                                    value={settings.pwa_theme_color || "#F5F0E6"}
+                                    onChange={(e) => handleInputChange("pwa_theme_color", e.target.value)}
+                                />
+                                <Input
+                                    value={settings.pwa_theme_color || "#F5F0E6"}
+                                    onChange={(e) => handleInputChange("pwa_theme_color", e.target.value)}
+                                    placeholder="#F5F0E6"
+                                    className="font-mono text-xs"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="space-y-2">
                     <label className="text-sm font-medium">Deskripsi Bisnis</label>
                     <textarea
                         className="w-full min-h-[100px] border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"

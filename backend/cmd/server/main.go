@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"encoding/json"
 	"singgah-pos-backend/internal/config"
 	"singgah-pos-backend/internal/database"
 	"singgah-pos-backend/internal/delivery/handler"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -136,8 +138,8 @@ func main() {
 		path := c.Request.URL.Path
 		staticFile := *staticDir + path
 
-		// For manifest.webinject version-bust the PWA icon URL so the browser
-		// always fetches the latest logo after the owner uploads a new one.
+		// For manifest.webmanifest: inject dynamic PWA colors from settings
+		// and version-bust the icon URL so the browser always fetches the latest logo.
 		if strings.HasSuffix(path, "/manifest.webmanifest") || path == "manifest.webmanifest" {
 			if data, err := os.ReadFile(staticFile); err == nil {
 				iconPath := filepath.Join("uploads", "logo", "pwa-icon.png")
@@ -145,6 +147,22 @@ func main() {
 					v := fmt.Sprintf("%d", info.ModTime().Unix())
 					data = []byte(strings.ReplaceAll(string(data), "/uploads/logo/pwa-icon.png", "/uploads/logo/pwa-icon.png?v="+v))
 				}
+
+				// Inject owner's PWA colors from settings
+				var manifest map[string]interface{}
+				if json.Unmarshal(data, &manifest) == nil {
+					if bgColor := getSettingValue(db, "pwa_background_color"); bgColor != "" {
+						manifest["background_color"] = bgColor
+					}
+					if themeColor := getSettingValue(db, "pwa_theme_color"); themeColor != "" {
+						manifest["theme_color"] = themeColor
+					}
+					if data, err = json.Marshal(manifest); err == nil {
+						c.Data(http.StatusOK, "application/manifest+json", data)
+						return
+					}
+				}
+
 				c.Data(http.StatusOK, "application/manifest+json", data)
 				return
 			}
@@ -188,4 +206,14 @@ func main() {
 	}
 
 	log.Println("Server exited gracefully")
+}
+
+// getSettingValue reads a single setting value by key from the database.
+// Returns empty string on error so callers can fall back to defaults.
+func getSettingValue(db *gorm.DB, key string) string {
+	var value string
+	if err := db.Model(&struct{}{}).Table("settings").Select("value").Where("`key` = ?", key).Scan(&value).Error; err != nil {
+		return ""
+	}
+	return value
 }

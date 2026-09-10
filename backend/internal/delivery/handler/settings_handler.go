@@ -153,7 +153,11 @@ func (h *SettingsHandler) UploadLogo(c *gin.Context) {
 
 	// Generate the Android PWA install icon (512x512 opaque, letterboxed)
 	// from the uploaded logo so the home-screen icon matches the owner's brand.
-	if err := generatePWAIconFile(savePath, "uploads/logo/pwa-icon.png"); err != nil {
+	bgHex := h.getSettingValue("pwa_background_color")
+	if bgHex == "" {
+		bgHex = "#4B3621"
+	}
+	if err := generatePWAIconFile(savePath, "uploads/logo/pwa-icon.png", bgHex); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process logo"})
 		return
 	}
@@ -172,10 +176,35 @@ func (h *SettingsHandler) UploadLogo(c *gin.Context) {
 // pwaIconSize is the required PWA icon dimension (Android maskable).
 const pwaIconSize = 512
 
+// getSettingValue reads a single setting value by key.
+func (h *SettingsHandler) getSettingValue(key string) string {
+	s, err := h.settingsUsecase.GetAll("")
+	if err != nil {
+		return ""
+	}
+	for _, v := range s {
+		if v.Key == key {
+			return v.Value
+		}
+	}
+	return ""
+}
+
+// hexToRGBA converts "#RRGGBB" to color.RGBA.
+func hexToRGBA(hex string) color.RGBA {
+	hex = strings.TrimPrefix(hex, "#")
+	if len(hex) != 6 {
+		return color.RGBA{0x4B, 0x36, 0x21, 0xFF}
+	}
+	var r, g, b uint8
+	fmt.Sscanf(hex, "%02x%02x%02x", &r, &g, &b)
+	return color.RGBA{r, g, b, 0xFF}
+}
+
 // generatePWAIconFile decodes an uploaded image (JPEG/PNG/GIF/WebP) and writes a
-// 512x512 opaque, letterboxed PNG suitable for the PWA manifest. Decode errors
-// surface as a non-nil error so the caller can return 400 instead of 500.
-func generatePWAIconFile(srcPath, destPath string) error {
+// 512x512 opaque, letterboxed PNG suitable for the PWA manifest. bgHex is the
+// owner's chosen background color ("#RRGGBB").
+func generatePWAIconFile(srcPath, destPath, bgHex string) error {
 	f, err := os.Open(srcPath)
 	if err != nil {
 		return err
@@ -205,7 +234,7 @@ func generatePWAIconFile(srcPath, destPath string) error {
 
 	// Opaque brand-coloured canvas (required for maskable purpose).
 	canvas := image.NewRGBA(image.Rect(0, 0, pwaIconSize, pwaIconSize))
-	bg := color.RGBA{0x4B, 0x36, 0x21, 0xFF}
+	bg := hexToRGBA(bgHex)
 	draw.Draw(canvas, canvas.Bounds(), &image.Uniform{bg}, image.Point{}, draw.Src)
 
 	// Contain into the 80% safe-zone so nothing is cropped (wide logos stay whole).

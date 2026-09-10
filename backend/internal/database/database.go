@@ -92,6 +92,8 @@ func Connect(cfg config.Config) *gorm.DB {
 			{Key: "printer_bluetooth_address", Value: "", SettingGroup: "printer"},
 			{Key: "printer_width", Value: "80mm", SettingGroup: "printer"},
 			{Key: "auto_print", Value: "true", SettingGroup: "printer"},
+			{Key: "pwa_background_color", Value: "#4B3621", SettingGroup: "appearance"},
+			{Key: "pwa_theme_color", Value: "#F5F0E6", SettingGroup: "appearance"},
 		}
 		db.Create(&defaultSettings)
 		log.Println("Seeded default settings")
