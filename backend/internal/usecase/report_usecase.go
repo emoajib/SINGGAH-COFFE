@@ -21,7 +21,30 @@ var (
 	dashboardCache map[uint]*cacheEntry
 	dashboardMu    sync.RWMutex
 	cacheTTL       = 30 * time.Second
+	cacheCleanupOnce sync.Once
 )
+
+// Shared-hosting hardening: background goroutine yang membersihkan cache
+// expired secara proaktif. Tanpa ini, dashboardCache tumbuh tanpa batas
+// dan menyebabkan OOM kill di shared hosting dengan GOMEMLIMIT=256MiB.
+func startDashboardCacheCleanup() {
+	cacheCleanupOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(60 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				dashboardMu.Lock()
+				now := time.Now()
+				for k, v := range dashboardCache {
+					if now.Sub(v.timestamp) > cacheTTL*2 {
+						delete(dashboardCache, k)
+					}
+				}
+				dashboardMu.Unlock()
+			}
+		}()
+	})
+}
 
 type ReportUsecase struct {
 	orderRepo     repository.OrderRepository
@@ -32,6 +55,7 @@ type ReportUsecase struct {
 }
 
 func NewReportUsecase(db *gorm.DB) *ReportUsecase {
+	startDashboardCacheCleanup()
 	return &ReportUsecase{
 		orderRepo:     postgres.NewOrderRepository(db),
 		orderItemRepo: postgres.NewOrderItemRepository(db),

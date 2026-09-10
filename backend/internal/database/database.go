@@ -22,11 +22,12 @@ func Connect(cfg config.Config) *gorm.DB {
 	// yang dibuat go-sql-driver/mysql (1 thread watcher per koneksi) tidak
 	// melampaui ulimit -u server. Tanpa ini aplikasi rawan crash
 	// "fatal error: newosproc" saat koneksi DB menumpuk (mis. export PDF).
+	// MaxOpenConns=5 → max 5 watcher threads (aman untuk ulimit -u rendah).
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Fatalf("Failed to get sql.DB: %v", err)
 	}
-	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxOpenConns(5)
 	sqlDB.SetMaxIdleConns(2)
 	sqlDB.SetConnMaxIdleTime(60 * time.Second)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)

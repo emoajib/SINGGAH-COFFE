@@ -35,11 +35,12 @@ export PORT="${PORT:-8080}"
 : "${DATABASE_URL:?DATABASE_URL harus di-set di backend/.env}"
 : "${JWT_SECRET:?JWT_SECRET harus di-set di backend/.env}"
 export NODE_ENV="${NODE_ENV:-production}"
+export GIN_MODE="${GIN_MODE:-release}"
 
 # Shared-hosting hardening: cap OS threads & memory to avoid the
 # "fatal error: newosproc" crash under low ulimit -u (shared hosting).
 export GOMAXPROCS=1
-export GOMEMLIMIT=200MiB
+export GOMEMLIMIT=256MiB
 
 # Vetted by AI - Manual Review Required by Senior Engineer/Manager
 cd "$SCRIPT_DIR"
@@ -57,23 +58,31 @@ fi
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Singgah Backend ($BIN_PATH)..."
 
 # Watchdog restart loop (shared hosting recovery)
+# Shared-hosting hardening: sebelum start, bunuh proses lama yang menahan
+# port 8080 untuk mencegah "listen tcp :8080: bind: address already in use".
 CHILD_PID=""
 cleanup() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Terminating Singgah Backend (PID: $CHILD_PID)..."
   [ -n "$CHILD_PID" ] && kill -9 "$CHILD_PID" 2>/dev/null || true
+  # Force kill any lingering process on port 8080
+  lsof -ti:8080 2>/dev/null | xargs kill -9 2>/dev/null || true
   rm -f "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/backend/backend.pid" 2>/dev/null || true
   exit 0
 }
 trap cleanup SIGTERM SIGINT SIGHUP
 
 while true; do
+  # Pastikan port 8080 bersih sebelum start instance baru
+  lsof -ti:8080 2>/dev/null | xargs kill -9 2>/dev/null || true
+  sleep 1
+
   "$BIN_PATH" "$@" &
   CHILD_PID=$!
   echo "$CHILD_PID" > "$SCRIPT_DIR/backend.pid" 2>/dev/null || true
   echo "$CHILD_PID" > "$SCRIPT_DIR/backend/backend.pid" 2>/dev/null || true
   wait "$CHILD_PID"
   EXIT_CODE=$?
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend stopped with exit code $EXIT_CODE. Restarting in 3 seconds..." >&2
-  sleep 3
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend stopped with exit code $EXIT_CODE. Restarting in 5 seconds..." >&2
+  sleep 5
 done
 

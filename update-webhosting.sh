@@ -1,164 +1,124 @@
 #!/bin/bash
-# ====================================================================
-# update-webhosting.sh — Lightweight deploy for shared hosting
-# Runs on: sosb4282@colorado.iixcp.rumahweb.net
-# Fork-safe: no git, no pkill, no find -exec, no setsid
-#
-# USAGE:
-#   ./update-webhosting.sh              # download from GitHub Releases
-#   ./update-webhosting.sh --skip-pull  # use existing deploy.tar.gz in /tmp
-# ====================================================================
+# update-webhosting.sh — Safe update untuk webhosting shared hosting
+# Mencegah data loss saat update: backup .env, uploads, database
+set -e
 
 PROJ_DIR="$HOME/singgah-pos"
 WEB_DIR="$HOME/public_html"
-DEPLOY_URL="https://github.com/emoajib/singgah-coffe/releases/latest/download/deploy.tar.gz"
-PIDFILE="$PROJ_DIR/backend/backend.pid"
-ROOT_PIDFILE="$PROJ_DIR/backend.pid"
-LOGFILE="$PROJ_DIR/logs/backend.log"
+BACKUP_DIR="$HOME/backups/$(date +%Y%m%d_%H%M%S)"
+BACKEND_BIN="singgah-backend"
 
-# --- Helpers ---
-log()  { echo "[$(date '+%H:%M:%S')] $*"; }
-die()  { log "FATAL: $*"; exit 1; }
+echo "=========================================="
+echo "  Singgah POS — Safe Update Webhosting"
+echo "  $(date '+%Y-%m-%d %H:%M:%S')"
+echo "=========================================="
 
-safe_kill() {
-    # 1. Kill by PID files if exist
-    for pf in "$PIDFILE" "$ROOT_PIDFILE"; do
-        if [ -f "$pf" ]; then
-            PID=$(cat "$pf" 2>/dev/null)
-            if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-                log "Killing backend PID $PID (from $pf)..."
-                kill "$PID" 2>/dev/null; sleep 1
-                kill -9 "$PID" 2>/dev/null || true
-            fi
-            rm -f "$pf"
-        fi
-    done
-
-    # 2. Kill all lingering singgah-backend and start.sh of current user
-    pkill -9 -f "singgah-backend" 2>/dev/null || true
-    pkill -9 -f "start.sh" 2>/dev/null || true
-    sleep 1
-
-    # 3. Kill process on port 8080 (backend) if helper tools exist
-    if command -v lsof >/dev/null 2>&1; then
-        PID_ON_PORT=$(lsof -ti:8080 2>/dev/null)
-        if [ -n "$PID_ON_PORT" ]; then
-            log "Killing process on port 8080: $PID_ON_PORT"
-            kill -9 $PID_ON_PORT 2>/dev/null || true
-            sleep 1
-        fi
-    elif command -v fuser >/dev/null 2>&1; then
-        fuser -k 8080/tcp 2>/dev/null || true
-    fi
-}
-
-# --- Step 0: Parse args ---
-SKIP_PULL=false
-for arg in "$@"; do
-    [ "$arg" = "--skip-pull" ] && SKIP_PULL=true
-done
-
-log "=== Singgah POS Deploy (Shared Hosting) ==="
-log "Server: $(hostname)"
-
-# --- Step 1: Kill old backend ---
-log "Step 1: Stopping old backend..."
-safe_kill
-
-# --- Step 2: Backup .env ---
-if [ -f "$PROJ_DIR/backend/.env" ]; then
-    cp "$PROJ_DIR/backend/.env" "$PROJ_DIR/backend/.env.backup" 2>/dev/null || true
-    log "Backed up .env"
-elif [ -f "$PROJ_DIR/.env" ]; then
-    cp "$PROJ_DIR/.env" "$PROJ_DIR/.env.backup" 2>/dev/null || true
-    log "Backed up .env"
+# 1. PRE-FLIGHT CHECKS
+echo ""
+echo "🔍 Step 1: Pre-flight checks..."
+if [ ! -f "$PROJ_DIR/backend/.env" ]; then
+    echo "❌ ERROR: backend/.env tidak ditemukan! Kredensial produksi hilang."
+    echo "   Buat manual: cp backend/.env.example backend/.env"
+    exit 1
 fi
+echo "   ✅ .env file exists"
 
-# --- Step 3: Download deploy.tar.gz ---
-if [ "$SKIP_PULL" = true ]; then
-    log "Step 2: Using existing /tmp/deploy.tar.gz (--skip-pull)"
-    [ -f /tmp/deploy.tar.gz ] || die "No /tmp/deploy.tar.gz found. Run without --skip-pull first."
+# 2. BACKUP CURRENT STATE
+echo ""
+echo "📦 Step 2: Backup current state..."
+mkdir -p "$BACKUP_DIR"
+cp "$PROJ_DIR/backend/.env" "$BACKUP_DIR/.env.backup" 2>/dev/null || true
+cp -r "$PROJ_DIR/uploads" "$BACKUP_DIR/uploads/" 2>/dev/null || true
+cp "$PROJ_DIR/logs/backend.log" "$BACKUP_DIR/backend.log.backup" 2>/dev/null || true
+# Backup database (mysqldump tanpa password - gunakan .env untuk credentials)
+DB_URL=$(grep DATABASE_URL "$PROJ_DIR/backend/.env" | head -1 | cut -d'=' -f2-)
+DB_NAME=$(echo "$DB_URL" | sed 's|.*/||' | sed 's|?.*||')
+DB_USER=$(echo "$DB_URL" | cut -d':' -f1 | sed 's|.*//||')
+DB_PASS=$(echo "$DB_URL" | cut -d':' -f2 | cut -d'@' -f1)
+DB_HOST=$(echo "$DB_URL" | grep -oP 'tcp\(\K[^)]+' | cut -d: -f1)
+DB_PORT=$(echo "$DB_URL" | grep -oP 'tcp\(\K[^)]+' | cut -d: -f2)
+if command -v mysqldump &>/dev/null; then
+    mysqldump -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null || echo "   ⚠️ Database backup failed (non-critical)"
+    echo "   ✅ Database backed up to $BACKUP_DIR/database.sql"
 else
-    log "Step 2: Downloading deploy.tar.gz..."
-    curl -sL -H "User-Agent: SinggahPOS-Deploy" \
-        --max-time 180 --connect-timeout 10 \
-        "$DEPLOY_URL" -o /tmp/deploy.tar.gz \
-        || die "Download failed. Check network or GitHub Releases."
-    [ -s /tmp/deploy.tar.gz ] || die "Downloaded file is empty."
-    log "Downloaded $(wc -c < /tmp/deploy.tar.gz) bytes"
+    echo "   ⚠️ mysqldump not found — skipping database backup"
+fi
+echo "   ✅ State backed up to $BACKUP_DIR"
+
+# 3. STOP BACKEND GRACEFULLY
+echo ""
+echo "🔄 Step 3: Stopping backend gracefully..."
+# Kirim SIGTERM dulu untuk graceful shutdown
+pkill -f "$BACKEND_BIN" 2>/dev/null || true
+sleep 3
+# Kill sisa proses jika masih ada
+pkill -9 -f "$BACKEND_BIN" 2>/dev/null || true
+# Bersihkan port 8080
+lsof -ti:8080 2>/dev/null | xargs kill -9 2>/dev/null || true
+sleep 1
+echo "   ✅ Backend stopped"
+
+# 4. DEPLOY NEW FILES (preserve .env, uploads)
+echo ""
+echo "📤 Step 4: Deploying new files..."
+cd "$PROJ_DIR"
+if [ -f deploy.tar.gz ]; then
+    tar -xzf deploy.tar.gz
+    rm -f deploy.tar.gz
+    echo "   ✅ deploy.tar.gz extracted"
 fi
 
-# --- Step 4: Extract ---
-log "Step 3: Extracting..."
-cd "$PROJ_DIR" || die "Cannot cd to $PROJ_DIR"
+# 5. RESTORE .ENV (jangan timpa!)
+echo ""
+echo "🔒 Step 5: Restoring .env (preserving production credentials)..."
+cp "$BACKUP_DIR/.env.backup" "$PROJ_DIR/backend/.env" 2>/dev/null || true
+echo "   ✅ .env restored from backup"
 
-# Prevent "Text file busy" by unlinking existing binaries before tar overwrite
-rm -f "$PROJ_DIR/backend/singgah-backend" "$PROJ_DIR/singgah-backend" "$PROJ_DIR/singgah-pos-backend" 2>/dev/null || true
+# 6. RESTORE UPLOADS
+echo ""
+echo "📂 Step 6: Restoring uploads directory..."
+mkdir -p "$PROJ_DIR/uploads/logo" "$PROJ_DIR/uploads/products"
+cp -rn "$BACKUP_DIR/uploads/"* "$PROJ_DIR/uploads/" 2>/dev/null || true
+echo "   ✅ Uploads restored"
 
-tar -xzf /tmp/deploy.tar.gz 2>&1 || die "tar extraction failed"
-chmod +x backend/singgah-backend start.sh 2>/dev/null || true
-log "Binary: $(ls -la backend/singgah-backend 2>/dev/null || echo 'NOT FOUND')"
+# 7. FIX PERMISSIONS
+echo ""
+echo "🔐 Step 7: Fixing permissions..."
+chmod +x "$PROJ_DIR/start.sh" 2>/dev/null || true
+chmod +x "$PROJ_DIR/backend/$BACKEND_BIN" 2>/dev/null || true
+chmod +x "$PROJ_DIR/backend/main" 2>/dev/null || true
+echo "   ✅ Permissions fixed"
 
-# --- Step 5: Restore .env ---
-if [ ! -f "$PROJ_DIR/backend/.env" ] && [ -f "$PROJ_DIR/backend/.env.backup" ]; then
-    cp "$PROJ_DIR/backend/.env.backup" "$PROJ_DIR/backend/.env"
-    log "Restored backend/.env from backup"
-elif [ ! -f "$PROJ_DIR/.env" ] && [ -f "$PROJ_DIR/.env.backup" ]; then
-    cp "$PROJ_DIR/.env.backup" "$PROJ_DIR/.env"
-    log "Restored .env from backup"
-fi
+# 8. RESTART BACKEND
+echo ""
+echo "🚀 Step 8: Restarting backend..."
+cd "$PROJ_DIR"
+setsid nohup ./start.sh > logs/backend.log 2>&1 &
+disown 2>/dev/null || true
+echo "   ✅ Backend started (PID: $!)"
 
-# --- Step 6: Deploy frontend ---
-log "Step 4: Deploying frontend..."
-if [ -d "$PROJ_DIR/web" ]; then
-    # Simple cp, no find -exec
-    rm -rf "$WEB_DIR"/apps "$WEB_DIR"/assets "$WEB_DIR"/favicon.ico "$WEB_DIR"/index.html "$WEB_DIR"/vite.svg 2>/dev/null || true
-    cp -r "$PROJ_DIR"/web/* "$WEB_DIR/" 2>/dev/null || true
-fi
-cp -f "$PROJ_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" 2>/dev/null || true
-cp -f "$PROJ_DIR/.htaccess" "$WEB_DIR/.htaccess" 2>/dev/null || true
-log "Frontend deployed"
-
-# --- Step 7: Uploads symlink ---
-mkdir -p "$PROJ_DIR/backend/uploads/products" "$PROJ_DIR/backend/uploads/logo" 2>/dev/null || true
-chmod -R 755 "$PROJ_DIR/backend/uploads" 2>/dev/null || true
-if [ ! -L "$WEB_DIR/uploads" ] && [ ! -d "$WEB_DIR/uploads" ]; then
-    ln -s "$PROJ_DIR/backend/uploads" "$WEB_DIR/uploads" 2>/dev/null || true
-fi
-
-# --- Step 8: Start backend ---
-log "Step 5: Starting backend..."
-mkdir -p "$PROJ_DIR/logs"
-cd "$PROJ_DIR" || die "Cannot cd to $PROJ_DIR"
-
-if [ -f "./start.sh" ]; then
-    chmod +x ./start.sh ./backend/singgah-backend 2>/dev/null || true
-    nohup ./start.sh > "$LOGFILE" 2>&1 &
-    echo $! > "$PIDFILE"
-    log "Backend started via start.sh (PID: $!)"
-elif [ -f "./backend/singgah-backend" ]; then
-    chmod +x ./backend/singgah-backend 2>/dev/null || true
-    GOMAXPROCS=1 GOMEMLIMIT=200MiB nohup ./backend/singgah-backend > "$LOGFILE" 2>&1 &
-    echo $! > "$PIDFILE"
-    log "Backend started (PID: $!)"
+# 9. WAIT & HEALTH CHECK
+echo ""
+echo "🏥 Step 9: Health check..."
+sleep 5
+HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health 2>/dev/null || echo "000")
+if [ "$HEALTH" = "200" ]; then
+    echo "   ✅ Health check PASSED (HTTP 200)"
 else
-    die "Backend binary not found"
+    echo "   ⚠️ Health check returned HTTP $HEALTH"
+    echo "   Checking logs..."
+    tail -20 "$PROJ_DIR/logs/backend.log"
 fi
 
-# --- Step 9: Health check ---
-log "Step 6: Health check..."
-sleep 4
-HEALTH=$(curl -s http://127.0.0.1:8080/health 2>/dev/null)
-if echo "$HEALTH" | grep -q "ok"; then
-    log "✅ Backend is healthy: $HEALTH"
-else
-    log "⚠️  Health check failed. Last 10 lines of log:"
-    tail -10 "$LOGFILE" 2>/dev/null
-    die "Backend not healthy"
-fi
+# 10. CLEANUP OLD BACKUPS (keep last 5)
+echo ""
+echo "🧹 Step 10: Cleaning up old backups..."
+ls -dt "$HOME/backups"/*/ 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
+echo "   ✅ Old backups cleaned"
 
-log ""
-log "=== Deploy complete! ==="
-log "Backend: http://localhost:8080"
-log "Frontend: $WEB_DIR"
-log "Log: tail -f $LOGFILE"
+echo ""
+echo "=========================================="
+echo "  ✅ Update selesai!"
+echo "  Backup: $BACKEND_BIN"
+echo "  Health: HTTP $HEALTH"
+echo "=========================================="

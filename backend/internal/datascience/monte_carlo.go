@@ -1,13 +1,22 @@
 package datascience
 
 import (
-	"crypto/rand"
 	"math"
-	"math/big"
+	"math/rand"
 	"sort"
+	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
 )
+
+// Shared-hosting hardening: gunakan math/rand (non-blocking) alih-alih
+// crypto/rand yang melakukan blocking syscall ke /dev/random.
+// crypto/rand memicu CPU storm dan memblokir seluruh Go runtime
+// di bawah GOMAXPROCS=1, menyebabkan "fatal error: newosproc".
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 // Technical Assumptions:
@@ -116,23 +125,15 @@ func (s *MonteCarloSimulator) Simulate() *entity.MonteCarloResult {
 	}
 }
 
-// cryptoRandFloat64 returns a cryptographically secure random float64 in [0,1)
-func cryptoRandFloat64() float64 {
-	n, err := rand.Int(rand.Reader, big.NewInt(1<<53))
-	if err != nil {
-		return 0.5 // fallback (extremely unlikely)
-	}
-	return float64(n.Int64()) / (1 << 53)
-}
-
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
-// Box-Muller transform for generating normally distributed random numbers
+// Box-Muller transform for generating normally distributed random numbers.
+// Menggunakan math/rand (non-blocking) untuk keamanan shared hosting.
 func normalRandom(mean, std float64) float64 {
 	if std <= 0 {
 		return mean
 	}
-	u1 := cryptoRandFloat64()
-	u2 := cryptoRandFloat64()
+	u1 := rand.Float64()
+	u2 := rand.Float64()
 	// Avoid log(0) which would produce -inf
 	if u1 == 0 {
 		u1 = 0.0000000001

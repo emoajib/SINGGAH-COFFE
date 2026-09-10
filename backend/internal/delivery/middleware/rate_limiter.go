@@ -11,6 +11,10 @@ import (
 )
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// Shared-hosting hardening: batasi jumlah entry di sync.Map untuk
+// mencegah memory leak yang menyebabkan OOM kill di shared hosting.
+const maxRateLimiterEntries = 100
+
 type apiLimiter struct {
 	mu       sync.Mutex
 	limiter  *rate.Limiter
@@ -30,12 +34,16 @@ func init() {
 	})
 }
 
+// Shared-hosting hardening: evict idle entries + batasi max 100 IP per map.
+// sync.Map.Range aman untuk iterasi concurrent, tapi tidak menjamin
+// konsistensi jika ada entri baru ditambah selama iterasi.
 func cleanupLoop() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
 		now := time.Now()
 		for _, m := range []*sync.Map{&apiLimiters, &loginLimiters, &webhookLimiters} {
+			// Phase 1: Evict idle entries
 			m.Range(func(key, value interface{}) bool {
 				ip := key.(string)
 				al := value.(*apiLimiter)
@@ -47,6 +55,38 @@ func cleanupLoop() {
 				}
 				return true
 			})
+			// Phase 2: Cap at maxRateLimiterEntries — evict oldest if over limit
+			count := 0
+			var oldestKey string
+			var oldestTime time.Time
+			m.Range(func(key, value interface{}) bool {
+				count++
+				al := value.(*apiLimiter)
+				al.mu.Lock()
+				if oldestKey == "" || al.lastSeen.Before(oldestTime) {
+					oldestKey = key.(string)
+					oldestTime = al.lastSeen
+				}
+				al.mu.Unlock()
+				return true
+			})
+			for count > maxRateLimiterEntries && oldestKey != "" {
+				m.Delete(oldestKey)
+				oldestKey = ""
+				oldestTime = time.Time{}
+				count--
+				// Re-scan to find new oldest
+				m.Range(func(key, value interface{}) bool {
+					al := value.(*apiLimiter)
+					al.mu.Lock()
+					if oldestKey == "" || al.lastSeen.Before(oldestTime) {
+						oldestKey = key.(string)
+						oldestTime = al.lastSeen
+					}
+					al.mu.Unlock()
+					return true
+				})
+			}
 		}
 	}
 }
