@@ -78,8 +78,8 @@ export const PSAKService = {
         const params: Record<string, string | boolean> = {}
         if (accountType) params.type = accountType
         if (activeOnly !== undefined) params.active_only = activeOnly
-        const { data } = await api.get<PSAKAccount[]>('/psak/accounts', { params })
-        return data
+        const { data } = await api.get<PSAKAccount[] | { data: PSAKAccount[] }>('/psak/accounts', { params })
+        return Array.isArray(data) ? data : (data.data || [])
     },
     getAccount: async (id: number) => {
         const { data } = await api.get<PSAKAccount>(`/psak/accounts/${id}`)
@@ -107,8 +107,8 @@ export const PSAKService = {
         if (status) params.status = status
         if (startDate) params.start_date = startDate
         if (endDate) params.end_date = endDate
-        const { data } = await api.get<JournalEntry[]>('/psak/journals', { params })
-        return data
+        const { data } = await api.get<JournalEntry[] | { data: JournalEntry[] }>('/psak/journals', { params })
+        return Array.isArray(data) ? data : (data.data || [])
     },
     getJournal: async (id: number) => {
         const { data } = await api.get<JournalEntry>(`/psak/journals/${id}`)
@@ -129,8 +129,8 @@ export const PSAKService = {
 
     // Reports
     getTrialBalance: async (startDate: string, endDate: string) => {
-        const { data } = await api.get<TrialBalanceEntry[]>('/psak/reports/trial-balance', { params: { start_date: startDate, end_date: endDate } })
-        return data
+        const { data } = await api.get<TrialBalanceEntry[] | { data: TrialBalanceEntry[] }>('/psak/reports/trial-balance', { params: { start_date: startDate, end_date: endDate } })
+        return Array.isArray(data) ? data : (data.data || [])
     },
     getBalanceSheet: async (asOfDate: string) => {
         const { data } = await api.get<{ assets: BalanceSheetEntry[]; liabilities: BalanceSheetEntry[]; equity: BalanceSheetEntry[]; total_assets: number; total_liabilities: number; total_equity: number }>('/psak/reports/balance-sheet', { params: { as_of_date: asOfDate } })
@@ -144,8 +144,8 @@ export const PSAKService = {
         const { data } = await api.get<{ operating: CashFlowEntry[]; investing: CashFlowEntry[]; financing: CashFlowEntry[]; net_operating: number; net_investing: number; net_financing: number }>('/psak/reports/cash-flow', { params: { start_date: startDate, end_date: endDate } })
         return data
     },
-    getGeneralLedger: async (startDate: string, endDate: string) => {
-        const { data } = await api.get<GeneralLedgerEntry[]>('/psak/reports/general-ledger', { params: { start_date: startDate, end_date: endDate } })
-        return data
+    getGeneralLedger: async (accountId: number, startDate: string, endDate: string) => {
+        const { data } = await api.get<GeneralLedgerEntry[] | { data: GeneralLedgerEntry[] }>('/psak/reports/general-ledger', { params: { account_id: accountId, start_date: startDate, end_date: endDate } })
+        return Array.isArray(data) ? data : (data.data || [])
     },
 }

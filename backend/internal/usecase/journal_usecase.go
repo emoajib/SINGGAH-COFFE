@@ -191,6 +191,7 @@ func (uc *JournalUsecase) GetBalanceSheet(asOf string, outletID ...uint) ([]enti
 		items = append(items, entity.BalanceSheetItem{
 			AccountCode: row.AccountCode,
 			AccountName: row.AccountName,
+			AccountType: row.AccountType,
 			Amount:      amount,
 			Level:       level,
 		})

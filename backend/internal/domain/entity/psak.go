@@ -200,6 +200,7 @@ type TrialBalanceRow struct {
 type BalanceSheetItem struct {
 	AccountCode string `json:"account_code"`
 	AccountName string `json:"account_name"`
+	AccountType string `json:"account_type"`
 	Amount      int64  `json:"amount"`
 	Level       int    `json:"level"`
 }

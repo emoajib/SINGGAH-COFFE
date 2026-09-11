@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
@@ -25,7 +26,13 @@ func NewJournalHandler(journalUsecase *usecase.JournalUsecase) *JournalHandler {
 func (h *JournalHandler) GetJournals(c *gin.Context) {
 	outletID := getOutletID(c)
 	start := c.Query("start")
+	if start == "" {
+		start = c.Query("start_date")
+	}
 	end := c.Query("end")
+	if end == "" {
+		end = c.Query("end_date")
+	}
 	status := c.Query("status")
 	sourceType := c.Query("source_type")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
@@ -131,7 +138,13 @@ func (h *JournalHandler) VoidJournal(c *gin.Context) {
 func (h *JournalHandler) GetTrialBalance(c *gin.Context) {
 	outletID := getOutletID(c)
 	start := c.Query("start")
+	if start == "" {
+		start = c.Query("start_date")
+	}
 	end := c.Query("end")
+	if end == "" {
+		end = c.Query("end_date")
+	}
 
 	rows, err := h.journalUsecase.GetTrialBalance(start, end, outletID)
 	if err != nil {
@@ -145,41 +158,127 @@ func (h *JournalHandler) GetBalanceSheet(c *gin.Context) {
 	outletID := getOutletID(c)
 	asOf := c.Query("as_of")
 	if asOf == "" {
-		asOf = fmt.Sprintf("%d-12-31", 2024)
+		asOf = c.Query("as_of_date")
+	}
+	if asOf == "" {
+		asOf = fmt.Sprintf("%d-12-31", time.Now().Year())
 	}
 
-	items, err := h.journalUsecase.GetBalanceSheet(asOf, outletID)
+	allItems, err := h.journalUsecase.GetBalanceSheet(asOf, outletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch balance sheet"})
 		return
 	}
-	c.JSON(http.StatusOK, items)
+
+	// Categorize items by account type
+	var assets, liabilities, equity []entity.BalanceSheetItem
+	var totalAssets, totalLiabilities, totalEquity int64
+	for _, item := range allItems {
+		switch item.AccountType {
+		case "asset":
+			assets = append(assets, item)
+			totalAssets += item.Amount
+		case "liability":
+			liabilities = append(liabilities, item)
+			totalLiabilities += item.Amount
+		case "equity":
+			equity = append(equity, item)
+			totalEquity += item.Amount
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"assets":           assets,
+		"liabilities":      liabilities,
+		"equity":           equity,
+		"total_assets":     totalAssets,
+		"total_liabilities": totalLiabilities,
+		"total_equity":     totalEquity,
+	})
 }
 
 func (h *JournalHandler) GetIncomeStatement(c *gin.Context) {
 	outletID := getOutletID(c)
 	start := c.Query("start")
+	if start == "" {
+		start = c.Query("start_date")
+	}
 	end := c.Query("end")
+	if end == "" {
+		end = c.Query("end_date")
+	}
 
-	items, err := h.journalUsecase.GetIncomeStatement(start, end, outletID)
+	allItems, err := h.journalUsecase.GetIncomeStatement(start, end, outletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch income statement"})
 		return
 	}
-	c.JSON(http.StatusOK, items)
+
+	// Transform [{Category, Items, Total}] into {revenue:[], expenses:[], totals}
+	var revenueItems, expenseItems []entity.IncomeStatementLine
+	var totalRevenue, totalExpenses int64
+	for _, item := range allItems {
+		switch item.Category {
+		case "Revenue":
+			revenueItems = item.Items
+			totalRevenue = item.Total
+		case "Expenses":
+			expenseItems = item.Items
+			totalExpenses = item.Total
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"revenue":        revenueItems,
+		"expenses":       expenseItems,
+		"total_revenue":  totalRevenue,
+		"total_expenses": totalExpenses,
+		"net_income":     totalRevenue - totalExpenses,
+	})
 }
 
 func (h *JournalHandler) GetCashFlow(c *gin.Context) {
 	outletID := getOutletID(c)
 	start := c.Query("start")
+	if start == "" {
+		start = c.Query("start_date")
+	}
 	end := c.Query("end")
+	if end == "" {
+		end = c.Query("end_date")
+	}
 
-	items, err := h.journalUsecase.GetCashFlow(start, end, outletID)
+	allItems, err := h.journalUsecase.GetCashFlow(start, end, outletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cash flow"})
 		return
 	}
-	c.JSON(http.StatusOK, items)
+
+	// Transform [{Category, Description, Amount}] into categorized object
+	var operating, investing, financing []entity.CashFlowItem
+	var netOperating, netInvesting, netFinancing int64
+	for _, item := range allItems {
+		switch item.Category {
+		case "Operating":
+			operating = append(operating, item)
+			netOperating += item.Amount
+		case "Investing":
+			investing = append(investing, item)
+			netInvesting += item.Amount
+		case "Financing":
+			financing = append(financing, item)
+			netFinancing += item.Amount
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"operating":      operating,
+		"investing":      investing,
+		"financing":      financing,
+		"net_operating":  netOperating,
+		"net_investing":  netInvesting,
+		"net_financing":  netFinancing,
+	})
 }
 
 func (h *JournalHandler) GetGeneralLedger(c *gin.Context) {
@@ -190,7 +289,13 @@ func (h *JournalHandler) GetGeneralLedger(c *gin.Context) {
 		return
 	}
 	start := c.Query("start")
+	if start == "" {
+		start = c.Query("start_date")
+	}
 	end := c.Query("end")
+	if end == "" {
+		end = c.Query("end_date")
+	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 

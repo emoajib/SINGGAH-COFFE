@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react"
+import React, { useState, useCallback, useEffect } from "react"
 import {
     Loader2,
     FileSpreadsheet,
@@ -482,23 +482,41 @@ function CashFlowTab() {
 function GeneralLedgerTab() {
     const [start, setStart] = useState(monthStart())
     const [end, setEnd] = useState(today())
+    const [accountId, setAccountId] = useState<number | null>(null)
+    const [accounts, setAccounts] = useState<any[]>([])
     const [rows, setRows] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [fetched, setFetched] = useState(false)
 
+    useEffect(() => {
+        PSAKService.getAccounts(undefined, true)
+            .then((accs: any[]) => {
+                setAccounts(accs)
+                if (accs.length > 0 && accountId === null) setAccountId(accs[0].id)
+            })
+            .catch(() => {})
+    }, [])
+
     const fetch = useCallback(async () => {
+        if (!accountId) return
         setLoading(true)
         try {
-            const data = await PSAKService.getGeneralLedger(start, end)
+            const data = await PSAKService.getGeneralLedger(accountId, start, end)
             setRows(data)
             setFetched(true)
         } catch { setRows([]); setFetched(true) }
         finally { setLoading(false) }
-    }, [start, end])
+    }, [accountId, start, end])
 
     return (
         <>
             <div className="flex flex-wrap gap-3 items-end no-print">
+                <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Akun</label>
+                    <select value={accountId ?? ""} onChange={e => setAccountId(Number(e.target.value))} className="w-60 h-10 border rounded px-2 bg-white text-sm">
+                        {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                    </select>
+                </div>
                 <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Dari Tanggal</label>
                     <Input type="date" value={start} onChange={e => setStart(e.target.value)} className="w-40 h-10 bg-white" />

@@ -30,7 +30,7 @@ func (h *AccountHandler) GetAccounts(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch accounts"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": accounts})
+	c.JSON(http.StatusOK, accounts)
 }
 
 // GetAccount returns a single account by ID
@@ -47,7 +47,7 @@ func (h *AccountHandler) GetAccount(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Account not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": account})
+	c.JSON(http.StatusOK, account)
 }
 
 // CreateAccount creates a new account (owner only)
@@ -70,7 +70,7 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"data": result, "message": "Account created successfully"})
+	c.JSON(http.StatusCreated, result)
 }
 
 // UpdateAccount updates an existing account (owner only)
@@ -99,7 +99,7 @@ func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": result, "message": "Account updated successfully"})
+	c.JSON(http.StatusOK, result)
 }
 
 // DeleteAccount deletes an account (owner only)
