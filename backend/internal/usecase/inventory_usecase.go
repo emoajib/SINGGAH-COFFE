@@ -177,11 +177,15 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			}
 		}
 
-		// Update master cost per unit if requested
+		// Update master cost per unit if requested and recalculate product costs
 		if updateMasterPrice && newCost > 0 {
 			if err := ingredientRepo.UpdateCostPerUnit(ingredientID, newCost); err != nil {
 				return err
 			}
+		}
+		// Always recalculate product costs after stock-in so order_items.cost
+		// reflects current ingredient prices for accurate P&L/Profit Sharing HPP.
+		if isPurchase && mutationType == string(entity.MutationIn) {
 			productRepo := postgres.NewProductRepository(tx)
 			_ = productRepo.RecalculateCosts(ingredientID)
 		}
