@@ -1,12 +1,12 @@
 package usecase
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
-	domainErrors "singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 
@@ -31,10 +31,20 @@ func NewCashRegisterUsecase(db *gorm.DB) *CashRegisterUsecase {
 	}
 }
 
+func isNotFound(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
+}
+
 func (uc *CashRegisterUsecase) OpenCashRegister(userID uint, outletID uint, req *entity.CashRegister) (*entity.CashRegister, error) {
+	// Auto-close any stale open register before opening a new one.
+	// This prevents a single stale register from blocking all new shifts.
 	existing, err := uc.cashRegisterRepo.FindOpenByUserID(userID)
 	if err == nil && existing != nil {
-		return nil, domainErrors.NewInvalidInputError("cashier already has an open cash register")
+		// Close the stale register with its opening amount as "expected" (no variance).
+		_ = uc.cashRegisterRepo.Close(userID, existing.OpeningAmount, existing.OpeningAmount, 0)
+		_ = NewCashBookUsecase(uc.db).EnsureRegisterClose(existing, existing.OutletID)
+	} else if err != nil && !isNotFound(err) {
+		return nil, err
 	}
 
 	user, err := uc.userRepo.FindByID(userID)
