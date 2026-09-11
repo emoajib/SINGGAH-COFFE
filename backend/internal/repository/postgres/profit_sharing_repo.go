@@ -112,10 +112,9 @@ func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outle
 	ow, args := outletWhere("o", outletID...)
 	baseArgs := []interface{}{start, end, "Completed"}
 	var total float64
-	err := r.db.Model(&models.OrderItem{}).
-		Joins("JOIN orders o ON o.id = order_items.order_id").
+	err := r.db.Model(&models.Order{}).
 		Where("o.created_at BETWEEN ? AND ? AND o.status = ?"+ow, append(baseArgs, args...)...).
-		Select("COALESCE(SUM(order_items.price * order_items.quantity), 0)").
+		Select("COALESCE(SUM(o.total_amount), 0)").
 		Row().Scan(&total)
 	return total, err
 }

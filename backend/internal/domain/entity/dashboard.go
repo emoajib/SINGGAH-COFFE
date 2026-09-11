@@ -31,14 +31,3 @@ type TopProduct struct {
 	Category string `json:"category"`
 	Sales    int    `json:"sales"`
 }
-
-type ProductSalesVolume struct {
-	ProductID uint    `json:"product_id"`
-	Name      string  `json:"name"`
-	Category  string  `json:"category"`
-	Quantity  int     `json:"quantity"`
-	AvgPrice  float64 `json:"avg_price"`
-	AvgCost   float64 `json:"avg_cost"`
-	Revenue   float64 `json:"revenue"`
-	TotalCogs float64 `json:"total_cogs"`
-}
