@@ -115,7 +115,7 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "%d %b", outletID...)
 	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown(outletID...)
 	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
-	productSales, _ := uc.orderItemRepo.GetProductSalesVolume(since, now.Format("2006-01-02"), outletID...)
+	productSales, _ := uc.orderItemRepo.GetProductSalesVolume(since, time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location()).Format("2006-01-02 15:04:05"), outletID...)
 	totalCups := 0
 	for _, ps := range productSales {
 		totalCups += ps.Quantity
