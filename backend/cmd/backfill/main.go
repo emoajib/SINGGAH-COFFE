@@ -29,8 +29,9 @@ type orderRow struct {
 }
 
 type orderItemRow struct {
-	Price float64
-	Cost  float64
+	Price    float64
+	Cost     float64
+	Quantity int
 }
 
 type expenseRow struct {
@@ -69,21 +70,23 @@ func main() {
 	doAccounts := flag.Bool("accounts", false, "Phase 0.5: Seed PSAK accounts per outlet")
 	doOrders := flag.Bool("orders", false, "Phase 1: Backfill completed orders")
 	doExpenses := flag.Bool("expenses", false, "Phase 2: Backfill expenses + inventory auto-expenses")
-	doVoids := flag.Bool("voids", false, "Phase 3: Backfill voided orders (original + reversal)")
+doVoids := flag.Bool("voids", false, "Phase 3: Backfill voided orders (original + reversal)")
+	syncTotal := flag.Bool("sync-total", false, "Sync orders.total_amount to match SUM(order_items.price * quantity)")
 	outletID := flag.Uint("outlet-id", 0, "Outlet ID to backfill (0 = all outlets)")
 	limit := flag.Int("limit", 500, "Max records per batch")
 	flag.Parse()
 
-	if !*all && !*doAccounts && !*doOrders && !*doExpenses && !*doVoids {
+	if !*all && !*doAccounts && !*doOrders && !*doExpenses && !*doVoids && !*syncTotal {
 		fmt.Println("Usage: go run cmd/backfill/main.go [flags]")
-		fmt.Println("  --all          Run all phases")
-		fmt.Println("  --accounts     Phase 0.5: Seed PSAK accounts")
-		fmt.Println("  --orders       Phase 1: Backfill orders")
-		fmt.Println("  --expenses     Phase 2: Backfill expenses")
-		fmt.Println("  --voids        Phase 3: Backfill voided orders")
-		fmt.Println("  --dry-run      Print SQL without executing")
-		fmt.Println("  --outlet-id    Outlet ID (0 = all)")
-		fmt.Println("  --limit        Batch size (default 500)")
+		fmt.Println("  --all            Run all phases")
+		fmt.Println("  --accounts       Phase 0.5: Seed PSAK accounts")
+		fmt.Println("  --orders         Phase 1: Backfill completed orders")
+		fmt.Println("  --expenses       Phase 2: Backfill expenses")
+		fmt.Println("  --voids          Phase 3: Backfill voided orders")
+		fmt.Println("  --sync-total     Sync orders.total_amount to match order_items")
+		fmt.Println("  --dry-run        Print SQL without executing")
+		fmt.Println("  --outlet-id      Outlet ID (0 = all)")
+		fmt.Println("  --limit          Batch size (default 500)")
 		os.Exit(0)
 	}
 
@@ -104,7 +107,11 @@ func main() {
 		seedAccounts(db, *outletID, *dryRun)
 	}
 	if *all || *doOrders {
+		syncOrderTotalAmount(db, *outletID, *dryRun)
 		backfillOrders(db, *outletID, *limit, *dryRun)
+	}
+	if *syncTotal && !*doOrders {
+		syncOrderTotalAmount(db, *outletID, *dryRun)
 	}
 	if *all || *doExpenses {
 		backfillExpenses(db, *outletID, *limit, *dryRun)
@@ -253,6 +260,54 @@ func seedAccounts(db *sql.DB, filterOutlet uint, dryRun bool) {
 	}
 }
 
+// syncOrderTotalAmount recalculates orders.total_amount to match
+// SUM(order_items.price * quantity) for all completed orders.
+// Fixes data inconsistency when tax/service settings changed after orders were created.
+func syncOrderTotalAmount(db *sql.DB, filterOutlet uint, dryRun bool) {
+	log.Println("=== Sync: Recalculating orders.total_amount ===")
+
+	query := `
+		SELECT o.id, o.total_amount,
+		       COALESCE(SUM(oi.price * oi.quantity), 0) as items_total
+		FROM orders o
+		LEFT JOIN order_items oi ON oi.order_id = o.id
+		WHERE o.status = 'Completed' AND o.payment_status = 'Paid'
+		GROUP BY o.id
+		HAVING o.total_amount != items_total`
+	if filterOutlet > 0 {
+		query += fmt.Sprintf(" AND o.outlet_id = %d", filterOutlet)
+	}
+
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("Sync: query failed: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	synced := 0
+	for rows.Next() {
+		var id uint
+		var oldTotal, itemsTotal float64
+		if err := rows.Scan(&id, &oldTotal, &itemsTotal); err != nil {
+			log.Printf("Sync: scan failed: %v", err)
+			continue
+		}
+		newTotal := int64(itemsTotal)
+		if dryRun {
+			fmt.Printf("SYNC: order_id=%d total_amount: %.0f -> %d\n", id, oldTotal, newTotal)
+		} else {
+			_, err := db.Exec("UPDATE orders SET total_amount = ? WHERE id = ?", newTotal, id)
+			if err != nil {
+				log.Printf("Sync: update order %d failed: %v", id, err)
+				continue
+			}
+		}
+		synced++
+	}
+	log.Printf("Sync: %d orders.total_amount recalculated\n", synced)
+}
+
 func backfillOrders(db *sql.DB, filterOutlet uint, limit int, dryRun bool) {
 	log.Println("=== Phase 1: Backfilling orders ===")
 	ids, err := outletIDs(db, filterOutlet)
@@ -295,7 +350,7 @@ func backfillOrders(db *sql.DB, filterOutlet uint, limit int, dryRun bool) {
 				}
 
 				// Fetch order items for COGS calculation
-				itemRows, err := db.Query("SELECT price, cost FROM order_items WHERE order_id = ?", o.ID)
+				itemRows, err := db.Query("SELECT price, cost, quantity FROM order_items WHERE order_id = ?", o.ID)
 				if err != nil {
 					log.Printf("Outlet %d: query items for order %d failed: %v", oid, o.ID, err)
 					continue
@@ -303,11 +358,11 @@ func backfillOrders(db *sql.DB, filterOutlet uint, limit int, dryRun bool) {
 				var revenue, cogs float64
 				for itemRows.Next() {
 					var item orderItemRow
-					if err := itemRows.Scan(&item.Price, &item.Cost); err != nil {
+					if err := itemRows.Scan(&item.Price, &item.Cost, &item.Quantity); err != nil {
 						continue
 					}
-					revenue += item.Price
-					cogs += item.Cost
+					revenue += item.Price * float64(item.Quantity)
+					cogs += item.Cost * float64(item.Quantity)
 				}
 				itemRows.Close()
 
@@ -486,18 +541,18 @@ func backfillVoids(db *sql.DB, filterOutlet uint, limit int, dryRun bool) {
 				}
 
 				// Fetch order items for COGS
-				itemRows, err := db.Query("SELECT price, cost FROM order_items WHERE order_id = ?", o.ID)
+				itemRows, err := db.Query("SELECT price, cost, quantity FROM order_items WHERE order_id = ?", o.ID)
 				if err != nil {
 					continue
 				}
 				var revenue, cogs float64
 				for itemRows.Next() {
 					var item orderItemRow
-					if err := itemRows.Scan(&item.Price, &item.Cost); err != nil {
+					if err := itemRows.Scan(&item.Price, &item.Cost, &item.Quantity); err != nil {
 						continue
 					}
-					revenue += item.Price
-					cogs += item.Cost
+					revenue += item.Price * float64(item.Quantity)
+					cogs += item.Cost * float64(item.Quantity)
 				}
 				itemRows.Close()
 
