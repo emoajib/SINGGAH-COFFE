@@ -109,12 +109,12 @@ func (r *profitSharingPeriodRepository) Delete(id uint) error {
 }
 
 func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outletID ...uint) (float64, error) {
-	ow, args := outletWhere("o", outletID...)
+	ow, args := outletWhere("orders", outletID...)
 	baseArgs := []interface{}{start, end, "Completed"}
 	var total float64
 	err := r.db.Model(&models.Order{}).
-		Where("o.created_at BETWEEN ? AND ? AND o.status = ?"+ow, append(baseArgs, args...)...).
-		Select("COALESCE(SUM(o.total_amount), 0)").
+		Where("orders.created_at BETWEEN ? AND ? AND orders.status = ?"+ow, append(baseArgs, args...)...).
+		Select("COALESCE(SUM(orders.total_amount), 0)").
 		Row().Scan(&total)
 	return total, err
 }
