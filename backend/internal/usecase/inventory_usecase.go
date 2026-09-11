@@ -139,6 +139,23 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			if err := expenseRepo.Create(exp); err != nil {
 				return err
 			}
+			// PSAK: Create outbox event for journal entry
+			outboxRepo := postgres.NewOutboxRepository(tx)
+			_ = outboxRepo.Create(&entity.EventOutbox{
+				EventType:     "expense.created",
+				ReferenceType: "expense",
+				ReferenceID:   exp.ID,
+				Payload: mustMarshal(map[string]interface{}{
+					"id":             exp.ID,
+					"amount":         exp.Amount,
+					"category":       exp.Category,
+					"payment_method": "Lainnya",
+					"outlet_id":      oid,
+					"date":           exp.Date.Format("2006-01-02"),
+					"title":          exp.Title,
+				}),
+				Status: "pending",
+			})
 			// Sync ke Buku Kas dalam transaksi yang sama.
 			// Pola idempoten reference "expense:{id}" mencegah duplikasi
 			// saat Owner menjalankan SyncFromTransactions di kemudian hari.

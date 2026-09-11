@@ -17,16 +17,14 @@ import (
 // menggunakan pola idempoten reference "expense:{id}" yang sama dengan Order.
 // ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ExpenseUsecase struct {
-	db           *gorm.DB
-	expenseRepo  repository.ExpenseRepository
-	cashBookRepo repository.CashBookRepository
+	db          *gorm.DB
+	expenseRepo repository.ExpenseRepository
 }
 
 func NewExpenseUsecase(db *gorm.DB) *ExpenseUsecase {
 	return &ExpenseUsecase{
-		db:           db,
-		expenseRepo:  postgres.NewExpenseRepository(db),
-		cashBookRepo: postgres.NewCashBookRepository(db),
+		db:          db,
+		expenseRepo: postgres.NewExpenseRepository(db),
 	}
 }
 
@@ -35,11 +33,9 @@ func expenseRef(expenseID uint) string {
 	return fmt.Sprintf("expense:%d", expenseID)
 }
 
-// syncExpenseToCashBook memastikan entry Buku Kas selalu mencerminkan nilai terkini.
-// Strategi: hapus entry lama (jika ada) lalu buat baru — upsert logis.
-// Best-effort: error diabaikan agar tidak memblok alur utama kasir/manager.
-// Pola ini idempoten dengan SyncFromTransactions milik Owner.
-func (uc *ExpenseUsecase) syncExpenseToCashBook(expense *entity.Expense) {
+// syncExpenseToCashBook menyesuaikan entry Buku Kas dengan nilai terkini expense.
+// Hapus entry lama lalu buat baru — upsert logis. Best-effort: error diabaikan.
+func syncExpenseToCashBook(cashBookRepo repository.CashBookRepository, expense *entity.Expense) {
 	if expense.ID == 0 || expense.Amount <= 0 {
 		return
 	}
@@ -52,10 +48,8 @@ func (uc *ExpenseUsecase) syncExpenseToCashBook(expense *entity.Expense) {
 	if method == "" {
 		method = "Cash"
 	}
-	// Hapus entry lama untuk memastikan amount dan method selalu terbaru (upsert logis).
-	_, _ = uc.cashBookRepo.DeleteByReference(ref, expense.OutletID)
-	// Buat entry baru dengan metode pembayaran yang sesuai (Cash / QRIS / Lainnya).
-	_ = uc.cashBookRepo.Create(&entity.CashBook{
+	_, _ = cashBookRepo.DeleteByReference(ref, expense.OutletID)
+	_ = cashBookRepo.Create(&entity.CashBook{
 		OutletID:    expense.OutletID,
 		Date:        date,
 		Method:      method,
@@ -102,29 +96,40 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*en
 	if len(outletID) > 0 {
 		expense.OutletID = outletID[0]
 	}
-	if err := uc.expenseRepo.Create(expense); err != nil {
+
+	var resp entity.ExpenseResponse
+	err := uc.db.Transaction(func(tx *gorm.DB) error {
+		expenseRepo := postgres.NewExpenseRepository(tx)
+		cashBookRepo := postgres.NewCashBookRepository(tx)
+
+		if err := expenseRepo.Create(expense); err != nil {
+			return err
+		}
+		// Sync real-time ke Buku Kas
+		syncExpenseToCashBook(cashBookRepo, expense)
+		// PSAK: Create outbox event for journal entry
+		outboxRepo := postgres.NewOutboxRepository(tx)
+		_ = outboxRepo.Create(&entity.EventOutbox{
+			EventType:     "expense.created",
+			ReferenceType: "expense",
+			ReferenceID:   expense.ID,
+			Payload: mustMarshal(map[string]interface{}{
+				"id":             expense.ID,
+				"amount":         expense.Amount,
+				"category":       expense.Category,
+				"payment_method": expense.PaymentMethod,
+				"outlet_id":      expense.OutletID,
+				"date":           expense.Date.Format("2006-01-02"),
+				"title":          expense.Title,
+			}),
+			Status: "pending",
+		})
+		resp = expense.ToResponse()
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	// Sync real-time ke Buku Kas (best-effort, tidak memblok response).
-	uc.syncExpenseToCashBook(expense)
-	// PSAK: Create outbox event for journal entry
-	outboxRepo := postgres.NewOutboxRepository(uc.db)
-	_ = outboxRepo.Create(&entity.EventOutbox{
-		EventType:     "expense.created",
-		ReferenceType: "expense",
-		ReferenceID:   expense.ID,
-		Payload: mustMarshal(map[string]interface{}{
-			"id":             expense.ID,
-			"amount":         int64(expense.Amount * 100),
-			"category":       expense.Category,
-			"payment_method": expense.PaymentMethod,
-			"outlet_id":      expense.OutletID,
-			"date":           expense.Date.Format("2006-01-02"),
-			"title":          expense.Title,
-		}),
-		Status: "pending",
-	})
-	resp := expense.ToResponse()
 	return &resp, nil
 }
 
@@ -150,29 +155,39 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 	existing.Description = expense.Description
 	existing.Notes = expense.Notes
 
-	if err := uc.expenseRepo.Update(existing); err != nil {
+	var resp entity.ExpenseResponse
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		expenseRepo := postgres.NewExpenseRepository(tx)
+		cashBookRepo := postgres.NewCashBookRepository(tx)
+
+		if err := expenseRepo.Update(existing); err != nil {
+			return err
+		}
+		// Sync update ke Buku Kas
+		syncExpenseToCashBook(cashBookRepo, existing)
+		// PSAK: Create outbox event for journal update
+		outboxRepo := postgres.NewOutboxRepository(tx)
+		_ = outboxRepo.Create(&entity.EventOutbox{
+			EventType:     "expense.updated",
+			ReferenceType: "expense",
+			ReferenceID:   existing.ID,
+			Payload: mustMarshal(map[string]interface{}{
+				"id":             existing.ID,
+				"amount":         existing.Amount,
+				"category":       existing.Category,
+				"payment_method": existing.PaymentMethod,
+				"outlet_id":      existing.OutletID,
+				"date":           existing.Date.Format("2006-01-02"),
+				"title":          existing.Title,
+			}),
+			Status: "pending",
+		})
+		resp = existing.ToResponse()
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	// Sync update ke Buku Kas: hapus lama → buat baru dengan nilai terkini.
-	uc.syncExpenseToCashBook(existing)
-	// PSAK: Create outbox event for journal update
-	outboxRepo := postgres.NewOutboxRepository(uc.db)
-	_ = outboxRepo.Create(&entity.EventOutbox{
-		EventType:     "expense.updated",
-		ReferenceType: "expense",
-		ReferenceID:   existing.ID,
-		Payload: mustMarshal(map[string]interface{}{
-			"id":             existing.ID,
-			"amount":         int64(existing.Amount * 100),
-			"category":       existing.Category,
-			"payment_method": existing.PaymentMethod,
-			"outlet_id":      existing.OutletID,
-			"date":           existing.Date.Format("2006-01-02"),
-			"title":          existing.Title,
-		}),
-		Status: "pending",
-	})
-	resp := existing.ToResponse()
 	return &resp, nil
 }
 
@@ -193,16 +208,21 @@ func (uc *ExpenseUsecase) Delete(id uint) error {
 	if err != nil {
 		return domainErrors.NewNotFoundError("expense not found")
 	}
-	// Hapus entry Buku Kas terlebih dahulu (best-effort, tidak memblok).
-	_, _ = uc.cashBookRepo.DeleteByReference(expenseRef(id))
-	// PSAK: Create outbox event for journal reversal
-	outboxRepo := postgres.NewOutboxRepository(uc.db)
-	_ = outboxRepo.Create(&entity.EventOutbox{
-		EventType:     "expense.deleted",
-		ReferenceType: "expense",
-		ReferenceID:   id,
-		Payload:       mustMarshal(map[string]interface{}{"id": id, "outlet_id": existing.OutletID}),
-		Status:        "pending",
+	return uc.db.Transaction(func(tx *gorm.DB) error {
+		expenseRepo := postgres.NewExpenseRepository(tx)
+		cashBookRepo := postgres.NewCashBookRepository(tx)
+
+		// Hapus entry Buku Kas terlebih dahulu
+		_, _ = cashBookRepo.DeleteByReference(expenseRef(id))
+		// PSAK: Create outbox event for journal reversal
+		outboxRepo := postgres.NewOutboxRepository(tx)
+		_ = outboxRepo.Create(&entity.EventOutbox{
+			EventType:     "expense.deleted",
+			ReferenceType: "expense",
+			ReferenceID:   id,
+			Payload:       mustMarshal(map[string]interface{}{"id": id, "outlet_id": existing.OutletID, "title": existing.Title}),
+			Status:        "pending",
+		})
+		return expenseRepo.Delete(id)
 	})
-	return uc.expenseRepo.Delete(id)
 }

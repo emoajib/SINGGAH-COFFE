@@ -310,13 +310,13 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 		if err := NewCashBookUsecase(tx).RemoveOrderIncome(order.ID); err != nil {
 			return err
 		}
-		// PSAK: Create outbox event for void reversal
+		// PSAK: Create outbox event for void reversal (full payload for journal reversal)
 		outboxRepo := postgres.NewOutboxRepository(tx)
 		_ = outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "order.voided",
 			ReferenceType: "order",
 			ReferenceID:   order.ID,
-			Payload:       mustMarshal(map[string]interface{}{"id": order.ID, "outlet_id": order.OutletID}),
+			Payload:       mustMarshal(orderEventPayload(order)),
 			Status:        "pending",
 		})
 		return nil
@@ -456,6 +456,16 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 		}
 		// QRIS: no Cash Book entry until CompletePayment is called
 
+		// PSAK: Create outbox event for journal entry on payment method change
+		outboxRepo := postgres.NewOutboxRepository(tx)
+		_ = outboxRepo.Create(&entity.EventOutbox{
+			EventType:     "order.completed",
+			ReferenceType: "order",
+			ReferenceID:   order.ID,
+			Payload:       mustMarshal(orderEventPayload(order)),
+			Status:        "pending",
+		})
+
 		result = order.ToResponse()
 		return nil
 	})
@@ -525,6 +535,16 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 			}
 		}
 
+		// PSAK: Create outbox event for journal entry when QRIS order is paid
+		outboxRepo := postgres.NewOutboxRepository(tx)
+		_ = outboxRepo.Create(&entity.EventOutbox{
+			EventType:     "order.completed",
+			ReferenceType: "order",
+			ReferenceID:   order.ID,
+			Payload:       mustMarshal(orderEventPayload(order)),
+			Status:        "pending",
+		})
+
 		return NewCashBookUsecase(tx).EnsureOrderIncome(order)
 	}); err != nil {
 		return nil, err
@@ -536,13 +556,13 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 
 func orderEventPayload(order *entity.Order) map[string]interface{} {
 	items := make([]map[string]interface{}, len(order.OrderItems))
-	var totalCOGS int64
+	var totalCOGS float64
 	for i, item := range order.OrderItems {
-		cogs := int64(item.Cost * float64(item.Quantity) * 100) // convert to cents
+		cogs := item.Cost * float64(item.Quantity)
 		items[i] = map[string]interface{}{
 			"product_id": item.ProductID,
 			"quantity":   item.Quantity,
-			"price":      int64(item.Price * 100),
+			"price":      item.Price,
 			"cost":       cogs,
 		}
 		totalCOGS += cogs
@@ -550,7 +570,7 @@ func orderEventPayload(order *entity.Order) map[string]interface{} {
 	return map[string]interface{}{
 		"id":             order.ID,
 		"order_number":   order.OrderNumber,
-		"total_amount":   int64(order.TotalAmount * 100),
+		"total_amount":   order.TotalAmount,
 		"payment_method": order.PaymentMethod,
 		"outlet_id":      order.OutletID,
 		"cashier_name":   order.CashierName,
