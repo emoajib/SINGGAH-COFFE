@@ -25,7 +25,11 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
     const logoUrl = settings?.outlet_logo_url || ""
     const outletName = settings?.outlet_name || "Singgah Coffee"
 
-    const { data: _summary, isLoading: statsLoading } = useDashboard()
+    const [dateFilterStart, setDateFilterStart] = useState("")
+    const [dateFilterEnd, setDateFilterEnd] = useState("")
+    const [productFilter, setProductFilter] = useState("")
+
+    const { data: _summary, isLoading: statsLoading, refetch } = useDashboard(dateFilterStart || undefined, dateFilterEnd || undefined)
     const summary: any = _summary ?? {
         total_sales: 0,
         active_orders: 0,
@@ -37,13 +41,10 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
         product_sales: [] as ProductSalesVolume[],
         total_cups: 0
     }
-    const [dateFilter, setDateFilter] = useState("")
-    const [productFilter, setProductFilter] = useState("")
 
     const filteredProducts = (summary.product_sales || []).filter((p: ProductSalesVolume) => {
-        const matchDate = !dateFilter || true
         const matchProduct = !productFilter || p.name.toLowerCase().includes(productFilter.toLowerCase())
-        return matchDate && matchProduct
+        return matchProduct
     })
     const filteredTotalCups = filteredProducts.reduce((sum: number, p: ProductSalesVolume) => sum + p.quantity, 0)
 
@@ -175,20 +176,31 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                                 Total: {summary.total_cups ?? filteredTotalCups} cup
                             </span>
                         </CardTitle>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                             <input
                                 type="date"
-                                value={dateFilter}
-                                onChange={e => setDateFilter(e.target.value)}
+                                value={dateFilterStart}
+                                onChange={e => setDateFilterStart(e.target.value)}
                                 className="text-xs border rounded px-2 py-1"
-                                title="Filter tanggal"
+                                title="Tanggal mulai"
                             />
+                            <span className="text-xs text-gray-400">s/d</span>
+                            <input
+                                type="date"
+                                value={dateFilterEnd}
+                                onChange={e => setDateFilterEnd(e.target.value)}
+                                className="text-xs border rounded px-2 py-1"
+                                title="Tanggal selesai"
+                            />
+                            <Button variant="outline" size="sm" onClick={() => refetch()} className="text-xs">
+                                ↻ Refresh
+                            </Button>
                             <input
                                 type="text"
                                 placeholder="Cari menu..."
                                 value={productFilter}
                                 onChange={e => setProductFilter(e.target.value)}
-                                className="text-xs border rounded px-2 py-1 w-48"
+                                className="text-xs border rounded px-2 py-1 w-40"
                             />
                         </div>
                     </div>

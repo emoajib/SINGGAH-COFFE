@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
 import type { DashboardSummary } from '../types'
 
-export function useDashboard() {
+export function useDashboard(start?: string, end?: string) {
   return useQuery({
-    queryKey: ['dashboard'],
-    queryFn: () => api.get<DashboardSummary>('/dashboard/summary').then((r) => r.data),
+    queryKey: ['dashboard', start, end],
+    queryFn: () => api.get<DashboardSummary>('/dashboard/summary', { params: { start, end } }).then((r) => r.data),
     refetchInterval: 30_000,
   })
 }

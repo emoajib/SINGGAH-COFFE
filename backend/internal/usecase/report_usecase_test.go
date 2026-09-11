@@ -124,7 +124,7 @@ func TestReportUsecase_GetDashboardSummary(t *testing.T) {
 		CostPerUnit:  100,
 	})
 
-	summary, err := uc.GetDashboardSummary()
+	summary, err := uc.GetDashboardSummary("", "")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, summary)

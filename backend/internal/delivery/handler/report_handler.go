@@ -22,7 +22,9 @@ func NewReportHandler(reportUsecase *usecase.ReportUsecase) *ReportHandler {
 }
 
 func (h *ReportHandler) GetDashboardSummary(c *gin.Context) {
-	summary, err := h.reportUsecase.GetDashboardSummary(getOutletID(c))
+	start := c.Query("start")
+	end := c.Query("end")
+	summary, err := h.reportUsecase.GetDashboardSummary(start, end, getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch dashboard summary"})
 		return

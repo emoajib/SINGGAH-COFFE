@@ -65,8 +65,8 @@ func NewReportUsecase(db *gorm.DB) *ReportUsecase {
 	}
 }
 
-func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.DashboardSummary, error) {
-	key := cacheKey(outletID)
+func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint) (*entity.DashboardSummary, error) {
+	key := cacheKey(hashString(start+end))
 
 	// Fast path: return cached copy if fresh
 	dashboardMu.RLock()
@@ -86,13 +86,17 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 		return &copy, nil
 	}
 
-	now := time.Now()
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	startOfWeek := now.AddDate(0, 0, -6)
-	startOfSevenDays := time.Date(startOfWeek.Year(), startOfWeek.Month(), startOfWeek.Day(), 0, 0, 0, 0, now.Location())
+	if start == "" {
+		now := time.Now()
+		start = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Format("2006-01-02 15:04:05")
+	}
+	if end == "" {
+		now := time.Now()
+		end = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location()).Format("2006-01-02 15:04:05")
+	}
 
-	since := startOfDay.Format("2006-01-02 15:04:05")
-	sinceWeek := startOfSevenDays.Format("2006-01-02 15:04:05")
+	since := start
+	sinceWeek := time.Now().AddDate(0, 0, -6).Format("2006-01-02 00:00:00")
 
 	totalSales, err := uc.orderRepo.GetTotalSalesSince(since, outletID...)
 	if err != nil {
@@ -115,7 +119,7 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "%d %b", outletID...)
 	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown(outletID...)
 	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
-	productSales, _ := uc.orderItemRepo.GetProductSalesVolume(since, time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location()).Format("2006-01-02 15:04:05"), outletID...)
+	productSales, _ := uc.orderItemRepo.GetProductSalesVolume(since, end, outletID...)
 	totalCups := 0
 	for _, ps := range productSales {
 		totalCups += ps.Quantity
@@ -170,10 +174,19 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	return summary, nil
 }
 
-// cacheKey derives the cache key from an optional outletID (0 = all outlets).
-func cacheKey(outletID []uint) uint {
-	if len(outletID) > 0 {
-		return outletID[0]
+func hashString(s string) uint {
+	h := uint(2166136261)
+	for i := 0; i < len(s); i++ {
+		h ^= uint(s[i])
+		h *= 16777619
+	}
+	return h
+}
+
+// cacheKey derives the cache key from an optional outletID and date range.
+func cacheKey(extra ...uint) uint {
+	if len(extra) > 0 {
+		return extra[0]
 	}
 	return 0
 }
