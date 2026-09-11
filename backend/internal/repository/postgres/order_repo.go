@@ -128,20 +128,19 @@ func (r *orderRepository) CountByStatus(status string, outletID ...uint) (int64,
 	return count, err
 }
 
-func (r *orderRepository) GetSumByStatusSince(status, since, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error) {
+func (r *orderRepository) GetSumByStatusSince(status, start, end, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error) {
 	outletWhere := ""
-	args := []interface{}{timeFormat, since, status}
+	args := []interface{}{timeFormat, start, status, end}
 	if len(outletID) > 0 && outletID[0] > 0 {
 		outletWhere = " AND outlet_id = ?"
 		args = append(args, outletID[0])
 	}
-	args = append(args, timeFormat)
 
 	var results []entity.TrendPoint
 	err := r.db.Raw(`
 		SELECT DATE_FORMAT(created_at, ?) as name, SUM(total_amount) as total
 		FROM orders
-		WHERE created_at >= ? AND status = ?`+outletWhere+`
+		WHERE created_at >= ? AND created_at <= ? AND status = ?`+outletWhere+`
 		GROUP BY DATE_FORMAT(created_at, ?), DATE(created_at)
 		ORDER BY DATE(created_at) ASC
 	`, args...).Scan(&results).Error

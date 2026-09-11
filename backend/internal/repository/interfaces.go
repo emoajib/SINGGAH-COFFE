@@ -68,7 +68,7 @@ type OrderRepository interface {
 	GetSalesByPaymentMethod(start, end string, outletID ...uint) ([]entity.PaymentBreakdown, error)
 	CountSince(since string, outletID ...uint) (int64, error)
 	CountByStatus(status string, outletID ...uint) (int64, error)
-	GetSumByStatusSince(status, since, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error)
+	GetSumByStatusSince(status, start, end, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error)
 	// BEP
 	GetDailySalesRange(start, end string, outletID ...uint) ([]entity.DailySales, error)
 	GetAverageOrderValue(start, end string, outletID ...uint) (float64, error)

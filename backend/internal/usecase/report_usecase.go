@@ -115,8 +115,8 @@ func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint
 		log.Printf("[WARN] dashboard: failed to fetch total expenses: %v", err)
 	}
 
-	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, "%H:00", outletID...)
-	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "%d %b", outletID...)
+	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, end, "%H:00", outletID...)
+	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, end, "%d %b", outletID...)
 	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown(outletID...)
 	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
 	productSales, _ := uc.orderItemRepo.GetProductSalesVolume(since, end, outletID...)
