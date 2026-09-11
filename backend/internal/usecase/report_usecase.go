@@ -115,6 +115,11 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, "%d %b", outletID...)
 	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown(outletID...)
 	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
+	productSales, _ := uc.orderItemRepo.GetProductSalesVolume(since, now.Format("2006-01-02"), outletID...)
+	totalCups := 0
+	for _, ps := range productSales {
+		totalCups += ps.Quantity
+	}
 
 	if hourlyTrend == nil {
 		hourlyTrend = []entity.TrendPoint{}
@@ -143,6 +148,8 @@ func (uc *ReportUsecase) GetDashboardSummary(outletID ...uint) (*entity.Dashboar
 		WeeklyTrend:       weeklyTrend,
 		CategoryBreakdown: categoryBreakdown,
 		TopProducts:       topProducts,
+		ProductSales:      productSales,
+		TotalCups:         totalCups,
 	}
 
 	if dashboardCache == nil {

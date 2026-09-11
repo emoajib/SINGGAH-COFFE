@@ -317,6 +317,19 @@ export interface DashboardSummary {
   weekly_trend: { name: string; total: number }[]
   category_breakdown: { category: string; total: number; percentage?: number }[]
   top_products: { name: string; category: string; sales: number; quantity?: number; product_id?: number; product_name?: string; total?: number }[]
+  product_sales: { product_id: number; name: string; category: string; quantity: number; avg_price: number; avg_cost: number; revenue: number; total_cogs: number }[]
+  total_cups: number
+}
+
+export interface ProductSalesVolume {
+  product_id: number
+  name: string
+  category: string
+  quantity: number
+  avg_price: number
+  avg_cost: number
+  revenue: number
+  total_cogs: number
 }
 
 // ─── Outlet ──────────────────────────────────────────────────────────

@@ -3,14 +3,14 @@ import { SalesChart } from "../components/dashboard/SalesChart"
 import { TopSellingItems } from "../components/dashboard/TopSellingItems"
 import { useEffect, useState } from "react"
 import { InventoryService } from "../services/inventoryService"
-import { AlertTriangle, Loader2 } from "lucide-react"
+import { AlertTriangle, Loader2, ShoppingCart } from "lucide-react"
 import { getImageUrl, formatCurrency } from "../lib/utils"
 import { useDashboard } from "../hooks/useDashboard"
 import { useSettings } from "../hooks/useSettings"
 import { Button } from "../components/ui/button"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
-import type { Ingredient } from "../types"
+import type { Ingredient, ProductSalesVolume } from "../types"
 
 interface DashboardHomeProps {
     setActiveTab: (tab: string) => void
@@ -33,8 +33,19 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
         transactions_today: 0,
         sales_trend: [] as { name: string; total: number }[],
         category_breakdown: [] as { category: string; total: number }[],
-        top_products: [] as { name: string; category: string; sales: number }[]
+        top_products: [] as { name: string; category: string; sales: number }[],
+        product_sales: [] as ProductSalesVolume[],
+        total_cups: 0
     }
+    const [dateFilter, setDateFilter] = useState("")
+    const [productFilter, setProductFilter] = useState("")
+
+    const filteredProducts = (summary.product_sales || []).filter((p: ProductSalesVolume) => {
+        const matchDate = !dateFilter || true
+        const matchProduct = !productFilter || p.name.toLowerCase().includes(productFilter.toLowerCase())
+        return matchDate && matchProduct
+    })
+    const filteredTotalCups = filteredProducts.reduce((sum: number, p: ProductSalesVolume) => sum + p.quantity, 0)
 
     useEffect(() => {
         const canViewStock = user?.role === 'owner' || user?.role === 'manager'
@@ -152,6 +163,77 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                 <SalesChart data={summary.sales_trend || []} />
                 <TopSellingItems items={summary.top_products || []} />
             </div>
+
+            {/* Product Sales Breakdown */}
+            <Card>
+                <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <ShoppingCart className="w-5 h-5" />
+                            Detail Penjualan per Menu
+                            <span className="text-sm font-normal text-gray-500 ml-2">
+                                Total: {summary.total_cups ?? filteredTotalCups} cup
+                            </span>
+                        </CardTitle>
+                        <div className="flex gap-2">
+                            <input
+                                type="date"
+                                value={dateFilter}
+                                onChange={e => setDateFilter(e.target.value)}
+                                className="text-xs border rounded px-2 py-1"
+                                title="Filter tanggal"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Cari menu..."
+                                value={productFilter}
+                                onChange={e => setProductFilter(e.target.value)}
+                                className="text-xs border rounded px-2 py-1 w-48"
+                            />
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {filteredProducts.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-4">Tidak ada data penjualan</p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b">
+                                        <th className="text-left py-2 px-3 font-medium">No</th>
+                                        <th className="text-left py-2 px-3 font-medium">Menu</th>
+                                        <th className="text-left py-2 px-3 font-medium">Kategori</th>
+                                        <th className="text-right py-2 px-3 font-medium">Cup</th>
+                                        <th className="text-right py-2 px-3 font-medium">Harga</th>
+                                        <th className="text-right py-2 px-3 font-medium">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredProducts.map((p: ProductSalesVolume, i: number) => (
+                                        <tr key={p.product_id} className="border-b hover:bg-gray-50">
+                                            <td className="py-2 px-3 text-gray-500">{i + 1}</td>
+                                            <td className="py-2 px-3 font-medium">{p.name}</td>
+                                            <td className="py-2 px-3 text-gray-500">{p.category}</td>
+                                            <td className="py-2 px-3 text-right font-bold">{p.quantity}</td>
+                                            <td className="py-2 px-3 text-right">{formatCurrency(p.avg_price)}</td>
+                                            <td className="py-2 px-3 text-right">{formatCurrency(p.revenue)}</td>
+                                        </tr>
+                                    ))}
+                                    <tr className="border-t-2 font-bold bg-gray-100">
+                                        <td colSpan={3} className="py-3 px-3">Total</td>
+                                        <td className="py-3 px-3 text-right">{filteredTotalCups}</td>
+                                        <td className="py-3 px-3"></td>
+                                        <td className="py-3 px-3 text-right">
+                                            {formatCurrency(filteredProducts.reduce((s: number, p: ProductSalesVolume) => s + p.revenue, 0))}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     )
 }
