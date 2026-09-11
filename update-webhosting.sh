@@ -106,13 +106,14 @@ echo "   ✅ Backup verified"
 # 3. STOP BACKEND GRACEFULLY
 echo ""
 echo "🔄 Step 3: Stopping backend gracefully..."
-# Kirim SIGTERM dulu untuk graceful shutdown
-pkill -f "$BACKEND_BIN" 2>/dev/null || true
-sleep 3
-# Kill sisa proses jika masih ada
-pkill -9 -f "$BACKEND_BIN" 2>/dev/null || true
-# Bersihkan port 8080
-lsof -ti:8080 2>/dev/null | xargs kill -9 2>/dev/null || true
+# Kirim SIGTERM dulu untuk graceful shutdown via PID file (kill adalah built-in, tidak butuh fork)
+for f in "$PROJ_DIR/backend/backend.pid" "$PROJ_DIR/backend.pid"; do
+    if [ -f "$f" ]; then
+        OLD_PID=$(cat "$f" 2>/dev/null)
+        [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 3 && kill -9 "$OLD_PID" 2>/dev/null || true
+        rm -f "$f"
+    fi
+done
 sleep 1
 echo "   ✅ Backend stopped"
 
