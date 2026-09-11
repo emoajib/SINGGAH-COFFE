@@ -14,6 +14,8 @@ import (
 	"singgah-pos-backend/internal/database"
 	"singgah-pos-backend/internal/delivery/handler"
 	"singgah-pos-backend/internal/pkg/jwt"
+	"singgah-pos-backend/internal/psak"
+	"singgah-pos-backend/internal/repository/postgres"
 	"singgah-pos-backend/internal/routes"
 	"singgah-pos-backend/internal/usecase"
 	"strings"
@@ -55,6 +57,8 @@ func main() {
 		cashBookUsecase := usecase.NewCashBookUsecase(db)
 		productionTargetUsecase := usecase.NewProductionTargetUsecase(db)
 		profitSharingUsecase := usecase.NewProfitSharingUsecase(db)
+	accountUsecase := usecase.NewAccountUsecase(db)
+	journalUsecase := usecase.NewJournalUsecase(db)
 
 	// Context for graceful background worker shutdowns
 	bgCtx, bgCancel := context.WithCancel(context.Background())
@@ -78,6 +82,17 @@ func main() {
 		}
 	}()
 
+	// PSAK Event Bus + Worker
+	eventHandler := psak.NewJournalEventHandler(db)
+	eventBus := psak.NewEventBus(eventHandler, 100)
+	psakWorker := psak.NewWorker(db, eventBus, postgres.NewOutboxRepository(db))
+	eventBus.Start(bgCtx)
+	psakWorker.Start(bgCtx)
+	defer func() {
+		psakWorker.Stop()
+		eventBus.Stop()
+	}()
+
 	handlers := &routes.Handlers{
 		Auth:          handler.NewAuthHandler(authUsecase),
 		Product:       handler.NewProductHandler(productUsecase),
@@ -95,6 +110,8 @@ func main() {
 		Sync:          handler.NewSyncHandler(&cfg),
 		ProductionTarget: handler.NewProductionTargetHandler(productionTargetUsecase),
 		ProfitSharing:    handler.NewProfitSharingHandler(profitSharingUsecase),
+		Account:          handler.NewAccountHandler(accountUsecase),
+		Journal:          handler.NewJournalHandler(journalUsecase),
 	}
 
 	r := gin.New()

@@ -14,6 +14,9 @@ import {
     HardDrive,
     BookOpen,
     Users,
+    Landmark,
+    FileText,
+    PieChart,
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
@@ -45,8 +48,11 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         { id: "reports", label: "Laporan", icon: BarChart3, roles: ["owner"] },
         { id: "cash-registers", label: "Kas", icon: Banknote, roles: ["owner", "manager", "cashier"] },
         { id: "cash-book", label: "Buku Kas", icon: BookOpen, roles: ["owner", "manager", "cashier"] },
-        { id: "profit-sharing", label: "Bagi Hasil", icon: Users, roles: ["owner"] },
-        { id: "bep", label: "Analisis BEP", icon: TrendingUp, roles: ["owner"] },
+{ id: "profit-sharing", label: "Bagi Hasil", icon: Users, roles: ["owner"] },
+{ id: "psak-coa", label: "Buku Besar (CoA)", icon: Landmark, roles: ["owner"] },
+{ id: "psak-journal", label: "Jurnal Umum", icon: FileText, roles: ["owner"] },
+{ id: "psak-reports", label: "Laporan PSAK", icon: PieChart, roles: ["owner"] },
+{ id: "bep", label: "Analisis BEP", icon: TrendingUp, roles: ["owner"] },
         { id: "kebutuhan-stok", label: "Kebutuhan Stok", icon: ShoppingCart, roles: ["owner"] },
         { id: "integration", label: "Integrasi", icon: Puzzle, roles: ["owner"] },
         { id: "backup", label: "Backup", icon: HardDrive, roles: ["owner"] },

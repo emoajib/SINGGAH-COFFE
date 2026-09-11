@@ -25,6 +25,8 @@ type Handlers struct {
 	ProductionTarget *handler.ProductionTargetHandler
 	CashBook         *handler.CashBookHandler
 	ProfitSharing    *handler.ProfitSharingHandler
+	Account          *handler.AccountHandler
+	Journal          *handler.JournalHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
@@ -163,6 +165,28 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/profit-sharing/:id/mark-paid", middleware.RoleMiddleware("owner"), h.ProfitSharing.MarkAsPaid)
 			protected.POST("/profit-sharing/:id/recalculate", middleware.RoleMiddleware("owner"), h.ProfitSharing.Recalculate)
 			protected.DELETE("/profit-sharing/:id", middleware.RoleMiddleware("owner"), h.ProfitSharing.Delete)
+
+			// PSAK — Chart of Accounts
+			protected.GET("/psak/accounts", h.Account.GetAccounts)
+			protected.GET("/psak/accounts/:id", h.Account.GetAccount)
+			protected.POST("/psak/accounts", middleware.RoleMiddleware("owner"), h.Account.CreateAccount)
+			protected.PUT("/psak/accounts/:id", middleware.RoleMiddleware("owner"), h.Account.UpdateAccount)
+			protected.DELETE("/psak/accounts/:id", middleware.RoleMiddleware("owner"), h.Account.DeleteAccount)
+			protected.POST("/psak/accounts/seed", middleware.RoleMiddleware("owner"), h.Account.SeedAccounts)
+
+			// PSAK — Journal Entries
+			protected.GET("/psak/journals", h.Journal.GetJournals)
+			protected.GET("/psak/journals/:id", h.Journal.GetJournal)
+			protected.POST("/psak/journals", middleware.RoleMiddleware("owner"), h.Journal.CreateJournal)
+			protected.POST("/psak/journals/:id/post", middleware.RoleMiddleware("owner"), h.Journal.PostJournal)
+			protected.POST("/psak/journals/:id/void", middleware.RoleMiddleware("owner"), h.Journal.VoidJournal)
+
+			// PSAK — Reports
+			protected.GET("/psak/reports/trial-balance", middleware.RoleMiddleware("owner", "manager"), h.Journal.GetTrialBalance)
+			protected.GET("/psak/reports/balance-sheet", middleware.RoleMiddleware("owner", "manager"), h.Journal.GetBalanceSheet)
+			protected.GET("/psak/reports/income-statement", middleware.RoleMiddleware("owner", "manager"), h.Journal.GetIncomeStatement)
+			protected.GET("/psak/reports/cash-flow", middleware.RoleMiddleware("owner", "manager"), h.Journal.GetCashFlow)
+			protected.GET("/psak/reports/general-ledger", middleware.RoleMiddleware("owner", "manager"), h.Journal.GetGeneralLedger)
 		}
 	}
 

@@ -182,3 +182,47 @@ type CashBookRepository interface {
 	ExistsByReference(ref string, outletID ...uint) (bool, error)
 	DeleteByReference(ref string, outletID ...uint) (int64, error)
 }
+
+// AccountRepository defines data access for PSAK Chart of Accounts
+type AccountRepository interface {
+	FindAll(outletID ...uint) ([]entity.Account, error)
+	FindByID(id uint) (*entity.Account, error)
+	FindByCode(code string, outletID ...uint) (*entity.Account, error)
+	Create(account *entity.Account) error
+	Update(account *entity.Account) error
+	Delete(id uint) error
+	CountByCode(code string, outletID ...uint) (int64, error)
+}
+
+// JournalRepository defines data access for PSAK Journal Entries
+type JournalRepository interface {
+	FindAll(limit, offset int, outletID ...uint) ([]entity.JournalEntry, error)
+	FindAllFiltered(start, end, status, sourceType string, limit, offset int, outletID ...uint) ([]entity.JournalEntry, error)
+	FindByID(id uint) (*entity.JournalEntry, error)
+	FindByIDWithItems(id uint) (*entity.JournalEntry, error)
+	Create(entry *entity.JournalEntry, items []entity.JournalEntryItem) error
+	UpdateStatus(id uint, status string) error
+	GetNextEntryNumber(outletID uint) (string, error)
+	GetTotalDebitCredit(start, end string, outletID ...uint) (debit int64, credit int64, err error)
+	FindItemsByEntryID(entryID uint) ([]entity.JournalEntryItem, error)
+}
+
+// JournalItemRepository defines data access for PSAK Journal Entry Items
+type JournalItemRepository interface {
+	FindByAccountID(accountID uint, start, end string, outletID ...uint) ([]entity.JournalEntryItem, error)
+	GetBalanceByAccount(accountID uint, start, end string, outletID ...uint) (debit int64, credit int64, err error)
+	GetTrialBalance(start, end string, outletID ...uint) ([]entity.TrialBalanceRow, error)
+	GetGeneralLedger(accountID uint, start, end string, limit, offset int, outletID ...uint) ([]entity.GeneralLedgerRow, error)
+}
+
+// OutboxRepository defines data access for the transactional event outbox
+type OutboxRepository interface {
+	Create(event *entity.EventOutbox) error
+	FindPending(limit int) ([]entity.EventOutbox, error)
+	Claim(id uint) error
+	MarkSuccess(id uint) error
+	MarkFailed(id uint, errMsg string) error
+	MoveToDeadLetter(id uint) error
+	Cleanup(olderThanDays int) (int64, error)
+	ExistsByEventRef(eventType, referenceType string, referenceID uint) (bool, error)
+}

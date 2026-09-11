@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -220,6 +221,15 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		if err := NewCashBookUsecase(tx).EnsureOrderIncome(loaded); err != nil {
 			return err
 		}
+		// PSAK: Create outbox event for journal entry
+		outboxRepo := postgres.NewOutboxRepository(tx)
+		_ = outboxRepo.Create(&entity.EventOutbox{
+			EventType:     "order.completed",
+			ReferenceType: "order",
+			ReferenceID:   loaded.ID,
+			Payload:       mustMarshal(orderEventPayload(loaded)),
+			Status:        "pending",
+		})
 		result.Order = loaded.ToResponse()
 		return nil
 	})
@@ -297,7 +307,19 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 		if err := orderRepo.Update(order); err != nil {
 			return err
 		}
-		return NewCashBookUsecase(tx).RemoveOrderIncome(order.ID)
+		if err := NewCashBookUsecase(tx).RemoveOrderIncome(order.ID); err != nil {
+			return err
+		}
+		// PSAK: Create outbox event for void reversal
+		outboxRepo := postgres.NewOutboxRepository(tx)
+		_ = outboxRepo.Create(&entity.EventOutbox{
+			EventType:     "order.voided",
+			ReferenceType: "order",
+			ReferenceID:   order.ID,
+			Payload:       mustMarshal(map[string]interface{}{"id": order.ID, "outlet_id": order.OutletID}),
+			Status:        "pending",
+		})
+		return nil
 	})
 
 	if err != nil {
@@ -510,5 +532,35 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 
 	resp := order.ToResponse()
 	return &resp, nil
+}
+
+func orderEventPayload(order *entity.Order) map[string]interface{} {
+	items := make([]map[string]interface{}, len(order.OrderItems))
+	var totalCOGS int64
+	for i, item := range order.OrderItems {
+		cogs := int64(item.Cost * float64(item.Quantity) * 100) // convert to cents
+		items[i] = map[string]interface{}{
+			"product_id": item.ProductID,
+			"quantity":   item.Quantity,
+			"price":      int64(item.Price * 100),
+			"cost":       cogs,
+		}
+		totalCOGS += cogs
+	}
+	return map[string]interface{}{
+		"id":             order.ID,
+		"order_number":   order.OrderNumber,
+		"total_amount":   int64(order.TotalAmount * 100),
+		"payment_method": order.PaymentMethod,
+		"outlet_id":      order.OutletID,
+		"cashier_name":   order.CashierName,
+		"items":          items,
+		"total_cogs":     totalCOGS,
+	}
+}
+
+func mustMarshal(v interface{}) []byte {
+	data, _ := json.Marshal(v)
+	return data
 }
 

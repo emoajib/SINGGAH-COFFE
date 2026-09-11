@@ -51,6 +51,11 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.CashBook{},
 		&models.ProductionTarget{},
 		&models.ProfitSharingPeriod{},
+		&models.PSAKAccount{},
+		&models.PSAKJournalEntry{},
+		&models.PSAKJournalEntryItem{},
+		&models.PSAKEventOutbox{},
+		&models.PSAKSchemaVersion{},
 	)
 	if err != nil {
 		log.Printf("AutoMigrate failed: %v", err)

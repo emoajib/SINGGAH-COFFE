@@ -164,3 +164,38 @@ type SaveProductionTargetsRequest struct {
 	PeriodDays int                     `json:"period_days"`
 	Targets    []ProductionTargetInput `json:"targets"`
 }
+
+// PSAK — Chart of Accounts
+type CreateAccountRequest struct {
+	Code        string `json:"code" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Type        string `json:"type" binding:"required"`
+	ParentID    *uint  `json:"parent_id"`
+	Description string `json:"description"`
+}
+
+type UpdateAccountRequest struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	ParentID    *uint  `json:"parent_id"`
+	IsActive    *bool  `json:"is_active"`
+	Description string `json:"description"`
+}
+
+// PSAK Journal Entry requests
+type CreateJournalRequest struct {
+	Date        string                     `json:"date" binding:"required"`
+	Description string                     `json:"description" binding:"required"`
+	SourceType  string                     `json:"source_type"`
+	SourceID    *uint                      `json:"source_id"`
+	Items       []CreateJournalItemRequest `json:"items" binding:"required,min=2"`
+}
+
+type CreateJournalItemRequest struct {
+	AccountID   uint   `json:"account_id" binding:"required"`
+	AccountCode string `json:"account_code" binding:"required"`
+	AccountName string `json:"account_name" binding:"required"`
+	Debit       int64  `json:"debit"`
+	Credit      int64  `json:"credit"`
+	Description string `json:"description"`
+}
