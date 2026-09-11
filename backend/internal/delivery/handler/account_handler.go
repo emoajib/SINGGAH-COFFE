@@ -137,11 +137,12 @@ func (h *AccountHandler) SeedAccounts(c *gin.Context) {
 		return
 	}
 
-	if err := h.accountUsecase.SeedDefaultAccounts(outletID); err != nil {
+	count, err := h.accountUsecase.SeedDefaultAccounts(outletID)
+	if err != nil {
 		log.Printf("[ERROR] SeedAccounts failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Default PSAK accounts seeded successfully"})
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }

@@ -98,7 +98,8 @@ func (uc *AccountUsecase) Delete(id uint) error {
 }
 
 // SeedDefaultAccounts creates 17 PSAK default accounts for an outlet
-func (uc *AccountUsecase) SeedDefaultAccounts(outletID uint) error {
+// Returns the number of accounts newly created
+func (uc *AccountUsecase) SeedDefaultAccounts(outletID uint) (int, error) {
 	defaults := []entity.Account{
 		{Code: "1101", Name: "Kas", Type: "asset", IsActive: true, OutletID: outletID},
 		{Code: "1102", Name: "Piutang Usaha", Type: "asset", IsActive: true, OutletID: outletID},
@@ -119,18 +120,20 @@ func (uc *AccountUsecase) SeedDefaultAccounts(outletID uint) error {
 		{Code: "5205", Name: "Beban Depresiasi", Type: "expense", IsActive: true, OutletID: outletID},
 	}
 
+	var created int
 	for _, a := range defaults {
 		// Skip if code already exists for this outlet
 		count, err := uc.accountRepo.CountByCode(a.Code, outletID)
 		if err != nil {
-			return fmt.Errorf("failed to check code %s: %w", a.Code, err)
+			return created, fmt.Errorf("failed to check code %s: %w", a.Code, err)
 		}
 		if count > 0 {
 			continue
 		}
 		if err := uc.accountRepo.Create(&a); err != nil {
-			return fmt.Errorf("failed to seed account %s: %w", a.Code, err)
+			return created, fmt.Errorf("failed to seed account %s: %w", a.Code, err)
 		}
+		created++
 	}
-	return nil
+	return created, nil
 }

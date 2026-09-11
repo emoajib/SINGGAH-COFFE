@@ -89,7 +89,7 @@ func (r *journalItemRepository) GetTrialBalance(start, end string, outletID ...u
 
 func (r *journalItemRepository) GetGeneralLedger(accountID uint, start, end string, limit, offset int, outletID ...uint) ([]entity.GeneralLedgerRow, error) {
 	tx := r.db.Table("psak_journal_entry_items").
-		Select("psak_journal_entries.date, psak_journal_entries.entry_number as journal_entry_number, psak_journal_entry_items.account_code, psak_journal_entry_items.account_name, psak_journal_entry_items.description, psak_journal_entry_items.debit, psak_journal_entry_items.credit").
+		Select("psak_journal_entries.date, psak_journal_entries.entry_number as entry_number, psak_journal_entry_items.account_code, psak_journal_entry_items.account_name, psak_journal_entry_items.description, psak_journal_entry_items.debit, psak_journal_entry_items.credit").
 		Joins("JOIN psak_journal_entries ON psak_journal_entries.id = psak_journal_entry_items.journal_entry_id").
 		Where("psak_journal_entry_items.account_id = ?", accountID).
 		Where("psak_journal_entries.status = ?", "posted")

@@ -69,12 +69,15 @@ type JournalEntryResponse struct {
 	OutletID    uint                       `json:"outlet_id"`
 	CreatedBy   uint                       `json:"created_by"`
 	Items       []JournalEntryItemResponse `json:"items"`
+	TotalDebit  int64                      `json:"total_debit"`
+	TotalCredit int64                      `json:"total_credit"`
 	CreatedAt   time.Time                  `json:"created_at"`
 	UpdatedAt   time.Time                  `json:"updated_at"`
 }
 
 func (je *JournalEntry) ToResponse() JournalEntryResponse {
 	items := make([]JournalEntryItemResponse, len(je.Items))
+	var totalDebit, totalCredit int64
 	for i, item := range je.Items {
 		items[i] = JournalEntryItemResponse{
 			ID:              item.ID,
@@ -87,6 +90,8 @@ func (je *JournalEntry) ToResponse() JournalEntryResponse {
 			Description:     item.Description,
 			CreatedAt:       item.CreatedAt,
 		}
+		totalDebit += item.Debit
+		totalCredit += item.Credit
 	}
 	return JournalEntryResponse{
 		ID:          je.ID,
@@ -99,6 +104,8 @@ func (je *JournalEntry) ToResponse() JournalEntryResponse {
 		OutletID:    je.OutletID,
 		CreatedBy:   je.CreatedBy,
 		Items:       items,
+		TotalDebit:  totalDebit,
+		TotalCredit: totalCredit,
 		CreatedAt:   je.CreatedAt,
 		UpdatedAt:   je.UpdatedAt,
 	}
@@ -224,12 +231,12 @@ type CashFlowItem struct {
 }
 
 type GeneralLedgerRow struct {
-	Date               time.Time `json:"date"`
-	JournalEntryNumber string    `json:"journal_entry_number"`
-	AccountCode        string    `json:"account_code"`
-	AccountName        string    `json:"account_name"`
-	Description        string    `json:"description"`
-	Debit              int64     `json:"debit"`
-	Credit             int64     `json:"credit"`
-	Balance            int64     `json:"balance"`
+	Date        time.Time `json:"date"`
+	EntryNumber string    `json:"entry_number"`
+	AccountCode string    `json:"account_code"`
+	AccountName string    `json:"account_name"`
+	Description string    `json:"description"`
+	Debit       int64     `json:"debit"`
+	Credit      int64     `json:"credit"`
+	Balance     int64     `json:"balance"`
 }
