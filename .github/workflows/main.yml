@@ -169,6 +169,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           echo "SHORT_SHA=$(cut -c1-8 <<< "${GITHUB_SHA}")" >> "$GITHUB_ENV"
           cp backend/start.sh deploy/start.sh
+          cp update-webhosting.sh deploy/update-webhosting.sh
           cp api-proxy.php deploy/
           cp .htaccess deploy/
           cp scripts/*.sh deploy/scripts/ 2>/dev/null || true
