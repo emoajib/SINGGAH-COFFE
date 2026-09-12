@@ -113,7 +113,7 @@ func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outle
 	baseArgs := []interface{}{start, end, "Completed"}
 	var total float64
 	err := r.db.Model(&models.Order{}).
-		Where("orders.created_at BETWEEN ? AND ? AND orders.status = ?"+ow, append(baseArgs, args...)...).
+		Where("DATE(orders.created_at) BETWEEN DATE(?) AND DATE(?) AND orders.status = ?"+ow, append(baseArgs, args...)...).
 		Select("COALESCE(SUM(orders.total_amount), 0)").
 		Row().Scan(&total)
 	return total, err
