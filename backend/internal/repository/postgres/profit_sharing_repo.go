@@ -120,15 +120,17 @@ func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outle
 }
 
 func (r *profitSharingPeriodRepository) GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error) {
-	tx := r.db.Model(&models.Expense{}).
-		Where("date BETWEEN ? AND ?", start, end)
 	ow, args := outletWhere("expenses", outletID...)
-	tx = tx.Where(ow, args...)
+	query := "date BETWEEN ? AND ?" + ow
+	params := []interface{}{start, end}
+	params = append(params, args...)
 	if len(excluded) > 0 {
-		tx = tx.Where("category NOT IN ?", excluded)
+		query += " AND category NOT IN ?"
+		params = append(params, excluded)
 	}
 	var total float64
-	err := tx.Select("COALESCE(SUM(amount), 0)").Row().Scan(&total)
+	err := r.db.Model(&models.Expense{}).Where(query, params...).
+		Select("COALESCE(SUM(amount), 0)").Row().Scan(&total)
 	return total, err
 }
 
