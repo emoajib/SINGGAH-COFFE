@@ -57,6 +57,9 @@ fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Singgah Backend ($BIN_PATH)..."
 
+# Write our own watchdog PID so update-webhosting.sh can kill us
+echo "$$" > "$SCRIPT_DIR/start.sh.pid" 2>/dev/null || true
+
 # Watchdog restart loop (shared hosting recovery)
 # Shared-hosting hardening: sebelum start, bunuh proses lama yang menahan
 # port 8080 untuk mencegah "listen tcp :8080: bind: address already in use".
@@ -64,22 +67,27 @@ cleanup() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Terminating Singgah Backend (PID: $CHILD_PID)..."
   [ -n "$CHILD_PID" ] && kill -9 "$CHILD_PID" 2>/dev/null || true
   # Force kill any lingering process via PID file
-  for f in "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/backend.pid"; do
+  for f in "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/start.sh.pid"; do
     if [ -f "$f" ]; then
       OLD_PID=$(cat "$f" 2>/dev/null)
       [ -n "$OLD_PID" ] && kill -9 "$OLD_PID" 2>/dev/null || true
       rm -f "$f"
     fi
   done
-  rm -f "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/backend/backend.pid" 2>/dev/null || true
+  rm -f "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/start.sh.pid" 2>/dev/null || true
   exit 0
 }
 trap cleanup SIGTERM SIGINT SIGHUP
 
 while true; do
-  # Pastikan port 8080 bersih sebelum start instance baru
-  OLD_PID=$(cat "$SCRIPT_DIR/backend/backend.pid" 2>/dev/null || cat "$SCRIPT_DIR/backend.pid" 2>/dev/null || echo "")
-  [ -n "$OLD_PID" ] && kill -9 "$OLD_PID" 2>/dev/null || true
+  # Kill old processes via PID files (kill is a shell builtin, no fork needed)
+  for f in "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/start.sh.pid"; do
+    if [ -f "$f" ]; then
+      OLD_PID=$(cat "$f" 2>/dev/null)
+      [ -n "$OLD_PID" ] && kill -9 "$OLD_PID" 2>/dev/null || true
+      rm -f "$f"
+    fi
+  done
   sleep 1
 
   "$BIN_PATH" "$@" &

@@ -106,15 +106,39 @@ echo "   ✅ Backup verified"
 # 3. STOP BACKEND GRACEFULLY
 echo ""
 echo "🔄 Step 3: Stopping backend gracefully..."
-# Kirim SIGTERM dulu untuk graceful shutdown via PID file (kill adalah built-in, tidak butuh fork)
-for f in "$PROJ_DIR/backend/backend.pid" "$PROJ_DIR/backend.pid"; do
+# Kill via PID files (kill is a shell builtin, no fork needed)
+for f in "$PROJ_DIR/backend/backend.pid" "$PROJ_DIR/backend.pid" "$PROJ_DIR/start.sh.pid" "$PROJ_DIR/backend/start.sh.pid"; do
     if [ -f "$f" ]; then
         OLD_PID=$(cat "$f" 2>/dev/null)
-        [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 3 && kill -9 "$OLD_PID" 2>/dev/null || true
+        [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2 && kill -9 "$OLD_PID" 2>/dev/null || true
         rm -f "$f"
     fi
 done
 sleep 1
+# Best-effort: kill any orphaned process on port 8080 (may fail on low ulimit)
+# Try ss first, fall back to /proc/net/tcp parsing (no fork for reading)
+PORT_KILLED=false
+if command -v ss &>/dev/null; then
+    ss -tlnp 'sport = :8080' 2>/dev/null | grep -oP 'pid=\K[0-9]+' > /tmp/_spid 2>/dev/null
+    while read -r opid; do
+        [ -n "$opid" ] && kill -9 "$opid" 2>/dev/null && PORT_KILLED=true || true
+    done < /tmp/_spid 2>/dev/null
+    rm -f /tmp/_spid
+fi
+# Fallback: parse /proc/net/tcp for port 8080 (0x1F90)
+if [ "$PORT_KILLED" = false ] && [ -f /proc/net/tcp ]; then
+    while read -r line; do
+        inode=$(echo "$line" | awk '{print $10}')
+        [ -z "$inode" ] && continue
+        for pd in /proc/[0-9]*/fd; do
+            [ -d "$pd" ] || continue
+            pid="${pd##*/}"
+            if [ -d "/proc/$pid/fd" ]; then
+                ls -la "/proc/$pid/fd" 2>/dev/null | grep -q "socket:\[$inode\]" 2>/dev/null && kill -9 "$pid" 2>/dev/null && PORT_KILLED=true || true
+            fi
+        done
+    done < <(grep ':1F90' /proc/net/tcp 2>/dev/null)
+fi
 echo "   ✅ Backend stopped"
 
 # 4. DEPLOY NEW FILES (preserve .env, uploads)
