@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ProfitSharingService } from "../services/profitSharingService"
-import type { ProfitSharingPeriod } from "../types"
+import type { ProfitSharingPeriod, ProfitSharingPerson } from "../types"
 
 export function useProfitSharing() {
   const qc = useQueryClient()
@@ -16,8 +16,9 @@ export function useProfitSharing() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["profitSharingPeriods"] })
 
   const previewMutation = useMutation({
-    mutationFn: ({ start, end, ratio }: { start: string; end: string; ratio: number }) =>
-      ProfitSharingService.preview(start, end, ratio),
+    mutationFn: ({ start, end, ratio, basisType, ownerPct, people }: {
+      start: string; end: string; ratio: number; basisType?: string; ownerPct?: number; people?: ProfitSharingPerson[]
+    }) => ProfitSharingService.preview(start, end, ratio, basisType, ownerPct, people),
   })
 
   const finalizeMutation = useMutation({
@@ -42,6 +43,33 @@ export function useProfitSharing() {
     onSuccess: invalidate,
   })
 
+  const getPeopleQuery = useQuery({
+    queryKey: ["profitSharingPeople"],
+    queryFn: async () => {
+      const data = await ProfitSharingService.getPeople(0)
+      return Array.isArray(data) ? (data as ProfitSharingPerson[]) : []
+    },
+    enabled: false,
+  })
+
+  const addPersonMutation = useMutation({
+    mutationFn: ({ periodId, person }: { periodId: number; person: { name: string; role: string; share_pct: number } }) =>
+      ProfitSharingService.addPerson(periodId, person),
+    onSuccess: invalidate,
+  })
+
+  const removePersonMutation = useMutation({
+    mutationFn: ({ periodId, personId }: { periodId: number; personId: number }) =>
+      ProfitSharingService.removePerson(periodId, personId),
+    onSuccess: invalidate,
+  })
+
+  const setLeaveMutation = useMutation({
+    mutationFn: ({ periodId, personId, isOnLeave, reduction }: { periodId: number; personId: number; isOnLeave: boolean; reduction: number }) =>
+      ProfitSharingService.setLeave(periodId, personId, isOnLeave, reduction),
+    onSuccess: invalidate,
+  })
+
   return {
     periods: (periodsQuery.data || []) as ProfitSharingPeriod[],
     isLoading: periodsQuery.isLoading,
@@ -51,5 +79,9 @@ export function useProfitSharing() {
     markPaidMutation,
     recalculateMutation,
     deleteMutation,
+    getPeopleQuery,
+    addPersonMutation,
+    removePersonMutation,
+    setLeaveMutation,
   }
 }

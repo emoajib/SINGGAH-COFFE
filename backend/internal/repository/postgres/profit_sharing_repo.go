@@ -78,6 +78,8 @@ func (r *profitSharingPeriodRepository) Create(period *entity.ProfitSharingPerio
 		PerProduct:    period.PerProduct,
 		PaymentNote:   period.PaymentNote,
 		TaxNote:       period.TaxNote,
+		BasisType:     period.BasisType,
+		OwnerPct:      period.OwnerPct,
 	}
 	if err := r.db.Create(m).Error; err != nil {
 		return err
@@ -101,6 +103,8 @@ func (r *profitSharingPeriodRepository) Update(period *entity.ProfitSharingPerio
 		"per_product":    period.PerProduct,
 		"payment_note":   period.PaymentNote,
 		"tax_note":       period.TaxNote,
+		"basis_type":     period.BasisType,
+		"owner_pct":      period.OwnerPct,
 	}).Error
 }
 
@@ -152,7 +156,7 @@ func (r *profitSharingPeriodRepository) GetProductSales(start, end string, outle
 		FROM order_items oi
 		JOIN products p ON p.id = oi.product_id
 		JOIN orders o ON o.id = oi.order_id
-		WHERE o.created_at BETWEEN ? AND ? AND o.status = 'Completed'`+ow+`
+		WHERE DATE(o.created_at) BETWEEN DATE(?) AND DATE(?) AND o.status = 'Completed'`+ow+`
 		GROUP BY p.id, p.name, p.category
 		ORDER BY revenue DESC
 	`, allArgs...).Scan(&results).Error
@@ -176,6 +180,8 @@ func toDomainProfitSharing(m *models.ProfitSharingPeriod) *entity.ProfitSharingP
 		PerProduct:    m.PerProduct,
 		PaymentNote:   m.PaymentNote,
 		TaxNote:       m.TaxNote,
+		BasisType:     m.BasisType,
+		OwnerPct:      m.OwnerPct,
 		CreatedAt:     m.CreatedAt,
 		UpdatedAt:     m.UpdatedAt,
 	}

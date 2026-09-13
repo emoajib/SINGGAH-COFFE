@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"fmt"
+
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 
@@ -136,6 +138,25 @@ func (r *cashBookRepository) ExistsByReference(ref string, outletID ...uint) (bo
 }
 
 func (r *cashBookRepository) DeleteByReference(ref string, outletID ...uint) (int64, error) {
+	tx := r.db.Where("reference = ?", ref)
+	tx = scopeOutlet(tx, "cash_books", outletID...)
+	res := tx.Delete(&models.CashBook{})
+	return res.RowsAffected, res.Error
+}
+
+func (r *cashBookRepository) ExistsByProfitSharingPeriod(periodID uint, outletID ...uint) (bool, error) {
+	ref := fmt.Sprintf("profit-sharing:%d", periodID)
+	tx := r.db.Model(&models.CashBook{}).Where("reference = ?", ref)
+	tx = scopeOutlet(tx, "cash_books", outletID...)
+	var count int64
+	if err := tx.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *cashBookRepository) DeleteByProfitSharingPeriod(periodID uint, outletID ...uint) (int64, error) {
+	ref := fmt.Sprintf("profit-sharing:%d", periodID)
 	tx := r.db.Where("reference = ?", ref)
 	tx = scopeOutlet(tx, "cash_books", outletID...)
 	res := tx.Delete(&models.CashBook{})

@@ -165,6 +165,10 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/profit-sharing/:id/mark-paid", middleware.RoleMiddleware("owner"), h.ProfitSharing.MarkAsPaid)
 			protected.POST("/profit-sharing/:id/recalculate", middleware.RoleMiddleware("owner"), h.ProfitSharing.Recalculate)
 			protected.DELETE("/profit-sharing/:id", middleware.RoleMiddleware("owner"), h.ProfitSharing.Delete)
+			protected.GET("/profit-sharing/:id/people", middleware.RoleMiddleware("owner"), h.ProfitSharing.GetPeople)
+			protected.POST("/profit-sharing/:id/people", middleware.RoleMiddleware("owner"), h.ProfitSharing.AddPerson)
+			protected.DELETE("/profit-sharing/:id/people/:personId", middleware.RoleMiddleware("owner"), h.ProfitSharing.RemovePerson)
+			protected.PUT("/profit-sharing/:id/leave", middleware.RoleMiddleware("owner"), h.ProfitSharing.SetLeave)
 
 			// PSAK — Chart of Accounts
 			protected.GET("/psak/accounts", h.Account.GetAccounts)

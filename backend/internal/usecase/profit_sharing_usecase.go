@@ -31,20 +31,22 @@ var alwaysExcludedFromSharing = []string{
 }
 
 type ProfitSharingUsecase struct {
-	db            *gorm.DB
-	periodRepo    repository.ProfitSharingPeriodRepository
-	orderItemRepo repository.OrderItemRepository
-	expenseRepo   repository.ExpenseRepository
-	cashBookRepo  repository.CashBookRepository
+	db                       *gorm.DB
+	periodRepo               repository.ProfitSharingPeriodRepository
+	orderItemRepo            repository.OrderItemRepository
+	expenseRepo              repository.ExpenseRepository
+	cashBookRepo             repository.CashBookRepository
+	profitSharingPersonRepo  repository.ProfitSharingPersonRepository
 }
 
 func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 	return &ProfitSharingUsecase{
-		db:            db,
-		periodRepo:    postgres.NewProfitSharingPeriodRepository(db),
-		orderItemRepo: postgres.NewOrderItemRepository(db),
-		expenseRepo:   postgres.NewExpenseRepository(db),
-		cashBookRepo:  postgres.NewCashBookRepository(db),
+		db:                      db,
+		periodRepo:              postgres.NewProfitSharingPeriodRepository(db),
+		orderItemRepo:           postgres.NewOrderItemRepository(db),
+		expenseRepo:             postgres.NewExpenseRepository(db),
+		cashBookRepo:            postgres.NewCashBookRepository(db),
+		profitSharingPersonRepo: postgres.NewProfitSharingPeopleRepository(db),
 	}
 }
 
@@ -66,7 +68,10 @@ type calcResult struct {
 // calcFinancials computes profit-sharing amounts from raw financial data.
 // C1: rounds to nearest 250 IDR (integer).
 // C2: clamps negative sharingBasis to 0 (no one pays when there's a loss).
-func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume) calcResult {
+// ownerPct: owner percentage (default 60). Owner gets ownerPct% of sharingBasis.
+// If people provided, remaining pool is split among baristas by their sharePct.
+// OwnerPct cannot be 0 for the function to work, defaults to 60.
+func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson) calcResult {
 	grossMargin := basis - cogs
 	netProfit := grossMargin - expenses
 
@@ -96,7 +101,7 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 	}
 	perProductJSON, _ := json.Marshal(perProduct)
 
-	return calcResult{
+	result := calcResult{
 		Basis:          basis,
 		Cogs:           cogs,
 		Expenses:       expenses,
@@ -109,6 +114,54 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 		PerProduct:     perProduct,
 		PerProductJSON: string(perProductJSON),
 	}
+
+	// Multi-person split: owner gets ownerPct% of sharingBasis, baristas split remaining pool
+	if ownerPct > 0 && len(people) > 0 {
+		multiOwnerShare := math.Round(sharingBasis*ownerPct/100/250) * 250
+		baristaPool := sharingBasis - multiOwnerShare
+		result.OwnerAmount = multiOwnerShare
+		result.KeeperAmount = 0 // overridden per-person below
+
+		// Calculate each person's share from barista pool
+		totalBaristaPct := 0.0
+		for _, p := range people {
+			if p.Role != "owner" {
+				totalBaristaPct += p.SharePct
+			}
+		}
+		if totalBaristaPct == 0 {
+			totalBaristaPct = 100
+		}
+		for i := range people {
+			if people[i].Role == "owner" {
+				people[i].Amount = multiOwnerShare
+			} else {
+				share := math.Round(baristaPool*people[i].SharePct/totalBaristaPct/250) * 250
+				// If on leave, their share goes back to owner
+				if people[i].IsOnLeave {
+					people[i].LeaveReduction = share
+					people[i].Amount = 0
+				} else {
+					people[i].Amount = share
+					people[i].LeaveReduction = 0
+				}
+			}
+		}
+		// Owner also gets leave reductions from baristas
+		totalReductions := 0.0
+		for _, p := range people {
+			totalReductions += p.LeaveReduction
+		}
+		if len(people) > 0 {
+			for i := range people {
+				if people[i].Role == "owner" {
+					people[i].Amount += totalReductions
+				}
+			}
+		}
+	}
+
+	return result
 }
 
 // Preview calculates profit sharing for a period and persists a draft record.
@@ -116,7 +169,8 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 // that can later be finalized or recalculated. The draft is overwritten on
 // each call (idempotent per overlapping period). If a read-only calculation
 // is needed, use the calculation logic inline without the DB write.
-func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio float64) (*entity.ProfitSharingPreview, error) {
+// ownerPct defaults to 60 if <= 0. people slice can be nil for legacy 2-person mode.
+func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*entity.ProfitSharingPreview, error) {
 	startDate := parseDatePS(start)
 	endDate := parseDatePS(end)
 	if startDate.IsZero() || endDate.IsZero() {
@@ -148,7 +202,15 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		products = nil
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products)
+	// Defaults
+	if basisType == "" {
+		basisType = "net"
+	}
+	if ownerPct <= 0 {
+		ownerPct = 60
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people)
 
 	period := entity.ProfitSharingPeriod{
 		OutletID:      outletID,
@@ -164,6 +226,9 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		Status:        "draft",
 		PerProduct:    result.PerProductJSON,
 		TaxNote:       "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)",
+		BasisType:     basisType,
+		OwnerPct:      ownerPct,
+		People:        people,
 	}
 
 	// M3: Handle error dari FindOverlappingPeriod
@@ -184,6 +249,19 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		}
 	}
 
+	// Save people
+	if len(people) > 0 {
+		for i := range people {
+			people[i].PeriodID = period.ID
+		}
+		if err := uc.profitSharingPersonRepo.DeleteByPeriodID(period.ID); err != nil {
+			return nil, err
+		}
+		if err := uc.profitSharingPersonRepo.BulkUpsert(people); err != nil {
+			return nil, err
+		}
+	}
+
 	return &entity.ProfitSharingPreview{
 		Period: period,
 		Calculation: entity.Calculation{
@@ -198,6 +276,9 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			PerProduct:    result.PerProduct,
 			Status:        "draft",
 			Note:          "Pendapatan kotor sebelum pajak & biaya layanan",
+			BasisType:     basisType,
+			OwnerPct:      ownerPct,
+			People:        people,
 		},
 	}, nil
 }
@@ -255,7 +336,23 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		products = nil
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products)
+	// Load people for this period
+	people, _ := uc.profitSharingPersonRepo.GetByPeriodID(period.ID)
+
+	ownerPct := period.OwnerPct
+	if ownerPct <= 0 {
+		ownerPct = 60
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people)
+
+	// Update people amounts in DB
+	if len(people) > 0 {
+		if err := uc.profitSharingPersonRepo.BulkUpsert(people); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
 
 	if err := tx.Model(&models.ProfitSharingPeriod{}).Where("id = ?", period.ID).Updates(map[string]interface{}{
 		"period_start":   period.PeriodStart,
@@ -271,6 +368,8 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		"per_product":    result.PerProductJSON,
 		"payment_note":   period.PaymentNote,
 		"tax_note":       "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)",
+		"basis_type":     period.BasisType,
+		"owner_pct":      ownerPct,
 	}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -279,6 +378,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 }
 
 // M6: MarkAsPaid dijalankan dalam satu transaction untuk atomicitas.
+// Creates one cashbook entry per person (owner + baristas).
 func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 	if len(outletID) == 0 {
 		return domainErrors.NewInvalidInputError("outlet ID required")
@@ -301,7 +401,7 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 	}
 
 	ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
-	exists, _ := uc.cashBookRepo.ExistsByReference(ref, outletID...)
+	exists, _ := uc.cashBookRepo.ExistsByProfitSharingPeriod(existing.ID, outletID...)
 	if exists {
 		tx.Rollback()
 		return nil
@@ -315,18 +415,50 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 		return err
 	}
 
-	// Cash book entry dibuat dengan tanggal pembayaran, bukan tanggal periode
-	if err := tx.Create(&models.CashBook{
-		OutletID:    outletID[0],
-		Date:        time.Now(),
-		Method:      "Lainnya",
-		Type:        "expense",
-		Amount:      existing.KeeperAmount,
-		Description: fmt.Sprintf("Bagi hasil periode %s - %s", existing.PeriodStart.Format("02 Jan 2006"), existing.PeriodEnd.Format("02 Jan 2006")),
-		Reference:   ref,
-	}).Error; err != nil {
-		tx.Rollback()
-		return err
+	// Load people for this period
+	people, _ := uc.profitSharingPersonRepo.GetByPeriodID(existing.ID)
+
+	// If no people saved, create legacy single entry
+	if len(people) == 0 {
+		if err := tx.Create(&models.CashBook{
+			OutletID:    outletID[0],
+			Date:        time.Now(),
+			Method:      "Lainnya",
+			Type:        "expense",
+			Amount:      existing.KeeperAmount,
+			Description: fmt.Sprintf("Bagi hasil periode %s - %s", existing.PeriodStart.Format("02 Jan 2006"), existing.PeriodEnd.Format("02 Jan 2006")),
+			Reference:   ref,
+		}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	} else {
+		// Create one cashbook entry per person
+		for _, p := range people {
+			if p.Amount <= 0 {
+				continue
+			}
+			roleLabel := "Pemilik"
+			if p.Role == "barista" {
+				roleLabel = p.Name
+			}
+			desc := fmt.Sprintf("Bagi hasil %s periode %s - %s", roleLabel, existing.PeriodStart.Format("02 Jan 2006"), existing.PeriodEnd.Format("02 Jan 2006"))
+			if p.IsOnLeave {
+				desc += fmt.Sprintf(" (Cuti, pengurangan Rp %.0f)", p.LeaveReduction)
+			}
+			if err := tx.Create(&models.CashBook{
+				OutletID:    outletID[0],
+				Date:        time.Now(),
+				Method:      "Lainnya",
+				Type:        "expense",
+				Amount:      p.Amount,
+				Description: desc,
+				Reference:   ref,
+			}).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
 	}
 
 	return tx.Commit().Error
@@ -352,8 +484,7 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 
 	// Reverse cashbook entry jika periode sudah dibayar
 	if existing.Status == "paid" {
-		ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
-		if _, err := uc.cashBookRepo.DeleteByReference(ref, outletID...); err != nil {
+		if _, err := uc.cashBookRepo.DeleteByProfitSharingPeriod(existing.ID, outletID...); err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -376,7 +507,23 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		products = nil
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products)
+	// Load people for this period
+	people, _ := uc.profitSharingPersonRepo.GetByPeriodID(existing.ID)
+
+	ownerPct := existing.OwnerPct
+	if ownerPct <= 0 {
+		ownerPct = 60
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people)
+
+	// Update people amounts in DB
+	if len(people) > 0 {
+		if err := uc.profitSharingPersonRepo.BulkUpsert(people); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
 
 	if err := tx.Model(&models.ProfitSharingPeriod{}).Where("id = ?", existing.ID).Updates(map[string]interface{}{
 		"basis_amount":   result.Basis,
@@ -388,6 +535,8 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		"owner_amount":   result.OwnerAmount,
 		"status":         "draft",
 		"per_product":    result.PerProductJSON,
+		"basis_type":     existing.BasisType,
+		"owner_pct":      ownerPct,
 	}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -410,14 +559,63 @@ func (uc *ProfitSharingUsecase) Delete(id uint, outletID ...uint) error {
 
 	// Reverse cashbook entry jika periode sudah dibayar
 	if existing.Status == "paid" {
-		ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
-		uc.cashBookRepo.DeleteByReference(ref, outletID...)
+		uc.cashBookRepo.DeleteByProfitSharingPeriod(existing.ID, outletID...)
 	}
+
+	// Delete people
+	uc.profitSharingPersonRepo.DeleteByPeriodID(existing.ID)
+
 	return uc.periodRepo.Delete(id)
 }
 
 func (uc *ProfitSharingUsecase) GetAll(outletID ...uint) ([]entity.ProfitSharingPeriod, error) {
 	return uc.periodRepo.FindAll(outletID...)
+}
+
+// GetPeople returns the list of people for a given period.
+func (uc *ProfitSharingUsecase) GetPeople(periodID uint) ([]entity.ProfitSharingPerson, error) {
+	return uc.profitSharingPersonRepo.GetByPeriodID(periodID)
+}
+
+// SetLeave marks a person as on leave and sets their reduction amount.
+// The reduction amount is the share that goes back to the owner.
+func (uc *ProfitSharingUsecase) SetLeave(periodID uint, personID uint, isOnLeave bool, reduction float64) error {
+	person, err := uc.profitSharingPersonRepo.GetByID(personID)
+	if err != nil {
+		return domainErrors.NewNotFoundError("orang")
+	}
+	if person.PeriodID != periodID {
+		return domainErrors.NewInvalidInputError("orang tidak termasuk dalam periode ini")
+	}
+	if person.Role == "owner" {
+		return domainErrors.NewInvalidInputError("pemilik tidak bisa ditandai cuti")
+	}
+	return uc.profitSharingPersonRepo.UpdateLeaveStatus(personID, isOnLeave, reduction)
+}
+
+// AddPerson adds a new person to a period.
+func (uc *ProfitSharingUsecase) AddPerson(periodID uint, person entity.ProfitSharingPerson) error {
+	period, err := uc.periodRepo.FindByID(periodID)
+	if err != nil {
+		return domainErrors.NewNotFoundError("periode")
+	}
+	if period.Status != "draft" {
+		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa diubah orangnya")
+	}
+	person.PeriodID = periodID
+	return uc.profitSharingPersonRepo.BulkUpsert([]entity.ProfitSharingPerson{person})
+}
+
+// RemovePerson removes a person from a period.
+func (uc *ProfitSharingUsecase) RemovePerson(periodID uint, personID uint) error {
+	period, err := uc.periodRepo.FindByID(periodID)
+	if err != nil {
+		return domainErrors.NewNotFoundError("periode")
+	}
+	if period.Status != "draft" {
+		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa diubah orangnya")
+	}
+	return uc.profitSharingPersonRepo.DeleteByPeriodID(periodID)
 }
 
 // parseDatePS mem-parse string datetime dari frontend dengan toleransi berbagai format.

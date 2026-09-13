@@ -499,6 +499,17 @@ export interface ExpenseBreakdown {
   amount: number
 }
 
+export interface ProfitSharingPerson {
+  id: number
+  period_id: number
+  name: string
+  role: 'owner' | 'barista'
+  share_pct: number
+  amount: number
+  is_on_leave: boolean
+  leave_reduction: number
+}
+
 export interface ProfitSharingPeriod {
   id: number
   outlet_id: number
@@ -515,6 +526,9 @@ export interface ProfitSharingPeriod {
   per_product: string
   payment_note: string
   tax_note: string
+  basis_type: string
+  owner_pct: number
+  people: ProfitSharingPerson[]
   created_at: string
   updated_at: string
 }
@@ -532,6 +546,9 @@ export interface ProfitSharingCalculation {
   per_product: ProductSharingDetail[]
   status: string
   note: string
+  basis_type: string
+  owner_pct: number
+  people: ProfitSharingPerson[]
 }
 
 export interface ProfitSharingPreview {

@@ -120,7 +120,7 @@ func (r *orderItemRepository) GetProductSalesVolume(start, end string, outletID 
 		FROM order_items oi
 		JOIN products p ON p.id = oi.product_id
 		JOIN orders o ON o.id = oi.order_id
-		WHERE o.created_at BETWEEN ? AND ? AND o.status = 'Completed'`+ow+`
+		WHERE DATE(o.created_at) BETWEEN DATE(?) AND DATE(?) AND o.status = 'Completed'`+ow+`
 		GROUP BY p.id, p.name, p.category
 		ORDER BY quantity DESC
 	`, allArgs...).Scan(&results).Error

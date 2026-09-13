@@ -18,8 +18,24 @@ type ProfitSharingPeriod struct {
 	PerProduct    string    `json:"per_product"`
 	PaymentNote   string    `json:"payment_note"`
 	TaxNote       string    `json:"tax_note"`
+	BasisType     string    `json:"basis_type"`
+	OwnerPct      float64   `json:"owner_pct"`
+	People        []ProfitSharingPerson `json:"people"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type ProfitSharingPerson struct {
+	ID             uint      `json:"id"`
+	PeriodID       uint      `json:"period_id"`
+	Name           string    `json:"name"`
+	Role           string    `json:"role"`
+	SharePct       float64   `json:"share_pct"`
+	Amount         float64   `json:"amount"`
+	IsOnLeave      bool      `json:"is_on_leave"`
+	LeaveReduction float64   `json:"leave_reduction"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type ProductSharingDetail struct {
@@ -49,6 +65,9 @@ type Calculation struct {
 	PerProduct    []ProductSharingDetail `json:"per_product"`
 	Status        string                `json:"status"`
 	Note          string                `json:"note"`
+	BasisType     string                `json:"basis_type"`
+	OwnerPct      float64               `json:"owner_pct"`
+	People        []ProfitSharingPerson `json:"people"`
 }
 
 type ProfitSharingPreview struct {

@@ -181,6 +181,16 @@ type CashBookRepository interface {
 	GetTotalsRange(start, end string, outletID ...uint) (income float64, expense float64, err error)
 	ExistsByReference(ref string, outletID ...uint) (bool, error)
 	DeleteByReference(ref string, outletID ...uint) (int64, error)
+	ExistsByProfitSharingPeriod(periodID uint, outletID ...uint) (bool, error)
+	DeleteByProfitSharingPeriod(periodID uint, outletID ...uint) (int64, error)
+}
+
+type ProfitSharingPersonRepository interface {
+	GetByPeriodID(periodID uint) ([]entity.ProfitSharingPerson, error)
+	GetByID(id uint) (*entity.ProfitSharingPerson, error)
+	BulkUpsert(people []entity.ProfitSharingPerson) error
+	DeleteByPeriodID(periodID uint) error
+	UpdateLeaveStatus(id uint, isOnLeave bool, reduction float64) error
 }
 
 // AccountRepository defines data access for PSAK Chart of Accounts
