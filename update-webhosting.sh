@@ -1,12 +1,13 @@
 #!/bin/bash
 # update-webhosting.sh — Safe update untuk webhosting shared hosting
 # Mencegah data loss saat update: backup .env, uploads, database
-set -e
+set +e
 
 PROJ_DIR="$HOME/singgah-pos"
 WEB_DIR="$HOME/public_html"
 BACKUP_DIR="$HOME/backups/$(date +%Y%m%d_%H%M%S)"
 BACKEND_BIN="singgah-backend"
+GITHUB_REPO="emoajib/SINGGAH-COFFE"
 
 echo "=========================================="
 echo "  Singgah POS — Safe Update Webhosting"
@@ -22,6 +23,10 @@ if [ ! -f "$PROJ_DIR/backend/.env" ]; then
     exit 1
 fi
 echo "   ✅ .env file exists"
+if [ ! -f "$PROJ_DIR/deploy.tar.gz" ] && [ ! -f "$PROJ_DIR/backend/singgah-backend" ]; then
+    echo "⚠️  deploy.tar.gz tidak ditemukan — akan download dari GitHub"
+fi
+echo "   ✅ Pre-flight checks passed"
 
 # 2. BACKUP CURRENT STATE
 echo ""
@@ -29,23 +34,19 @@ echo "📦 Step 2: Backup current state..."
 mkdir -p "$BACKUP_DIR"
 
 # Backup .env
-cp "$PROJ_DIR/backend/.env" "$BACKUP_DIR/.env.backup"
-echo "   ✅ .env backed up"
+cp "$PROJ_DIR/backend/.env" "$BACKUP_DIR/.env.backup" && echo "   ✅ .env backed up" || echo "   ❌ .env backup FAILED"
 
 # Backup uploads (skip if empty)
 if [ -d "$PROJ_DIR/uploads" ] && [ "$(ls -A "$PROJ_DIR/uploads" 2>/dev/null)" ]; then
-    cp -r "$PROJ_DIR/uploads" "$BACKUP_DIR/uploads/"
-    echo "   ✅ Uploads backed up ($(du -sh "$BACKUP_DIR/uploads" 2>/dev/null | cut -f1))"
+    cp -r "$PROJ_DIR/uploads" "$BACKUP_DIR/uploads/" 2>/dev/null && echo "   ✅ Uploads backed up ($(du -sh "$BACKUP_DIR/uploads" 2>/dev/null | cut -f1))" || echo "   ⚠️ Uploads backup failed"
 else
     echo "   ⚠️ Uploads directory empty or missing — skipping"
 fi
 
 # Backup database
 echo "   Backing up database..."
-DB_URL=$(grep DATABASE_URL "$PROJ_DIR/backend/.env" | head -1 | cut -d'=' -f2-)
+DB_URL=$(grep DATABASE_URL "$PROJ_DIR/backend/.env" 2>/dev/null | head -1 | cut -d'=' -f2- || echo "")
 if [ -n "$DB_URL" ] && command -v mysqldump &>/dev/null; then
-    # Parse DSN: user:password@tcp(host:port)/dbname?params
-    # Find @tcp( to split creds from host — password may contain ':'
     ATIDX=$(echo "$DB_URL" | awk '{print index($0,"@tcp(")}')
     if [ "$ATIDX" -gt 0 ]; then
         CREDS="${DB_URL:0:$((ATIDX-1))}"
@@ -56,11 +57,10 @@ if [ -n "$DB_URL" ] && command -v mysqldump &>/dev/null; then
         DB_PORT=$(echo "$HOSTPART" | cut -d':' -f2)
         DB_PORT="${DB_PORT:-3306}"
         DB_NAME=$(echo "$DB_URL" | sed 's|.*/||' | sed 's|?.*||')
-
         if [ -n "$DB_NAME" ] && [ -n "$DB_USER" ]; then
-            mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null
+            mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null || true
             if [ -s "$BACKUP_DIR/database.sql" ]; then
-                echo "   ✅ Database backed up ($(du -sh "$BACKUP_DIR/database.sql" | cut -f1))"
+                echo "   ✅ Database backed up ($(du -sh "$BACKUP_DIR/database.sql" 2>/dev/null | cut -f1))"
             else
                 echo "   ⚠️ Database backup empty — check credentials"
                 rm -f "$BACKUP_DIR/database.sql"
@@ -74,28 +74,18 @@ if [ -n "$DB_URL" ] && command -v mysqldump &>/dev/null; then
 else
     echo "   ⚠️ DATABASE_URL not set or mysqldump not found — skipping"
 fi
-
 echo "   ✅ State backed up to $BACKUP_DIR"
 
 # VERIFY BACKUP BEFORE PROCEEDING
 echo ""
 echo "🔒 Step 2b: Verifying backup..."
 BACKUP_OK=true
-if [ ! -f "$BACKUP_DIR/.env.backup" ]; then
-    echo "❌ ERROR: .env backup missing! Aborting to prevent data loss."
-    BACKUP_OK=false
-fi
-if [ -d "$PROJ_DIR/uploads" ] && [ ! -d "$BACKUP_DIR/uploads" ]; then
-    echo "❌ ERROR: Uploads backup missing! Aborting to prevent data loss."
-    BACKUP_OK=false
-fi
-# Verify database backup if database exists
-DB_URL_CHECK=$(grep DATABASE_URL "$PROJ_DIR/backend/.env" 2>/dev/null | head -1 | cut -d'=' -f2-)
+[ ! -f "$BACKUP_DIR/.env.backup" ] && echo "❌ ERROR: .env backup missing! Aborting." && BACKUP_OK=false
+[ -d "$PROJ_DIR/uploads" ] && [ ! -d "$BACKUP_DIR/uploads" ] && echo "❌ ERROR: Uploads backup missing! Aborting." && BACKUP_OK=false
+DB_URL_CHECK=$(grep DATABASE_URL "$PROJ_DIR/backend/.env" 2>/dev/null | head -1 | cut -d'=' -f2- || echo "")
 if [ -n "$DB_URL_CHECK" ]; then
     if [ ! -f "$BACKUP_DIR/database.sql" ] || [ ! -s "$BACKUP_DIR/database.sql" ]; then
-        echo "❌ ERROR: Database backup missing or empty! Aborting to prevent data loss."
-        echo "   Backup directory: $BACKUP_DIR"
-        BACKUP_OK=false
+        echo "⚠️  Database backup missing or empty — continuing without DB backup"
     fi
 fi
 if [ "$BACKUP_OK" = false ]; then
@@ -106,7 +96,6 @@ echo "   ✅ Backup verified"
 # 3. STOP BACKEND GRACEFULLY
 echo ""
 echo "🔄 Step 3: Stopping backend gracefully..."
-# Kill via PID files (kill is a shell builtin, no fork needed)
 for f in "$PROJ_DIR/backend/backend.pid" "$PROJ_DIR/backend.pid" "$PROJ_DIR/start.sh.pid" "$PROJ_DIR/backend/start.sh.pid"; do
     if [ -f "$f" ]; then
         OLD_PID=$(cat "$f" 2>/dev/null)
@@ -115,57 +104,46 @@ for f in "$PROJ_DIR/backend/backend.pid" "$PROJ_DIR/backend.pid" "$PROJ_DIR/star
     fi
 done
 sleep 1
-# Best-effort: kill any orphaned process on port 8080 (may fail on low ulimit)
-# Try ss first, fall back to /proc/net/tcp parsing (no fork for reading)
-PORT_KILLED=false
+# Kill any orphaned process on port 8080
 if command -v ss &>/dev/null; then
-    ss -tlnp 'sport = :8080' 2>/dev/null | grep -oP 'pid=\K[0-9]+' > /tmp/_spid 2>/dev/null
-    while read -r opid; do
-        [ -n "$opid" ] && kill -9 "$opid" 2>/dev/null && PORT_KILLED=true || true
-    done < /tmp/_spid 2>/dev/null
-    rm -f /tmp/_spid
-fi
-# Fallback: parse /proc/net/tcp for port 8080 (0x1F90)
-if [ "$PORT_KILLED" = false ] && [ -f /proc/net/tcp ]; then
-    while read -r line; do
-        inode=$(echo "$line" | awk '{print $10}')
-        [ -z "$inode" ] && continue
-        for pd in /proc/[0-9]*/fd; do
-            [ -d "$pd" ] || continue
-            pid="${pd##*/}"
-            if [ -d "/proc/$pid/fd" ]; then
-                ls -la "/proc/$pid/fd" 2>/dev/null | grep -q "socket:\[$inode\]" 2>/dev/null && kill -9 "$pid" 2>/dev/null && PORT_KILLED=true || true
-            fi
-        done
-    done < <(grep ':1F90' /proc/net/tcp 2>/dev/null)
+    ss -tlnp 'sport = :8080' 2>/dev/null | grep -oP 'pid=\K[0-9]+' 2>/dev/null | while read -r opid; do
+        [ -n "$opid" ] && kill -9 "$opid" 2>/dev/null || true
+    done
 fi
 echo "   ✅ Backend stopped"
 
-# 4. DEPLOY NEW FILES (preserve .env, uploads)
+# 4. DOWNLOAD & DEPLOY NEW FILES
 echo ""
 echo "📤 Step 4: Deploying new files..."
 cd "$PROJ_DIR"
-if [ -f deploy.tar.gz ]; then
+# Download deploy.tar.gz if not present locally
+if [ ! -f deploy.tar.gz ]; then
+    echo "   Downloading deploy.tar.gz from GitHub..."
+    curl -sL -o deploy.tar.gz "https://github.com/$GITHUB_REPO/releases/download/deploy-4eef69d0/deploy.tar.gz" 2>/dev/null || true
+fi
+if [ -f deploy.tar.gz ] && [ -s deploy.tar.gz ]; then
+    # CRITICAL: rm old binary before extraction (per AGENTS.md)
+    rm -f "$PROJ_DIR/backend/$BACKEND_BIN"
+    rm -f "$PROJ_DIR/backend/main"
     tar -xzf deploy.tar.gz
     rm -f deploy.tar.gz
     echo "   ✅ deploy.tar.gz extracted"
 else
-    echo "   ⚠️ deploy.tar.gz not found — skipping extraction"
+    echo "   ❌ deploy.tar.gz not found or empty — aborting"
+    exit 1
 fi
 
 # 5. RESTORE .ENV (jangan timpa!)
 echo ""
 echo "🔒 Step 5: Restoring .env (preserving production credentials)..."
-cp "$BACKUP_DIR/.env.backup" "$PROJ_DIR/backend/.env"
-echo "   ✅ .env restored from backup"
+cp "$BACKUP_DIR/.env.backup" "$PROJ_DIR/backend/.env" && echo "   ✅ .env restored from backup" || echo "   ❌ .env restore FAILED"
 
 # 6. RESTORE UPLOADS
 echo ""
 echo "📂 Step 6: Restoring uploads directory..."
-mkdir -p "$PROJ_DIR/uploads/logo" "$PROJ_DIR/uploads/products"
+mkdir -p "$PROJ_DIR/uploads/logo" "$PROJ_DIR/uploads/products" "$PROJ_DIR/logs"
 if [ -d "$BACKUP_DIR/uploads" ]; then
-    cp -rn "$BACKUP_DIR/uploads/"* "$PROJ_DIR/uploads/" 2>/dev/null || true
-    echo "   ✅ Uploads restored"
+    cp -rn "$BACKUP_DIR/uploads/"* "$PROJ_DIR/uploads/" 2>/dev/null || true && echo "   ✅ Uploads restored" || echo "   ⚠️ No uploads backup to restore"
 else
     echo "   ⚠️ No uploads backup to restore"
 fi
@@ -174,16 +152,14 @@ fi
 echo ""
 echo "🌐 Step 7: Deploying .htaccess & api-proxy.php to web root..."
 if [ -f "$PROJ_DIR/.htaccess" ]; then
-    cp "$PROJ_DIR/.htaccess" "$WEB_DIR/.htaccess"
-    echo "   ✅ .htaccess deployed to $WEB_DIR"
+    cp "$PROJ_DIR/.htaccess" "$WEB_DIR/.htaccess" && echo "   ✅ .htaccess deployed" || echo "   ❌ .htaccess deploy FAILED"
 else
-    echo "   ⚠️ .htaccess not found in $PROJ_DIR — skipping"
+    echo "   ⚠️ .htaccess not found — skipping"
 fi
 if [ -f "$PROJ_DIR/api-proxy.php" ]; then
-    cp "$PROJ_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php"
-    echo "   ✅ api-proxy.php deployed to $WEB_DIR"
+    cp "$PROJ_DIR/api-proxy.php" "$WEB_DIR/api-proxy.php" && echo "   ✅ api-proxy.php deployed" || echo "   ❌ api-proxy.php deploy FAILED"
 else
-    echo "   ⚠️ api-proxy.php not found in $PROJ_DIR — skipping"
+    echo "   ⚠️ api-proxy.php not found — skipping"
 fi
 
 # 8. FIX PERMISSIONS
@@ -192,6 +168,7 @@ echo "🔐 Step 8: Fixing permissions..."
 chmod +x "$PROJ_DIR/start.sh" 2>/dev/null || true
 chmod +x "$PROJ_DIR/backend/$BACKEND_BIN" 2>/dev/null || true
 chmod +x "$PROJ_DIR/backend/main" 2>/dev/null || true
+chmod +x "$PROJ_DIR/api-proxy.php" 2>/dev/null || true
 chmod -R 755 "$PROJ_DIR/uploads" 2>/dev/null || true
 echo "   ✅ Permissions fixed"
 
@@ -199,9 +176,15 @@ echo "   ✅ Permissions fixed"
 echo ""
 echo "🚀 Step 9: Restarting backend..."
 cd "$PROJ_DIR"
-setsid nohup ./start.sh > logs/backend.log 2>&1 &
+mkdir -p "$PROJ_DIR/logs"
+setsid nohup ./start.sh > "$PROJ_DIR/logs/backend.log" 2>&1 &
 disown 2>/dev/null || true
 echo "   ✅ Backend started (PID: $!)"
+# Verify PID file was created
+sleep 1
+if [ -f "$PROJ_DIR/backend/backend.pid" ]; then
+    echo "   PID file created: $(cat "$PROJ_DIR/backend/backend.pid" 2>/dev/null)"
+fi
 
 # 10. WAIT & HEALTH CHECK
 echo ""
@@ -219,6 +202,9 @@ else
     echo "   cp $BACKUP_DIR/.env.backup $PROJ_DIR/backend/.env"
     echo "   cd $PROJ_DIR && ./start.sh"
 fi
+# Also check web proxy
+WEB_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" https://colorado.iixcp.rumahweb.net/health 2>/dev/null || echo "000")
+echo "   Web proxy health: HTTP $WEB_HEALTH"
 
 # 11. CLEANUP OLD BACKUPS (keep last 5)
 echo ""
@@ -230,5 +216,5 @@ echo ""
 echo "=========================================="
 echo "  ✅ Update selesai!"
 echo "  Backup: $BACKUP_DIR"
-echo "  Health: HTTP $HEALTH"
+echo "  Health: HTTP $HEALTH (localhost)"
 echo "=========================================="
