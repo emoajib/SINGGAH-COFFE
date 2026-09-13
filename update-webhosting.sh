@@ -117,9 +117,10 @@ echo ""
 echo "📤 Step 4: Deploying new files..."
 cd "$PROJ_DIR"
 # Download deploy.tar.gz if not present locally
+# Use releases/latest (non-prerelease) so we always get the newest build
 if [ ! -f deploy.tar.gz ]; then
-    echo "   Downloading deploy.tar.gz from GitHub..."
-    curl -sL -o deploy.tar.gz "https://github.com/$GITHUB_REPO/releases/download/deploy-4eef69d0/deploy.tar.gz" 2>/dev/null || true
+    echo "   Downloading deploy.tar.gz from GitHub (latest release)..."
+    curl -sL -o deploy.tar.gz "https://github.com/$GITHUB_REPO/releases/latest/download/deploy.tar.gz" 2>/dev/null || true
 fi
 if [ -f deploy.tar.gz ] && [ -s deploy.tar.gz ]; then
     # CRITICAL: rm old binary before extraction (per AGENTS.md)
