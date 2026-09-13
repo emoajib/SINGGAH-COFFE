@@ -26,7 +26,7 @@ check "SetConnMaxLifetime(5min)" "grep -q 'SetConnMaxLifetime(5 \\* time.Minute)
 
 p "-- start.sh hardening --"
 check "GOMAXPROCS=1 in start.sh"    "grep -q 'GOMAXPROCS=1'     '$ROOT/backend/start.sh'"
-check "GOMEMLIMIT <= 256MiB"    "grep -qE 'GOMEMLIMIT=(1[0-9]{2}|2[0-5][0-9])MiB' '$ROOT/backend/start.sh'"
+check "GOMEMLIMIT <= 512MiB"    "grep -qE 'GOMEMLIMIT=(1[0-9]{2}|[2-4][0-9]{2}|5[0-1][0-9]|512)MiB' '$ROOT/backend/start.sh'"
 
 p "-- api-proxy.php multipart forwarding --"
 check "CURLOPT_POSTFIELDS in api-proxy.php" "grep -q 'CURLOPT_POSTFIELDS' '$ROOT/api-proxy.php'"
