@@ -54,6 +54,9 @@ type ExpenseBreakdown struct {
 
 type Calculation struct {
 	BasisAmount   float64               `json:"basis_amount"`
+	Tax           float64               `json:"tax"`
+	ServiceFee    float64               `json:"service_fee"`
+	NetRevenue    float64               `json:"net_revenue"`
 	TotalCogs     float64               `json:"total_cogs"`
 	GrossProfit   float64               `json:"gross_profit"`
 	TotalExpenses float64               `json:"total_expenses"`

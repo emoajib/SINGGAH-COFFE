@@ -386,7 +386,7 @@ export default function ProfitSharing() {
               <div className="grid grid-cols-2 gap-4">
                 <div><span className="text-sm text-gray-500">Status</span><p className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${STATUS_COLORS[detailPeriod.status]}`}>{STATUS_LABELS[detailPeriod.status]}</p></div>
                 <div><span className="text-sm text-gray-500">Rasio</span><p className="font-medium">{detailPeriod.ratio}%</p></div>
-                <div><span className="text-sm text-gray-500">Basis (Pendapatan Kotor)</span><p className="font-medium">{formatNumber(detailPeriod.basis_amount)}</p></div>
+                <div><span className="text-sm text-gray-500">Pendapatan Kotor</span><p className="font-medium">{formatNumber(detailPeriod.basis_amount)}</p></div>
                 <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(detailPeriod.total_cogs)}</p></div>
                 <div><span className="text-sm text-gray-500">Total Pengeluaran (non-bagi hasil)</span><p className="font-medium">{formatNumber(detailPeriod.total_expenses)}</p></div>
                 <div><span className="text-sm text-gray-500">Laba Bersih</span><p className="font-bold text-lg">{formatNumber(detailPeriod.net_profit)}</p></div>
@@ -476,7 +476,10 @@ export default function ProfitSharing() {
                   </p>
                 </div>
                 <div><span className="text-sm text-gray-500">Rasio Keeper</span><p className="font-medium">{preview.calculation.ratio}%</p></div>
-                <div><span className="text-sm text-gray-500">Pendapatan Kotor (sebelum pajak)</span><p className="font-medium">{formatNumber(preview.calculation.basis_amount)}</p></div>
+                <div><span className="text-sm text-gray-500">Pendapatan Kotor</span><p className="font-medium">{formatNumber(preview.calculation.basis_amount)}</p></div>
+                <div><span className="text-sm text-gray-500">Pajak (10%)</span><p className="font-medium text-red-600">-{formatNumber(preview.calculation.tax || 0)}</p></div>
+                <div><span className="text-sm text-gray-500">Biaya Layanan (5%)</span><p className="font-medium text-red-600">-{formatNumber(preview.calculation.service_fee || 0)}</p></div>
+                <div><span className="text-sm text-gray-500">Pendapatan Bersih</span><p className="font-bold">{formatNumber(preview.calculation.net_revenue || preview.calculation.basis_amount)}</p></div>
                 <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(preview.calculation.total_cogs)}</p></div>
                 <div><span className="text-sm text-gray-500">Laba Kotor</span><p className="font-medium">{formatNumber(preview.calculation.gross_profit)}</p></div>
                 <div><span className="text-sm text-gray-500">Total Pengeluaran (non-bagi hasil)</span><p className="font-medium">{formatNumber(preview.calculation.total_expenses)}</p></div>

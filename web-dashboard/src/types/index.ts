@@ -535,6 +535,9 @@ export interface ProfitSharingPeriod {
 
 export interface ProfitSharingCalculation {
   basis_amount: number
+  tax: number
+  service_fee: number
+  net_revenue: number
   total_cogs: number
   gross_profit: number
   total_expenses: number

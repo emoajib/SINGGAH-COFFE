@@ -52,16 +52,19 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 
 // calcResult holds the result of a shared calculation used by Preview, Finalize, and Recalculate.
 type calcResult struct {
-	Basis        float64
-	Cogs         float64
-	Expenses     float64
-	GrossMargin  float64
-	NetProfit    float64
-	SharingBasis float64
-	KeeperAmount float64
-	OwnerAmount  float64
-	Products     []entity.ProductSalesVolume
-	PerProduct   []entity.ProductSharingDetail
+	Basis          float64
+	Tax            float64
+	ServiceFee     float64
+	NetRevenue     float64
+	Cogs           float64
+	Expenses       float64
+	GrossMargin    float64
+	NetProfit      float64
+	SharingBasis   float64
+	KeeperAmount   float64
+	OwnerAmount    float64
+	Products       []entity.ProductSalesVolume
+	PerProduct     []entity.ProductSharingDetail
 	PerProductJSON string
 }
 
@@ -71,8 +74,15 @@ type calcResult struct {
 // ownerPct: owner percentage (default 60). Owner gets ownerPct% of sharingBasis.
 // If people provided, remaining pool is split among baristas by their sharePct.
 // OwnerPct cannot be 0 for the function to work, defaults to 60.
+// Formula: Pendapatan Kotor - Pajak(10%) - Biaya Layanan(5%) = Pendapatan Bersih
+// Pendapatan Bersih - COGS = Laba Kotor - Pengeluaran = Laba Bersih = Sharing Basis
 func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson) calcResult {
-	grossMargin := basis - cogs
+	// Potong pajak 10% dan biaya layanan 5% dari pendapatan kotor
+	tax := math.Round(basis*0.10/250) * 250
+	serviceFee := math.Round(basis*0.05/250) * 250
+	netRevenue := basis - tax - serviceFee
+
+	grossMargin := netRevenue - cogs
 	netProfit := grossMargin - expenses
 
 	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
@@ -103,6 +113,9 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 
 	result := calcResult{
 		Basis:          basis,
+		Tax:            tax,
+		ServiceFee:     serviceFee,
+		NetRevenue:     netRevenue,
 		Cogs:           cogs,
 		Expenses:       expenses,
 		GrossMargin:    grossMargin,
@@ -225,7 +238,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		OwnerAmount:   result.OwnerAmount,
 		Status:        "draft",
 		PerProduct:    result.PerProductJSON,
-		TaxNote:       "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)",
+		TaxNote:       "Pendapatan kotor dikurangi pajak (10%) & biaya layanan (5%)",
 		BasisType:     basisType,
 		OwnerPct:      ownerPct,
 		People:        people,
@@ -266,6 +279,9 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		Period: period,
 		Calculation: entity.Calculation{
 			BasisAmount:   result.Basis,
+			Tax:           result.Tax,
+			ServiceFee:    result.ServiceFee,
+			NetRevenue:    result.NetRevenue,
 			TotalCogs:     result.Cogs,
 			GrossProfit:   result.GrossMargin,
 			TotalExpenses: result.Expenses,
@@ -275,7 +291,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			OwnerShare:    result.OwnerAmount,
 			PerProduct:    result.PerProduct,
 			Status:        "draft",
-			Note:          "Pendapatan kotor sebelum pajak & biaya layanan",
+			Note:          "Pendapatan kotor dikurangi pajak (10%) & biaya layanan (5%)",
 			BasisType:     basisType,
 			OwnerPct:      ownerPct,
 			People:        people,
