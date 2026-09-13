@@ -264,7 +264,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 
 	// M3: Handle error dari FindOverlappingPeriod
 	overlapping, err := uc.periodRepo.FindOverlappingPeriod(outletID, startDate, endDate, 0)
-	if err != nil && overlapping == nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		// DB error — bukan "record not found", return error
 		return nil, err
 	}
