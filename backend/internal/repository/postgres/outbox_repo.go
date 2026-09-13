@@ -17,6 +17,12 @@ func NewOutboxRepository(db *gorm.DB) *outboxRepository {
 
 func (r *outboxRepository) Create(event *entity.EventOutbox) error {
 	m := toModelEventOutbox(event)
+	var lastSeq int64
+	if err := r.db.Model(&models.PSAKEventOutbox{}).Where("event_type = ?", m.EventType).Order("sequence_number desc").Pluck("sequence_number", &lastSeq).Error; err == nil && lastSeq > 0 {
+		m.SequenceNumber = lastSeq + 1
+	} else {
+		m.SequenceNumber = 1
+	}
 	if err := r.db.Create(m).Error; err != nil {
 		return err
 	}

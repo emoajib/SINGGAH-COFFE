@@ -51,7 +51,7 @@ type PSAKEventOutbox struct {
 	MaxRetries     int        `gorm:"default:3" json:"max_retries"`
 	LastError      string     `json:"last_error"`
 	ProcessedAt    *time.Time `json:"processed_at"`
-	SequenceNumber int64      `gorm:"autoIncrement" json:"sequence_number"`
+	SequenceNumber int64      `gorm:"index" json:"sequence_number"`
 }
 
 // PSAKSchemaVersion tracks applied PSAK migration versions.
