@@ -18,6 +18,9 @@ jobs:
     name: Shared Hosting Constraint Guard
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
     - uses: actions/checkout@v4
     - name: Run constraint guard
       run: ./scripts/check-constraints.sh
@@ -32,6 +35,9 @@ jobs:
     name: Backend Build & Test
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
     - uses: actions/checkout@v4
 
     - name: Set up Go
@@ -54,14 +60,12 @@ jobs:
     name: Web Dashboard Build Check
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
+    - uses: actions/setup-node@v4
       with:
-        node-version: '22'
+        node-version: '24'
         cache: 'npm'
         cache-dependency-path: web-dashboard/package-lock.json
+    - uses: actions/checkout@v4
 
     - name: Install Dependencies
       run: |
@@ -90,6 +94,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
     - uses: actions/checkout@v4
 
     - name: Set up Go
@@ -138,6 +145,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - uses: actions/checkout@v4
 
       - name: Set up Go
@@ -145,11 +155,6 @@ jobs:
         with:
           go-version: '1.25'
           cache-dependency-path: backend/go.sum
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
 
       - name: Build backend binary (Linux)
         run: |
