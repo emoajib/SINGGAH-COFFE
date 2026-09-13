@@ -40,7 +40,7 @@ export GIN_MODE="${GIN_MODE:-release}"
 # Shared-hosting hardening: cap OS threads & memory to avoid the
 # "fatal error: newosproc" crash under low ulimit -u (shared hosting).
 export GOMAXPROCS=1
-export GOMEMLIMIT=256MiB
+export GOMEMLIMIT=512MiB
 
 # Vetted by AI - Manual Review Required by Senior Engineer/Manager
 cd "$SCRIPT_DIR"
@@ -57,46 +57,17 @@ fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Singgah Backend ($BIN_PATH)..."
 
-# Write our own watchdog PID so update-webhosting.sh can kill us
-echo "$$" > "$SCRIPT_DIR/start.sh.pid" 2>/dev/null || true
-
-# Watchdog restart loop (shared hosting recovery)
-# Shared-hosting hardening: sebelum start, bunuh proses lama yang menahan
-# port 8080 untuk mencegah "listen tcp :8080: bind: address already in use".
-cleanup() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Terminating Singgah Backend (PID: $CHILD_PID)..."
-  [ -n "$CHILD_PID" ] && kill -9 "$CHILD_PID" 2>/dev/null || true
-  # Force kill any lingering process via PID file
-  for f in "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/start.sh.pid"; do
-    if [ -f "$f" ]; then
-      OLD_PID=$(cat "$f" 2>/dev/null)
-      [ -n "$OLD_PID" ] && kill -9 "$OLD_PID" 2>/dev/null || true
-      rm -f "$f"
-    fi
-  done
-  rm -f "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/start.sh.pid" 2>/dev/null || true
-  exit 0
-}
-trap cleanup SIGTERM SIGINT SIGHUP
-
-while true; do
-  # Kill old processes via PID files (kill is a shell builtin, no fork needed)
-  for f in "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/start.sh.pid"; do
-    if [ -f "$f" ]; then
-      OLD_PID=$(cat "$f" 2>/dev/null)
-      [ -n "$OLD_PID" ] && kill -9 "$OLD_PID" 2>/dev/null || true
-      rm -f "$f"
-    fi
-  done
-  sleep 1
-
-  "$BIN_PATH" "$@" &
-  CHILD_PID=$!
-  echo "$CHILD_PID" > "$SCRIPT_DIR/backend.pid" 2>/dev/null || true
-  echo "$CHILD_PID" > "$SCRIPT_DIR/backend/backend.pid" 2>/dev/null || true
-  wait "$CHILD_PID"
-  EXIT_CODE=$?
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend stopped with exit code $EXIT_CODE. Restarting in 5 seconds..." >&2
-  sleep 5
+# Kill any lingering process on port 8080
+for f in "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/backend.pid" "$SCRIPT_DIR/start.sh.pid"; do
+  if [ -f "$f" ]; then
+    OLD_PID=$(cat "$f" 2>/dev/null)
+    [ -n "$OLD_PID" ] && kill -9 "$OLD_PID" 2>/dev/null || true
+    rm -f "$f"
+  fi
 done
+sleep 1
+
+echo "$$" > "$SCRIPT_DIR/backend.pid" 2>/dev/null || true
+
+exec "$BIN_PATH" "$@"
 
