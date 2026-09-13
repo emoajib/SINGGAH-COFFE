@@ -130,7 +130,7 @@ func (r *orderRepository) CountByStatus(status string, outletID ...uint) (int64,
 
 func (r *orderRepository) GetSumByStatusSince(status, start, end, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error) {
 	outletWhere := ""
-	args := []interface{}{timeFormat, start, status, end}
+	args := []interface{}{timeFormat, start, end, status, timeFormat}
 	if len(outletID) > 0 && outletID[0] > 0 {
 		outletWhere = " AND outlet_id = ?"
 		args = append(args, outletID[0])
