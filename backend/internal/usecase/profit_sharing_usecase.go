@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,7 @@ type ProfitSharingUsecase struct {
 	expenseRepo              repository.ExpenseRepository
 	cashBookRepo             repository.CashBookRepository
 	profitSharingPersonRepo  repository.ProfitSharingPersonRepository
+	settingRepo              repository.SettingRepository
 }
 
 func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
@@ -47,6 +49,7 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 		expenseRepo:             postgres.NewExpenseRepository(db),
 		cashBookRepo:            postgres.NewCashBookRepository(db),
 		profitSharingPersonRepo: postgres.NewProfitSharingPeopleRepository(db),
+		settingRepo:             postgres.NewSettingRepository(db),
 	}
 }
 
@@ -74,12 +77,15 @@ type calcResult struct {
 // ownerPct: owner percentage (default 60). Owner gets ownerPct% of sharingBasis.
 // If people provided, remaining pool is split among baristas by their sharePct.
 // OwnerPct cannot be 0 for the function to work, defaults to 60.
-// Formula: Pendapatan Kotor - Pajak(10%) - Biaya Layanan(5%) = Pendapatan Bersih
+// taxPct/servicePct: percentages from owner settings (e.g., 10 = 10%).
+// Formula: Pendapatan Kotor - Pajak(taxPct%) - Biaya Layanan(servicePct%) = Pendapatan Bersih
 // Pendapatan Bersih - COGS = Laba Kotor - Pengeluaran = Laba Bersih = Sharing Basis
-func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson) calcResult {
-	// Potong pajak 10% dan biaya layanan 5% dari pendapatan kotor
-	tax := math.Round(basis*0.10/250) * 250
-	serviceFee := math.Round(basis*0.05/250) * 250
+func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson, taxPct, servicePct float64) calcResult {
+	// Potong pajak dan biaya layanan dari pendapatan kotor sesuai pengaturan owner
+	taxRate := taxPct / 100.0
+	serviceRate := servicePct / 100.0
+	tax := math.Round(basis*taxRate/250) * 250
+	serviceFee := math.Round(basis*serviceRate/250) * 250
 	netRevenue := basis - tax - serviceFee
 
 	grossMargin := netRevenue - cogs
@@ -223,7 +229,19 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		ownerPct = 60
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people)
+	// Read tax & service fee from owner settings
+	taxPct := 0.0
+	servicePct := 0.0
+	if taxSetting, err := uc.settingRepo.FindByKey("tax_percentage"); err == nil {
+		taxPct, _ = strconv.ParseFloat(taxSetting.Value, 64)
+	}
+	if serviceSetting, err := uc.settingRepo.FindByKey("service_charge"); err == nil {
+		servicePct, _ = strconv.ParseFloat(serviceSetting.Value, 64)
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct)
+
+	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
 
 	period := entity.ProfitSharingPeriod{
 		OutletID:      outletID,
@@ -238,7 +256,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		OwnerAmount:   result.OwnerAmount,
 		Status:        "draft",
 		PerProduct:    result.PerProductJSON,
-		TaxNote:       "Pendapatan kotor dikurangi pajak (10%) & biaya layanan (5%)",
+		TaxNote:       taxNote,
 		BasisType:     basisType,
 		OwnerPct:      ownerPct,
 		People:        people,
@@ -291,7 +309,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			OwnerShare:    result.OwnerAmount,
 			PerProduct:    result.PerProduct,
 			Status:        "draft",
-			Note:          "Pendapatan kotor dikurangi pajak (10%) & biaya layanan (5%)",
+			Note:          taxNote,
 			BasisType:     basisType,
 			OwnerPct:      ownerPct,
 			People:        people,
@@ -360,7 +378,18 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		ownerPct = 60
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people)
+	// Read tax & service fee from owner settings
+	taxPct := 0.0
+	servicePct := 0.0
+	if taxSetting, err := uc.settingRepo.FindByKey("tax_percentage"); err == nil {
+		taxPct, _ = strconv.ParseFloat(taxSetting.Value, 64)
+	}
+	if serviceSetting, err := uc.settingRepo.FindByKey("service_charge"); err == nil {
+		servicePct, _ = strconv.ParseFloat(serviceSetting.Value, 64)
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct)
+	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
 
 	// Update people amounts in DB
 	if len(people) > 0 {
@@ -383,7 +412,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		"status":         "finalized",
 		"per_product":    result.PerProductJSON,
 		"payment_note":   period.PaymentNote,
-		"tax_note":       "Pendapatan kotor sebelum pajak (10%) & biaya layanan (5%)",
+		"tax_note":       taxNote,
 		"basis_type":     period.BasisType,
 		"owner_pct":      ownerPct,
 	}).Error; err != nil {
@@ -531,7 +560,17 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		ownerPct = 60
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people)
+	// Read tax & service fee from owner settings
+	taxPct := 0.0
+	servicePct := 0.0
+	if taxSetting, err := uc.settingRepo.FindByKey("tax_percentage"); err == nil {
+		taxPct, _ = strconv.ParseFloat(taxSetting.Value, 64)
+	}
+	if serviceSetting, err := uc.settingRepo.FindByKey("service_charge"); err == nil {
+		servicePct, _ = strconv.ParseFloat(serviceSetting.Value, 64)
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct)
 
 	// Update people amounts in DB
 	if len(people) > 0 {
