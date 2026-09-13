@@ -109,7 +109,7 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*en
 		syncExpenseToCashBook(cashBookRepo, expense)
 		// PSAK: Create outbox event for journal entry
 		outboxRepo := postgres.NewOutboxRepository(tx)
-		_ = outboxRepo.Create(&entity.EventOutbox{
+		if err := outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "expense.created",
 			ReferenceType: "expense",
 			ReferenceID:   expense.ID,
@@ -123,7 +123,9 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*en
 				"title":          expense.Title,
 			}),
 			Status: "pending",
-		})
+		}); err != nil {
+			return err
+		}
 		resp = expense.ToResponse()
 		return nil
 	})
@@ -167,7 +169,7 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 		syncExpenseToCashBook(cashBookRepo, existing)
 		// PSAK: Create outbox event for journal update
 		outboxRepo := postgres.NewOutboxRepository(tx)
-		_ = outboxRepo.Create(&entity.EventOutbox{
+		if err := outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "expense.updated",
 			ReferenceType: "expense",
 			ReferenceID:   existing.ID,
@@ -181,7 +183,9 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 				"title":          existing.Title,
 			}),
 			Status: "pending",
-		})
+		}); err != nil {
+			return err
+		}
 		resp = existing.ToResponse()
 		return nil
 	})
@@ -216,13 +220,15 @@ func (uc *ExpenseUsecase) Delete(id uint) error {
 		_, _ = cashBookRepo.DeleteByReference(expenseRef(id))
 		// PSAK: Create outbox event for journal reversal
 		outboxRepo := postgres.NewOutboxRepository(tx)
-		_ = outboxRepo.Create(&entity.EventOutbox{
+		if err := outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "expense.deleted",
 			ReferenceType: "expense",
 			ReferenceID:   id,
 			Payload:       mustMarshal(map[string]interface{}{"id": id, "outlet_id": existing.OutletID, "title": existing.Title}),
 			Status:        "pending",
-		})
+		}); err != nil {
+			return err
+		}
 		return expenseRepo.Delete(id)
 	})
 }

@@ -32,8 +32,7 @@ func setupSimulationDB(t *testing.T) *gorm.DB {
 		&models.CashRegister{},
 		&models.CashBook{},
 		&models.Setting{},
-		&models.StockMutation{},
-	)
+		&models.StockMutation{}, &models.PSAKEventOutbox{})
 	require.NoError(t, err)
 	return db
 }

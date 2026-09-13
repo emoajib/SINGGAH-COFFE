@@ -67,6 +67,9 @@ func NewReportUsecase(db *gorm.DB) *ReportUsecase {
 
 func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint) (*entity.DashboardSummary, error) {
 	key := cacheKey(hashString(start+end))
+	if len(outletID) > 0 {
+		key = cacheKey(hashString(start+end), outletID[0])
+	}
 
 	// Fast path: return cached copy if fresh
 	dashboardMu.RLock()
@@ -185,10 +188,13 @@ func hashString(s string) uint {
 
 // cacheKey derives the cache key from an optional outletID and date range.
 func cacheKey(extra ...uint) uint {
-	if len(extra) > 0 {
-		return extra[0]
-	}
-	return 0
+    if len(extra) > 1 {
+        return extra[0] ^ extra[1]
+    }
+    if len(extra) > 0 {
+        return extra[0]
+    }
+    return 0
 }
 
 func (uc *ReportUsecase) GetSalesSummary(outletID ...uint) *entity.SalesSummaryResponse {

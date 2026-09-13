@@ -16,7 +16,7 @@ func setupReportTestDB() *gorm.DB {
 	if err != nil {
 		panic("Failed to connect to database: " + err.Error())
 	}
-	db.AutoMigrate(&models.Order{}, &models.OrderItem{}, &models.Expense{}, &models.Ingredient{}, &models.Product{})
+	db.AutoMigrate(&models.Order{}, &models.OrderItem{}, &models.Expense{}, &models.Ingredient{}, &models.Product{}, &models.PSAKEventOutbox{})
 	return db
 }
 

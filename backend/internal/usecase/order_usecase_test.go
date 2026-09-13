@@ -21,7 +21,7 @@ func setupOrderTestDB() *gorm.DB {
 	db.AutoMigrate(
 		&models.Order{}, &models.OrderItem{}, &models.Product{}, &models.Ingredient{},
 		&models.RecipeItem{}, &models.StockMutation{}, &models.Setting{},
-		&models.Expense{}, &models.CashBook{},
+		&models.Expense{}, &models.CashBook{}, &models.PSAKEventOutbox{},
 	)
 	return db
 }

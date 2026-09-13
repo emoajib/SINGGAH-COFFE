@@ -20,7 +20,7 @@ func setupExpenseTestDB() *gorm.DB {
 	}
 	
 	// Migrate the schema
-	db.AutoMigrate(&models.Expense{}, &models.CashBook{})
+	db.AutoMigrate(&models.Expense{}, &models.CashBook{}, &models.PSAKEventOutbox{})
 	return db
 }
 

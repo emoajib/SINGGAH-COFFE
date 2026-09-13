@@ -17,7 +17,7 @@ func setupProductTestDB() *gorm.DB {
 	if err != nil {
 		panic("Failed to connect to database: " + err.Error())
 	}
-	db.AutoMigrate(&models.Product{}, &models.Ingredient{}, &models.RecipeItem{})
+	db.AutoMigrate(&models.Product{}, &models.Ingredient{}, &models.RecipeItem{}, &models.PSAKEventOutbox{})
 	return db
 }
 

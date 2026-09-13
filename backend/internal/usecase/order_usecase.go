@@ -223,13 +223,15 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		}
 		// PSAK: Create outbox event for journal entry
 		outboxRepo := postgres.NewOutboxRepository(tx)
-		_ = outboxRepo.Create(&entity.EventOutbox{
+		if err := outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "order.completed",
 			ReferenceType: "order",
 			ReferenceID:   loaded.ID,
 			Payload:       mustMarshal(orderEventPayload(loaded)),
 			Status:        "pending",
-		})
+		}); err != nil {
+			return err
+		}
 		result.Order = loaded.ToResponse()
 		return nil
 	})
@@ -312,13 +314,15 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 		}
 		// PSAK: Create outbox event for void reversal (full payload for journal reversal)
 		outboxRepo := postgres.NewOutboxRepository(tx)
-		_ = outboxRepo.Create(&entity.EventOutbox{
+		if err := outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "order.voided",
 			ReferenceType: "order",
 			ReferenceID:   order.ID,
 			Payload:       mustMarshal(orderEventPayload(order)),
 			Status:        "pending",
-		})
+		}); err != nil {
+			return err
+		}
 		return nil
 	})
 
@@ -458,13 +462,15 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 
 		// PSAK: Create outbox event for journal entry on payment method change
 		outboxRepo := postgres.NewOutboxRepository(tx)
-		_ = outboxRepo.Create(&entity.EventOutbox{
+		if err := outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "order.completed",
 			ReferenceType: "order",
 			ReferenceID:   order.ID,
 			Payload:       mustMarshal(orderEventPayload(order)),
 			Status:        "pending",
-		})
+		}); err != nil {
+			return err
+		}
 
 		result = order.ToResponse()
 		return nil
@@ -537,13 +543,15 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 
 		// PSAK: Create outbox event for journal entry when QRIS order is paid
 		outboxRepo := postgres.NewOutboxRepository(tx)
-		_ = outboxRepo.Create(&entity.EventOutbox{
+		if err := outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "order.completed",
 			ReferenceType: "order",
 			ReferenceID:   order.ID,
 			Payload:       mustMarshal(orderEventPayload(order)),
 			Status:        "pending",
-		})
+		}); err != nil {
+			return err
+		}
 
 		return NewCashBookUsecase(tx).EnsureOrderIncome(order)
 	}); err != nil {

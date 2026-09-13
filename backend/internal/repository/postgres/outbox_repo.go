@@ -5,6 +5,7 @@ import (
 	"singgah-pos-backend/internal/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type outboxRepository struct {
@@ -23,7 +24,7 @@ func (r *outboxRepository) Create(event *entity.EventOutbox) error {
 	} else {
 		m.SequenceNumber = 1
 	}
-	if err := r.db.Create(m).Error; err != nil {
+	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(m).Error; err != nil {
 		return err
 	}
 	event.ID = m.ID
