@@ -18,10 +18,10 @@ jobs:
     name: Shared Hosting Constraint Guard
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
         node-version: '24'
-    - uses: actions/checkout@v4
     - name: Run constraint guard
       run: ./scripts/check-constraints.sh
     - name: Validate deploy artifact not tracked
@@ -35,10 +35,10 @@ jobs:
     name: Backend Build & Test
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
         node-version: '24'
-    - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -60,12 +60,11 @@ jobs:
     name: Web Dashboard Build Check
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
         node-version: '24'
         cache: 'npm'
-        cache-dependency-path: web-dashboard/package-lock.json
-    - uses: actions/checkout@v4
 
     - name: Install Dependencies
       run: |
@@ -94,10 +93,10 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+    - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
         node-version: '24'
-    - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -145,10 +144,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
