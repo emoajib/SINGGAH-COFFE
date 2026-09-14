@@ -252,13 +252,30 @@ export default function ProfitSharing() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Basis</label>
                 <select
-                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  className="w-full border rounded-md px-3 py-2 text-sm font-semibold text-slate-800"
                   value={basisType}
                   onChange={(e) => setBasisType(e.target.value)}
                 >
-                  <option value="net">Laba Bersih (Net Profit)</option>
-                  <option value="gross">Laba Kotor (Gross Profit)</option>
+                  <option value="net">Laba Bersih (Net Profit — Dikurangi Pengeluaran)</option>
+                  <option value="gross">Laba Kotor (Gross Profit — Murni Margin Penjualan)</option>
                 </select>
+                <div className="mt-1.5 p-2 rounded-lg text-xs font-medium border bg-slate-50">
+                  {basisType === 'gross' ? (
+                    <div className="flex items-start gap-1.5 text-blue-800">
+                      <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600" />
+                      <span>
+                        <strong>Laba Kotor (Gross Margin):</strong> Bagi hasil dihitung murni dari margin penjualan produk (Omzet dikurangi HPP). Beban operasional toko (seperti Cup, Susu, dan utilitas) <u>TIDAK memotong</u> hak barista (beban ditanggung Owner).
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-1.5 text-amber-900">
+                      <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                      <span>
+                        <strong>Laba Bersih (Net Profit):</strong> Beban operasional toko (seperti Cup, Susu, dan operasional lainnya) akan <u>dipotong terlebih dahulu</u> dari laba kotor sebelum dibagi ke Owner & Barista.
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Owner %</label>
@@ -615,6 +632,64 @@ export default function ProfitSharing() {
                   )
                 } catch { return null }
               })()}
+              {detailPeriod.expenses_breakdown && (() => {
+                try {
+                  const expenses = JSON.parse(detailPeriod.expenses_breakdown) as any[]
+                  if (!expenses.length) return null
+                  const isGross = detailPeriod.basis_type === 'gross'
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-sm">Rincian Pengeluaran Operasional Toko</h3>
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${isGross ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                          {isGross ? 'Tidak Memotong Bagi Hasil (Ditanggung Owner)' : 'Memotong Bagi Hasil'}
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table className="w-full text-xs sm:text-sm">
+                          <thead>
+                            <tr className="border-b bg-slate-50 text-slate-600">
+                              <th className="text-left py-2 px-2.5">No</th>
+                              <th className="text-left py-2 px-2.5">Tanggal</th>
+                              <th className="text-left py-2 px-2.5">Nota / Kebutuhan Belanja</th>
+                              <th className="text-left py-2 px-2.5">Kategori</th>
+                              <th className="text-left py-2 px-2.5">Metode Bayar</th>
+                              <th className="text-right py-2 px-2.5">Nominal (Rp)</th>
+                              <th className="text-center py-2 px-2.5">Perlakuan</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {expenses.map((exp, i) => (
+                              <tr key={i} className="border-b hover:bg-slate-50/50">
+                                <td className="py-2 px-2.5 text-slate-400">{i + 1}</td>
+                                <td className="py-2 px-2.5 text-slate-600 whitespace-nowrap">{exp.date || '-'}</td>
+                                <td className="py-2 px-2.5 font-medium text-slate-900">{exp.title || exp.category}</td>
+                                <td className="py-2 px-2.5 text-slate-500">{exp.category}</td>
+                                <td className="py-2 px-2.5 text-slate-500">{exp.payment_method || 'Cash'}</td>
+                                <td className="py-2 px-2.5 text-right font-medium text-slate-800">{formatNumber(exp.amount)}</td>
+                                <td className="py-2 px-2.5 text-center">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isGross ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800'}`}>
+                                    {isGross ? 'Non-Potong' : 'Potong Jatah'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                            <tr className="border-t-2 font-bold bg-slate-50 text-slate-900">
+                              <td colSpan={5} className="py-2.5 px-2.5">Total Pengeluaran Operasional</td>
+                              <td className="text-right py-2.5 px-2.5 text-rose-700">Rp {formatNumber(expenses.reduce((s, e) => s + (e.amount || 0), 0))}</td>
+                              <td className="text-center py-2.5 px-2.5">
+                                <span className="text-[10px] text-slate-500">
+                                  {isGross ? 'Informasi' : 'Dipotongkan'}
+                                </span>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                } catch { return null }
+              })()}
             </div>
           </div>
         </div>
@@ -656,7 +731,20 @@ export default function ProfitSharing() {
                 <div><span className="text-sm text-gray-500">Pendapatan Bersih</span><p className="font-bold">{formatNumber(preview.calculation.net_revenue || preview.calculation.basis_amount)}</p></div>
                 <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(preview.calculation.total_cogs)}</p></div>
                 <div><span className="text-sm text-gray-500">Laba Kotor</span><p className="font-medium">{formatNumber(preview.calculation.gross_profit)}</p></div>
-                <div><span className="text-sm text-gray-500">Total Pengeluaran (non-bagi hasil)</span><p className="font-medium">{formatNumber(preview.calculation.total_expenses)}</p></div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600 font-semibold">Total Pengeluaran Operasional</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${preview.calculation.basis_type === 'gross' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {preview.calculation.basis_type === 'gross' ? 'Non-Potong (Info Saja)' : 'Memotong Bagi Hasil'}
+                    </span>
+                  </div>
+                  <p className="font-bold text-lg text-slate-900 mt-1">Rp {formatNumber(preview.calculation.total_expenses)}</p>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    {preview.calculation.basis_type === 'gross'
+                      ? 'Ditanggung Owner — tidak mengurangi jatah barista'
+                      : 'Beban toko memotong laba sebelum dibagikan'}
+                  </span>
+                </div>
                 <div className="bg-gray-50 p-3 rounded-lg"><span className="text-sm text-gray-600">Laba Bersih</span><p className="font-bold text-lg">{formatNumber(preview.calculation.net_profit)}</p></div>
                 <div></div>
                 {preview.calculation.net_profit < 0 && preview.calculation.gross_profit >= 0 && (
@@ -770,19 +858,60 @@ export default function ProfitSharing() {
                   </div>
                 )
               })()}
-              {preview.calculation.breakdown && preview.calculation.breakdown.length > 0 && (
-                <div>
-                      <h3 className="font-semibold text-sm mb-2">Rincian Pengeluaran</h3>
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b"><th className="text-left py-2">Kategori</th><th className="text-right py-2">Jumlah</th></tr></thead>
-                    <tbody>
-                      {preview.calculation.breakdown.map((b, i) => (
-                        <tr key={i} className="border-b"><td className="py-2">{b.category}</td><td className="text-right">{formatNumber(b.amount)}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {preview.calculation.breakdown && preview.calculation.breakdown.length > 0 && (() => {
+                const isGross = preview.calculation.basis_type === 'gross'
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-sm">Rincian Pengeluaran Operasional Toko</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded font-medium ${isGross ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {isGross ? 'Tidak Memotong Bagi Hasil (Ditanggung Owner)' : 'Memotong Bagi Hasil'}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                      <table className="w-full text-xs sm:text-sm">
+                        <thead>
+                          <tr className="border-b bg-slate-50 text-slate-600">
+                            <th className="text-left py-2 px-2.5">No</th>
+                            <th className="text-left py-2 px-2.5">Tanggal</th>
+                            <th className="text-left py-2 px-2.5">Nota / Kebutuhan Belanja</th>
+                            <th className="text-left py-2 px-2.5">Kategori</th>
+                            <th className="text-left py-2 px-2.5">Metode Bayar</th>
+                            <th className="text-right py-2 px-2.5">Nominal (Rp)</th>
+                            <th className="text-center py-2 px-2.5">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {preview.calculation.breakdown.map((b, i) => (
+                            <tr key={i} className="border-b hover:bg-slate-50/50">
+                              <td className="py-2 px-2.5 text-slate-400">{i + 1}</td>
+                              <td className="py-2 px-2.5 text-slate-600 whitespace-nowrap">{b.date || '-'}</td>
+                              <td className="py-2 px-2.5 font-medium text-slate-900">{b.title || b.category}</td>
+                              <td className="py-2 px-2.5 text-slate-500">{b.category}</td>
+                              <td className="py-2 px-2.5 text-slate-500">{b.payment_method || 'Cash'}</td>
+                              <td className="py-2 px-2.5 text-right font-medium text-slate-800">{formatNumber(b.amount)}</td>
+                              <td className="py-2 px-2.5 text-center">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isGross ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800'}`}>
+                                  {isGross ? 'Non-Potong' : 'Potong Jatah'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="border-t-2 font-bold bg-slate-50 text-slate-900">
+                            <td colSpan={5} className="py-2.5 px-2.5">Total Pengeluaran Operasional</td>
+                            <td className="text-right py-2.5 px-2.5 text-rose-700">Rp {formatNumber(preview.calculation.breakdown.reduce((s, e) => s + (e.amount || 0), 0))}</td>
+                            <td className="text-center py-2.5 px-2.5">
+                              <span className="text-[10px] text-slate-500">
+                                {isGross ? 'Informasi' : 'Dipotongkan'}
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })()}
               {preview.calculation.per_product && preview.calculation.per_product.length > 0 && (
                 <div>
                   <h3 className="font-semibold text-sm mb-2">Rincian per Produk</h3>

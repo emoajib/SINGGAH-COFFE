@@ -21,9 +21,10 @@ type ProfitSharingPeriod struct {
 	Ratio         float64        `json:"ratio"`
 	KeeperAmount  float64        `json:"keeper_amount"`
 	OwnerAmount   float64        `json:"owner_amount"`
-	Status        string         `json:"status" gorm:"default:draft;index"`
-	PerProduct    string         `json:"per_product"`
-	PaymentNote   string         `json:"payment_note"`
+	Status            string         `json:"status" gorm:"default:draft;index"`
+	PerProduct        string         `json:"per_product"`
+	ExpensesBreakdown string         `json:"expenses_breakdown" gorm:"type:text"`
+	PaymentNote       string         `json:"payment_note"`
 	TaxNote       string         `json:"tax_note"`
 	BasisType     string         `json:"basis_type" gorm:"default:net"`  // net, gross
 	OwnerPct      float64        `json:"owner_pct" gorm:"default:60"`    // owner percentage

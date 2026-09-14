@@ -167,6 +167,7 @@ type ProfitSharingPeriodRepository interface {
 	Delete(id uint) error
 	GetTotalRevenue(start, end string, outletID ...uint) (float64, error)
 	GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error)
+	GetExpensesList(start, end string, excluded []string, outletID ...uint) ([]entity.ExpenseBreakdown, error)
 	GetProductSales(start, end string, outletID ...uint) ([]entity.ProductSalesVolume, error)
 }
 

@@ -14,15 +14,16 @@ type ProfitSharingPeriod struct {
 	Ratio         float64   `json:"ratio"`
 	KeeperAmount  float64   `json:"keeper_amount"`
 	OwnerAmount   float64   `json:"owner_amount"`
-	Status        string    `json:"status"`
-	PerProduct    string    `json:"per_product"`
-	PaymentNote   string    `json:"payment_note"`
-	TaxNote       string    `json:"tax_note"`
-	BasisType     string    `json:"basis_type"`
-	OwnerPct      float64   `json:"owner_pct"`
-	People        []ProfitSharingPerson `json:"people"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Status            string                `json:"status"`
+	PerProduct        string                `json:"per_product"`
+	ExpensesBreakdown string                `json:"expenses_breakdown"`
+	PaymentNote       string                `json:"payment_note"`
+	TaxNote           string                `json:"tax_note"`
+	BasisType         string                `json:"basis_type"`
+	OwnerPct          float64               `json:"owner_pct"`
+	People            []ProfitSharingPerson `json:"people"`
+	CreatedAt         time.Time             `json:"created_at"`
+	UpdatedAt         time.Time             `json:"updated_at"`
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -49,10 +50,16 @@ type ProductSharingDetail struct {
 	GrossMargin float64 `json:"gross_margin"`
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ExpenseBreakdown struct {
-	Category string  `json:"category"`
-	Amount   float64 `json:"amount"`
-	Note     string  `json:"note"`
+	ID            uint    `json:"id"`
+	Date          string  `json:"date"`
+	Title         string  `json:"title"`
+	Category      string  `json:"category"`
+	Amount        float64 `json:"amount"`
+	PaymentMethod string  `json:"payment_method"`
+	Note          string  `json:"note"`
+	IsDeducted    bool    `json:"is_deducted"`
 }
 
 type Calculation struct {

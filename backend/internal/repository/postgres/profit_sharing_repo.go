@@ -138,6 +138,36 @@ func (r *profitSharingPeriodRepository) GetTotalExpensesExcluding(start, end str
 	return total, err
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *profitSharingPeriodRepository) GetExpensesList(start, end string, excluded []string, outletID ...uint) ([]entity.ExpenseBreakdown, error) {
+	ow, args := outletWhere("expenses", outletID...)
+	query := "date BETWEEN ? AND ?" + ow
+	params := []interface{}{start, end}
+	params = append(params, args...)
+	if len(excluded) > 0 {
+		query += " AND category NOT IN ?"
+		params = append(params, excluded)
+	}
+	var list []models.Expense
+	err := r.db.Where(query, params...).Order("date ASC, id ASC").Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	results := make([]entity.ExpenseBreakdown, len(list))
+	for i, item := range list {
+		results[i] = entity.ExpenseBreakdown{
+			ID:            item.ID,
+			Date:          item.Date.Format("02/01/2006"),
+			Title:         item.Title,
+			Category:      item.Category,
+			Amount:        item.Amount,
+			PaymentMethod: item.PaymentMethod,
+			Note:          item.Description,
+		}
+	}
+	return results, nil
+}
+
 func (r *profitSharingPeriodRepository) GetProductSales(start, end string, outletID ...uint) ([]entity.ProductSalesVolume, error) {
 	ow, args := outletWhere("o", outletID...)
 	baseArgs := []interface{}{start, end}

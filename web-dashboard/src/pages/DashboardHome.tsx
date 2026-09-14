@@ -41,6 +41,223 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
     const [exportEnd, setExportEnd] = useState(() => new Date().toISOString().split('T')[0])
     const [isExporting, setIsExporting] = useState(false)
 
+    // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+    const escapeXml = (unsafe: any): string => {
+        if (unsafe === null || unsafe === undefined) return ''
+        return String(unsafe)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;')
+    }
+
+    interface ExcelColumnDef {
+        header: string
+        type?: 'String' | 'Number' | 'Currency' | 'Percent'
+        width?: number
+    }
+
+    interface ExcelSheetDef {
+        name: string
+        title?: string
+        subtitle?: string
+        columns: ExcelColumnDef[]
+        rows: any[][]
+        totalRow?: any[]
+    }
+
+    const buildExcelWorkbookXml = (sheets: ExcelSheetDef[]): string => {
+        const xmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>Singgah Coffee POS</Author>
+  <Company>Singgah Coffee</Company>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#1E293B"/>
+  </Style>
+  <Style ss:ID="TitleStyle">
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#0F172A"/>
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="SubtitleStyle">
+   <Font ss:FontName="Calibri" ss:Size="9" ss:Italic="1" ss:Color="#64748B"/>
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="HeaderStyle">
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#64748B"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#64748B"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#64748B"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#64748B"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="StringCell">
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F1F5F9"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F1F5F9"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="NumberCell">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="#,##0"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F1F5F9"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F1F5F9"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="CurrencyCell">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="&quot;Rp &quot;#,##0"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F1F5F9"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F1F5F9"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="PercentCell">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="0.0%"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F1F5F9"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F1F5F9"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="TotalStringCell">
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#0F172A"/>
+   <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#334155"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#334155"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="TotalNumberCell">
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#0F172A"/>
+   <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="#,##0"/>
+   <Borders>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#334155"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#334155"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="TotalCurrencyCell">
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#0F172A"/>
+   <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="&quot;Rp &quot;#,##0"/>
+   <Borders>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#334155"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#334155"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="TotalPercentCell">
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#0F172A"/>
+   <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="0.0%"/>
+   <Borders>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#334155"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#334155"/>
+   </Borders>
+  </Style>
+ </Styles>`
+
+        let worksheets = ''
+        for (const sheet of sheets) {
+            worksheets += `\n <Worksheet ss:Name="${escapeXml(sheet.name)}">\n  <Table>\n`
+            for (const col of sheet.columns) {
+                worksheets += `   <Column ss:AutoFitWidth="1" ss:Width="${col.width || 100}"/>\n`
+            }
+
+            if (sheet.title) {
+                worksheets += `   <Row ss:Height="22">\n    <Cell ss:StyleID="TitleStyle"><Data ss:Type="String">${escapeXml(sheet.title)}</Data></Cell>\n   </Row>\n`
+            }
+            if (sheet.subtitle) {
+                worksheets += `   <Row ss:Height="16">\n    <Cell ss:StyleID="SubtitleStyle"><Data ss:Type="String">${escapeXml(sheet.subtitle)}</Data></Cell>\n   </Row>\n`
+            }
+            if (sheet.title || sheet.subtitle) {
+                worksheets += `   <Row ss:Height="8"/>\n`
+            }
+
+            worksheets += `   <Row ss:Height="24">\n`
+            for (const col of sheet.columns) {
+                worksheets += `    <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXml(col.header)}</Data></Cell>\n`
+            }
+            worksheets += `   </Row>\n`
+
+            for (const row of sheet.rows) {
+                worksheets += `   <Row ss:Height="19">\n`
+                for (let cIdx = 0; cIdx < sheet.columns.length; cIdx++) {
+                    const col = sheet.columns[cIdx]
+                    const val = row[cIdx]
+                    const colType = col.type || 'String'
+
+                    if (val === undefined || val === null || val === '') {
+                        worksheets += `    <Cell ss:StyleID="StringCell"><Data ss:Type="String"></Data></Cell>\n`
+                    } else if (colType === 'Number') {
+                        const num = Number(val) || 0
+                        worksheets += `    <Cell ss:StyleID="NumberCell"><Data ss:Type="Number">${num}</Data></Cell>\n`
+                    } else if (colType === 'Currency') {
+                        const num = Number(val) || 0
+                        worksheets += `    <Cell ss:StyleID="CurrencyCell"><Data ss:Type="Number">${num}</Data></Cell>\n`
+                    } else if (colType === 'Percent') {
+                        const num = typeof val === 'number' ? val : (parseFloat(String(val).replace('%', '')) / 100) || 0
+                        worksheets += `    <Cell ss:StyleID="PercentCell"><Data ss:Type="Number">${num.toFixed(4)}</Data></Cell>\n`
+                    } else {
+                        worksheets += `    <Cell ss:StyleID="StringCell"><Data ss:Type="String">${escapeXml(val)}</Data></Cell>\n`
+                    }
+                }
+                worksheets += `   </Row>\n`
+            }
+
+            if (sheet.totalRow && sheet.totalRow.length > 0) {
+                worksheets += `   <Row ss:Height="22">\n`
+                for (let cIdx = 0; cIdx < sheet.columns.length; cIdx++) {
+                    const col = sheet.columns[cIdx]
+                    const val = sheet.totalRow[cIdx]
+                    const colType = col.type || 'String'
+
+                    if (val === undefined || val === null || val === '') {
+                        worksheets += `    <Cell ss:StyleID="TotalStringCell"><Data ss:Type="String"></Data></Cell>\n`
+                    } else if (colType === 'Currency') {
+                        const num = Number(val) || 0
+                        worksheets += `    <Cell ss:StyleID="TotalCurrencyCell"><Data ss:Type="Number">${num}</Data></Cell>\n`
+                    } else if (colType === 'Number') {
+                        const num = Number(val) || 0
+                        worksheets += `    <Cell ss:StyleID="TotalNumberCell"><Data ss:Type="Number">${num}</Data></Cell>\n`
+                    } else if (colType === 'Percent') {
+                        const num = typeof val === 'number' ? val : (parseFloat(String(val).replace('%', '')) / 100) || 0
+                        worksheets += `    <Cell ss:StyleID="TotalPercentCell"><Data ss:Type="Number">${num.toFixed(4)}</Data></Cell>\n`
+                    } else {
+                        worksheets += `    <Cell ss:StyleID="TotalStringCell"><Data ss:Type="String">${escapeXml(val)}</Data></Cell>\n`
+                    }
+                }
+                worksheets += `   </Row>\n`
+            }
+
+            worksheets += `  </Table>\n </Worksheet>`
+        }
+
+        return `${xmlHeader}${worksheets}\n</Workbook>`
+    }
+
     const handleExportPdf = async () => {
         try {
             setIsExporting(true)
@@ -62,6 +279,111 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
             URL.revokeObjectURL(url)
         } catch (e: any) {
             alert("Gagal mengunduh PDF: " + (e?.message || e))
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    const handleExportExcelFinancials = async () => {
+        try {
+            setIsExporting(true)
+            const token = localStorage.getItem('token')
+            const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+            const params = new URLSearchParams({ start: exportStart, end: exportEnd })
+            const res = await fetch(`${baseURL}/reports/profit-loss?${params}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
+            if (!res.ok) throw new Error("Gagal mengambil data laporan keuangan")
+            const data = await res.json()
+
+            const rev = data.revenue || 0
+            const cogs = data.cogs || 0
+            const grossProfit = data.gross_profit || (rev - cogs)
+            const totalExpenses = data.total_expenses || 0
+            const netProfit = data.net_profit || (grossProfit - totalExpenses)
+
+            const sheet1Rows: any[][] = [
+                ["1", "4101", "Pendapatan Usaha", "Total Pendapatan Penjualan Kasir", rev, 1.0],
+                ["", "-", "  Rincian Bayar", `  • Penjualan Tunai (Cash)`, data.payment_breakdown?.find((p: any) => p.payment_method === 'Cash')?.total || 0, rev > 0 ? (data.payment_breakdown?.find((p: any) => p.payment_method === 'Cash')?.total || 0) / rev : 0],
+                ["", "-", "  Rincian Bayar", `  • Penjualan Non-Tunai (QRIS / Bank)`, data.payment_breakdown?.find((p: any) => p.payment_method === 'QRIS')?.total || 0, rev > 0 ? (data.payment_breakdown?.find((p: any) => p.payment_method === 'QRIS')?.total || 0) / rev : 0],
+                ["2", "5101", "Beban Pokok", "Beban Pokok Penjualan (HPP Modal)", cogs, rev > 0 ? (cogs / rev) : 0],
+                ["-", "-", "Laba Kotor", "Margin Penjualan Bersih (Gross Profit)", grossProfit, rev > 0 ? (grossProfit / rev) : 0],
+                ["3", "5201", "Beban Operasional", "Total Akumulasi Beban Operasional", totalExpenses, rev > 0 ? (totalExpenses / rev) : 0],
+                ["-", "3102", "Laba Bersih", "LABA BERSIH PERIODE BERJALAN", netProfit, rev > 0 ? (netProfit / rev) : 0]
+            ]
+
+            const expenses = data.expenses || []
+            const sheet2Rows = expenses.map((exp: any, idx: number) => [
+                idx + 1,
+                exp.category,
+                exp.amount,
+                totalExpenses > 0 ? (exp.amount / totalExpenses) : 0
+            ])
+
+            const payments = data.payment_breakdown || []
+            const sheet3Rows = payments.map((p: any, idx: number) => [
+                idx + 1,
+                p.payment_method,
+                p.count,
+                p.total,
+                rev > 0 ? (p.total / rev) : 0
+            ])
+
+            const xml = buildExcelWorkbookXml([
+                {
+                    name: "Laba_Rugi_Ringkasan",
+                    title: "SINGGAH COFFEE - LAPORAN LABA RUGI & KEUANGAN RESMI",
+                    subtitle: `Periode Pembukuan: ${exportStart} s/d ${exportEnd} • Standar SAK EMKM / PSAK`,
+                    columns: [
+                        { header: "No", type: "String", width: 40 },
+                        { header: "Kode Akun", type: "String", width: 80 },
+                        { header: "Kategori Akun", type: "String", width: 140 },
+                        { header: "Uraian / Deskripsi Akun", type: "String", width: 240 },
+                        { header: "Jumlah (IDR)", type: "Currency", width: 130 },
+                        { header: "Rasio Omzet %", type: "Percent", width: 90 }
+                    ],
+                    rows: sheet1Rows
+                },
+                {
+                    name: "Rincian_Beban_Operasional",
+                    title: "RINCIAN BEBAN OPERASIONAL TOKO",
+                    subtitle: `Periode: ${exportStart} s/d ${exportEnd}`,
+                    columns: [
+                        { header: "No", type: "Number", width: 40 },
+                        { header: "Kategori Beban", type: "String", width: 180 },
+                        { header: "Jumlah (IDR)", type: "Currency", width: 130 },
+                        { header: "% terhadap Total Beban", type: "Percent", width: 130 }
+                    ],
+                    rows: sheet2Rows,
+                    totalRow: ["TOTAL", "TOTAL BEBAN OPERASIONAL", totalExpenses, 1.0]
+                },
+                {
+                    name: "Metode_Pembayaran",
+                    title: "REKAPITULASI METODE PEMBAYARAN KASIR",
+                    subtitle: `Periode: ${exportStart} s/d ${exportEnd}`,
+                    columns: [
+                        { header: "No", type: "Number", width: 40 },
+                        { header: "Metode Pembayaran", type: "String", width: 140 },
+                        { header: "Jumlah Transaksi", type: "Number", width: 110 },
+                        { header: "Total Nilai (IDR)", type: "Currency", width: 130 },
+                        { header: "Pangsa Pasar %", type: "Percent", width: 100 }
+                    ],
+                    rows: sheet3Rows,
+                    totalRow: ["TOTAL", "TOTAL TRANSAKSI", payments.reduce((s: number, p: any) => s + (p.count || 0), 0), rev, 1.0]
+                }
+            ])
+
+            const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `Laporan_Keuangan_${exportStart}_sd_${exportEnd}.xls`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(url)
+        } catch (e: any) {
+            alert("Gagal mengunduh Excel Keuangan: " + (e?.message || e))
         } finally {
             setIsExporting(false)
         }
@@ -93,16 +415,196 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
         }
     }
 
-    const handleExportProductSales = () => {
+    const handleExportProductSalesExcel = async () => {
         try {
             setIsExporting(true)
-            const items = summary.product_sales || []
+            const token = localStorage.getItem('token')
+            const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+            const params = new URLSearchParams({ start: exportStart, end: exportEnd })
+            const res = await fetch(`${baseURL}/reports/product-performance?${params}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
+            let items: ProductSalesVolume[] = []
+            if (res.ok) {
+                const data = await res.json()
+                items = data.products || []
+            } else {
+                items = summary.product_sales || []
+            }
+
+            if (items.length === 0) {
+                alert("Belum ada data transaksi menu pada periode ini untuk diekspor.")
+                return
+            }
+
+            const totalRevenue = items.reduce((s, p) => s + (p.revenue || 0), 0)
+            const totalCogs = items.reduce((s, p) => s + (p.total_cogs || 0), 0)
+            const totalQty = items.reduce((s, p) => s + (p.quantity || 0), 0)
+            const totalGrossProfit = totalRevenue - totalCogs
+
+            // Sheet 1: Detail Penjualan Menu (12 Kolom Terpisah Sempurna)
+            const sheet1Rows = items.map((p, idx) => {
+                const grossProfit = (p.revenue || 0) - (p.total_cogs || 0)
+                const marginPct = (p.revenue || 0) > 0 ? (grossProfit / p.revenue) : 0
+                const omzetShare = totalRevenue > 0 ? (p.revenue / totalRevenue) : 0
+                return [
+                    idx + 1,
+                    p.product_id || (idx + 1),
+                    p.name || '-',
+                    p.category || 'Lainnya',
+                    p.quantity || 0,
+                    Math.round(p.avg_price || 0),
+                    Math.round(p.avg_cost || 0),
+                    Math.round(p.revenue || 0),
+                    Math.round(p.total_cogs || 0),
+                    Math.round(grossProfit),
+                    marginPct,
+                    omzetShare
+                ]
+            })
+
+            // Sheet 2: Rekap per Kategori
+            const categoryMap = new Map<string, { qty: number, revenue: number, cogs: number }>()
+            items.forEach(p => {
+                const cat = p.category || 'Lainnya'
+                const existing = categoryMap.get(cat) || { qty: 0, revenue: 0, cogs: 0 }
+                categoryMap.set(cat, {
+                    qty: existing.qty + (p.quantity || 0),
+                    revenue: existing.revenue + (p.revenue || 0),
+                    cogs: existing.cogs + (p.total_cogs || 0)
+                })
+            })
+
+            const sheet2Rows: any[][] = []
+            let catIdx = 1
+            categoryMap.forEach((val, cat) => {
+                const gp = val.revenue - val.cogs
+                const margin = val.revenue > 0 ? (gp / val.revenue) : 0
+                sheet2Rows.push([
+                    catIdx++,
+                    cat,
+                    val.qty,
+                    Math.round(val.revenue),
+                    Math.round(val.cogs),
+                    Math.round(gp),
+                    margin
+                ])
+            })
+
+            // Sheet 3: Top 10 Menu Terlaris
+            const sorted = [...items].sort((a, b) => (b.quantity || 0) - (a.quantity || 0)).slice(0, 10)
+            const sheet3Rows = sorted.map((p, idx) => [
+                idx + 1,
+                p.name,
+                p.category,
+                p.quantity,
+                Math.round(p.revenue || 0)
+            ])
+
+            const xml = buildExcelWorkbookXml([
+                {
+                    name: "Detail_Penjualan_Menu",
+                    title: "SINGGAH COFFEE - DETAIL PENJUALAN MENU & PROFITABILITAS",
+                    subtitle: `Periode: ${exportStart} s/d ${exportEnd} • Diunduh pada: ${new Date().toLocaleString('id-ID')}`,
+                    columns: [
+                        { header: "No", type: "Number", width: 40 },
+                        { header: "ID Menu", type: "Number", width: 60 },
+                        { header: "Nama Menu / Varian", type: "String", width: 190 },
+                        { header: "Kategori", type: "String", width: 100 },
+                        { header: "Cup Terjual", type: "Number", width: 85 },
+                        { header: "Harga Satuan", type: "Currency", width: 100 },
+                        { header: "HPP Satuan", type: "Currency", width: 100 },
+                        { header: "Total Omzet", type: "Currency", width: 125 },
+                        { header: "Total Modal HPP", type: "Currency", width: 125 },
+                        { header: "Laba Kotor (Margin)", type: "Currency", width: 125 },
+                        { header: "Margin Laba %", type: "Percent", width: 85 },
+                        { header: "Kontribusi Omzet %", type: "Percent", width: 110 }
+                    ],
+                    rows: sheet1Rows,
+                    totalRow: [
+                        "TOTAL",
+                        "",
+                        "TOTAL KESELURUHAN",
+                        "",
+                        totalQty,
+                        "",
+                        "",
+                        totalRevenue,
+                        totalCogs,
+                        totalGrossProfit,
+                        totalRevenue > 0 ? (totalGrossProfit / totalRevenue) : 0,
+                        1.0
+                    ]
+                },
+                {
+                    name: "Rekap_Kategori",
+                    title: "RINGKASAN PERFORMA PER KATEGORI PRODUK",
+                    subtitle: `Periode: ${exportStart} s/d ${exportEnd}`,
+                    columns: [
+                        { header: "No", type: "Number", width: 40 },
+                        { header: "Kategori Produk", type: "String", width: 150 },
+                        { header: "Total Cup", type: "Number", width: 80 },
+                        { header: "Total Omzet", type: "Currency", width: 125 },
+                        { header: "Total HPP", type: "Currency", width: 125 },
+                        { header: "Laba Kotor", type: "Currency", width: 125 },
+                        { header: "Rata-rata Margin", type: "Percent", width: 105 }
+                    ],
+                    rows: sheet2Rows
+                },
+                {
+                    name: "Top_10_Terlaris",
+                    title: "10 MENU TERLARIS (TOP SALES VOLUME)",
+                    subtitle: `Periode: ${exportStart} s/d ${exportEnd}`,
+                    columns: [
+                        { header: "Peringkat", type: "Number", width: 65 },
+                        { header: "Nama Produk", type: "String", width: 190 },
+                        { header: "Kategori", type: "String", width: 100 },
+                        { header: "Cup Terjual", type: "Number", width: 90 },
+                        { header: "Total Omzet", type: "Currency", width: 125 }
+                    ],
+                    rows: sheet3Rows
+                }
+            ])
+
+            const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `Detail_Penjualan_Menu_${exportStart}_sd_${exportEnd}.xls`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(url)
+        } catch (e: any) {
+            alert("Gagal mengekspor Excel data menu: " + (e?.message || e))
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    const handleExportProductSalesCsv = async () => {
+        try {
+            setIsExporting(true)
+            const token = localStorage.getItem('token')
+            const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+            const params = new URLSearchParams({ start: exportStart, end: exportEnd })
+            const res = await fetch(`${baseURL}/reports/product-performance?${params}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
+            let items: ProductSalesVolume[] = []
+            if (res.ok) {
+                const data = await res.json()
+                items = data.products || []
+            } else {
+                items = summary.product_sales || []
+            }
+
             if (items.length === 0) {
                 alert("Belum ada data transaksi menu pada periode ini untuk diekspor.")
                 return
             }
             const rows: string[] = [
-                ["No", "Nama Menu", "Kategori", "Jumlah Terjual (Cup)", "Harga Satuan (Rp)", "HPP Modal (Rp)", "Total Pendapatan (Rp)", "Total Modal (Rp)", "Laba Kotor (Rp)"].join(",")
+                ["No", "ID Menu", "Nama Menu", "Kategori", "Jumlah Terjual (Cup)", "Harga Satuan (Rp)", "HPP Modal (Rp)", "Total Pendapatan (Rp)", "Total Modal (Rp)", "Laba Kotor (Rp)"].join(",")
             ]
 
             items.forEach((p: ProductSalesVolume, idx: number) => {
@@ -111,6 +613,7 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                 const cleanCat = `"${(p.category || '').replace(/"/g, '""')}"`
                 rows.push([
                     idx + 1,
+                    p.product_id || (idx + 1),
                     cleanName,
                     cleanCat,
                     p.quantity || 0,
@@ -133,7 +636,7 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
             document.body.removeChild(link)
             URL.revokeObjectURL(url)
         } catch (e: any) {
-            alert("Gagal mengekspor data menu: " + (e?.message || e))
+            alert("Gagal mengekspor CSV data menu: " + (e?.message || e))
         } finally {
             setIsExporting(false)
         }
@@ -411,60 +914,105 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                     </div>
 
                     {/* Export Action Cards */}
-                    <div className="space-y-2.5">
-                        <button
-                            type="button"
-                            disabled={isExporting}
-                            onClick={handleExportPdf}
-                            className="w-full p-3.5 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 flex items-center justify-between text-left transition-colors group disabled:opacity-50"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                                    <FileText className="w-5 h-5" />
+                    {/* Export Action Cards */}
+                    <div className="space-y-3">
+                        {/* 1. Laporan Laba Rugi (PDF Resmi) */}
+                        <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50/40 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                                        <FileText className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-rose-950">Laporan Laba Rugi (PDF)</p>
+                                        <p className="text-[11px] text-rose-700/80">Dokumen PDF resmi berformat surat lengkap dengan kop surat, nomor surat, dan tanda tangan</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-bold text-rose-950">Laporan Laba Rugi (PDF)</p>
-                                    <p className="text-xs text-rose-700/80">Dokumen PDF resmi berformat surat lengkap dengan rincian pendapatan & laba bersih</p>
-                                </div>
+                                <Button
+                                    size="sm"
+                                    disabled={isExporting}
+                                    onClick={handleExportPdf}
+                                    className="bg-rose-600 hover:bg-rose-700 text-white gap-1.5 text-xs font-semibold shrink-0"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Unduh PDF
+                                </Button>
                             </div>
-                            <Download className="w-4 h-4 text-rose-500 shrink-0 ml-2" />
-                        </button>
+                        </div>
 
-                        <button
-                            type="button"
-                            disabled={isExporting}
-                            onClick={handleExportCsv}
-                            className="w-full p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 flex items-center justify-between text-left transition-colors group disabled:opacity-50"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                                    <FileSpreadsheet className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-emerald-950">Laporan Keuangan (CSV / Excel)</p>
-                                    <p className="text-xs text-emerald-700/80">Data pembukuan ringkas format spreadsheet untuk diolah di Microsoft Excel atau Google Sheets</p>
+                        {/* 2. Laporan Keuangan (Excel Multi-Sheet & CSV) */}
+                        <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                        <FileSpreadsheet className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-emerald-950">Laporan Keuangan (Excel / CSV)</p>
+                                        <p className="text-[11px] text-emerald-700/80">3 Sheet spreadsheet rapi: Ringkasan Laba Rugi, Rincian Beban, dan Metode Bayar</p>
+                                    </div>
                                 </div>
                             </div>
-                            <Download className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />
-                        </button>
+                            <div className="flex gap-2 justify-end pt-1">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={isExporting}
+                                    onClick={handleExportCsv}
+                                    className="text-xs border-emerald-300 text-emerald-800 hover:bg-emerald-100/50"
+                                    title="Unduh format teks CSV standar"
+                                >
+                                    Format CSV (.csv)
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    disabled={isExporting}
+                                    onClick={handleExportExcelFinancials}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs font-semibold"
+                                    title="Unduh format Microsoft Excel Multi-Sheet rapi terpisah kolom"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Unduh Excel (.xls Multi-Sheet)
+                                </Button>
+                            </div>
+                        </div>
 
-                        <button
-                            type="button"
-                            disabled={isExporting}
-                            onClick={handleExportProductSales}
-                            className="w-full p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-50 flex items-center justify-between text-left transition-colors group disabled:opacity-50"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                                    <ShoppingCart className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-amber-950">Detail Penjualan Menu (CSV / Excel)</p>
-                                    <p className="text-xs text-amber-800/80">Daftar lengkap cup terjual per varian kopi, omzet per produk, HPP modal, dan margin laba</p>
+                        {/* 3. Detail Penjualan Menu (Excel Multi-Sheet & CSV) */}
+                        <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                        <ShoppingCart className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-amber-950">Detail Penjualan Menu (Excel / CSV)</p>
+                                        <p className="text-[11px] text-amber-800/80">12 Kolom Terpisah: Cup terjual, Harga, HPP, Omzet, Margin laba, % Kontribusi + Rekap Kategori</p>
+                                    </div>
                                 </div>
                             </div>
-                            <Download className="w-4 h-4 text-amber-600 shrink-0 ml-2" />
-                        </button>
+                            <div className="flex gap-2 justify-end pt-1">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={isExporting}
+                                    onClick={handleExportProductSalesCsv}
+                                    className="text-xs border-amber-300 text-amber-800 hover:bg-amber-100/50"
+                                    title="Unduh format teks CSV"
+                                >
+                                    Format CSV (.csv)
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    disabled={isExporting}
+                                    onClick={handleExportProductSalesExcel}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5 text-xs font-semibold"
+                                    title="Unduh format Microsoft Excel Multi-Sheet 12 kolom terpisah"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Unduh Excel (.xls Multi-Sheet)
+                                </Button>
+                            </div>
+                        </div>
                     </div>
 
                     {isExporting && (

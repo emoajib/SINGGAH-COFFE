@@ -497,9 +497,16 @@ export interface ProductSharingDetail {
   gross_margin: number
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 export interface ExpenseBreakdown {
+  id?: number
+  date?: string
+  title?: string
   category: string
   amount: number
+  payment_method?: string
+  note?: string
+  is_deducted?: boolean
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -530,6 +537,7 @@ export interface ProfitSharingPeriod {
   owner_amount: number
   status: string
   per_product: string
+  expenses_breakdown?: string
   payment_note: string
   tax_note: string
   basis_type: string

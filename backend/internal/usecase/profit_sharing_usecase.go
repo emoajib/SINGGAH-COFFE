@@ -258,6 +258,15 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		ownerPct = 60
 	}
 
+	// Ambil rincian pengeluaran itemized untuk transparansi nota beban (misal 150 Cup, Susu UHT, dll.)
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	expenseList, _ := uc.periodRepo.GetExpensesList(startNorm, endNorm, alwaysExcludedFromSharing, outletID)
+	isDeducted := (basisType != "gross")
+	for i := range expenseList {
+		expenseList[i].IsDeducted = isDeducted
+	}
+	expenseListJSON, _ := json.Marshal(expenseList)
+
 	// Read tax & service fee from owner settings
 	taxPct := 0.0
 	servicePct := 0.0
@@ -280,22 +289,23 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
 
 	period := entity.ProfitSharingPeriod{
-		OutletID:      outletID,
-		PeriodStart:   startDate, // disimpan ke DB; GORM akan gunakan loc=Local dari DSN
-		PeriodEnd:     endDate,
-		BasisAmount:   result.Basis,
-		TotalCogs:     result.Cogs,
-		TotalExpenses: result.Expenses,
-		NetProfit:     result.NetProfit,
-		Ratio:         ratio,
-		KeeperAmount:  result.KeeperAmount,
-		OwnerAmount:   result.OwnerAmount,
-		Status:        "draft",
-		PerProduct:    result.PerProductJSON,
-		TaxNote:       taxNote,
-		BasisType:     basisType,
-		OwnerPct:      ownerPct,
-		People:        people,
+		OutletID:          outletID,
+		PeriodStart:       startDate, // disimpan ke DB; GORM akan gunakan loc=Local dari DSN
+		PeriodEnd:         endDate,
+		BasisAmount:       result.Basis,
+		TotalCogs:         result.Cogs,
+		TotalExpenses:     result.Expenses,
+		NetProfit:         result.NetProfit,
+		Ratio:             ratio,
+		KeeperAmount:      result.KeeperAmount,
+		OwnerAmount:       result.OwnerAmount,
+		Status:            "draft",
+		PerProduct:        result.PerProductJSON,
+		ExpensesBreakdown: string(expenseListJSON),
+		TaxNote:           taxNote,
+		BasisType:         basisType,
+		OwnerPct:          ownerPct,
+		People:            people,
 	}
 
 	// M3: Handle error dari FindOverlappingPeriod
@@ -343,6 +353,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			Ratio:         ratio,
 			KeeperShare:   result.KeeperAmount,
 			OwnerShare:    result.OwnerAmount,
+			Breakdown:     expenseList,
 			PerProduct:    result.PerProduct,
 			Status:        "draft",
 			Note:          taxNote,
