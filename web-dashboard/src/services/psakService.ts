@@ -85,7 +85,7 @@ export const PSAKService = {
         const { data } = await api.get<PSAKAccount>(`/psak/accounts/${id}`)
         return data
     },
-    createAccount: async (account: Omit<PSAKAccount, 'id' | 'is_active' | 'created_at'>) => {
+    createAccount: async (account: Omit<PSAKAccount, 'id' | 'created_at'>) => {
         const { data } = await api.post<PSAKAccount>('/psak/accounts', account)
         return data
     },

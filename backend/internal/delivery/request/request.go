@@ -175,6 +175,7 @@ type CreateAccountRequest struct {
 }
 
 type UpdateAccountRequest struct {
+	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	ParentID    *uint  `json:"parent_id"`

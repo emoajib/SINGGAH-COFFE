@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/usecase"
 
@@ -74,6 +75,7 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 }
 
 // UpdateAccount updates an existing account (owner only)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 	if getUserRole(c) != "owner" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only owner can manage accounts"})
@@ -86,13 +88,13 @@ func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 		return
 	}
 
-	var account entity.Account
-	if err := c.ShouldBindJSON(&account); err != nil {
+	var req request.UpdateAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid input: %v", err)})
 		return
 	}
 
-	result, err := h.accountUsecase.Update(uint(id), &account)
+	result, err := h.accountUsecase.Update(uint(id), &req)
 	if err != nil {
 		log.Printf("[ERROR] UpdateAccount failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

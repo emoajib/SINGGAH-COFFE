@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"fmt"
+	"strings"
 
+	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/repository"
@@ -53,6 +55,9 @@ func (uc *AccountUsecase) Create(account *entity.Account, outletID ...uint) (*en
 		account.OutletID = outletID[0]
 	}
 
+	account.Type = strings.ToLower(account.Type)
+	account.IsActive = true
+
 	// Validate code uniqueness per outlet
 	count, err := uc.accountRepo.CountByCode(account.Code, account.OutletID)
 	if err != nil {
@@ -70,17 +75,36 @@ func (uc *AccountUsecase) Create(account *entity.Account, outletID ...uint) (*en
 }
 
 // Update modifies an existing account
-func (uc *AccountUsecase) Update(id uint, account *entity.Account) (*entity.AccountResponse, error) {
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *AccountUsecase) Update(id uint, req *request.UpdateAccountRequest) (*entity.AccountResponse, error) {
 	existing, err := uc.accountRepo.FindByID(id)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("account not found")
 	}
 
-	existing.Name = account.Name
-	existing.Type = account.Type
-	existing.ParentID = account.ParentID
-	existing.IsActive = account.IsActive
-	existing.Description = account.Description
+	if req.Code != "" && req.Code != existing.Code {
+		count, err := uc.accountRepo.CountByCode(req.Code, existing.OutletID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate account code: %w", err)
+		}
+		if count > 0 {
+			return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("account code '%s' already exists", req.Code))
+		}
+		existing.Code = req.Code
+	}
+
+	if req.Name != "" {
+		existing.Name = req.Name
+	}
+	if req.Type != "" {
+		existing.Type = strings.ToLower(req.Type)
+	}
+	existing.ParentID = req.ParentID
+	// Crucial: Only update IsActive if explicitly provided in request!
+	if req.IsActive != nil {
+		existing.IsActive = *req.IsActive
+	}
+	existing.Description = req.Description
 
 	if err := uc.accountRepo.Update(existing); err != nil {
 		return nil, err

@@ -21,14 +21,19 @@ import { useToast } from "../hooks/use-toast"
 import { PSAKService, type PSAKAccount } from "../services/psakService"
 
 const ACCOUNT_TYPES = [
-    { value: "Asset", label: "Aset (Asset)" },
-    { value: "Liability", label: "Kewajiban (Liability)" },
-    { value: "Equity", label: "Ekuitas (Equity)" },
-    { value: "Revenue", label: "Pendapatan (Revenue)" },
-    { value: "Expense", label: "Beban (Expense)" },
+    { value: "asset", label: "Aset (Asset)" },
+    { value: "liability", label: "Kewajiban (Liability)" },
+    { value: "equity", label: "Ekuitas (Equity)" },
+    { value: "revenue", label: "Pendapatan (Revenue)" },
+    { value: "expense", label: "Beban (Expense)" },
 ] as const
 
 const TYPE_BADGE_CLASSES: Record<string, string> = {
+    asset: "bg-blue-100 text-blue-700 border-blue-200",
+    liability: "bg-red-100 text-red-700 border-red-200",
+    equity: "bg-purple-100 text-purple-700 border-purple-200",
+    revenue: "bg-green-100 text-green-700 border-green-200",
+    expense: "bg-orange-100 text-orange-700 border-orange-200",
     Asset: "bg-blue-100 text-blue-700 border-blue-200",
     Liability: "bg-red-100 text-red-700 border-red-200",
     Equity: "bg-purple-100 text-purple-700 border-purple-200",
@@ -42,9 +47,10 @@ interface AccountForm {
     type: string
     parent_id: number | null
     description: string
+    is_active: boolean
 }
 
-const EMPTY_FORM: AccountForm = { code: "", name: "", type: "Asset", parent_id: null, description: "" }
+const EMPTY_FORM: AccountForm = { code: "", name: "", type: "asset", parent_id: null, description: "", is_active: true }
 
 const PsakCoA: React.FC = () => {
     const { toast } = useToast()
@@ -88,14 +94,16 @@ const PsakCoA: React.FC = () => {
         setIsFormOpen(true)
     }
 
+    // Vetted by AI - Manual Review Required by Senior Engineer/Manager
     const openEditDialog = (account: PSAKAccount) => {
         setEditingAccount(account)
         setForm({
             code: account.code,
             name: account.name,
-            type: account.type,
+            type: account.type.toLowerCase(),
             parent_id: account.parent_id,
             description: account.description || "",
+            is_active: account.is_active ?? true,
         })
         setIsFormOpen(true)
     }
@@ -304,7 +312,7 @@ const PsakCoA: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span
-                                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TYPE_BADGE_CLASSES[account.type] || "bg-gray-100 text-gray-600 border-gray-200"}`}
+                                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TYPE_BADGE_CLASSES[account.type.toLowerCase()] || TYPE_BADGE_CLASSES[account.type] || "bg-gray-100 text-gray-600 border-gray-200"}`}
                                                 >
                                                     {account.type}
                                                 </span>
@@ -435,6 +443,20 @@ const PsakCoA: React.FC = () => {
                             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                             className="h-10"
                         />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-700">Status Akun</label>
+                        <div className="relative">
+                            <select
+                                value={form.is_active ? "true" : "false"}
+                                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "true" }))}
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                                <option value="true">Aktif</option>
+                                <option value="false">Nonaktif</option>
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
                     </div>
                 </div>
             </Dialog>
