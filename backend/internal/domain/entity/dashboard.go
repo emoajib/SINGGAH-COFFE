@@ -8,8 +8,11 @@ type DashboardSummary struct {
 	TotalCogs         float64              `json:"total_cogs"`
 	TotalExpenses     float64              `json:"total_expenses"`
 	NetProfit         float64              `json:"net_profit"`
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	SalesTrend        []TrendPoint         `json:"sales_trend"`
 	WeeklyTrend       []TrendPoint         `json:"weekly_trend"`
+	MonthlyTrend      []TrendPoint         `json:"monthly_trend"`
+	YearlyTrend       []TrendPoint         `json:"yearly_trend"`
 	CategoryBreakdown []CatBreakdown       `json:"category_breakdown"`
 	TopProducts       []TopProduct         `json:"top_products"`
 	ProductSales      []ProductSalesVolume `json:"product_sales"`

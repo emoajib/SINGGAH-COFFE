@@ -100,6 +100,9 @@ func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint
 
 	since := start
 	sinceWeek := time.Now().AddDate(0, 0, -6).Format("2006-01-02 00:00:00")
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	sinceMonth := time.Now().AddDate(0, 0, -29).Format("2006-01-02 00:00:00")
+	sinceYear := time.Now().AddDate(-1, 0, 0).Format("2006-01-02 00:00:00")
 
 	totalSales, err := uc.orderRepo.GetTotalSalesSince(since, outletID...)
 	if err != nil {
@@ -120,6 +123,8 @@ func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint
 
 	hourlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", since, end, "%H:00", outletID...)
 	weeklyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceWeek, end, "%d %b", outletID...)
+	monthlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceMonth, end, "%d %b", outletID...)
+	yearlyTrend, _ := uc.orderRepo.GetSumByStatusSince("Completed", sinceYear, end, "%b %Y", outletID...)
 	categoryBreakdown, _ := uc.orderItemRepo.GetCategoryBreakdown(outletID...)
 	topProducts, _ := uc.orderItemRepo.GetTopProducts(5, outletID...)
 	productSales, _ := uc.orderItemRepo.GetProductSalesVolume(since, end, outletID...)
@@ -133,6 +138,12 @@ func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint
 	}
 	if weeklyTrend == nil {
 		weeklyTrend = []entity.TrendPoint{}
+	}
+	if monthlyTrend == nil {
+		monthlyTrend = []entity.TrendPoint{}
+	}
+	if yearlyTrend == nil {
+		yearlyTrend = []entity.TrendPoint{}
 	}
 	if categoryBreakdown == nil {
 		categoryBreakdown = []entity.CatBreakdown{}
@@ -153,6 +164,8 @@ func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint
 		NetProfit:         netProfit,
 		SalesTrend:        hourlyTrend,
 		WeeklyTrend:       weeklyTrend,
+		MonthlyTrend:      monthlyTrend,
+		YearlyTrend:       yearlyTrend,
 		CategoryBreakdown: categoryBreakdown,
 		TopProducts:       topProducts,
 		ProductSales:      productSales,

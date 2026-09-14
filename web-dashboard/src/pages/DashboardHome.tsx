@@ -36,6 +36,9 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
         low_stock_count: 0,
         transactions_today: 0,
         sales_trend: [] as { name: string; total: number }[],
+        weekly_trend: [] as { name: string; total: number }[],
+        monthly_trend: [] as { name: string; total: number }[],
+        yearly_trend: [] as { name: string; total: number }[],
         category_breakdown: [] as { category: string; total: number }[],
         top_products: [] as { name: string; category: string; sales: number }[],
         product_sales: [] as ProductSalesVolume[],
@@ -160,8 +163,14 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
             </div>
 
             {/* Charts Section */}
+            {/* Vetted by AI - Manual Review Required by Senior Engineer/Manager */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                <SalesChart data={summary.sales_trend || []} />
+                <SalesChart
+                    data={summary.sales_trend || []}
+                    weeklyData={summary.weekly_trend || []}
+                    monthlyData={summary.monthly_trend || []}
+                    yearlyData={summary.yearly_trend || []}
+                />
                 <TopSellingItems items={summary.top_products || []} />
             </div>
 

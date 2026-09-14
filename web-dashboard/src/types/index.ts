@@ -313,8 +313,11 @@ export interface DashboardSummary {
   transactions_today: number
   total_orders?: number
   pending_orders?: number
+  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
   sales_trend: { name: string; total: number }[]
   weekly_trend: { name: string; total: number }[]
+  monthly_trend?: { name: string; total: number }[]
+  yearly_trend?: { name: string; total: number }[]
   category_breakdown: { category: string; total: number; percentage?: number }[]
   top_products: { name: string; category: string; sales: number; quantity?: number; product_id?: number; product_name?: string; total?: number }[]
   product_sales: { product_id: number; name: string; category: string; quantity: number; avg_price: number; avg_cost: number; revenue: number; total_cogs: number }[]
