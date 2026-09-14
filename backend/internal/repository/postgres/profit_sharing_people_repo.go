@@ -68,6 +68,7 @@ func (r *profitSharingPeopleRepository) UpdateLeaveStatus(id uint, isOnLeave boo
 		}).Error
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
 	return entity.ProfitSharingPerson{
 		ID:             m.ID,
@@ -78,11 +79,14 @@ func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
 		Amount:         m.Amount,
 		IsOnLeave:      m.IsOnLeave,
 		LeaveReduction: m.LeaveReduction,
+		LeaveDays:      m.LeaveDays,
+		LeaveDates:     m.LeaveDates,
 		CreatedAt:      m.CreatedAt,
 		UpdatedAt:      m.UpdatedAt,
 	}
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func toModelPerson(p entity.ProfitSharingPerson) *models.ProfitSharingPerson {
 	return &models.ProfitSharingPerson{
 		ID:             p.ID,
@@ -93,6 +97,8 @@ func toModelPerson(p entity.ProfitSharingPerson) *models.ProfitSharingPerson {
 		Amount:         p.Amount,
 		IsOnLeave:      p.IsOnLeave,
 		LeaveReduction: p.LeaveReduction,
+		LeaveDays:      p.LeaveDays,
+		LeaveDates:     p.LeaveDates,
 		CreatedAt:      p.CreatedAt,
 		UpdatedAt:      p.UpdatedAt,
 	}

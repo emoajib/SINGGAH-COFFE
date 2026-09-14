@@ -77,10 +77,12 @@ type calcResult struct {
 // ownerPct: owner percentage (default 60). Owner gets ownerPct% of sharingBasis.
 // If people provided, remaining pool is split among baristas by their sharePct.
 // OwnerPct cannot be 0 for the function to work, defaults to 60.
+// calcFinancials computes profit-sharing amounts from raw financial data.
 // taxPct/servicePct: percentages from owner settings (e.g., 10 = 10%).
-// Formula: Pendapatan Kotor - Pajak(taxPct%) - Biaya Layanan(servicePct%) = Pendapatan Bersih
-// Pendapatan Bersih - COGS = Laba Kotor - Pengeluaran = Laba Bersih = Sharing Basis
-func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson, taxPct, servicePct float64) calcResult {
+// basisType: "gross" (Gross Margin / Pendapatan Bersih - COGS) or "net" (Net Profit / Gross Margin - Beban Operasional)
+// totalPeriodDays: total calendar days in the period (inclusive)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson, taxPct, servicePct float64, basisType string, totalPeriodDays int) calcResult {
 	// Potong pajak dan biaya layanan dari pendapatan kotor sesuai pengaturan owner
 	taxRate := taxPct / 100.0
 	serviceRate := servicePct / 100.0
@@ -91,10 +93,20 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 	grossMargin := netRevenue - cogs
 	netProfit := grossMargin - expenses
 
-	// Gunakan Gross Profit sebagai basis kalau Net Profit negatif
-	sharingBasis := netProfit
-	if sharingBasis < 0 {
+	if totalPeriodDays < 1 {
+		totalPeriodDays = 1
+	}
+
+	// Tentukan sharingBasis berdasarkan pilihan basisType
+	var sharingBasis float64
+	if basisType == "gross" {
 		sharingBasis = grossMargin
+	} else {
+		// Default: Laba Bersih (Net Profit). Jika Net Profit negatif, gunakan grossMargin
+		sharingBasis = netProfit
+		if sharingBasis < 0 {
+			sharingBasis = grossMargin
+		}
 	}
 	// C2: Clamp — tidak ada yang bayar saat rugi
 	if sharingBasis < 0 {
@@ -154,19 +166,35 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 		for i := range people {
 			if people[i].Role == "owner" {
 				people[i].Amount = multiOwnerShare
+				people[i].LeaveReduction = 0
 			} else {
 				share := math.Round(baristaPool*people[i].SharePct/totalBaristaPct/250) * 250
-				// If on leave, their share goes back to owner
+				var reduction float64
 				if people[i].IsOnLeave {
-					people[i].LeaveReduction = share
+					// Cuti penuh: jatah dialihkan 100% ke Owner
+					reduction = share
 					people[i].Amount = 0
+					people[i].LeaveReduction = reduction
+				} else if people[i].LeaveDays > 0 {
+					// Libur sebagian hari: proporsional hari libur terhadap total hari periode
+					leaveDays := people[i].LeaveDays
+					if leaveDays > totalPeriodDays {
+						leaveDays = totalPeriodDays
+					}
+					reduction = math.Round(share*float64(leaveDays)/float64(totalPeriodDays)/250) * 250
+					if reduction > share {
+						reduction = share
+					}
+					people[i].Amount = share - reduction
+					people[i].LeaveReduction = reduction
 				} else {
+					// Hadir penuh: tidak ada potongan
 					people[i].Amount = share
 					people[i].LeaveReduction = 0
 				}
 			}
 		}
-		// Owner also gets leave reductions from baristas
+		// Owner also gets leave reductions from baristas (konservasi total bagi hasil)
 		totalReductions := 0.0
 		for _, p := range people {
 			totalReductions += p.LeaveReduction
@@ -177,6 +205,7 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 					people[i].Amount += totalReductions
 				}
 			}
+			result.OwnerAmount = multiOwnerShare + totalReductions
 		}
 	}
 
@@ -239,7 +268,14 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		servicePct, _ = strconv.ParseFloat(serviceSetting.Value, 64)
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct)
+	startCal := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
+	endCal := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, endDate.Location())
+	totalPeriodDays := int(math.Round(endCal.Sub(startCal).Hours()/24)) + 1
+	if totalPeriodDays < 1 {
+		totalPeriodDays = 1
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays)
 
 	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
 
@@ -388,7 +424,14 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		servicePct, _ = strconv.ParseFloat(serviceSetting.Value, 64)
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct)
+	startCal := time.Date(period.PeriodStart.Year(), period.PeriodStart.Month(), period.PeriodStart.Day(), 0, 0, 0, 0, period.PeriodStart.Location())
+	endCal := time.Date(period.PeriodEnd.Year(), period.PeriodEnd.Month(), period.PeriodEnd.Day(), 0, 0, 0, 0, period.PeriodEnd.Location())
+	totalPeriodDays := int(math.Round(endCal.Sub(startCal).Hours()/24)) + 1
+	if totalPeriodDays < 1 {
+		totalPeriodDays = 1
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, period.BasisType, totalPeriodDays)
 	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
 
 	// Update people amounts in DB
@@ -570,7 +613,14 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		servicePct, _ = strconv.ParseFloat(serviceSetting.Value, 64)
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct)
+	startCal := time.Date(existing.PeriodStart.Year(), existing.PeriodStart.Month(), existing.PeriodStart.Day(), 0, 0, 0, 0, existing.PeriodStart.Location())
+	endCal := time.Date(existing.PeriodEnd.Year(), existing.PeriodEnd.Month(), existing.PeriodEnd.Day(), 0, 0, 0, 0, existing.PeriodEnd.Location())
+	totalPeriodDays := int(math.Round(endCal.Sub(startCal).Hours()/24)) + 1
+	if totalPeriodDays < 1 {
+		totalPeriodDays = 1
+	}
+
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, existing.BasisType, totalPeriodDays)
 
 	// Update people amounts in DB
 	if len(people) > 0 {

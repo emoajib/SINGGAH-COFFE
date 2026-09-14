@@ -34,6 +34,7 @@ func (ProfitSharingPeriod) TableName() string {
 	return "profit_sharing_periods"
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ProfitSharingPerson struct {
 	ID             uint           `gorm:"primaryKey" json:"id"`
 	CreatedAt      time.Time      `gorm:"index" json:"created_at"`
@@ -46,6 +47,8 @@ type ProfitSharingPerson struct {
 	Amount         float64        `json:"amount"`
 	IsOnLeave      bool           `json:"is_on_leave"`
 	LeaveReduction float64        `json:"leave_reduction"`
+	LeaveDays      int            `json:"leave_days" gorm:"default:0"`
+	LeaveDates     string         `json:"leave_dates" gorm:"type:text"`
 }
 
 func (ProfitSharingPerson) TableName() string {

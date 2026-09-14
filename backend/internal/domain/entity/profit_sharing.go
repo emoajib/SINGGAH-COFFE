@@ -25,6 +25,7 @@ type ProfitSharingPeriod struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ProfitSharingPerson struct {
 	ID             uint      `json:"id"`
 	PeriodID       uint      `json:"period_id"`
@@ -34,6 +35,8 @@ type ProfitSharingPerson struct {
 	Amount         float64   `json:"amount"`
 	IsOnLeave      bool      `json:"is_on_leave"`
 	LeaveReduction float64   `json:"leave_reduction"`
+	LeaveDays      int       `json:"leave_days"`
+	LeaveDates     string    `json:"leave_dates"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

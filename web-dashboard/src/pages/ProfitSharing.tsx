@@ -1,8 +1,9 @@
-import { useState } from "react"
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
-import { Loader2, Calculator, CheckCircle, Trash2, RefreshCw, DollarSign, FileText, UserPlus, X } from "lucide-react"
+import { Loader2, Calculator, CheckCircle, Trash2, RefreshCw, DollarSign, FileText, UserPlus, X, Calendar, CalendarOff, Info } from "lucide-react"
 import { useProfitSharing } from "../hooks/useProfitSharing"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber, formatDateTime } from "../lib/utils"
@@ -17,6 +18,16 @@ const STATUS_COLORS: Record<string, string> = {
   draft: "bg-yellow-100 text-yellow-800",
   finalized: "bg-blue-100 text-blue-800",
   paid: "bg-green-100 text-green-800",
+}
+
+const formatDateShort = (dateStr: string): string => {
+  if (!dateStr) return ""
+  try {
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
+  } catch {
+    return dateStr
+  }
 }
 
 export default function ProfitSharing() {
@@ -34,14 +45,69 @@ export default function ProfitSharing() {
   const [basisType, setBasisType] = useState("net")
   const [ownerPct, setOwnerPct] = useState(60)
   const [people, setPeople] = useState<ProfitSharingPerson[]>([
-    { id: 0, period_id: 0, name: "Owner", role: "owner", share_pct: 60, amount: 0, is_on_leave: false, leave_reduction: 0 },
+    { id: 0, period_id: 0, name: "Owner", role: "owner", share_pct: 60, amount: 0, is_on_leave: false, leave_reduction: 0, leave_days: 0, leave_dates: "" },
   ])
   const [showAddPerson, setShowAddPerson] = useState(false)
   const [newPersonName, setNewPersonName] = useState("")
   const [newPersonPct, setNewPersonPct] = useState(10)
+  const [leaveModalIndex, setLeaveModalIndex] = useState<number | null>(null)
   const [preview, setPreview] = useState<ProfitSharingPreview | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [detailPeriod, setDetailPeriod] = useState<ProfitSharingPeriod | null>(null)
+
+  // Hitung daftar tanggal dalam rentang periode yang dipilih
+  const periodDates = useMemo(() => {
+    if (!startDate || !endDate) return []
+    const dates: string[] = []
+    const curr = new Date(startDate)
+    const last = new Date(endDate)
+    while (curr <= last) {
+      dates.push(curr.toISOString().split('T')[0])
+      curr.setDate(curr.getDate() + 1)
+    }
+    return dates
+  }, [startDate, endDate])
+
+  const totalPeriodDays = Math.max(1, periodDates.length)
+
+  const toggleDateLeave = (personIndex: number, dateStr: string) => {
+    const updated = [...people]
+    const p = updated[personIndex]
+    const currentDates = p.leave_dates ? p.leave_dates.split(',').filter(Boolean) : []
+    let newDates: string[]
+    if (currentDates.includes(dateStr)) {
+      newDates = currentDates.filter(d => d !== dateStr)
+    } else {
+      newDates = [...currentDates, dateStr]
+    }
+    p.leave_dates = newDates.join(',')
+    p.leave_days = newDates.length
+    p.is_on_leave = false
+    setPeople(updated)
+  }
+
+  const setManualLeaveDays = (personIndex: number, days: number) => {
+    const updated = [...people]
+    const p = updated[personIndex]
+    p.leave_days = Math.min(totalPeriodDays, Math.max(0, days))
+    p.is_on_leave = false
+    setPeople(updated)
+  }
+
+  const setFullLeave = (personIndex: number, isFull: boolean) => {
+    const updated = [...people]
+    const p = updated[personIndex]
+    p.is_on_leave = isFull
+    if (isFull) {
+      p.leave_days = totalPeriodDays
+      p.leave_dates = ""
+    } else {
+      p.leave_days = 0
+      p.leave_dates = ""
+    }
+    setPeople(updated)
+  }
+
   const handlePreview = async () => {
     if (!startDate || !endDate) {
       toast({ title: "Error", description: "Pilih tanggal mulai dan akhir", variant: "error" })
@@ -78,6 +144,8 @@ export default function ProfitSharing() {
       amount: 0,
       is_on_leave: false,
       leave_reduction: 0,
+      leave_days: 0,
+      leave_dates: "",
     }
     setPeople([...people, newPerson])
     setNewPersonName("")
@@ -92,12 +160,6 @@ export default function ProfitSharing() {
       return
     }
     setPeople(people.filter((_, i) => i !== index))
-  }
-
-  const toggleLeave = (index: number) => {
-    const updated = [...people]
-    updated[index] = { ...updated[index], is_on_leave: !updated[index].is_on_leave }
-    setPeople(updated)
   }
 
   const handleFinalize = async (id: number) => {
@@ -209,44 +271,79 @@ export default function ProfitSharing() {
             </div>
             
             {/* People List */}
-            <div className="space-y-2">
-              {people.map((person, index) => (
-                <div key={index} className="flex items-center gap-3 p-2 bg-white rounded border">
-                  <span className={`text-xs px-2 py-0.5 rounded ${person.role === 'owner' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                    {person.role === 'owner' ? 'Owner' : 'Barista'}
-                  </span>
-                  <span className="flex-1 text-sm font-medium">{person.name}</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={person.share_pct}
-                    onChange={(e) => {
-                      const updated = [...people]
-                      updated[index] = { ...updated[index], share_pct: Number(e.target.value) }
-                      setPeople(updated)
-                    }}
-                    className="w-20 text-right"
-                    disabled={person.role === 'owner'}
-                  />
-                  <span className="text-sm text-gray-500">%</span>
-                  {person.role !== 'owner' && (
-                    <>
-                      <Button
-                        variant={person.is_on_leave ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => toggleLeave(index)}
-                        className={person.is_on_leave ? "bg-red-500 hover:bg-red-600" : ""}
-                      >
-                        {person.is_on_leave ? "Cuti" : "Aktif"}
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => removePerson(index)}>
-                        <X className="w-4 h-4 text-red-500" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ))}
+            <div className="space-y-2.5">
+              {people.map((person, index) => {
+                const isOwner = person.role === 'owner'
+                const leaveDays = person.leave_days || 0
+                const isFullLeave = person.is_on_leave
+                return (
+                  <div key={index} className="flex flex-wrap items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-colors">
+                    <span className={`text-xs px-2.5 py-1 rounded-md font-bold uppercase tracking-wider ${isOwner ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
+                      {isOwner ? 'Owner' : 'Barista'}
+                    </span>
+                    <span className="flex-1 text-sm font-semibold text-slate-900 min-w-[120px]">{person.name}</span>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={person.share_pct}
+                        onChange={(e) => {
+                          const updated = [...people]
+                          updated[index] = { ...updated[index], share_pct: Number(e.target.value) }
+                          setPeople(updated)
+                        }}
+                        className="w-20 text-right font-bold text-sm"
+                        disabled={isOwner}
+                      />
+                      <span className="text-sm font-medium text-slate-500">%</span>
+                    </div>
+
+                    {!isOwner && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!startDate || !endDate) {
+                              toast({ title: "Perhatian", description: "Tentukan Tanggal Mulai dan Akhir periode terlebih dahulu", variant: "error" })
+                              return
+                            }
+                            setLeaveModalIndex(index)
+                          }}
+                          className={`text-xs px-3 py-1.5 rounded-lg border font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+                            isFullLeave
+                              ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                              : leaveDays > 0
+                              ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          }`}
+                          title="Klik untuk memilih tanggal libur barista"
+                        >
+                          {isFullLeave ? (
+                            <>
+                              <CalendarOff className="w-3.5 h-3.5 text-rose-500" />
+                              <span>Cuti Penuh</span>
+                            </>
+                          ) : leaveDays > 0 ? (
+                            <>
+                              <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Libur {leaveDays} Hari ({totalPeriodDays - leaveDays}/{totalPeriodDays} hr)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Hadir Penuh ({totalPeriodDays}/{totalPeriodDays} hr)</span>
+                            </>
+                          )}
+                        </button>
+                        <Button variant="ghost" size="sm" onClick={() => removePerson(index)} className="text-slate-400 hover:text-rose-600">
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {/* Add Person Form */}
@@ -396,37 +493,82 @@ export default function ProfitSharing() {
                 <div><span className="text-sm text-gray-500">Owner %</span><p className="font-medium">{detailPeriod.owner_pct}%</p></div>
               </div>
 
-              {/* People List */}
-              {detailPeriod.people && detailPeriod.people.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-sm mb-2">Rincian per Orang</h3>
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b"><th className="text-left py-2">Nama</th><th className="text-left py-2">Role</th><th className="text-right py-2">Share %</th><th className="text-right py-2">Jumlah</th><th className="text-center py-2">Status</th></tr></thead>
-                    <tbody>
-                      {detailPeriod.people.map((person, i) => (
-                        <tr key={i} className="border-b">
-                          <td className="py-2 font-medium">{person.name}</td>
-                          <td className="py-2">
-                            <span className={`text-xs px-2 py-0.5 rounded ${person.role === 'owner' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                              {person.role === 'owner' ? 'Owner' : 'Barista'}
-                            </span>
-                          </td>
-                          <td className="text-right">{person.share_pct}%</td>
-                          <td className="text-right font-medium">{formatNumber(person.amount)}</td>
-                          <td className="text-center">
-                            {person.is_on_leave && (
-                              <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700">Cuti</span>
-                            )}
-                            {person.leave_reduction > 0 && (
-                              <span className="text-xs text-red-500 ml-1">-{formatNumber(person.leave_reduction)}</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {/* People List in Detail Modal */}
+              {detailPeriod.people && detailPeriod.people.length > 0 && (() => {
+                const totalBaristaReductions = detailPeriod.people.reduce(
+                  (sum, p) => sum + (p.role !== 'owner' ? (p.leave_reduction || 0) : 0), 0
+                )
+                return (
+                  <div>
+                    <h3 className="font-semibold text-sm mb-2">Rincian Pembagian per Orang</h3>
+                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                      <table className="w-full text-xs sm:text-sm">
+                        <thead>
+                          <tr className="border-b bg-slate-50 text-slate-600">
+                            <th className="text-left py-2 px-2.5">Nama & Role</th>
+                            <th className="text-right py-2 px-2.5">Share %</th>
+                            <th className="text-center py-2 px-2.5">Kehadiran</th>
+                            <th className="text-right py-2 px-2.5">Jatah Normal</th>
+                            <th className="text-right py-2 px-2.5">Potongan Libur</th>
+                            <th className="text-right py-2 px-2.5">Total Diterima</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailPeriod.people.map((person, i) => {
+                            const isOwner = person.role === 'owner'
+                            const reduction = person.leave_reduction || 0
+                            const normalShare = isOwner ? (person.amount - totalBaristaReductions) : (person.amount + reduction)
+                            return (
+                              <tr key={i} className={`border-b ${isOwner ? 'bg-blue-50/40 font-semibold' : ''}`}>
+                                <td className="py-2.5 px-2.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-medium text-slate-900">{person.name}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isOwner ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                                      {isOwner ? 'Owner' : 'Barista'}
+                                    </span>
+                                  </div>
+                                  {isOwner && totalBaristaReductions > 0 && (
+                                    <span className="text-[10px] text-blue-600 block mt-0.5">Termasuk +Rp {formatNumber(totalBaristaReductions)} dari libur barista</span>
+                                  )}
+                                </td>
+                                <td className="text-right py-2.5 px-2.5">{person.share_pct}%</td>
+                                <td className="text-center py-2.5 px-2.5">
+                                  {isOwner ? (
+                                    <span className="text-slate-400">-</span>
+                                  ) : person.is_on_leave ? (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">Cuti Penuh</span>
+                                  ) : person.leave_days && person.leave_days > 0 ? (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+                                      Libur {person.leave_days} hr
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
+                                      Hadir Penuh
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="text-right py-2.5 px-2.5 text-slate-600">{formatNumber(normalShare)}</td>
+                                <td className="text-right py-2.5 px-2.5">
+                                  {reduction > 0 ? (
+                                    <span className="text-rose-600 font-medium">-{formatNumber(reduction)}</span>
+                                  ) : isOwner ? (
+                                    <span className="text-blue-600 font-medium">+{formatNumber(totalBaristaReductions)}</span>
+                                  ) : (
+                                    <span className="text-slate-400">0</span>
+                                  )}
+                                </td>
+                                <td className={`text-right py-2.5 px-2.5 font-bold ${isOwner ? 'text-blue-700' : 'text-emerald-700'}`}>
+                                  {formatNumber(person.amount)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })()}
               {detailPeriod.per_product && (() => {
                 try {
                   const products = JSON.parse(detailPeriod.per_product) as { product_name: string; revenue: number; cogs: number; gross_margin: number }[]
@@ -506,41 +648,107 @@ export default function ProfitSharing() {
                     Laba kotor negatif — tidak ada bagi hasil bulan ini
                   </div>
                 )}
+                {/* Highlight Basis Yang Digunakan */}
+                <div className="col-span-2 p-3.5 bg-indigo-50/80 border border-indigo-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs text-indigo-700 font-semibold uppercase tracking-wider">Jenis Basis Bagi Hasil:</span>
+                    <p className="text-sm font-bold text-indigo-950">
+                      {preview.calculation.basis_type === 'gross' ? 'Laba Kotor (Gross Profit / Margin Penjualan)' : 'Laba Bersih (Net Profit)'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-indigo-700 font-semibold uppercase tracking-wider">Dasar Nilai Bagi Hasil:</span>
+                    <p className="text-base font-bold text-indigo-900">
+                      Rp {formatNumber(preview.calculation.basis_type === 'gross' ? preview.calculation.gross_profit : preview.calculation.net_profit)}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="bg-green-50 p-3 rounded-lg"><span className="text-sm text-green-600">Bagian Keeper ({preview.calculation.ratio}%)</span><p className="font-bold text-xl text-green-700">{formatNumber(preview.calculation.keeper_share)}</p></div>
                 <div className="bg-blue-50 p-3 rounded-lg"><span className="text-sm text-blue-600">Bagian Owner ({preview.calculation.owner_pct || 60}%)</span><p className="font-bold text-xl text-blue-700">{formatNumber(preview.calculation.owner_share)}</p></div>
               </div>
 
-              {/* People Breakdown */}
-              {preview.calculation.people && preview.calculation.people.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-sm mb-2">Rincian per Orang</h3>
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b"><th className="text-left py-2">Nama</th><th className="text-left py-2">Role</th><th className="text-right py-2">Share %</th><th className="text-right py-2">Jumlah</th><th className="text-center py-2">Status</th></tr></thead>
-                    <tbody>
-                      {preview.calculation.people.map((person, i) => (
-                        <tr key={i} className="border-b">
-                          <td className="py-2 font-medium">{person.name}</td>
-                          <td className="py-2">
-                            <span className={`text-xs px-2 py-0.5 rounded ${person.role === 'owner' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                              {person.role === 'owner' ? 'Owner' : 'Barista'}
-                            </span>
-                          </td>
-                          <td className="text-right">{person.share_pct}%</td>
-                          <td className="text-right font-medium">{formatNumber(person.amount)}</td>
-                          <td className="text-center">
-                            {person.is_on_leave && (
-                              <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700">Cuti</span>
-                            )}
-                            {person.leave_reduction > 0 && (
-                              <span className="text-xs text-red-500 ml-1">-{formatNumber(person.leave_reduction)}</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {/* People Breakdown in Preview */}
+              {preview.calculation.people && preview.calculation.people.length > 0 && (() => {
+                const totalBaristaReductions = preview.calculation.people.reduce(
+                  (sum, p) => sum + (p.role !== 'owner' ? (p.leave_reduction || 0) : 0), 0
+                )
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-sm">Rincian Pembagian per Orang</h3>
+                      <span className="text-xs text-slate-500 font-medium">
+                        Basis: {preview.calculation.basis_type === 'gross' ? 'Laba Kotor' : 'Laba Bersih'} (Rp {formatNumber(preview.calculation.basis_type === 'gross' ? preview.calculation.gross_profit : preview.calculation.net_profit)})
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                      <table className="w-full text-xs sm:text-sm">
+                        <thead>
+                          <tr className="border-b bg-slate-50 text-slate-600">
+                            <th className="text-left py-2 px-2.5">Nama & Role</th>
+                            <th className="text-right py-2 px-2.5">Share %</th>
+                            <th className="text-center py-2 px-2.5">Kehadiran</th>
+                            <th className="text-right py-2 px-2.5">Jatah Normal</th>
+                            <th className="text-right py-2 px-2.5">Potongan Libur</th>
+                            <th className="text-right py-2 px-2.5">Total Diterima</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {preview.calculation.people.map((person, i) => {
+                            const isOwner = person.role === 'owner'
+                            const reduction = person.leave_reduction || 0
+                            const normalShare = isOwner ? (person.amount - totalBaristaReductions) : (person.amount + reduction)
+                            return (
+                              <tr key={i} className={`border-b ${isOwner ? 'bg-blue-50/40 font-semibold' : ''}`}>
+                                <td className="py-2.5 px-2.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-medium text-slate-900">{person.name}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isOwner ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                                      {isOwner ? 'Owner' : 'Barista'}
+                                    </span>
+                                  </div>
+                                  {isOwner && totalBaristaReductions > 0 && (
+                                    <span className="text-[10px] text-blue-600 block mt-0.5">Termasuk +Rp {formatNumber(totalBaristaReductions)} dari libur barista</span>
+                                  )}
+                                </td>
+                                <td className="text-right py-2.5 px-2.5">{person.share_pct}%</td>
+                                <td className="text-center py-2.5 px-2.5">
+                                  {isOwner ? (
+                                    <span className="text-slate-400">-</span>
+                                  ) : person.is_on_leave ? (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">Cuti Penuh</span>
+                                  ) : person.leave_days && person.leave_days > 0 ? (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+                                      Libur {person.leave_days} hr ({totalPeriodDays - person.leave_days}/{totalPeriodDays} hr)
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
+                                      Hadir Penuh ({totalPeriodDays}/{totalPeriodDays} hr)
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="text-right py-2.5 px-2.5 text-slate-600">{formatNumber(normalShare)}</td>
+                                <td className="text-right py-2.5 px-2.5">
+                                  {reduction > 0 ? (
+                                    <span className="text-rose-600 font-medium">-{formatNumber(reduction)}</span>
+                                  ) : isOwner ? (
+                                    <span className="text-blue-600 font-medium">+{formatNumber(totalBaristaReductions)}</span>
+                                  ) : (
+                                    <span className="text-slate-400">0</span>
+                                  )}
+                                </td>
+                                <td className={`text-right py-2.5 px-2.5 font-bold ${isOwner ? 'text-blue-700' : 'text-emerald-700'}`}>
+                                  {formatNumber(person.amount)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })()}
               {preview.calculation.breakdown && preview.calculation.breakdown.length > 0 && (
                 <div>
                       <h3 className="font-semibold text-sm mb-2">Rincian Pengeluaran</h3>
@@ -581,6 +789,137 @@ export default function ProfitSharing() {
                   Finalize Periode Ini
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Atur Libur Barista */}
+      {leaveModalIndex !== null && people[leaveModalIndex] && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setLeaveModalIndex(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  Atur Kehadiran: {people[leaveModalIndex].name}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Periode {formatDateShort(startDate)} — {formatDateShort(endDate)} ({totalPeriodDays} hari)
+                </p>
+              </div>
+              <button onClick={() => setLeaveModalIndex(null)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Ringkasan Kehadiran */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold">Total Hari</span>
+                  <p className="text-base font-bold text-slate-800">{totalPeriodDays} hr</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold">Hari Libur</span>
+                  <p className="text-base font-bold text-amber-600">{people[leaveModalIndex].leave_days || 0} hr</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold">Hari Masuk</span>
+                  <p className="text-base font-bold text-emerald-600">{totalPeriodDays - (people[leaveModalIndex].leave_days || 0)} hr</p>
+                </div>
+              </div>
+
+              {/* Status & Info Potongan */}
+              <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">
+                    {people[leaveModalIndex].is_on_leave
+                      ? "Cuti Penuh (100% jatah dipotong)"
+                      : (people[leaveModalIndex].leave_days || 0) > 0
+                      ? `Kehadiran ${Math.round(((totalPeriodDays - (people[leaveModalIndex].leave_days || 0)) / totalPeriodDays) * 100)}% (${totalPeriodDays - (people[leaveModalIndex].leave_days || 0)} dari ${totalPeriodDays} hari)`
+                      : "Hadir Penuh (100% jatah diterima tanpa potongan)"}
+                  </p>
+                  <p className="text-[11px] text-amber-800/80 mt-0.5">
+                    {(people[leaveModalIndex].leave_days || 0) > 0
+                      ? `Potongan libur sebesar ${Math.round(((people[leaveModalIndex].leave_days || 0) / totalPeriodDays) * 100)}% akan otomatis dialihkan menambah bagian Owner.`
+                      : "Jatah bagi hasil dihitung utuh sesuai persentase."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Pemilihan Tanggal Libur Spesifik */}
+              {periodDates.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Pilih Tanggal Barista Libur / Tidak Masuk:
+                  </label>
+                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 max-h-44 overflow-y-auto p-1 bg-slate-50/50 rounded-xl border border-slate-200">
+                    {periodDates.map((dStr) => {
+                      const currentDates = people[leaveModalIndex].leave_dates ? people[leaveModalIndex].leave_dates!.split(',').filter(Boolean) : []
+                      const isOff = currentDates.includes(dStr)
+                      return (
+                        <button
+                          key={dStr}
+                          type="button"
+                          onClick={() => toggleDateLeave(leaveModalIndex, dStr)}
+                          className={`p-1.5 rounded-lg border text-center transition-all ${
+                            isOff
+                              ? 'bg-amber-500 text-white border-amber-600 font-bold shadow-sm'
+                              : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 font-medium'
+                          }`}
+                        >
+                          <div className="text-[11px] leading-tight">{formatDateShort(dStr)}</div>
+                          <div className={`text-[9px] mt-0.5 ${isOff ? 'text-amber-100' : 'text-slate-400'}`}>
+                            {isOff ? 'Libur' : 'Masuk'}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Input Manual Jumlah Hari */}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs font-medium text-slate-600">Atau input manual jumlah hari libur:</span>
+                <div className="flex items-center gap-1.5 w-28">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={totalPeriodDays}
+                    value={people[leaveModalIndex].leave_days || 0}
+                    onChange={(e) => setManualLeaveDays(leaveModalIndex, Number(e.target.value))}
+                    className="text-right text-xs font-bold h-8"
+                  />
+                  <span className="text-xs text-slate-500">hari</span>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setFullLeave(leaveModalIndex, false)}
+                  className="flex-1 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Set Hadir Penuh (0 Hari)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFullLeave(leaveModalIndex, true)}
+                  className="flex-1 py-2 rounded-lg border border-rose-200 bg-rose-50/50 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                >
+                  Set Cuti Penuh (100%)
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <Button size="sm" onClick={() => setLeaveModalIndex(null)} className="font-semibold">
+                Simpan & Selesai
+              </Button>
             </div>
           </div>
         </div>

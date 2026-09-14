@@ -502,6 +502,7 @@ export interface ExpenseBreakdown {
   amount: number
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 export interface ProfitSharingPerson {
   id: number
   period_id: number
@@ -511,6 +512,8 @@ export interface ProfitSharingPerson {
   amount: number
   is_on_leave: boolean
   leave_reduction: number
+  leave_days?: number
+  leave_dates?: string
 }
 
 export interface ProfitSharingPeriod {
