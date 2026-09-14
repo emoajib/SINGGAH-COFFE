@@ -262,11 +262,32 @@ export default function ProfitSharing() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Owner %</label>
-                <Input type="number" min={0} max={100} value={ownerPct} onChange={(e) => setOwnerPct(Number(e.target.value))} />
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={ownerPct}
+                  onChange={(e) => {
+                    const val = Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                    setOwnerPct(val)
+                  }}
+                  className="font-bold"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Total Barista %</label>
-                <Input type="number" value={100 - ownerPct} disabled className="bg-gray-100" />
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={100 - ownerPct}
+                  onChange={(e) => {
+                    const baristaVal = Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                    setOwnerPct(100 - baristaVal)
+                  }}
+                  className="font-bold bg-indigo-50/50 border-indigo-200 text-indigo-900 focus:border-indigo-400"
+                  title="Ketik di sini untuk langsung mengubah total jatah barista (Owner % otomatis menyesuaikan)"
+                />
               </div>
             </div>
             
