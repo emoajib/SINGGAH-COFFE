@@ -149,9 +149,20 @@ else
     echo "   ⚠️ No uploads backup to restore"
 fi
 
-# 7. DEPLOY .htaccess & api-proxy.php ke web root
+# 7. DEPLOY FRONTEND, .htaccess & api-proxy.php ke web root
 echo ""
-echo "🌐 Step 7: Deploying .htaccess & api-proxy.php to web root..."
+echo "🌐 Step 7: Deploying frontend, .htaccess & api-proxy.php to web root..."
+if [ -d "$PROJ_DIR/web" ]; then
+    cp -r "$PROJ_DIR/web/"* "$WEB_DIR/" && echo "   ✅ Frontend deployed from web/"
+elif [ -d "$PROJ_DIR/web-dashboard/dist" ]; then
+    cp -r "$PROJ_DIR/web-dashboard/dist/"* "$WEB_DIR/" && echo "   ✅ Frontend deployed from web-dashboard/dist/"
+fi
+
+# Ensure public_html/uploads points to or syncs with $PROJ_DIR/uploads
+if [ ! -e "$WEB_DIR/uploads" ]; then
+    ln -s "$PROJ_DIR/uploads" "$WEB_DIR/uploads" 2>/dev/null || cp -rn "$PROJ_DIR/uploads" "$WEB_DIR/" 2>/dev/null || true
+fi
+
 if [ -f "$PROJ_DIR/.htaccess" ]; then
     cp "$PROJ_DIR/.htaccess" "$WEB_DIR/.htaccess" && echo "   ✅ .htaccess deployed" || echo "   ❌ .htaccess deploy FAILED"
 else
