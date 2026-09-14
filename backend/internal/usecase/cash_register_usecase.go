@@ -125,7 +125,8 @@ func (uc *CashRegisterUsecase) CloseCashRegister(userID uint, closingAmount floa
 		return nil, err
 	}
 
-	cashSales, err := uc.cashRegisterRepo.SumCashSalesForShift(reg.CashierName, reg.OpenedAt, time.Now())
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	cashSales, err := uc.cashRegisterRepo.SumCashSalesForShift(reg.CashierName, reg.OpenedAt, time.Now(), reg.OutletID)
 	if err != nil {
 		return nil, err
 	}

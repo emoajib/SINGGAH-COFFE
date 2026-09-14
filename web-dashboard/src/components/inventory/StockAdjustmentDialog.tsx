@@ -51,10 +51,20 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
     onConfirm,
     isLoading = false
 }) => {
+    // Vetted by AI - Manual Review Required by Senior Engineer/Manager
     const [qty, setQty] = useState<number>(0);
     const [price, setPrice] = useState<number>(ingredient?.cost_per_unit || 0);
     const [isPurchase, setIsPurchase] = useState(true);
     const [updateMasterPrice, setUpdateMasterPrice] = useState(false);
+
+    React.useEffect(() => {
+        if (isOpen && ingredient) {
+            setQty(0);
+            setPrice(ingredient.cost_per_unit || 0);
+            setIsPurchase(true);
+            setUpdateMasterPrice(false);
+        }
+    }, [isOpen, ingredient]);
 
     if (!ingredient) return null;
 

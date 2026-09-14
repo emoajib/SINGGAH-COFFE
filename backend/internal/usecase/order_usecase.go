@@ -218,19 +218,22 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		if err != nil {
 			return err
 		}
-		if err := NewCashBookUsecase(tx).EnsureOrderIncome(loaded); err != nil {
-			return err
-		}
-		// PSAK: Create outbox event for journal entry
-		outboxRepo := postgres.NewOutboxRepository(tx)
-		if err := outboxRepo.Create(&entity.EventOutbox{
-			EventType:     "order.completed",
-			ReferenceType: "order",
-			ReferenceID:   loaded.ID,
-			Payload:       mustMarshal(orderEventPayload(loaded)),
-			Status:        "pending",
-		}); err != nil {
-			return err
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		// PSAK & Cash Book: hanya proses jika order sudah lunas & selesai (bukan pending QRIS)
+		if loaded.Status == "Completed" && loaded.PaymentStatus == "Paid" {
+			if err := NewCashBookUsecase(tx).EnsureOrderIncome(loaded); err != nil {
+				return err
+			}
+			outboxRepo := postgres.NewOutboxRepository(tx)
+			if err := outboxRepo.Create(&entity.EventOutbox{
+				EventType:     "order.completed",
+				ReferenceType: "order",
+				ReferenceID:   loaded.ID,
+				Payload:       mustMarshal(orderEventPayload(loaded)),
+				Status:        "pending",
+			}); err != nil {
+				return err
+			}
 		}
 		result.Order = loaded.ToResponse()
 		return nil
@@ -452,24 +455,34 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 			}
 		}
 
-		// Create new Cash Book entry with correct method
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		// Update Cash Book & PSAK outbox sesuai status pembayaran baru
 		if newMethod == "Cash" {
 			if err := cashBookUC.EnsureOrderIncome(order); err != nil {
 				return err
 			}
-		}
-		// QRIS: no Cash Book entry until CompletePayment is called
-
-		// PSAK: Create outbox event for journal entry on payment method change
-		outboxRepo := postgres.NewOutboxRepository(tx)
-		if err := outboxRepo.Create(&entity.EventOutbox{
-			EventType:     "order.completed",
-			ReferenceType: "order",
-			ReferenceID:   order.ID,
-			Payload:       mustMarshal(orderEventPayload(order)),
-			Status:        "pending",
-		}); err != nil {
-			return err
+			outboxRepo := postgres.NewOutboxRepository(tx)
+			if err := outboxRepo.Create(&entity.EventOutbox{
+				EventType:     "order.completed",
+				ReferenceType: "order",
+				ReferenceID:   order.ID,
+				Payload:       mustMarshal(orderEventPayload(order)),
+				Status:        "pending",
+			}); err != nil {
+				return err
+			}
+		} else if oldMethod == "Cash" && newMethod == "QRIS" {
+			// Reverse previous Cash order journal entry since it is now Unpaid/Pending
+			outboxRepo := postgres.NewOutboxRepository(tx)
+			if err := outboxRepo.Create(&entity.EventOutbox{
+				EventType:     "order.voided",
+				ReferenceType: "order",
+				ReferenceID:   order.ID,
+				Payload:       mustMarshal(orderEventPayload(order)),
+				Status:        "pending",
+			}); err != nil {
+				return err
+			}
 		}
 
 		result = order.ToResponse()

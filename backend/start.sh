@@ -40,7 +40,7 @@ export GIN_MODE="${GIN_MODE:-release}"
 # Shared-hosting hardening: cap OS threads & memory to avoid the
 # "fatal error: newosproc" crash under low ulimit -u (shared hosting).
 export GOMAXPROCS=1
-export GOMEMLIMIT=512MiB
+export GOMEMLIMIT=200MiB
 
 # Vetted by AI - Manual Review Required by Senior Engineer/Manager
 cd "$SCRIPT_DIR"

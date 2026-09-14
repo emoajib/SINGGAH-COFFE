@@ -47,6 +47,7 @@ func (h *CashRegisterHandler) OpenCashRegister(c *gin.Context) {
 	c.JSON(http.StatusCreated, result.ToResponse())
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *CashRegisterHandler) GetCashRegisters(c *gin.Context) {
 	outletIDStr := c.Query("outlet_id")
 	var outletID uint
@@ -54,6 +55,12 @@ func (h *CashRegisterHandler) GetCashRegisters(c *gin.Context) {
 		if id, err := strconv.ParseUint(outletIDStr, 10, 64); err == nil {
 			outletID = uint(id)
 		}
+	}
+
+	// Zero-Trust Security: cashier & manager hanya boleh melihat riwayat outlet mereka sendiri
+	sessionOutletID := getOutletID(c)
+	if getUserRole(c) != "owner" || outletID == 0 {
+		outletID = sessionOutletID
 	}
 
 	cashierName := c.Query("cashier_name")

@@ -163,6 +163,7 @@ else
     echo "   ⚠️ api-proxy.php not found — skipping"
 fi
 
+# Vetted by AI - Manual Review Required by Senior Engineer/Manager
 # 8. FIX PERMISSIONS
 echo ""
 echo "🔐 Step 8: Fixing permissions..."

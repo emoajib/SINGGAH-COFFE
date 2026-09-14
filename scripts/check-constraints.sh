@@ -47,14 +47,17 @@ else
 fi
 
 p "-- Larangan kredensial produksi di repo (secret scan) --"
-# Literal nyata = value langsung, bukan placeholder \${VAR:?} atau kosong.
+# Literal nyata = value langsung, bukan placeholder ${VAR:?} atau kosong.
+# Vetted by AI - Manual Review Required by Senior Engineer/Manager
+TARGET_SCRIPTS=("$ROOT/backend/start.sh")
+[ -f "$ROOT/server-start.sh" ] && TARGET_SCRIPTS+=("$ROOT/server-start.sh")
 if grep -rnE 'DATABASE_URL="[a-z]|DATABASE_URL="[A-Za-z0-9%]|JWT_SECRET="[^$]' \
-    "$ROOT/backend/start.sh" "$ROOT/server-start.sh" >/dev/null 2>&1; then
-  p "  [FAIL] kredensial literal ditemukan di start.sh (ganti dengan \${VAR} + .env)"
-  grep -rnE 'DATABASE_URL="[a-z]|DATABASE_URL="[A-Za-z0-9%]|JWT_SECRET="[^$]' "$ROOT/backend/start.sh" "$ROOT/server-start.sh" || true
+    "${TARGET_SCRIPTS[@]}" >/dev/null 2>&1; then
+  p "  [FAIL] kredensial literal ditemukan di start script (ganti dengan \${VAR} + .env)"
+  grep -rnE 'DATABASE_URL="[a-z]|DATABASE_URL="[A-Za-z0-9%]|JWT_SECRET="[^$]' "${TARGET_SCRIPTS[@]}" || true
   FAIL=1
 else
-  p "  [PASS] tidak ada kredensial literal di start.sh"
+  p "  [PASS] tidak ada kredensial literal di start script"
 fi
 
 p "-- Larangan DB_PASS literal di scripts/ --"

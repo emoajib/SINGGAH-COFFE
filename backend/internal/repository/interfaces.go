@@ -152,7 +152,7 @@ type CashRegisterRepository interface {
 	Update(cashRegister *entity.CashRegister) error
 	Delete(id uint) error
 	Close(userID uint, closingAmount, expectedCash, variance float64) error
-	SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time) (float64, error)
+	SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time, outletID ...uint) (float64, error)
 	FindLatestClosed(userID uint, outletID uint) (*entity.CashRegister, error)
 }
 

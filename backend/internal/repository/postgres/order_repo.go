@@ -128,38 +128,34 @@ func (r *orderRepository) CountByStatus(status string, outletID ...uint) (int64,
 	return count, err
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) GetSumByStatusSince(status, start, end, timeFormat string, outletID ...uint) ([]entity.TrendPoint, error) {
-	outletWhere := ""
-	args := []interface{}{timeFormat, start, end, status, timeFormat}
-	if len(outletID) > 0 && outletID[0] > 0 {
-		outletWhere = " AND outlet_id = ?"
-		args = append(args, outletID[0])
-	}
+	ow, oArgs := outletWhere("orders", outletID...)
+	args := []interface{}{timeFormat, start, end, status}
+	args = append(args, oArgs...)
+	args = append(args, timeFormat)
 
 	var results []entity.TrendPoint
 	err := r.db.Raw(`
 		SELECT DATE_FORMAT(created_at, ?) as name, SUM(total_amount) as total
 		FROM orders
-		WHERE created_at >= ? AND created_at <= ? AND status = ?`+outletWhere+`
+		WHERE created_at >= ? AND created_at <= ? AND status = ?`+ow+`
 		GROUP BY DATE_FORMAT(created_at, ?), DATE(created_at)
 		ORDER BY DATE(created_at) ASC
 	`, args...).Scan(&results).Error
 	return results, err
 }
 
-// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) GetDailySalesRange(start, end string, outletID ...uint) ([]entity.DailySales, error) {
-	outletWhere := ""
+	ow, oArgs := outletWhere("orders", outletID...)
 	args := []interface{}{start, end}
-	if len(outletID) > 0 && outletID[0] > 0 {
-		outletWhere = " AND outlet_id = ?"
-		args = append(args, outletID[0])
-	}
+	args = append(args, oArgs...)
 	var results []entity.DailySales
 	err := r.db.Raw(`
 		SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as date, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count
 		FROM orders
-		WHERE DATE(created_at) BETWEEN DATE(?) AND DATE(?) AND status = 'Completed'`+outletWhere+`
+		WHERE DATE(created_at) BETWEEN DATE(?) AND DATE(?) AND status = 'Completed'`+ow+`
 		GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
 		ORDER BY date ASC
 	`, args...).Scan(&results).Error

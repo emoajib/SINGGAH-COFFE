@@ -477,8 +477,19 @@ export default function ProfitSharing() {
                 </div>
                 <div><span className="text-sm text-gray-500">Rasio Keeper</span><p className="font-medium">{preview.calculation.ratio}%</p></div>
                 <div><span className="text-sm text-gray-500">Pendapatan Kotor</span><p className="font-medium">{formatNumber(preview.calculation.basis_amount)}</p></div>
-                <div><span className="text-sm text-gray-500">Pajak (10%)</span><p className="font-medium text-red-600">-{formatNumber(preview.calculation.tax || 0)}</p></div>
-                <div><span className="text-sm text-gray-500">Biaya Layanan (5%)</span><p className="font-medium text-red-600">-{formatNumber(preview.calculation.service_fee || 0)}</p></div>
+                {/* Vetted by AI - Manual Review Required by Senior Engineer/Manager */}
+                <div>
+                  <span className="text-sm text-gray-500">
+                    Pajak{preview.calculation.basis_amount > 0 && preview.calculation.tax ? ` (${Math.round((preview.calculation.tax / preview.calculation.basis_amount) * 100)}%)` : ""}
+                  </span>
+                  <p className="font-medium text-red-600">-{formatNumber(preview.calculation.tax || 0)}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">
+                    Biaya Layanan{preview.calculation.basis_amount > 0 && preview.calculation.service_fee ? ` (${Math.round((preview.calculation.service_fee / preview.calculation.basis_amount) * 100)}%)` : ""}
+                  </span>
+                  <p className="font-medium text-red-600">-{formatNumber(preview.calculation.service_fee || 0)}</p>
+                </div>
                 <div><span className="text-sm text-gray-500">Pendapatan Bersih</span><p className="font-bold">{formatNumber(preview.calculation.net_revenue || preview.calculation.basis_amount)}</p></div>
                 <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(preview.calculation.total_cogs)}</p></div>
                 <div><span className="text-sm text-gray-500">Laba Kotor</span><p className="font-medium">{formatNumber(preview.calculation.gross_profit)}</p></div>

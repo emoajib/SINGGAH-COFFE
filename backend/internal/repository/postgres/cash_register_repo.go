@@ -116,13 +116,14 @@ func (r *cashRegisterRepository) FindLatestClosed(userID uint, outletID uint) (*
 	return toDomainCashRegister(&m), nil
 }
 
-func (r *cashRegisterRepository) SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time) (float64, error) {
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *cashRegisterRepository) SumCashSalesForShift(cashierName string, openedAt, closedAt time.Time, outletID ...uint) (float64, error) {
 	var total float64
-	err := r.db.Model(&models.Order{}).
+	tx := r.db.Model(&models.Order{}).
 		Where("payment_method = 'Cash' AND status = 'Completed' AND payment_status = 'Paid' AND cashier_name = ? AND order_time >= ? AND order_time <= ?",
-			cashierName, openedAt, closedAt).
-		Select("COALESCE(SUM(total_amount),0)").
-		Scan(&total).Error
+			cashierName, openedAt, closedAt)
+	tx = scopeOutlet(tx, "orders", outletID...)
+	err := tx.Select("COALESCE(SUM(total_amount),0)").Scan(&total).Error
 	if err != nil {
 		return 0, err
 	}

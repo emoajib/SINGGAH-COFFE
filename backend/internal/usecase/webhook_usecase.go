@@ -89,6 +89,7 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 			return nil
 		}
 
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 		switch payload.Status {
 		case "PAID", "SETTLED":
 			if loadedOrder.PaymentStatus == "Paid" {
@@ -96,9 +97,56 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 			}
 			loadedOrder.PaymentStatus = "Paid"
 			loadedOrder.Status = "Completed"
+
+			// Potong stok saat pembayaran QRIS terkonfirmasi (sebelumnya ditunda saat checkout)
+			productRepo := postgres.NewProductRepository(tx)
+			ingredientRepo := postgres.NewIngredientRepository(tx)
+			mutationRepo := postgres.NewStockMutationRepository(tx)
+			oid := loadedOrder.OutletID
+
+			for _, item := range loadedOrder.OrderItems {
+				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
+				if err != nil {
+					continue
+				}
+				if len(product.Recipe) > 0 {
+					for _, recipeItem := range product.Recipe {
+						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
+						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						_ = mutationRepo.Create(&entity.StockMutation{
+							IngredientID: recipeItem.IngredientID,
+							Type:         string(entity.MutationOut),
+							Quantity:     deductionAmount,
+							ReferenceID:  loadedOrder.OrderNumber,
+							Notes:        "QRIS Webhook Payment Confirmed - Sales Deduction",
+							OutletID:     oid,
+						})
+					}
+				} else {
+					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "sub"); err != nil {
+						return err
+					}
+				}
+			}
+
 			if err := orderRepo.Update(loadedOrder); err != nil {
 				return err
 			}
+
+			// PSAK: Create outbox event for journal entry
+			outboxRepo := postgres.NewOutboxRepository(tx)
+			if err := outboxRepo.Create(&entity.EventOutbox{
+				EventType:     "order.completed",
+				ReferenceType: "order",
+				ReferenceID:   loadedOrder.ID,
+				Payload:       mustMarshal(orderEventPayload(loadedOrder)),
+				Status:        "pending",
+			}); err != nil {
+				return err
+			}
+
 			return NewCashBookUsecase(tx).EnsureOrderIncome(loadedOrder)
 
 		case "FAILED", "EXPIRED":
@@ -108,39 +156,8 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 			loadedOrder.PaymentStatus = "Cancelled"
 			loadedOrder.Status = "Void"
 
-			// Kembalikan stok bahan / produk yang sempat dipotong saat order dibuat (pending)
-			productRepo := postgres.NewProductRepository(tx)
-			ingredientRepo := postgres.NewIngredientRepository(tx)
-			mutationRepo := postgres.NewStockMutationRepository(tx)
-
-			for _, item := range loadedOrder.OrderItems {
-				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
-				if err != nil {
-					continue
-				}
-
-				if len(product.Recipe) > 0 {
-					for _, recipeItem := range product.Recipe {
-						restoreAmount := recipeItem.Quantity * float64(item.Quantity)
-						if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
-							return err
-						}
-						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
-							return err
-						}
-						_ = mutationRepo.Create(&entity.StockMutation{
-							IngredientID: recipeItem.IngredientID,
-							Type:         string(entity.MutationIn),
-							Quantity:     restoreAmount,
-							ReferenceID:  loadedOrder.OrderNumber,
-							Notes:        "QRIS Expired/Failed Return",
-							OutletID:     loadedOrder.OutletID,
-						})
-					}
-				} else {
-					_ = productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add")
-				}
-			}
+			// Catatan: Stok QRIS tidak dipotong saat checkout (pending),
+			// sehingga tidak boleh menambahkan stok saat expired/failed untuk mencegah stok fiktif.
 
 			if err := orderRepo.Update(loadedOrder); err != nil {
 				return err
