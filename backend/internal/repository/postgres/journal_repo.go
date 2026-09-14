@@ -18,6 +18,41 @@ func NewJournalRepository(db *gorm.DB) *journalRepository {
 	return &journalRepository{db: db}
 }
 
+// attachItems loads and attaches line items for a batch of journal entries in a single query.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *journalRepository) attachItems(ms []models.PSAKJournalEntry) ([]entity.JournalEntry, error) {
+	result := make([]entity.JournalEntry, len(ms))
+	if len(ms) == 0 {
+		return result, nil
+	}
+
+	entryIDs := make([]uint, len(ms))
+	for i, m := range ms {
+		result[i] = *toDomainJournalEntry(&m)
+		result[i].Items = []entity.JournalEntryItem{}
+		entryIDs[i] = m.ID
+	}
+
+	var items []models.PSAKJournalEntryItem
+	if err := r.db.Where("journal_entry_id IN ?", entryIDs).Order("id asc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+
+	itemsByEntryID := make(map[uint][]entity.JournalEntryItem, len(ms))
+	for i := range items {
+		eID := items[i].JournalEntryID
+		itemsByEntryID[eID] = append(itemsByEntryID[eID], *toDomainJournalEntryItem(&items[i]))
+	}
+
+	for i := range result {
+		if entryItems, ok := itemsByEntryID[result[i].ID]; ok {
+			result[i].Items = entryItems
+		}
+	}
+
+	return result, nil
+}
+
 func (r *journalRepository) FindAll(limit, offset int, outletID ...uint) ([]entity.JournalEntry, error) {
 	tx := r.db.Order("date desc, id desc").Limit(limit).Offset(offset)
 	if len(outletID) > 0 && outletID[0] > 0 {
@@ -27,11 +62,7 @@ func (r *journalRepository) FindAll(limit, offset int, outletID ...uint) ([]enti
 	if err := tx.Find(&ms).Error; err != nil {
 		return nil, err
 	}
-	result := make([]entity.JournalEntry, len(ms))
-	for i, m := range ms {
-		result[i] = *toDomainJournalEntry(&m)
-	}
-	return result, nil
+	return r.attachItems(ms)
 }
 
 func (r *journalRepository) FindAllFiltered(start, end, status, sourceType string, limit, offset int, outletID ...uint) ([]entity.JournalEntry, error) {
@@ -55,11 +86,7 @@ func (r *journalRepository) FindAllFiltered(start, end, status, sourceType strin
 	if err := tx.Find(&ms).Error; err != nil {
 		return nil, err
 	}
-	result := make([]entity.JournalEntry, len(ms))
-	for i, m := range ms {
-		result[i] = *toDomainJournalEntry(&m)
-	}
-	return result, nil
+	return r.attachItems(ms)
 }
 
 func (r *journalRepository) FindByID(id uint) (*entity.JournalEntry, error) {

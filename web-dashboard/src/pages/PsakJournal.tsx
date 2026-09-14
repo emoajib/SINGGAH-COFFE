@@ -105,9 +105,18 @@ export default function PsakJournal() {
         setIsCreateOpen(true)
     }
 
-    const openView = (j: JournalEntry) => {
+    // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+    const openView = async (j: JournalEntry) => {
         setViewingJournal(j)
         setIsViewOpen(true)
+        try {
+            const detail = await PSAKService.getJournal(j.id)
+            if (detail) {
+                setViewingJournal(detail)
+            }
+        } catch (err) {
+            console.error("Failed to load journal detail:", err)
+        }
     }
 
     const updateItem = (idx: number, field: keyof JournalItemForm, value: string | number | null) => {
@@ -486,17 +495,25 @@ export default function PsakJournal() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {viewingJournal.items.map((item) => (
-                                        <tr key={item.id} className="border-t">
-                                            <td className="px-3 py-2">
-                                                <div className="font-mono font-bold text-gray-900">{item.account_code}</div>
-                                                <div className="text-gray-500">{item.account_name}</div>
+                                    {viewingJournal.items && viewingJournal.items.length > 0 ? (
+                                        viewingJournal.items.map((item) => (
+                                            <tr key={item.id} className="border-t">
+                                                <td className="px-3 py-2">
+                                                    <div className="font-mono font-bold text-gray-900">{item.account_code}</div>
+                                                    <div className="text-gray-500">{item.account_name}</div>
+                                                </td>
+                                                <td className="px-3 py-2 text-right font-bold text-gray-900">{item.debit > 0 ? formatCurrency(item.debit) : "-"}</td>
+                                                <td className="px-3 py-2 text-right font-bold text-gray-900">{item.credit > 0 ? formatCurrency(item.credit) : "-"}</td>
+                                                <td className="px-3 py-2 text-gray-500">{item.description}</td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={4} className="px-3 py-6 text-center text-gray-400">
+                                                Tidak ada rincian baris entri jurnal
                                             </td>
-                                            <td className="px-3 py-2 text-right font-bold text-gray-900">{item.debit > 0 ? formatCurrency(item.debit) : "-"}</td>
-                                            <td className="px-3 py-2 text-right font-bold text-gray-900">{item.credit > 0 ? formatCurrency(item.credit) : "-"}</td>
-                                            <td className="px-3 py-2 text-gray-500">{item.description}</td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                                 <tfoot>
                                     <tr className="bg-gray-50 font-bold">
