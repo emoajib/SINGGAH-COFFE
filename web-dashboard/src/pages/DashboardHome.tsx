@@ -3,14 +3,17 @@ import { SalesChart } from "../components/dashboard/SalesChart"
 import { TopSellingItems } from "../components/dashboard/TopSellingItems"
 import { useEffect, useState } from "react"
 import { InventoryService } from "../services/inventoryService"
-import { AlertTriangle, Loader2, ShoppingCart } from "lucide-react"
+import { AlertTriangle, Loader2, ShoppingCart, Download, FileText, FileSpreadsheet, Calendar } from "lucide-react"
 import { getImageUrl, formatCurrency } from "../lib/utils"
 import { useDashboard } from "../hooks/useDashboard"
 import { useSettings } from "../hooks/useSettings"
 import { Button } from "../components/ui/button"
+import { Dialog } from "../components/ui/dialog"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
 import type { Ingredient, ProductSalesVolume } from "../types"
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 
 interface DashboardHomeProps {
     setActiveTab: (tab: string) => void
@@ -28,6 +31,113 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
     const [dateFilterStart, setDateFilterStart] = useState("")
     const [dateFilterEnd, setDateFilterEnd] = useState("")
     const [productFilter, setProductFilter] = useState("")
+
+    // Ekspor Data State & Handlers
+    const [showExportModal, setShowExportModal] = useState(false)
+    const [exportStart, setExportStart] = useState(() => {
+        const d = new Date()
+        return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
+    })
+    const [exportEnd, setExportEnd] = useState(() => new Date().toISOString().split('T')[0])
+    const [isExporting, setIsExporting] = useState(false)
+
+    const handleExportPdf = async () => {
+        try {
+            setIsExporting(true)
+            const token = localStorage.getItem('token')
+            const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+            const params = new URLSearchParams({ start: exportStart, end: exportEnd })
+            const res = await fetch(`${baseURL}/reports/profit-loss/export/pdf?${params}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
+            if (!res.ok) throw new Error("Gagal mengunduh berkas PDF")
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `Laporan_Laba_Rugi_${exportStart}_sd_${exportEnd}.pdf`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(url)
+        } catch (e: any) {
+            alert("Gagal mengunduh PDF: " + (e?.message || e))
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    const handleExportCsv = async () => {
+        try {
+            setIsExporting(true)
+            const token = localStorage.getItem('token')
+            const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+            const params = new URLSearchParams({ start: exportStart, end: exportEnd })
+            const res = await fetch(`${baseURL}/reports/profit-loss/export/csv?${params}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
+            if (!res.ok) throw new Error("Gagal mengunduh berkas CSV")
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `Laporan_Keuangan_${exportStart}_sd_${exportEnd}.csv`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(url)
+        } catch (e: any) {
+            alert("Gagal mengunduh CSV: " + (e?.message || e))
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    const handleExportProductSales = () => {
+        try {
+            setIsExporting(true)
+            const items = summary.product_sales || []
+            if (items.length === 0) {
+                alert("Belum ada data transaksi menu pada periode ini untuk diekspor.")
+                return
+            }
+            const rows: string[] = [
+                ["No", "Nama Menu", "Kategori", "Jumlah Terjual (Cup)", "Harga Satuan (Rp)", "HPP Modal (Rp)", "Total Pendapatan (Rp)", "Total Modal (Rp)", "Laba Kotor (Rp)"].join(",")
+            ]
+
+            items.forEach((p: ProductSalesVolume, idx: number) => {
+                const grossProfit = (p.revenue || 0) - (p.total_cogs || 0)
+                const cleanName = `"${(p.name || '').replace(/"/g, '""')}"`
+                const cleanCat = `"${(p.category || '').replace(/"/g, '""')}"`
+                rows.push([
+                    idx + 1,
+                    cleanName,
+                    cleanCat,
+                    p.quantity || 0,
+                    Math.round(p.avg_price || 0),
+                    Math.round(p.avg_cost || 0),
+                    Math.round(p.revenue || 0),
+                    Math.round(p.total_cogs || 0),
+                    Math.round(grossProfit)
+                ].join(","))
+            })
+
+            const csvContent = "\uFEFF" + rows.join("\n")
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `Detail_Penjualan_Menu_${exportStart}_sd_${exportEnd}.csv`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(url)
+        } catch (e: any) {
+            alert("Gagal mengekspor data menu: " + (e?.message || e))
+        } finally {
+            setIsExporting(false)
+        }
+    }
 
     const { data: _summary, isLoading: statsLoading, refetch } = useDashboard(dateFilterStart || undefined, dateFilterEnd || undefined)
     const summary: any = _summary ?? {
@@ -81,7 +191,15 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                 <div className="flex flex-wrap gap-2">
                     {user?.role === 'owner' && (
                         <>
-                            <Button variant="outline" size="sm" className="text-xs sm:text-sm opacity-50 cursor-not-allowed" title="Feature coming soon">Ekspor Data</Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs sm:text-sm font-semibold flex items-center gap-1.5 hover:bg-slate-50"
+                                onClick={() => setShowExportModal(true)}
+                            >
+                                <Download className="w-4 h-4" />
+                                Ekspor Data
+                            </Button>
                             <Button size="sm" onClick={() => setActiveTab('pos')}>Pesanan Baru</Button>
                         </>
                     )}
@@ -255,6 +373,108 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Export Data Modal */}
+            <Dialog
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                title="Ekspor Data Penjualan & Keuangan"
+                description="Pilih rentang tanggal dan format dokumen yang ingin Anda unduh."
+            >
+                <div className="space-y-4 pt-2">
+                    {/* Date Range Picker */}
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-primary" />
+                            Periode Laporan
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <span className="text-[10px] text-slate-400 font-medium">Dari Tanggal</span>
+                                <input
+                                    type="date"
+                                    value={exportStart}
+                                    onChange={(e) => setExportStart(e.target.value)}
+                                    className="w-full text-xs font-semibold p-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                            </div>
+                            <div>
+                                <span className="text-[10px] text-slate-400 font-medium">Sampai Tanggal</span>
+                                <input
+                                    type="date"
+                                    value={exportEnd}
+                                    onChange={(e) => setExportEnd(e.target.value)}
+                                    className="w-full text-xs font-semibold p-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Export Action Cards */}
+                    <div className="space-y-2.5">
+                        <button
+                            type="button"
+                            disabled={isExporting}
+                            onClick={handleExportPdf}
+                            className="w-full p-3.5 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 flex items-center justify-between text-left transition-colors group disabled:opacity-50"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                    <FileText className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-rose-950">Laporan Laba Rugi (PDF)</p>
+                                    <p className="text-xs text-rose-700/80">Dokumen PDF resmi berformat surat lengkap dengan rincian pendapatan & laba bersih</p>
+                                </div>
+                            </div>
+                            <Download className="w-4 h-4 text-rose-500 shrink-0 ml-2" />
+                        </button>
+
+                        <button
+                            type="button"
+                            disabled={isExporting}
+                            onClick={handleExportCsv}
+                            className="w-full p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 flex items-center justify-between text-left transition-colors group disabled:opacity-50"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                    <FileSpreadsheet className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-emerald-950">Laporan Keuangan (CSV / Excel)</p>
+                                    <p className="text-xs text-emerald-700/80">Data pembukuan ringkas format spreadsheet untuk diolah di Microsoft Excel atau Google Sheets</p>
+                                </div>
+                            </div>
+                            <Download className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />
+                        </button>
+
+                        <button
+                            type="button"
+                            disabled={isExporting}
+                            onClick={handleExportProductSales}
+                            className="w-full p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-50 flex items-center justify-between text-left transition-colors group disabled:opacity-50"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                    <ShoppingCart className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-amber-950">Detail Penjualan Menu (CSV / Excel)</p>
+                                    <p className="text-xs text-amber-800/80">Daftar lengkap cup terjual per varian kopi, omzet per produk, HPP modal, dan margin laba</p>
+                                </div>
+                            </div>
+                            <Download className="w-4 h-4 text-amber-600 shrink-0 ml-2" />
+                        </button>
+                    </div>
+
+                    {isExporting && (
+                        <div className="flex items-center justify-center gap-2 p-2 text-xs font-semibold text-primary">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Sedang mengunduh berkas laporan...</span>
+                        </div>
+                    )}
+                </div>
+            </Dialog>
         </div>
     )
 }
