@@ -29,8 +29,9 @@ type Handlers struct {
 	Journal          *handler.JournalHandler
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
-	r.GET("/health", func(c *gin.Context) {
+	healthHandler := func(c *gin.Context) {
 		sqlDB, err := db.DB()
 		if err != nil {
 			c.JSON(500, gin.H{"status": "error", "message": "database connection failed"})
@@ -41,10 +42,15 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			return
 		}
 		c.JSON(200, gin.H{"status": "ok"})
-	})
+	}
+
+	r.GET("/health", healthHandler)
 
 	api := r.Group("/api")
 	{
+		// Health check alias
+		api.GET("/health", healthHandler)
+
 		// Public Routes
 		api.POST("/auth/login", middleware.LoginRateLimiter(), h.Auth.Login)
 		api.POST("/webhooks/xendit", middleware.WebhookRateLimiter(), h.Webhook.HandleXenditWebhook)

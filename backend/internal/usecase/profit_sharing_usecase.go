@@ -453,22 +453,30 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		}
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	expensesList, _ := uc.periodRepo.GetExpensesList(start, end, []string{"prive", "owner", "bagi hasil", "bagi-hasil"}, outletID[0])
+	for idx := range expensesList {
+		expensesList[idx].IsDeducted = (period.BasisType != "gross")
+	}
+	expensesBreakdownJSON, _ := json.Marshal(expensesList)
+
 	if err := tx.Model(&models.ProfitSharingPeriod{}).Where("id = ?", period.ID).Updates(map[string]interface{}{
-		"period_start":   period.PeriodStart,
-		"period_end":     period.PeriodEnd,
-		"basis_amount":   result.Basis,
-		"total_expenses": result.Expenses,
-		"total_cogs":     result.Cogs,
-		"net_profit":     result.NetProfit,
-		"ratio":          ratio,
-		"keeper_amount":  result.KeeperAmount,
-		"owner_amount":   result.OwnerAmount,
-		"status":         "finalized",
-		"per_product":    result.PerProductJSON,
-		"payment_note":   period.PaymentNote,
-		"tax_note":       taxNote,
-		"basis_type":     period.BasisType,
-		"owner_pct":      ownerPct,
+		"period_start":       period.PeriodStart,
+		"period_end":         period.PeriodEnd,
+		"basis_amount":       result.Basis,
+		"total_expenses":     result.Expenses,
+		"total_cogs":         result.Cogs,
+		"net_profit":         result.NetProfit,
+		"ratio":              ratio,
+		"keeper_amount":      result.KeeperAmount,
+		"owner_amount":       result.OwnerAmount,
+		"status":             "finalized",
+		"per_product":        result.PerProductJSON,
+		"expenses_breakdown": string(expensesBreakdownJSON),
+		"payment_note":       period.PaymentNote,
+		"tax_note":           taxNote,
+		"basis_type":         period.BasisType,
+		"owner_pct":          ownerPct,
 	}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -684,8 +692,38 @@ func (uc *ProfitSharingUsecase) Delete(id uint, outletID ...uint) error {
 	return uc.periodRepo.Delete(id)
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *ProfitSharingUsecase) GetAll(outletID ...uint) ([]entity.ProfitSharingPeriod, error) {
-	return uc.periodRepo.FindAll(outletID...)
+	periods, err := uc.periodRepo.FindAll(outletID...)
+	if err != nil {
+		return nil, err
+	}
+	// Fallback untuk periode historis yang belum memiliki snapshot rincian beban operasional atau people
+	for i := range periods {
+		if len(periods[i].People) == 0 {
+			if people, err := uc.profitSharingPersonRepo.GetByPeriodID(periods[i].ID); err == nil && len(people) > 0 {
+				periods[i].People = people
+			}
+		}
+		if periods[i].ExpensesBreakdown == "" && periods[i].TotalExpenses > 0 {
+			start := formatForDB(periods[i].PeriodStart)
+			end := formatForDB(periods[i].PeriodEnd)
+			oID := periods[i].OutletID
+			if len(outletID) > 0 && outletID[0] > 0 {
+				oID = outletID[0]
+			}
+			expList, err := uc.periodRepo.GetExpensesList(start, end, []string{"prive", "owner", "bagi hasil", "bagi-hasil"}, oID)
+			if err == nil && len(expList) > 0 {
+				for idx := range expList {
+					expList[idx].IsDeducted = (periods[i].BasisType != "gross")
+				}
+				if b, err := json.Marshal(expList); err == nil {
+					periods[i].ExpensesBreakdown = string(b)
+				}
+			}
+		}
+	}
+	return periods, nil
 }
 
 // GetPeople returns the list of people for a given period.

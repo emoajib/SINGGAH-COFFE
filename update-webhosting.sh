@@ -58,11 +58,16 @@ if [ -n "$DB_URL" ] && command -v mysqldump &>/dev/null; then
         DB_PORT="${DB_PORT:-3306}"
         DB_NAME=$(echo "$DB_URL" | sed 's|.*/||' | sed 's|?.*||')
         if [ -n "$DB_NAME" ] && [ -n "$DB_USER" ]; then
-            mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null || true
+            # Vetted by AI - Manual Review Required by Senior Engineer/Manager
+            DUMP_ERR=$(mysqldump --column-statistics=0 -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>&1 || true)
+            if [ ! -s "$BACKUP_DIR/database.sql" ]; then
+                # Fallback without --column-statistics=0 (for older mysql/mariadb clients)
+                DUMP_ERR=$(mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>&1 || true)
+            fi
             if [ -s "$BACKUP_DIR/database.sql" ]; then
                 echo "   ✅ Database backed up ($(du -sh "$BACKUP_DIR/database.sql" 2>/dev/null | cut -f1))"
             else
-                echo "   ⚠️ Database backup empty — check credentials"
+                echo "   ⚠️ Database backup empty — check credentials (Info: $(echo "$DUMP_ERR" | head -1))"
                 rm -f "$BACKUP_DIR/database.sql"
             fi
         else
@@ -215,9 +220,10 @@ else
     echo "   cp $BACKUP_DIR/.env.backup $PROJ_DIR/backend/.env"
     echo "   cd $PROJ_DIR && ./start.sh"
 fi
-# Also check web proxy
-WEB_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" https://colorado.iixcp.rumahweb.net/health 2>/dev/null || echo "000")
-echo "   Web proxy health: HTTP $WEB_HEALTH"
+# Also check web proxy via public domain
+# Vetted by AI - Manual Review Required by Senior Engineer/Manager
+WEB_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" https://sosiomen.com/health 2>/dev/null || echo "000")
+echo "   Web proxy health: HTTP $WEB_HEALTH (https://sosiomen.com/health)"
 
 # 11. CLEANUP OLD BACKUPS (keep last 5)
 echo ""

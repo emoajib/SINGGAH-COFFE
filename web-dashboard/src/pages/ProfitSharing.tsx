@@ -1,10 +1,11 @@
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
-import { Loader2, Calculator, CheckCircle, Trash2, RefreshCw, DollarSign, FileText, UserPlus, X, Calendar, CalendarOff, Info } from "lucide-react"
+import { Loader2, Calculator, CheckCircle, Trash2, RefreshCw, DollarSign, FileText, UserPlus, X, Calendar, CalendarOff, Info, Printer } from "lucide-react"
 import { useProfitSharing } from "../hooks/useProfitSharing"
+import { ProfitSharingService } from "../services/profitSharingService"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber, formatDateTime } from "../lib/utils"
 import type { ProfitSharingPreview, ProfitSharingPeriod, ProfitSharingPerson } from "../types"
@@ -54,6 +55,25 @@ export default function ProfitSharing() {
   const [preview, setPreview] = useState<ProfitSharingPreview | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [detailPeriod, setDetailPeriod] = useState<ProfitSharingPeriod | null>(null)
+  const [detailPeople, setDetailPeople] = useState<ProfitSharingPerson[]>([])
+  const [loadingDetailPeople, setLoadingDetailPeople] = useState(false)
+
+  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+  useEffect(() => {
+    if (detailPeriod) {
+      if (detailPeriod.people && detailPeriod.people.length > 0) {
+        setDetailPeople(detailPeriod.people)
+      } else {
+        setLoadingDetailPeople(true)
+        ProfitSharingService.getPeople(detailPeriod.id)
+          .then((res) => setDetailPeople(res || []))
+          .catch(() => setDetailPeople([]))
+          .finally(() => setLoadingDetailPeople(false))
+      }
+    } else {
+      setDetailPeople([])
+    }
+  }, [detailPeriod])
 
   // Hitung daftar tanggal dalam rentang periode yang dipilih
   const periodDates = useMemo(() => {
@@ -151,6 +171,282 @@ export default function ProfitSharing() {
     setNewPersonName("")
     setNewPersonPct(10)
     setShowAddPerson(false)
+  }
+
+  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+  const handlePrintProfitSharingDocument = (
+    periodStart: string,
+    periodEnd: string,
+    _ratioVal: number,
+    basisTypeVal: string,
+    basisAmount: number,
+    _taxVal: number,
+    _serviceFeeVal: number,
+    _netRev: number,
+    cogsVal: number,
+    grossProfitVal: number,
+    expensesVal: number,
+    netProfitVal: number,
+    peopleList: ProfitSharingPerson[],
+    expensesList: any[],
+    docStatus: string = "Finalized",
+    periodId?: number
+  ) => {
+    const isGross = basisTypeVal === 'gross'
+    const basisCalcValue = isGross ? grossProfitVal : netProfitVal
+    const totalBaristaReductions = peopleList.reduce(
+      (sum, p) => sum + (p.role !== 'owner' ? (p.leave_reduction || 0) : 0), 0
+    )
+    const docNo = `SC/BGH-${periodId ? String(periodId).padStart(4, '0') : new Date().toISOString().slice(0, 10).replace(/-/g, '')}`
+    const printDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    const periodLabel = `${formatDateTime(periodStart)} — ${formatDateTime(periodEnd)}`
+
+    const ownerPerson = peopleList.find(p => p.role === 'owner') || { name: 'Owner', role: 'owner', share_pct: 60, amount: (netProfitVal * 0.6) }
+    const baristaList = peopleList.filter(p => p.role !== 'owner')
+
+    let peopleRowsHtml = ''
+    peopleList.forEach((person, idx) => {
+      const isOwner = person.role === 'owner'
+      const reduction = person.leave_reduction || 0
+      const normalShare = isOwner ? (person.amount - totalBaristaReductions) : (person.amount + reduction)
+      const attendText = isOwner
+        ? '-'
+        : person.is_on_leave
+        ? 'Cuti Penuh'
+        : (person.leave_days && person.leave_days > 0)
+        ? `Libur ${person.leave_days} hr`
+        : 'Hadir Penuh'
+
+      peopleRowsHtml += `
+        <tr style="${isOwner ? 'background-color: #f0fdf4; font-weight: bold;' : ''}">
+          <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center;">${idx + 1}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px 8px;">
+            ${person.name} <span style="font-size: 8pt; color: #475569; text-transform: uppercase;">(${isOwner ? 'Owner' : 'Barista'})</span>
+            ${isOwner && totalBaristaReductions > 0 ? `<div style="font-size: 8pt; color: #0284c7;">+Rp ${formatNumber(totalBaristaReductions)} dari libur barista</div>` : ''}
+          </td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right;">${person.share_pct}%</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center;">${attendText}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right;">${formatNumber(normalShare)}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; color: ${reduction > 0 ? '#dc2626' : isOwner && totalBaristaReductions > 0 ? '#0284c7' : '#64748b'};">
+            ${reduction > 0 ? `-${formatNumber(reduction)}` : isOwner && totalBaristaReductions > 0 ? `+${formatNumber(totalBaristaReductions)}` : '0'}
+          </td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-weight: bold; color: ${isOwner ? '#1e40af' : '#047857'};">
+            Rp ${formatNumber(person.amount)}
+          </td>
+        </tr>
+      `
+    })
+
+    let expenseRowsHtml = ''
+    if (expensesList && expensesList.length > 0) {
+      expensesList.forEach((exp, i) => {
+        expenseRowsHtml += `
+          <tr>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center;">${i + 1}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${exp.date || '-'}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${exp.title || exp.category}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${exp.category || '-'}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${exp.payment_method || 'Cash'}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: right;">Rp ${formatNumber(exp.amount || 0)}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center; font-size: 8pt;">${isGross ? 'Non-Potong (Ditanggung Owner)' : 'Memotong Laba'}</td>
+          </tr>
+        `
+      })
+    }
+
+    let baristaSignaturesHtml = ''
+    baristaList.forEach((b) => {
+      baristaSignaturesHtml += `
+        <div style="flex: 1; min-width: 170px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; text-align: center; background: #fafafa;">
+          <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; color: #334155;">Penerima (Barista)</div>
+          <div style="font-size: 8pt; color: #047857; font-weight: bold; margin-top: 2px;">Jatah: Rp ${formatNumber(b.amount)}</div>
+          <div style="height: 55px;"></div>
+          <div style="border-top: 1px solid #0f172a; font-weight: bold; font-size: 9pt; padding-top: 4px;">
+            ( ${b.name} )
+          </div>
+          <div style="font-size: 8pt; color: #64748b; margin-top: 2px;">Tgl: ________________</div>
+        </div>
+      `
+    })
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+        <meta charset="utf-8">
+        <title>Bukti Bagi Hasil - ${periodLabel}</title>
+        <style>
+          @page { size: A4 portrait; margin: 12mm 15mm 15mm 15mm; }
+          body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 10pt; color: #0f172a; line-height: 1.35; margin: 0; padding: 0; }
+          .header { text-align: center; border-bottom: 2.5px double #1e293b; padding-bottom: 8px; margin-bottom: 12px; }
+          .brand { font-size: 17pt; font-weight: 800; letter-spacing: 1.5px; color: #0f172a; margin: 0; }
+          .brand-sub { font-size: 8.5pt; color: #475569; margin: 2px 0 0 0; }
+          .doc-badge { display: inline-block; font-size: 11pt; font-weight: 800; text-transform: uppercase; margin-top: 6px; letter-spacing: 0.5px; color: #1e293b; border-bottom: 1.5px solid #1e293b; padding-bottom: 1px; }
+          .meta-box { display: flex; justify-content: space-between; font-size: 9pt; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+          .meta-item { display: flex; margin-bottom: 2px; }
+          .meta-lbl { width: 140px; color: #64748b; font-weight: 600; }
+          .meta-val { font-weight: 700; color: #0f172a; }
+          .sec-header { font-size: 9.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1e293b; margin: 10px 0 4px 0; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 8.5pt; }
+          th { background-color: #f1f5f9; color: #334155; font-weight: 700; border: 1px solid #cbd5e1; padding: 5px 6px; text-align: left; }
+          td { border: 1px solid #cbd5e1; padding: 5px 6px; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .font-bold { font-weight: 700; }
+          .sig-container { margin-top: 16px; page-break-inside: avoid; }
+          .sig-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; color: #1e293b; }
+          .sig-flex { display: flex; gap: 12px; justify-content: space-between; }
+          .sig-box-owner { width: 220px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; text-align: center; background: #fafafa; }
+          .disclaimer { font-size: 7.5pt; color: #64748b; text-align: center; margin-top: 14px; border-top: 1px dashed #cbd5e1; padding-top: 4px; font-style: italic; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="brand">SINGGAH COFFEE</div>
+          <div class="brand-sub">Sistem Manajemen Operasional & Keuangan Kafe • Singgah Coffee & Eatery</div>
+          <div class="doc-badge">BUKTI SERAH TERIMA BAGI HASIL OPERASIONAL</div>
+        </div>
+
+        <div class="meta-box">
+          <div style="width: 50%;">
+            <div class="meta-item"><span class="meta-lbl">No. Dokumen:</span><span class="meta-val">${docNo}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Periode:</span><span class="meta-val">${periodLabel}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Status Pembukuan:</span><span class="meta-val" style="color: #0369a1;">${docStatus.toUpperCase()}</span></div>
+          </div>
+          <div style="width: 50%;">
+            <div class="meta-item"><span class="meta-lbl">Tanggal Terbit:</span><span class="meta-val">${printDate}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Basis Perhitungan:</span><span class="meta-val">${isGross ? 'Laba Kotor (Gross Margin)' : 'Laba Bersih (Net Profit)'}</span></div>
+            <div class="meta-item"><span class="meta-lbl">Perlakuan Beban:</span><span class="meta-val" style="color: ${isGross ? '#0284c7' : '#d97706'};">${isGross ? 'Ditanggung Owner (Non-Potong)' : 'Memotong Laba Bersih'}</span></div>
+          </div>
+        </div>
+
+        <div class="sec-header">1. Ringkasan Finansial Operasional</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Uraian Akun Finansial</th>
+              <th class="text-right">Nominal (Rp)</th>
+              <th>Keterangan / Regulasi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Pendapatan Kotor (Gross Revenue)</td>
+              <td class="text-right font-bold">Rp ${formatNumber(basisAmount)}</td>
+              <td>Total transaksi pesanan selesai</td>
+            </tr>
+            <tr>
+              <td>Total Modal Bahan Baku (COGS / HPP Resep)</td>
+              <td class="text-right font-bold" style="color: #b91c1c;">-Rp ${formatNumber(cogsVal)}</td>
+              <td>HPP riil menu terjual</td>
+            </tr>
+            <tr style="background: #f8fafc; font-weight: bold;">
+              <td>Laba Kotor (Gross Margin)</td>
+              <td class="text-right" style="color: #047857;">Rp ${formatNumber(grossProfitVal)}</td>
+              <td>Margin keuntungan murni produk</td>
+            </tr>
+            <tr>
+              <td>Total Pengeluaran Operasional Toko</td>
+              <td class="text-right font-bold" style="color: ${isGross ? '#475569' : '#dc2626'};">
+                ${isGross ? '' : '-'}Rp ${formatNumber(expensesVal)}
+              </td>
+              <td>${isGross ? 'Non-Potong (Ditanggung Owner — tidak mengurangi hak barista)' : 'Memotong laba bersama sebelum dibagi'}</td>
+            </tr>
+            <tr style="background: #f1f5f9; font-weight: bold;">
+              <td>Laba Bersih (Net Profit Toko)</td>
+              <td class="text-right">Rp ${formatNumber(netProfitVal)}</td>
+              <td>Laba setelah seluruh beban operasional</td>
+            </tr>
+            <tr style="background: #fef3c7; font-weight: bold; border-top: 2px solid #d97706;">
+              <td style="color: #92400e; font-size: 9pt;">DASAR NILAI BAGI HASIL</td>
+              <td class="text-right" style="color: #92400e; font-size: 10pt;">Rp ${formatNumber(basisCalcValue)}</td>
+              <td style="color: #92400e;">Basis perhitungan porsi Owner & Barista</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="sec-header">2. Rincian Hak Penerimaan per Orang</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 25px;" class="text-center">No</th>
+              <th>Nama & Jabatan</th>
+              <th class="text-right" style="width: 60px;">Porsi %</th>
+              <th class="text-center" style="width: 100px;">Kehadiran</th>
+              <th class="text-right" style="width: 95px;">Jatah Normal</th>
+              <th class="text-right" style="width: 95px;">Potongan Libur</th>
+              <th class="text-right" style="width: 110px;">Total Diterima</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${peopleRowsHtml}
+          </tbody>
+        </table>
+
+        ${expenseRowsHtml ? `
+          <div class="sec-header">3. Rincian Nota Belanja Operasional Toko (Transparansi Beban)</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 25px;" class="text-center">No</th>
+                <th style="width: 75px;">Tanggal</th>
+                <th>Nota / Kebutuhan Belanja</th>
+                <th style="width: 80px;">Kategori</th>
+                <th style="width: 80px;">Metode</th>
+                <th class="text-right" style="width: 95px;">Nominal (Rp)</th>
+                <th class="text-center" style="width: 130px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${expenseRowsHtml}
+              <tr style="background: #f8fafc; font-weight: bold;">
+                <td colspan="5" class="text-right">Total Beban Operasional:</td>
+                <td class="text-right">Rp ${formatNumber(expensesVal)}</td>
+                <td class="text-center">${isGross ? 'Ditanggung Owner' : 'Dipotongkan'}</td>
+              </tr>
+            </tbody>
+          </table>
+        ` : ''}
+
+        <!-- LEMBAR TANDA TANGAN SERAH TERIMA (TTD OWNER & TTD SELURUH BARISTA) -->
+        <div class="sig-container">
+          <div class="sig-title">Lembar Pengesahan Serah Terima Dana Bagi Hasil</div>
+          <div class="sig-flex">
+            <!-- TTD OWNER -->
+            <div class="sig-box-owner">
+              <div style="font-size: 8.5pt; font-weight: bold; text-transform: uppercase; color: #1e3a8a;">Pihak Menyerahkan (Owner)</div>
+              <div style="font-size: 8pt; color: #1e40af; font-weight: bold; margin-top: 2px;">Hak Owner: Rp ${formatNumber(ownerPerson.amount)}</div>
+              <div style="height: 55px;"></div>
+              <div style="border-top: 1px solid #0f172a; font-weight: bold; font-size: 9pt; padding-top: 4px;">
+                ( ${ownerPerson.name || 'Owner / Pengelola'} )
+              </div>
+              <div style="font-size: 8pt; color: #64748b; margin-top: 2px;">Tgl: ________________</div>
+            </div>
+
+            <!-- TTD BARISTAS -->
+            <div style="flex: 1; display: flex; gap: 10px; flex-wrap: wrap;">
+              ${baristaSignaturesHtml}
+            </div>
+          </div>
+        </div>
+
+        <div class="disclaimer">
+          Dokumen bukti serah terima ini dibuat secara sah dan transparan melalui Sistem POS Singgah Coffee sebagai bukti pertanggungjawaban kas dan kesepakatan pembagian hasil usaha yang mengikat seluruh pihak.
+        </div>
+      </body>
+      </html>
+    `
+
+    const printWin = window.open('', '_blank', 'width=900,height=800')
+    if (printWin) {
+      printWin.document.open()
+      printWin.document.write(printHtml)
+      printWin.document.close()
+      printWin.focus()
+      setTimeout(() => {
+        printWin.print()
+      }, 500)
+    }
   }
 
   const removePerson = (index: number) => {
@@ -510,190 +806,306 @@ export default function ProfitSharing() {
       </Card>
 
       {/* Detail Modal */}
-      {detailPeriod && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailPeriod(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b flex items-center justify-between">
-              <h2 className="text-lg font-bold">Detail Periode: {formatDateTime(detailPeriod.period_start)} — {formatDateTime(detailPeriod.period_end)}</h2>
-              <button onClick={() => setDetailPeriod(null)} className="text-gray-400 hover:text-gray-600">&times;</button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><span className="text-sm text-gray-500">Status</span><p className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${STATUS_COLORS[detailPeriod.status]}`}>{STATUS_LABELS[detailPeriod.status]}</p></div>
-                <div><span className="text-sm text-gray-500">Rasio</span><p className="font-medium">{detailPeriod.ratio}%</p></div>
-                <div><span className="text-sm text-gray-500">Pendapatan Kotor</span><p className="font-medium">{formatNumber(detailPeriod.basis_amount)}</p></div>
-                <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(detailPeriod.total_cogs)}</p></div>
-                <div><span className="text-sm text-gray-500">Total Pengeluaran (non-bagi hasil)</span><p className="font-medium">{formatNumber(detailPeriod.total_expenses)}</p></div>
-                <div><span className="text-sm text-gray-500">Laba Bersih</span><p className="font-bold text-lg">{formatNumber(detailPeriod.net_profit)}</p></div>
-                <div className="bg-green-50 p-3 rounded-lg"><span className="text-sm text-green-600">Bagian Keeper</span><p className="font-bold text-lg text-green-700">{formatNumber(detailPeriod.keeper_amount)}</p></div>
-                <div className="bg-blue-50 p-3 rounded-lg"><span className="text-sm text-blue-600">Bagian Owner</span><p className="font-bold text-lg text-blue-700">{formatNumber(detailPeriod.owner_amount)}</p></div>
-                <div><span className="text-sm text-gray-500">Jenis Basis</span><p className="font-medium">{detailPeriod.basis_type === 'gross' ? 'Laba Kotor' : 'Laba Bersih'}</p></div>
-                <div><span className="text-sm text-gray-500">Owner %</span><p className="font-medium">{detailPeriod.owner_pct}%</p></div>
+      {detailPeriod && (() => {
+        const effectivePeople = (detailPeriod.people && detailPeriod.people.length > 0) ? detailPeriod.people : detailPeople
+        const isGross = detailPeriod.basis_type === 'gross'
+        const grossMarginVal = detailPeriod.basis_amount - detailPeriod.total_cogs
+        const basisCalcVal = isGross ? grossMarginVal : detailPeriod.net_profit
+        const expensesList: any[] = (() => {
+          if (!detailPeriod.expenses_breakdown) return []
+          try {
+            return JSON.parse(detailPeriod.expenses_breakdown)
+          } catch {
+            return []
+          }
+        })()
+
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailPeriod(null)}>
+            <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6 border-b flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Detail Periode: {formatDateTime(detailPeriod.period_start)} — {formatDateTime(detailPeriod.period_end)}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Sistem Bagi Hasil Transparan Singgah Coffee</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handlePrintProfitSharingDocument(
+                      detailPeriod.period_start,
+                      detailPeriod.period_end,
+                      detailPeriod.ratio,
+                      detailPeriod.basis_type || 'net',
+                      detailPeriod.basis_amount,
+                      0,
+                      0,
+                      detailPeriod.basis_amount,
+                      detailPeriod.total_cogs,
+                      grossMarginVal,
+                      detailPeriod.total_expenses,
+                      detailPeriod.net_profit,
+                      effectivePeople,
+                      expensesList,
+                      detailPeriod.status,
+                      detailPeriod.id
+                    )}
+                    className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-sm"
+                  >
+                    <Printer className="w-4 h-4" /> Cetak Bukti Bagi Hasil
+                  </Button>
+                  <button onClick={() => setDetailPeriod(null)} className="text-gray-400 hover:text-gray-600 p-1 text-xl">&times;</button>
+                </div>
               </div>
 
-              {/* People List in Detail Modal */}
-              {detailPeriod.people && detailPeriod.people.length > 0 && (() => {
-                const totalBaristaReductions = detailPeriod.people.reduce(
-                  (sum, p) => sum + (p.role !== 'owner' ? (p.leave_reduction || 0) : 0), 0
-                )
-                return (
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h3 className="font-semibold text-sm mb-2">Rincian Pembagian per Orang</h3>
-                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                      <table className="w-full text-xs sm:text-sm">
-                        <thead>
-                          <tr className="border-b bg-slate-50 text-slate-600">
-                            <th className="text-left py-2 px-2.5">Nama & Role</th>
-                            <th className="text-right py-2 px-2.5">Share %</th>
-                            <th className="text-center py-2 px-2.5">Kehadiran</th>
-                            <th className="text-right py-2 px-2.5">Jatah Normal</th>
-                            <th className="text-right py-2 px-2.5">Potongan Libur</th>
-                            <th className="text-right py-2 px-2.5">Total Diterima</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {detailPeriod.people.map((person, i) => {
-                            const isOwner = person.role === 'owner'
-                            const reduction = person.leave_reduction || 0
-                            const normalShare = isOwner ? (person.amount - totalBaristaReductions) : (person.amount + reduction)
-                            return (
-                              <tr key={i} className={`border-b ${isOwner ? 'bg-blue-50/40 font-semibold' : ''}`}>
-                                <td className="py-2.5 px-2.5">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-medium text-slate-900">{person.name}</span>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isOwner ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                                      {isOwner ? 'Owner' : 'Barista'}
-                                    </span>
-                                  </div>
-                                  {isOwner && totalBaristaReductions > 0 && (
-                                    <span className="text-[10px] text-blue-600 block mt-0.5">Termasuk +Rp {formatNumber(totalBaristaReductions)} dari libur barista</span>
-                                  )}
-                                </td>
-                                <td className="text-right py-2.5 px-2.5">{person.share_pct}%</td>
-                                <td className="text-center py-2.5 px-2.5">
-                                  {isOwner ? (
-                                    <span className="text-slate-400">-</span>
-                                  ) : person.is_on_leave ? (
-                                    <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">Cuti Penuh</span>
-                                  ) : person.leave_days && person.leave_days > 0 ? (
-                                    <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
-                                      Libur {person.leave_days} hr
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
-                                      Hadir Penuh
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="text-right py-2.5 px-2.5 text-slate-600">{formatNumber(normalShare)}</td>
-                                <td className="text-right py-2.5 px-2.5">
-                                  {reduction > 0 ? (
-                                    <span className="text-rose-600 font-medium">-{formatNumber(reduction)}</span>
-                                  ) : isOwner ? (
-                                    <span className="text-blue-600 font-medium">+{formatNumber(totalBaristaReductions)}</span>
-                                  ) : (
-                                    <span className="text-slate-400">0</span>
-                                  )}
-                                </td>
-                                <td className={`text-right py-2.5 px-2.5 font-bold ${isOwner ? 'text-blue-700' : 'text-emerald-700'}`}>
-                                  {formatNumber(person.amount)}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                    <span className="text-sm text-gray-500">Status Periode</span>
+                    <p className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ml-2 ${STATUS_COLORS[detailPeriod.status]}`}>
+                      {STATUS_LABELS[detailPeriod.status] || detailPeriod.status}
+                    </p>
                   </div>
-                )
-              })()}
-              {detailPeriod.per_product && (() => {
-                try {
-                  const products = JSON.parse(detailPeriod.per_product) as { product_name: string; revenue: number; cogs: number; gross_margin: number }[]
-                  if (!products.length) return null
-                  return (
-                    <div>
-                      <h3 className="font-semibold text-sm mb-2">Rincian per Produk</h3>
-                      <table className="w-full text-sm">
-                        <thead><tr className="border-b"><th className="text-left py-2">Produk</th><th className="text-right py-2">Pendapatan</th><th className="text-right py-2">Modal</th><th className="text-right py-2">Laba Kotor</th></tr></thead>
-                        <tbody>
-                          {products.map((pp, i) => (
-                            <tr key={i} className="border-b"><td className="py-2">{pp.product_name}</td><td className="text-right">{formatNumber(pp.revenue)}</td><td className="text-right">{formatNumber(pp.cogs)}</td><td className="text-right font-medium">{formatNumber(pp.gross_margin)}</td></tr>
-                          ))}
-                          <tr className="border-b bg-gray-50 font-bold">
-                            <td className="py-2">Total</td>
-                            <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.revenue, 0))}</td>
-                            <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.cogs, 0))}</td>
-                            <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.gross_margin, 0))}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                  <div><span className="text-sm text-gray-500">Rasio Keeper</span><p className="font-medium">{detailPeriod.ratio}%</p></div>
+                  <div><span className="text-sm text-gray-500">Pendapatan Kotor</span><p className="font-medium">{formatNumber(detailPeriod.basis_amount)}</p></div>
+                  <div><span className="text-sm text-gray-500">Total Modal (COGS)</span><p className="font-medium">{formatNumber(detailPeriod.total_cogs)}</p></div>
+                  <div><span className="text-sm text-gray-500">Laba Kotor (Gross Margin)</span><p className="font-bold text-slate-900">{formatNumber(grossMarginVal)}</p></div>
+
+                  {/* Total Pengeluaran Operasional with interactive treatment badge */}
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600 font-semibold">Total Pengeluaran Operasional</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isGross ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {isGross ? 'Non-Potong (Info Saja)' : 'Memotong Bagi Hasil'}
+                      </span>
                     </div>
+                    <p className="font-bold text-lg text-slate-900 mt-1">Rp {formatNumber(detailPeriod.total_expenses)}</p>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      {isGross
+                        ? 'Ditanggung Owner — tidak mengurangi jatah barista'
+                        : 'Beban toko memotong laba sebelum dibagikan'}
+                    </span>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm text-gray-600">Laba Bersih</span>
+                    <p className="font-bold text-lg">{formatNumber(detailPeriod.net_profit)}</p>
+                  </div>
+
+                  {/* Jenis Basis & Dasar Nilai Bagi Hasil */}
+                  <div className="bg-amber-50/70 p-3 rounded-lg border border-amber-200/60">
+                    <span className="text-xs font-semibold text-amber-800 block">Jenis Basis Bagi Hasil:</span>
+                    <p className="font-bold text-slate-900 text-sm mt-0.5">
+                      {isGross ? 'Laba Kotor (Gross Profit / Margin Penjualan)' : 'Laba Bersih (Net Profit)'}
+                    </p>
+                    <span className="text-xs font-semibold text-amber-800 block mt-2">Dasar Nilai Bagi Hasil:</span>
+                    <p className="font-extrabold text-base text-amber-900 mt-0.5">
+                      Rp {formatNumber(basisCalcVal)}
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 p-3 rounded-lg"><span className="text-sm text-green-600">Bagian Keeper ({detailPeriod.ratio}%)</span><p className="font-bold text-lg text-green-700">{formatNumber(detailPeriod.keeper_amount)}</p></div>
+                  <div className="bg-blue-50 p-3 rounded-lg"><span className="text-sm text-blue-600">Bagian Owner ({detailPeriod.owner_pct || 60}%)</span><p className="font-bold text-lg text-blue-700">{formatNumber(detailPeriod.owner_amount)}</p></div>
+                </div>
+
+                {/* People List in Detail Modal */}
+                {loadingDetailPeople && effectivePeople.length === 0 ? (
+                  <div className="flex items-center justify-center p-4 text-xs text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" /> Memuat rincian pembagian per orang...
+                  </div>
+                ) : effectivePeople.length > 0 && (() => {
+                  const totalBaristaReductions = effectivePeople.reduce(
+                    (sum, p) => sum + (p.role !== 'owner' ? (p.leave_reduction || 0) : 0), 0
                   )
-                } catch { return null }
-              })()}
-              {detailPeriod.expenses_breakdown && (() => {
-                try {
-                  const expenses = JSON.parse(detailPeriod.expenses_breakdown) as any[]
-                  if (!expenses.length) return null
-                  const isGross = detailPeriod.basis_type === 'gross'
                   return (
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-sm">Rincian Pengeluaran Operasional Toko</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${isGross ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
-                          {isGross ? 'Tidak Memotong Bagi Hasil (Ditanggung Owner)' : 'Memotong Bagi Hasil'}
-                        </span>
+                        <h3 className="font-semibold text-sm">Rincian Pembagian per Orang</h3>
+                        <span className="text-xs text-slate-500">Basis: {isGross ? 'Laba Kotor' : 'Laba Bersih'} (Rp {formatNumber(basisCalcVal)})</span>
                       </div>
                       <div className="overflow-x-auto border border-slate-200 rounded-lg">
                         <table className="w-full text-xs sm:text-sm">
                           <thead>
                             <tr className="border-b bg-slate-50 text-slate-600">
-                              <th className="text-left py-2 px-2.5">No</th>
-                              <th className="text-left py-2 px-2.5">Tanggal</th>
-                              <th className="text-left py-2 px-2.5">Nota / Kebutuhan Belanja</th>
-                              <th className="text-left py-2 px-2.5">Kategori</th>
-                              <th className="text-left py-2 px-2.5">Metode Bayar</th>
-                              <th className="text-right py-2 px-2.5">Nominal (Rp)</th>
-                              <th className="text-center py-2 px-2.5">Perlakuan</th>
+                              <th className="text-left py-2 px-2.5">Nama & Role</th>
+                              <th className="text-right py-2 px-2.5">Share %</th>
+                              <th className="text-center py-2 px-2.5">Kehadiran</th>
+                              <th className="text-right py-2 px-2.5">Jatah Normal</th>
+                              <th className="text-right py-2 px-2.5">Potongan Libur</th>
+                              <th className="text-right py-2 px-2.5">Total Diterima</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {expenses.map((exp, i) => (
-                              <tr key={i} className="border-b hover:bg-slate-50/50">
-                                <td className="py-2 px-2.5 text-slate-400">{i + 1}</td>
-                                <td className="py-2 px-2.5 text-slate-600 whitespace-nowrap">{exp.date || '-'}</td>
-                                <td className="py-2 px-2.5 font-medium text-slate-900">{exp.title || exp.category}</td>
-                                <td className="py-2 px-2.5 text-slate-500">{exp.category}</td>
-                                <td className="py-2 px-2.5 text-slate-500">{exp.payment_method || 'Cash'}</td>
-                                <td className="py-2 px-2.5 text-right font-medium text-slate-800">{formatNumber(exp.amount)}</td>
-                                <td className="py-2 px-2.5 text-center">
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isGross ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800'}`}>
-                                    {isGross ? 'Non-Potong' : 'Potong Jatah'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                            <tr className="border-t-2 font-bold bg-slate-50 text-slate-900">
-                              <td colSpan={5} className="py-2.5 px-2.5">Total Pengeluaran Operasional</td>
-                              <td className="text-right py-2.5 px-2.5 text-rose-700">Rp {formatNumber(expenses.reduce((s, e) => s + (e.amount || 0), 0))}</td>
-                              <td className="text-center py-2.5 px-2.5">
-                                <span className="text-[10px] text-slate-500">
-                                  {isGross ? 'Informasi' : 'Dipotongkan'}
-                                </span>
-                              </td>
-                            </tr>
+                            {effectivePeople.map((person, i) => {
+                              const isOwner = person.role === 'owner'
+                              const reduction = person.leave_reduction || 0
+                              const normalShare = isOwner ? (person.amount - totalBaristaReductions) : (person.amount + reduction)
+                              return (
+                                <tr key={i} className={`border-b ${isOwner ? 'bg-blue-50/40 font-semibold' : ''}`}>
+                                  <td className="py-2.5 px-2.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-medium text-slate-900">{person.name}</span>
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isOwner ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                                        {isOwner ? 'Owner' : 'Barista'}
+                                      </span>
+                                    </div>
+                                    {isOwner && totalBaristaReductions > 0 && (
+                                      <span className="text-[10px] text-blue-600 block mt-0.5">Termasuk +Rp {formatNumber(totalBaristaReductions)} dari libur barista</span>
+                                    )}
+                                  </td>
+                                  <td className="text-right py-2.5 px-2.5">{person.share_pct}%</td>
+                                  <td className="text-center py-2.5 px-2.5">
+                                    {isOwner ? (
+                                      <span className="text-slate-400">-</span>
+                                    ) : person.is_on_leave ? (
+                                      <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">Cuti Penuh</span>
+                                    ) : person.leave_days && person.leave_days > 0 ? (
+                                      <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+                                        Libur {person.leave_days} hr
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
+                                        Hadir Penuh
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="text-right py-2.5 px-2.5 text-slate-600">{formatNumber(normalShare)}</td>
+                                  <td className="text-right py-2.5 px-2.5">
+                                    {reduction > 0 ? (
+                                      <span className="text-rose-600 font-medium">-{formatNumber(reduction)}</span>
+                                    ) : isOwner ? (
+                                      <span className="text-blue-600 font-medium">+{formatNumber(totalBaristaReductions)}</span>
+                                    ) : (
+                                      <span className="text-slate-400">0</span>
+                                    )}
+                                  </td>
+                                  <td className={`text-right py-2.5 px-2.5 font-bold ${isOwner ? 'text-blue-700' : 'text-emerald-700'}`}>
+                                    Rp {formatNumber(person.amount)}
+                                  </td>
+                                </tr>
+                              )
+                            })}
                           </tbody>
                         </table>
                       </div>
                     </div>
                   )
-                } catch { return null }
-              })()}
+                })()}
+
+                {/* Expenses Breakdown */}
+                {expensesList.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-sm">Rincian Pengeluaran Operasional Toko</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded font-medium ${isGross ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {isGross ? 'Tidak Memotong Bagi Hasil (Ditanggung Owner)' : 'Memotong Bagi Hasil'}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                      <table className="w-full text-xs sm:text-sm">
+                        <thead>
+                          <tr className="border-b bg-slate-50 text-slate-600">
+                            <th className="text-left py-2 px-2.5">No</th>
+                            <th className="text-left py-2 px-2.5">Tanggal</th>
+                            <th className="text-left py-2 px-2.5">Nota / Kebutuhan Belanja</th>
+                            <th className="text-left py-2 px-2.5">Kategori</th>
+                            <th className="text-left py-2 px-2.5">Metode Bayar</th>
+                            <th className="text-right py-2 px-2.5">Nominal (Rp)</th>
+                            <th className="text-center py-2 px-2.5">Perlakuan</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {expensesList.map((exp: any, i: number) => (
+                            <tr key={i} className="border-b hover:bg-slate-50/50">
+                              <td className="py-2 px-2.5 text-slate-400">{i + 1}</td>
+                              <td className="py-2 px-2.5 text-slate-600 whitespace-nowrap">{exp.date || '-'}</td>
+                              <td className="py-2 px-2.5 font-medium text-slate-900">{exp.title || exp.category}</td>
+                              <td className="py-2 px-2.5 text-slate-500">{exp.category}</td>
+                              <td className="py-2 px-2.5 text-slate-500">{exp.payment_method || 'Cash'}</td>
+                              <td className="py-2 px-2.5 text-right font-medium text-slate-800">{formatNumber(exp.amount)}</td>
+                              <td className="py-2 px-2.5 text-center">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${isGross ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800'}`}>
+                                  {isGross ? 'Non-Potong' : 'Potong Jatah'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="border-t-2 font-bold bg-slate-50 text-slate-900">
+                            <td colSpan={5} className="py-2.5 px-2.5">Total Pengeluaran Operasional</td>
+                            <td className="text-right py-2.5 px-2.5 text-rose-700">Rp {formatNumber(expensesList.reduce((s: number, e: any) => s + (e.amount || 0), 0))}</td>
+                            <td className="text-center py-2.5 px-2.5">
+                              <span className="text-[10px] text-slate-500">
+                                {isGross ? 'Informasi' : 'Dipotongkan'}
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Per Product Breakdown */}
+                {detailPeriod.per_product && (() => {
+                  try {
+                    const products = JSON.parse(detailPeriod.per_product) as { product_name: string; revenue: number; cogs: number; gross_margin: number }[]
+                    if (!products.length) return null
+                    return (
+                      <div>
+                        <h3 className="font-semibold text-sm mb-2">Rincian per Produk</h3>
+                        <table className="w-full text-sm">
+                          <thead><tr className="border-b"><th className="text-left py-2">Produk</th><th className="text-right py-2">Pendapatan</th><th className="text-right py-2">Modal</th><th className="text-right py-2">Laba Kotor</th></tr></thead>
+                          <tbody>
+                            {products.map((pp, i) => (
+                              <tr key={i} className="border-b"><td className="py-2">{pp.product_name}</td><td className="text-right">{formatNumber(pp.revenue)}</td><td className="text-right">{formatNumber(pp.cogs)}</td><td className="text-right font-medium">{formatNumber(pp.gross_margin)}</td></tr>
+                            ))}
+                            <tr className="border-b bg-gray-50 font-bold">
+                              <td className="py-2">Total</td>
+                              <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.revenue, 0))}</td>
+                              <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.cogs, 0))}</td>
+                              <td className="text-right">{formatNumber(products.reduce((s, p) => s + p.gross_margin, 0))}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  } catch { return null }
+                })()}
+
+                {/* Modal Footer with Print and Close Button */}
+                <div className="pt-4 border-t flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePrintProfitSharingDocument(
+                      detailPeriod.period_start,
+                      detailPeriod.period_end,
+                      detailPeriod.ratio,
+                      detailPeriod.basis_type || 'net',
+                      detailPeriod.basis_amount,
+                      0,
+                      0,
+                      detailPeriod.basis_amount,
+                      detailPeriod.total_cogs,
+                      grossMarginVal,
+                      detailPeriod.total_expenses,
+                      detailPeriod.net_profit,
+                      effectivePeople,
+                      expensesList,
+                      detailPeriod.status,
+                      detailPeriod.id
+                    )}
+                    className="bg-amber-600 hover:bg-amber-700 text-white gap-2 font-medium"
+                  >
+                    <Printer className="w-4 h-4" /> Cetak Bukti Bagi Hasil (TTD)
+                  </Button>
+                  <Button variant="ghost" onClick={() => setDetailPeriod(null)}>
+                    Tutup
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Preview Modal */}
       {showPreview && preview && (
@@ -932,12 +1344,42 @@ export default function ProfitSharing() {
                 </div>
               )}
               {preview.calculation.note && <p className="text-sm text-gray-500 italic">{preview.calculation.note}</p>}
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowPreview(false)}>Batal</Button>
-                <Button onClick={() => handleFinalize(preview.period.id)} disabled={finalizeMutation.isPending}>
-                  {finalizeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                  Finalize Periode Ini
+              <div className="flex justify-between items-center pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const expensesList = preview.calculation.breakdown || []
+                    handlePrintProfitSharingDocument(
+                      preview.period.period_start,
+                      preview.period.period_end,
+                      preview.calculation.ratio,
+                      preview.calculation.basis_type || 'net',
+                      preview.calculation.basis_amount,
+                      preview.calculation.tax || 0,
+                      preview.calculation.service_fee || 0,
+                      preview.calculation.net_revenue || preview.calculation.basis_amount,
+                      preview.calculation.total_cogs,
+                      preview.calculation.gross_profit,
+                      preview.calculation.total_expenses,
+                      preview.calculation.net_profit,
+                      preview.calculation.people || people,
+                      expensesList,
+                      "Draft (Preview)",
+                      preview.period.id
+                    )
+                  }}
+                  className="gap-1.5 border-amber-300 text-amber-900 hover:bg-amber-50"
+                >
+                  <Printer className="w-4 h-4 text-amber-700" />
+                  Cetak Bukti Preview (TTD)
                 </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowPreview(false)}>Batal</Button>
+                  <Button onClick={() => handleFinalize(preview.period.id)} disabled={finalizeMutation.isPending}>
+                    {finalizeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                    Finalize Periode Ini
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
