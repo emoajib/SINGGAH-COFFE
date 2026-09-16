@@ -58,6 +58,11 @@ func (r *profitSharingPeopleRepository) DeleteByPeriodID(periodID uint) error {
 	return r.db.Where("period_id = ?", periodID).Delete(&models.ProfitSharingPerson{}).Error
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *profitSharingPeopleRepository) DeleteByID(id uint) error {
+	return r.db.Delete(&models.ProfitSharingPerson{}, id).Error
+}
+
 func (r *profitSharingPeopleRepository) UpdateLeaveStatus(id uint, isOnLeave bool, reduction float64) error {
 	return r.db.Model(&models.ProfitSharingPerson{}).
 		Where("id = ?", id).

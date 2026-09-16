@@ -60,11 +60,17 @@ export function useDeleteExpense() {
   })
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 export function useUpdateCostType() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, costType }: { id: number; costType: string }) =>
       api.put(`/expenses/${id}/cost-type`, { cost_type: costType }).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] })
+      qc.invalidateQueries({ queryKey: ['bep'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['profit-loss'] })
+    },
   })
 }

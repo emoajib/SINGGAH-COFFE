@@ -205,6 +205,7 @@ func (uc *ExpenseUsecase) UpdateCostType(id uint, costType string) error {
 	return uc.expenseRepo.Update(existing)
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 // Delete menghapus expense dan membersihkan entry Buku Kas terkait.
 // GAP 2 FIX: sebelumnya hapus expense meninggalkan orphan entry di Buku Kas.
 func (uc *ExpenseUsecase) Delete(id uint) error {
@@ -216,8 +217,8 @@ func (uc *ExpenseUsecase) Delete(id uint) error {
 		expenseRepo := postgres.NewExpenseRepository(tx)
 		cashBookRepo := postgres.NewCashBookRepository(tx)
 
-		// Hapus entry Buku Kas terlebih dahulu
-		_, _ = cashBookRepo.DeleteByReference(expenseRef(id))
+		// Hapus entry Buku Kas terlebih dahulu dengan scope outletID yang aman
+		_, _ = cashBookRepo.DeleteByReference(expenseRef(id), existing.OutletID)
 		// PSAK: Create outbox event for journal reversal
 		outboxRepo := postgres.NewOutboxRepository(tx)
 		if err := outboxRepo.Create(&entity.EventOutbox{

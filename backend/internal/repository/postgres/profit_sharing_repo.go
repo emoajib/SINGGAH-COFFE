@@ -126,9 +126,10 @@ func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outle
 	return total, err
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *profitSharingPeriodRepository) GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error) {
 	ow, args := outletWhere("expenses", outletID...)
-	query := "date BETWEEN ? AND ?" + ow
+	query := "DATE(date) BETWEEN DATE(?) AND DATE(?)" + ow
 	params := []interface{}{start, end}
 	params = append(params, args...)
 	if len(excluded) > 0 {
@@ -144,7 +145,7 @@ func (r *profitSharingPeriodRepository) GetTotalExpensesExcluding(start, end str
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *profitSharingPeriodRepository) GetExpensesList(start, end string, excluded []string, outletID ...uint) ([]entity.ExpenseBreakdown, error) {
 	ow, args := outletWhere("expenses", outletID...)
-	query := "date BETWEEN ? AND ?" + ow
+	query := "DATE(date) BETWEEN DATE(?) AND DATE(?)" + ow
 	params := []interface{}{start, end}
 	params = append(params, args...)
 	if len(excluded) > 0 {

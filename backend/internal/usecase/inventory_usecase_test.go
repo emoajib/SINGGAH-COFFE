@@ -17,7 +17,7 @@ func setupInventoryTestDB() *gorm.DB {
 	if err != nil {
 		panic("Failed to connect to database: " + err.Error())
 	}
-	db.AutoMigrate(&models.Ingredient{}, &models.StockMutation{}, &models.Expense{}, &models.Setting{}, &models.PSAKEventOutbox{})
+	db.AutoMigrate(&models.Ingredient{}, &models.StockMutation{}, &models.Expense{}, &models.Setting{}, &models.PSAKEventOutbox{}, &models.Product{}, &models.RecipeItem{})
 	return db
 }
 

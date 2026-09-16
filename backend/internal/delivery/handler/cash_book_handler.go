@@ -156,7 +156,31 @@ func (h *CashBookHandler) SyncFromTransactions(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("Sinkron selesai: %d penjualan, %d pengeluaran", result.OrdersSynced, result.ExpensesSynced),
+		"message": fmt.Sprintf("Sinkron selesai: %d penjualan, %d pengeluaran, %d kasir", result.OrdersSynced, result.ExpensesSynced, result.RegistersSynced),
 		"result":  result,
 	})
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (h *CashBookHandler) ExchangeCash(c *gin.Context) {
+	if !requireOwnerOrManager(c) {
+		return
+	}
+	uid, _ := getUserID(c)
+	outletID := getOutletID(c)
+
+	var req usecase.ExchangeCashRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
+		return
+	}
+
+	result, err := h.cashBookUsecase.ExchangeCash(req, outletID, uid)
+	if err != nil {
+		log.Printf("[ERROR] ExchangeCash failed: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }

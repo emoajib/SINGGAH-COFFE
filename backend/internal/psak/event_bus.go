@@ -79,6 +79,7 @@ func (eb *EventBus) worker(ctx context.Context) {
 	}
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (eb *EventBus) processWithTimeout(ctx context.Context, event *entity.EventOutbox) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -90,19 +91,12 @@ func (eb *EventBus) processWithTimeout(ctx context.Context, event *entity.EventO
 	tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	done := make(chan error, 1)
-	go func() {
-		done <- eb.handler.ProcessEvent(event)
-	}()
+	if err := eb.handler.ProcessEvent(event); err != nil {
+		log.Printf("[EventBus] ERROR processing event id=%d type=%s: %v",
+			event.ID, event.EventType, err)
+	}
 
-	select {
-	case <-tctx.Done():
-		log.Printf("[EventBus] TIMEOUT processing event id=%d type=%s after 30s",
-			event.ID, event.EventType)
-	case err := <-done:
-		if err != nil {
-			log.Printf("[EventBus] ERROR processing event id=%d type=%s: %v",
-				event.ID, event.EventType, err)
-		}
+	if tctx.Err() != nil {
+		log.Printf("[EventBus] WARN event id=%d completed but context expired", event.ID)
 	}
 }

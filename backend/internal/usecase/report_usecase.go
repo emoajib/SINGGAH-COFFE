@@ -27,16 +27,17 @@ var (
 // Shared-hosting hardening: background goroutine yang membersihkan cache
 // expired secara proaktif. Tanpa ini, dashboardCache tumbuh tanpa batas
 // dan menyebabkan OOM kill di shared hosting dengan GOMEMLIMIT=256MiB.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func startDashboardCacheCleanup() {
 	cacheCleanupOnce.Do(func() {
 		go func() {
-			ticker := time.NewTicker(60 * time.Second)
+			ticker := time.NewTicker(cacheTTL)
 			defer ticker.Stop()
 			for range ticker.C {
 				dashboardMu.Lock()
 				now := time.Now()
 				for k, v := range dashboardCache {
-					if now.Sub(v.timestamp) > cacheTTL*2 {
+					if now.Sub(v.timestamp) > cacheTTL {
 						delete(dashboardCache, k)
 					}
 				}
@@ -199,15 +200,15 @@ func hashString(s string) uint {
 	return h
 }
 
-// cacheKey derives the cache key from an optional outletID and date range.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// cacheKey derives a collision-resistant cache key from input parameters (hash, outletID, etc.)
 func cacheKey(extra ...uint) uint {
-    if len(extra) > 1 {
-        return extra[0] ^ extra[1]
-    }
-    if len(extra) > 0 {
-        return extra[0]
-    }
-    return 0
+	h := uint(2166136261)
+	for i, v := range extra {
+		h ^= v ^ uint(i+1)
+		h *= 16777619
+	}
+	return h
 }
 
 func (uc *ReportUsecase) GetSalesSummary(outletID ...uint) *entity.SalesSummaryResponse {
@@ -293,7 +294,7 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 		NetProfit:        netProfit,
 		CashBookIncome:   cbIncome,
 		CashBookExpense:  cbExpense,
-		PaymentBreakdown: paymentBreakdown,
+		PaymentBreakdown: bucketed,
 	}, nil
 }
 

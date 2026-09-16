@@ -85,7 +85,17 @@ func (uc *OrderUsecase) GetByID(id uint) (*entity.OrderResponse, error) {
 	return &resp, nil
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+var validPaymentMethods = map[string]bool{
+	"Cash": true, "QRIS": true, "Lainnya": true, "Transfer": true,
+}
+
 func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName string, outletID ...uint) (*CreateOrderResponse, error) {
+	if !validPaymentMethods[req.PaymentMethod] {
+		return nil, domainErrors.NewInvalidInputError(
+			fmt.Sprintf("metode pembayaran tidak valid: %s. Pilih: Cash, QRIS, Lainnya, Transfer", req.PaymentMethod))
+	}
+
 	var result CreateOrderResponse
 
 	err := uc.db.Transaction(func(tx *gorm.DB) error {
@@ -345,7 +355,7 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 // (e.g. cashier typed QRIS instead of Cash). Adjusts PaymentStatus, Status,
 // and syncs the Cash Book entry accordingly.
 func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID ...uint) (*entity.OrderResponse, error) {
-	if newMethod != "Cash" && newMethod != "QRIS" {
+	if !validPaymentMethods[newMethod] {
 		return nil, fmt.Errorf("metode pembayaran tidak valid: %s", newMethod)
 	}
 

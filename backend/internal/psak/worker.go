@@ -20,6 +20,8 @@ type Worker struct {
 	interval    time.Duration
 	done        chan struct{}
 	cleanupDays int
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	lastCleanup time.Time
 }
 
 // NewWorker creates a Worker with default 5s polling and 90-day cleanup.
@@ -96,11 +98,15 @@ func (w *Worker) pollCycle(ctx context.Context) {
 		w.processEvent(ctx, &events[i])
 	}
 
-	// Cleanup old successful events (>90 days) — non-critical, best effort
-	if cleaned, err := w.outboxRepo.Cleanup(w.cleanupDays); err != nil {
-		log.Printf("[Worker] WARN: Cleanup: %v", err)
-	} else if cleaned > 0 {
-		log.Printf("[Worker] Cleaned %d old outbox entries", cleaned)
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Cleanup old successful events (>90 days) dibatasi hanya 1x setiap 24 jam (bukan setiap 5 detik)
+	if time.Since(w.lastCleanup) > 24*time.Hour {
+		if cleaned, err := w.outboxRepo.Cleanup(w.cleanupDays); err != nil {
+			log.Printf("[Worker] WARN: Cleanup: %v", err)
+		} else if cleaned > 0 {
+			log.Printf("[Worker] Cleaned %d old outbox entries", cleaned)
+		}
+		w.lastCleanup = time.Now()
 	}
 }
 

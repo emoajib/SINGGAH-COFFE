@@ -381,22 +381,30 @@ func (uc *ProfitSharingUsecase) fetchFinancialsWithTx(tx *gorm.DB, start, end st
 	return
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uint) error {
 	if len(outletID) == 0 {
 		return domainErrors.NewInvalidInputError("outlet ID required")
 	}
 	tx := uc.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			tx.Rollback()
+		}
+	}()
+
 	period, err := uc.periodRepo.FindByIDForUpdate(id, tx)
 	if err != nil {
-		tx.Rollback()
 		return domainErrors.NewNotFoundError("periode")
 	}
 	if period.OutletID != outletID[0] {
-		tx.Rollback()
 		return domainErrors.NewUnauthorizedError("tidak punya akses ke periode ini")
 	}
 	if period.Status != "draft" {
-		tx.Rollback()
 		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa di-finalize")
 	}
 	// Gunakan formatForDB (UTC) agar BETWEEN query cocok dengan data yang
@@ -407,7 +415,6 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	// M1: Jalankan query keuangan di dalam transaction untuk konsistensi baca
 	basis, cogs, expenses, err := uc.fetchFinancialsWithTx(tx, start, end, outletID[0])
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -448,7 +455,6 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	// Update people amounts in DB
 	if len(people) > 0 {
 		if err := uc.profitSharingPersonRepo.BulkUpsert(people); err != nil {
-			tx.Rollback()
 			return err
 		}
 	}
@@ -478,12 +484,16 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		"basis_type":         period.BasisType,
 		"owner_pct":          ownerPct,
 	}).Error; err != nil {
-		tx.Rollback()
 		return err
 	}
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	committed = true
+	return nil
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 // M6: MarkAsPaid dijalankan dalam satu transaction untuk atomicitas.
 // Creates one cashbook entry per person (owner + baristas).
 func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
@@ -491,34 +501,38 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 		return domainErrors.NewInvalidInputError("outlet ID required")
 	}
 
-	tx := uc.db.Begin()
-
 	existing, err := uc.periodRepo.FindByID(id)
 	if err != nil {
-		tx.Rollback()
 		return domainErrors.NewNotFoundError("periode")
 	}
 	if existing.OutletID != outletID[0] {
-		tx.Rollback()
 		return domainErrors.NewUnauthorizedError("tidak punya akses ke periode ini")
 	}
 	if existing.Status != "finalized" {
-		tx.Rollback()
 		return domainErrors.NewInvalidInputError("hanya periode finalized yang bisa ditandai sebagai dibayar")
 	}
 
 	ref := fmt.Sprintf("profit-sharing:%d", existing.ID)
 	exists, _ := uc.cashBookRepo.ExistsByProfitSharingPeriod(existing.ID, outletID...)
 	if exists {
-		tx.Rollback()
 		return nil
 	}
+
+	tx := uc.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			tx.Rollback()
+		}
+	}()
 
 	existing.Status = "paid"
 	if err := tx.Model(&models.ProfitSharingPeriod{}).Where("id = ?", existing.ID).Updates(map[string]interface{}{
 		"status": "paid",
 	}).Error; err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -536,7 +550,6 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 			Description: fmt.Sprintf("Bagi hasil periode %s - %s", existing.PeriodStart.Format("02 Jan 2006"), existing.PeriodEnd.Format("02 Jan 2006")),
 			Reference:   ref,
 		}).Error; err != nil {
-			tx.Rollback()
 			return err
 		}
 	} else {
@@ -562,15 +575,19 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 				Description: desc,
 				Reference:   ref,
 			}).Error; err != nil {
-				tx.Rollback()
 				return err
 			}
 		}
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	committed = true
+	return nil
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 // M5: Recalculate dijalankan dalam transaction untuk atomicitas.
 func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...uint) error {
 	if len(outletID) == 0 {
@@ -578,21 +595,27 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	}
 
 	tx := uc.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			tx.Rollback()
+		}
+	}()
 
 	existing, err := uc.periodRepo.FindByID(id)
 	if err != nil {
-		tx.Rollback()
 		return domainErrors.NewNotFoundError("periode")
 	}
 	if existing.OutletID != outletID[0] {
-		tx.Rollback()
 		return domainErrors.NewUnauthorizedError("tidak punya akses ke periode ini")
 	}
 
 	// Reverse cashbook entry jika periode sudah dibayar
 	if existing.Status == "paid" {
 		if _, err := uc.cashBookRepo.DeleteByProfitSharingPeriod(existing.ID, outletID...); err != nil {
-			tx.Rollback()
 			return err
 		}
 	}
@@ -604,7 +627,6 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	// M1: Jalankan query keuangan di dalam transaction
 	basis, cogs, expenses, err := uc.fetchFinancialsWithTx(tx, start, end, outletID[0])
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -644,7 +666,6 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	// Update people amounts in DB
 	if len(people) > 0 {
 		if err := uc.profitSharingPersonRepo.BulkUpsert(people); err != nil {
-			tx.Rollback()
 			return err
 		}
 	}
@@ -662,11 +683,14 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		"basis_type":     existing.BasisType,
 		"owner_pct":      ownerPct,
 	}).Error; err != nil {
-		tx.Rollback()
 		return err
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	committed = true
+	return nil
 }
 
 func (uc *ProfitSharingUsecase) Delete(id uint, outletID ...uint) error {
@@ -760,6 +784,7 @@ func (uc *ProfitSharingUsecase) AddPerson(periodID uint, person entity.ProfitSha
 	return uc.profitSharingPersonRepo.BulkUpsert([]entity.ProfitSharingPerson{person})
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 // RemovePerson removes a person from a period.
 func (uc *ProfitSharingUsecase) RemovePerson(periodID uint, personID uint) error {
 	period, err := uc.periodRepo.FindByID(periodID)
@@ -769,7 +794,14 @@ func (uc *ProfitSharingUsecase) RemovePerson(periodID uint, personID uint) error
 	if period.Status != "draft" {
 		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa diubah orangnya")
 	}
-	return uc.profitSharingPersonRepo.DeleteByPeriodID(periodID)
+	person, err := uc.profitSharingPersonRepo.GetByID(personID)
+	if err != nil {
+		return domainErrors.NewNotFoundError("orang")
+	}
+	if person.PeriodID != periodID {
+		return domainErrors.NewInvalidInputError("orang tidak termasuk dalam periode ini")
+	}
+	return uc.profitSharingPersonRepo.DeleteByID(personID)
 }
 
 // parseDatePS mem-parse string datetime dari frontend dengan toleransi berbagai format.

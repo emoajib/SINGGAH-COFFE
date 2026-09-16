@@ -96,8 +96,9 @@ type Order struct {
 	UserID        uint        `json:"user_id"`
 	CashierName   string      `json:"cashier_name"`
 	OrderItems    []OrderItem `json:"items" gorm:"foreignKey:OrderID"`
-	OrderTime     time.Time   `json:"order_time"`
-	OutletID      uint        `json:"outlet_id" gorm:"index"`
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	OrderTime     time.Time   `json:"order_time" gorm:"index:idx_orders_outlet_time,priority:2;index"`
+	OutletID      uint        `json:"outlet_id" gorm:"index:idx_orders_outlet_time,priority:1;index"`
 }
 
 type OrderItem struct {
@@ -157,12 +158,13 @@ type CashRegister struct {
 // Records cash inflows/outflows with method Cash/QRIS/Lainnya
 type CashBook struct {
 	BaseModel
-	OutletID    uint      `json:"outlet_id" gorm:"index"`
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	OutletID    uint      `json:"outlet_id" gorm:"index:idx_cb_outlet_ref,priority:1;index"`
 	Date        time.Time `json:"date" gorm:"index"`
 	Method      string    `json:"method" gorm:"index"` // Cash, QRIS, Lainnya
 	Type        string    `json:"type" gorm:"index"`   // income, expense
 	Amount      float64   `json:"amount"`
 	Description string    `json:"description"`
-	Reference   string    `json:"reference"` // optional: order_id, expense_id, etc.
+	Reference   string    `json:"reference" gorm:"index:idx_cb_outlet_ref,priority:2;index"` // optional: order_id, expense_id, etc.
 	CreatedBy   uint      `json:"created_by" gorm:"index"`
 }

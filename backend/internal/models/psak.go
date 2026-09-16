@@ -50,7 +50,8 @@ type PSAKEventOutbox struct {
 	RetryCount     int        `gorm:"default:0" json:"retry_count"`
 	MaxRetries     int        `gorm:"default:3" json:"max_retries"`
 	LastError      string     `json:"last_error"`
-	ProcessedAt    *time.Time `json:"processed_at"`
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	ProcessedAt    *time.Time `gorm:"index" json:"processed_at"`
 	SequenceNumber int64      `gorm:"index" json:"sequence_number"`
 }
 

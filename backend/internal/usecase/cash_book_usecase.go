@@ -177,9 +177,11 @@ func (uc *CashBookUsecase) EnsureRegisterClose(cr *entity.CashRegister, outletID
 	})
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type CashBookSyncResult struct {
-	OrdersSynced   int64 `json:"orders_synced"`
-	ExpensesSynced int64 `json:"expenses_synced"`
+	OrdersSynced    int64 `json:"orders_synced"`
+	ExpensesSynced  int64 `json:"expenses_synced"`
+	RegistersSynced int64 `json:"registers_synced"`
 }
 
 func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncResult, error) {
@@ -301,9 +303,92 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 				Description: fmt.Sprintf("Modal Awal Kasir (%s)", cashier),
 				Reference:   fmt.Sprintf("cash_register_open:%d", r.ID),
 			})
-			result.OrdersSynced++
+			result.RegistersSynced++
 		}
 	}
 
 	return result, nil
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type ExchangeCashRequest struct {
+	FromMethod  string    `json:"from_method"` // "Cash", "QRIS", "Lainnya"
+	ToMethod    string    `json:"to_method"`   // "QRIS", "Cash", "Lainnya"
+	Amount      float64   `json:"amount"`
+	Date        time.Time `json:"date"`
+	Description string    `json:"description"`
+}
+
+type ExchangeCashResult struct {
+	DebitEntry  entity.CashBookResponse `json:"debit_entry"`
+	CreditEntry entity.CashBookResponse `json:"credit_entry"`
+	Message     string                  `json:"message"`
+}
+
+// ExchangeCash mencatat pertukaran dana antar metode kas (Cash ↔ QRIS).
+// Membuat 2 entri Buku Kas dalam 1 transaksi atomik:
+// - Debit (expense) dari FromMethod
+// - Kredit (income) ke ToMethod
+// Total saldo keseluruhan tidak berubah (net-zero), hanya distribusi Cash vs QRIS.
+// Tidak berdampak ke P&L karena bukan pendapatan/pengeluaran operasional.
+func (uc *CashBookUsecase) ExchangeCash(req ExchangeCashRequest, outletID uint, createdBy uint) (*ExchangeCashResult, error) {
+	if req.FromMethod == req.ToMethod {
+		return nil, fmt.Errorf("metode asal dan tujuan tidak boleh sama")
+	}
+	validMethods := map[string]bool{"Cash": true, "QRIS": true, "Lainnya": true, "Transfer": true}
+	if !validMethods[req.FromMethod] || !validMethods[req.ToMethod] {
+		return nil, fmt.Errorf("metode tidak valid: %s → %s", req.FromMethod, req.ToMethod)
+	}
+	if req.Amount <= 0 {
+		return nil, fmt.Errorf("jumlah harus lebih dari 0")
+	}
+	if req.Date.IsZero() {
+		req.Date = time.Now()
+	}
+
+	ref := fmt.Sprintf("exchange:%d:%d", time.Now().UnixNano(), createdBy)
+	desc := req.Description
+	if desc == "" {
+		desc = fmt.Sprintf("Tukar Kas %s → %s", req.FromMethod, req.ToMethod)
+	}
+	fullDesc := fmt.Sprintf("[TUKAR KAS] %s → %s: %s", req.FromMethod, req.ToMethod, desc)
+
+	var debitEntry, creditEntry entity.CashBook
+	err := uc.db.Transaction(func(tx *gorm.DB) error {
+		repo := postgres.NewCashBookRepository(tx)
+
+		debitEntry = entity.CashBook{
+			OutletID:    outletID,
+			Date:        req.Date,
+			Method:      req.FromMethod,
+			Type:        "expense",
+			Amount:      req.Amount,
+			Description: fullDesc,
+			Reference:   ref + ":out",
+			CreatedBy:   createdBy,
+		}
+		if err := repo.Create(&debitEntry); err != nil {
+			return err
+		}
+
+		creditEntry = entity.CashBook{
+			OutletID:    outletID,
+			Date:        req.Date,
+			Method:      req.ToMethod,
+			Type:        "income",
+			Amount:      req.Amount,
+			Description: fullDesc,
+			Reference:   ref + ":in",
+			CreatedBy:   createdBy,
+		}
+		return repo.Create(&creditEntry)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ExchangeCashResult{
+		DebitEntry:  debitEntry.ToResponse(),
+		CreditEntry: creditEntry.ToResponse(),
+		Message:     fmt.Sprintf("Tukar kas Rp %.0f dari %s ke %s berhasil", req.Amount, req.FromMethod, req.ToMethod),
+	}, nil
 }

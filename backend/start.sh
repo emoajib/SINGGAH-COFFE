@@ -65,7 +65,17 @@ for f in "$SCRIPT_DIR/backend/backend.pid" "$SCRIPT_DIR/backend.pid" "$SCRIPT_DI
     rm -f "$f"
   fi
 done
-sleep 1
+# Vetted by AI - Manual Review Required by Senior Engineer/Manager
+# Menunggu port benar-benar bebas (max 10 detik) untuk mencegah EADDRINUSE saat restart
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Menunggu port ${PORT} bebas..."
+for i in $(seq 1 10); do
+  if ! lsof -i :"${PORT}" -t >/dev/null 2>&1; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Port ${PORT} bebas. Melanjutkan startup..."
+    break
+  fi
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Port ${PORT} masih terpakai, tunggu ${i}s..."
+  sleep 1
+done
 
 echo "$$" > "$SCRIPT_DIR/backend.pid" 2>/dev/null || true
 

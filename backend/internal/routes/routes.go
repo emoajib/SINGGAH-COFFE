@@ -129,6 +129,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 			protected.GET("/cash-book", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.GetCashBooks)
 			protected.POST("/cash-book/sync", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.SyncFromTransactions)
+			protected.POST("/cash-book/exchange", middleware.RoleMiddleware("owner", "manager"), h.CashBook.ExchangeCash)
 			protected.GET("/cash-book/:id", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.GetCashBook)
 			protected.POST("/cash-book", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.CreateCashBook)
 			protected.PUT("/cash-book/:id", middleware.RoleMiddleware("owner", "manager", "cashier"), h.CashBook.UpdateCashBook)

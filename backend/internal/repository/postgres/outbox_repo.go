@@ -16,27 +16,24 @@ func NewOutboxRepository(db *gorm.DB) *outboxRepository {
 	return &outboxRepository{db: db}
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *outboxRepository) Create(event *entity.EventOutbox) error {
 	m := toModelEventOutbox(event)
-	var lastSeq int64
-	if err := r.db.Model(&models.PSAKEventOutbox{}).Where("event_type = ?", m.EventType).Order("sequence_number desc").Pluck("sequence_number", &lastSeq).Error; err == nil && lastSeq > 0 {
-		m.SequenceNumber = lastSeq + 1
-	} else {
-		m.SequenceNumber = 1
-	}
+	// Eliminasi race condition SELECT MAX: gunakan clustered AUTO_INCREMENT ID bawaan
 	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(m).Error; err != nil {
 		return err
 	}
 	event.ID = m.ID
-	event.SequenceNumber = m.SequenceNumber
+	event.SequenceNumber = int64(m.ID)
 	event.CreatedAt = m.CreatedAt
 	return nil
 }
 
 func (r *outboxRepository) FindPending(limit int) ([]entity.EventOutbox, error) {
 	var ms []models.PSAKEventOutbox
+	// Order by `id asc` menggunakan clustered primary key index (paling cepat di InnoDB)
 	if err := r.db.Where("status = ?", "pending").
-		Order("sequence_number asc").
+		Order("id asc").
 		Limit(limit).
 		Find(&ms).Error; err != nil {
 		return nil, err

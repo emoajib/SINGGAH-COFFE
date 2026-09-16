@@ -196,6 +196,7 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 	})
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *InventoryUsecase) UpdateIngredient(id uint, name, category, unit, purchaseUnit string, purchaseUnitSize, costPerUnit, minStock float64) error {
 	ingredient, err := uc.ingredientRepo.FindByID(id)
 	if err != nil {
@@ -211,15 +212,20 @@ func (uc *InventoryUsecase) UpdateIngredient(id uint, name, category, unit, purc
 	ingredient.CostPerUnit = costPerUnit
 	ingredient.MinStock = minStock
 
-	if err := uc.ingredientRepo.Update(ingredient); err != nil {
-		return err
-	}
+	return uc.db.Transaction(func(tx *gorm.DB) error {
+		ingRepo := postgres.NewIngredientRepository(tx)
+		if err := ingRepo.Update(ingredient); err != nil {
+			return err
+		}
 
-	if oldCost != costPerUnit {
-		_ = uc.productRepo.RecalculateCosts(id)
-	}
-
-	return nil
+		if oldCost != costPerUnit {
+			productRepo := postgres.NewProductRepository(tx)
+			if err := productRepo.RecalculateCosts(id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (uc *InventoryUsecase) GetLowStockAlerts(outletID ...uint) ([]entity.IngredientResponse, error) {

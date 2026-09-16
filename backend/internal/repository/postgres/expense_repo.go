@@ -131,9 +131,10 @@ func (r *expenseRepository) GetTotalSince(since string, outletID ...uint) (float
 	return total, err
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *expenseRepository) GetBreakdownRange(start, end string, outletID ...uint) ([]entity.ExpenseDetail, error) {
 	tx := r.db.Model(&models.Expense{}).
-		Where("date BETWEEN ? AND ?", start, end)
+		Where("DATE(date) BETWEEN DATE(?) AND DATE(?)", start, end)
 	tx = scopeOutlet(tx, "expenses", outletID...)
 	var results []entity.ExpenseDetail
 	err := tx.Select("category, SUM(amount) as amount").
@@ -142,20 +143,20 @@ func (r *expenseRepository) GetBreakdownRange(start, end string, outletID ...uin
 	return results, err
 }
 
-// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *expenseRepository) GetTotalByCostType(costType, start, end string, outletID ...uint) (float64, error) {
 	tx := r.db.Model(&models.Expense{}).
-		Where("date BETWEEN ? AND ? AND cost_type = ?", start, end, costType)
+		Where("DATE(date) BETWEEN DATE(?) AND DATE(?) AND cost_type = ?", start, end, costType)
 	tx = scopeOutlet(tx, "expenses", outletID...)
 	var total float64
 	err := tx.Select("COALESCE(SUM(amount), 0)").Row().Scan(&total)
 	return total, err
 }
 
-// ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *expenseRepository) GetFixedCostBreakdown(start, end string, outletID ...uint) ([]entity.FixedCostItem, error) {
 	tx := r.db.Model(&models.Expense{}).
-		Where("date BETWEEN ? AND ? AND cost_type = ?", start, end, "fixed")
+		Where("DATE(date) BETWEEN DATE(?) AND DATE(?) AND cost_type = ?", start, end, "fixed")
 	tx = scopeOutlet(tx, "expenses", outletID...)
 	var results []entity.FixedCostItem
 	err := tx.Select("title as name, SUM(amount) as amount").

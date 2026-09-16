@@ -246,7 +246,14 @@ func calculateStdDevFromDailySales(dailySales []entity.DailySales) float64 {
 		dev := ds.Total - mean
 		variance += dev * dev
 	}
-	variance /= float64(len(dailySales))
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Bessel's correction untuk estimasi sample standard deviation yang tidak bias
+	n := len(dailySales)
+	if n > 1 {
+		variance /= float64(n - 1)
+	} else {
+		variance = 0
+	}
 
 	return math.Sqrt(variance)
 }

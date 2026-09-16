@@ -191,6 +191,7 @@ type ProfitSharingPersonRepository interface {
 	GetByID(id uint) (*entity.ProfitSharingPerson, error)
 	BulkUpsert(people []entity.ProfitSharingPerson) error
 	DeleteByPeriodID(periodID uint) error
+	DeleteByID(id uint) error
 	UpdateLeaveStatus(id uint, isOnLeave bool, reduction float64) error
 }
 

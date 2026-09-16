@@ -35,6 +35,7 @@ func isNotFound(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *CashRegisterUsecase) OpenCashRegister(userID uint, outletID uint, req *entity.CashRegister) (*entity.CashRegister, error) {
 	// Auto-close any stale open register before opening a new one.
 	// This prevents a single stale register from blocking all new shifts.
@@ -63,24 +64,36 @@ func (uc *CashRegisterUsecase) OpenCashRegister(userID uint, outletID uint, req 
 		Status:        "open",
 	}
 
-	if err := uc.cashRegisterRepo.Create(cashRegister); err != nil {
-		return nil, err
-	}
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		crRepo := postgres.NewCashRegisterRepository(tx)
+		if err := crRepo.Create(cashRegister); err != nil {
+			return err
+		}
 
-	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-	// Sinkronisasi otomatis ke Buku Kas sebagai pemasukan modal kas awal laci kasir
-	if req.OpeningAmount > 0 {
-		cbRepo := postgres.NewCashBookRepository(uc.db)
-		_ = cbRepo.Create(&entity.CashBook{
-			OutletID:    outletID,
-			Date:        now,
-			Method:      "Cash",
-			Type:        "income",
-			Amount:      req.OpeningAmount,
-			Description: fmt.Sprintf("Modal Awal Kasir (%s)", user.Name),
-			Reference:   fmt.Sprintf("cash_register_open:%d", cashRegister.ID),
-			CreatedBy:   userID,
-		})
+		// Sinkronisasi otomatis ke Buku Kas sebagai pemasukan modal kas awal laci kasir
+		if req.OpeningAmount > 0 {
+			cbRepo := postgres.NewCashBookRepository(tx)
+			ref := fmt.Sprintf("cash_register_open:%d", cashRegister.ID)
+			exists, _ := cbRepo.ExistsByReference(ref, outletID)
+			if !exists {
+				if err := cbRepo.Create(&entity.CashBook{
+					OutletID:    outletID,
+					Date:        now,
+					Method:      "Cash",
+					Type:        "income",
+					Amount:      req.OpeningAmount,
+					Description: fmt.Sprintf("Modal Awal Kasir (%s)", user.Name),
+					Reference:   ref,
+					CreatedBy:   userID,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return cashRegister, nil

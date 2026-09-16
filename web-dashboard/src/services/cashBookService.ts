@@ -31,8 +31,29 @@ export const CashBookService = {
     await api.delete(`/cash-book/${id}`)
   },
 
-  syncFromTransactions: async (): Promise<{ message: string; result: { orders_synced: number; expenses_synced: number } }> => {
+  syncFromTransactions: async (): Promise<{ message: string; result: { orders_synced: number; expenses_synced: number; registers_synced: number } }> => {
     const response = await api.post('/cash-book/sync')
     return response.data
   },
+
+  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+  exchangeCash: async (req: ExchangeCashRequest): Promise<ExchangeCashResult> => {
+    const response = await api.post<ExchangeCashResult>('/cash-book/exchange', req)
+    return response.data
+  },
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface ExchangeCashRequest {
+  from_method: string
+  to_method: string
+  amount: number
+  date?: string
+  description?: string
+}
+
+export interface ExchangeCashResult {
+  debit_entry: CashBook
+  credit_entry: CashBook
+  message: string
 }

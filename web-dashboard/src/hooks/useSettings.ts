@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import type { Setting } from '../types'
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 export function useSettings() {
   return useQuery({
     queryKey: ['settings'],
@@ -15,6 +16,8 @@ export function useSettings() {
         }
         return settingsMap
       }),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 
