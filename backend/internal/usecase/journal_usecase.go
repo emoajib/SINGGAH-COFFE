@@ -216,11 +216,9 @@ func (uc *JournalUsecase) GetIncomeStatement(start, end string, outletID ...uint
 		}
 		switch row.AccountType {
 		case "revenue":
-			// Revenue: credit balance is positive income
-			amount := -balance
-			if balance < 0 {
-				amount = balance
-			}
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			// Revenue: saldo normal Kredit. Nilai pendapatan bersih = Kredit - Debit.
+			amount := row.Credit - row.Debit
 			revenueItems = append(revenueItems, entity.IncomeStatementLine{
 				AccountCode: row.AccountCode,
 				AccountName: row.AccountName,
@@ -228,11 +226,9 @@ func (uc *JournalUsecase) GetIncomeStatement(start, end string, outletID ...uint
 			})
 			revenueTotal += amount
 		case "expense":
-			// Expense: debit balance is positive cost
-			amount := balance
-			if balance < 0 {
-				amount = -balance
-			}
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			// Expense: saldo normal Debit. Beban bersih = Debit - Kredit.
+			amount := row.Debit - row.Credit
 			expenseItems = append(expenseItems, entity.IncomeStatementLine{
 				AccountCode: row.AccountCode,
 				AccountName: row.AccountName,
@@ -297,20 +293,18 @@ func (uc *JournalUsecase) GetCashFlow(start, end string, outletID ...uint) ([]en
 		}
 		switch row.AccountType {
 		case "revenue":
-			amount := -balance
-			if balance < 0 {
-				amount = balance
-			}
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			// Penerimaan kas dari penjualan (Kredit - Debit)
+			amount := row.Credit - row.Debit
 			items = append(items, entity.CashFlowItem{
 				Category:    "Operating",
 				Description: row.AccountName,
 				Amount:      amount,
 			})
 		case "expense":
-			amount := balance
-			if balance < 0 {
-				amount = -balance
-			}
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			// Pengeluaran kas untuk beban (arus keluar bernilai negatif)
+			amount := row.Debit - row.Credit
 			items = append(items, entity.CashFlowItem{
 				Category:    "Operating",
 				Description: row.AccountName,
@@ -319,9 +313,6 @@ func (uc *JournalUsecase) GetCashFlow(start, end string, outletID ...uint) ([]en
 		case "asset":
 			// Asset changes (non-cash) = investing activities
 			amount := balance
-			if balance < 0 {
-				amount = -balance
-			}
 			items = append(items, entity.CashFlowItem{
 				Category:    "Investing",
 				Description: row.AccountName,
@@ -329,10 +320,7 @@ func (uc *JournalUsecase) GetCashFlow(start, end string, outletID ...uint) ([]en
 			})
 		case "liability", "equity":
 			// Liability/equity changes = financing activities
-			amount := -balance
-			if balance < 0 {
-				amount = balance
-			}
+			amount := row.Credit - row.Debit
 			items = append(items, entity.CashFlowItem{
 				Category:    "Financing",
 				Description: row.AccountName,

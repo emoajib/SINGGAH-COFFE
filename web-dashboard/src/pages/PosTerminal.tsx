@@ -14,13 +14,15 @@ import {
     Banknote,
     Coffee,
     RotateCcw,
-    AlertTriangle
+    AlertTriangle,
+    ArrowLeftRight
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Dialog } from "../components/ui/dialog"
 import { Input } from "../components/ui/input"
 import Receipt from "../components/pos/Receipt"
 import { getImageUrl, formatCurrency } from "../lib/utils"
+import ExchangeCashModal from "../components/cash/ExchangeCashModal"
 import { useProducts } from '../hooks/useProducts'
 import { useCreateOrder, useCompleteOrder } from '../hooks/useOrders'
 import { useSettings } from '../hooks/useSettings'
@@ -71,6 +73,7 @@ const PosTerminal: React.FC = () => {
     const [closeError, setCloseError] = useState("");
     const [closeLoading, setCloseLoading] = useState(false);
     const [closeSummary, setCloseSummary] = useState<{ variance: number; expected: number; closing: number } | null>(null);
+    const [isExchangeOpen, setIsExchangeOpen] = useState(false);
 
     const dispatch = useDispatch()
     const { openCashRegister } = useSelector((state: RootState) => state.auth)
@@ -292,6 +295,16 @@ const PosTerminal: React.FC = () => {
                                     <span>Kas: {formatCurrency(openCashRegister.opening_amount)}</span>
                                     <span className="text-emerald-600">({openCashRegister.cashier_name})</span>
                                 </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsExchangeOpen(true)}
+                                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                                    title="Tukar uang kasir fisik dengan QRIS / sebaliknya"
+                                >
+                                    <ArrowLeftRight className="w-4 h-4 mr-1" />
+                                    Tukar Kas
+                                </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -837,6 +850,13 @@ const PosTerminal: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Vetted by AI - Manual Review Required by Senior Engineer/Manager */}
+            {/* Modal Tukar Kas untuk Kasir */}
+            <ExchangeCashModal
+                isOpen={isExchangeOpen}
+                onClose={() => setIsExchangeOpen(false)}
+            />
         </div>
     )
 }

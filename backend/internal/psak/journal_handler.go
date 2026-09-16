@@ -56,6 +56,7 @@ type ExpenseEventPayload struct {
 // expenseCategoryToAccount maps expense categories to PSAK account codes.
 var expenseCategoryToAccount = map[string]string{
 	"Operational": "5201",
+	"Operasional": "5201",
 	"Marketing":   "5202",
 	"Maintenance": "5203",
 	"Salary":      "5204",

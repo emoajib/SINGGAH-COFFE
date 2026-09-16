@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -244,9 +245,28 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 		expenses = []entity.ExpenseDetail{}
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Konsolidasi kategori pengeluaran: lebur "Operational" dan "Operasional" menjadi satu
+	consolidatedExpenses := make(map[string]float64)
+	var expenseCatOrder []string
 	var totalExpenses float64
 	for _, e := range expenses {
+		cat := e.Category
+		if strings.EqualFold(cat, "operational") || strings.EqualFold(cat, "operasional") {
+			cat = "Operasional"
+		}
+		if _, exists := consolidatedExpenses[cat]; !exists {
+			expenseCatOrder = append(expenseCatOrder, cat)
+		}
+		consolidatedExpenses[cat] += e.Amount
 		totalExpenses += e.Amount
+	}
+	var mergedExpenses []entity.ExpenseDetail
+	for _, cat := range expenseCatOrder {
+		mergedExpenses = append(mergedExpenses, entity.ExpenseDetail{
+			Category: cat,
+			Amount:   consolidatedExpenses[cat],
+		})
 	}
 
 	paymentBreakdown, _ := uc.orderRepo.GetSalesByPaymentMethod(start, end, outletID...)
@@ -289,7 +309,7 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 		Revenue:          revenue,
 		Cogs:             cogs,
 		GrossProfit:      grossProfit,
-		Expenses:         expenses,
+		Expenses:         mergedExpenses,
 		TotalExpenses:    totalExpenses,
 		NetProfit:        netProfit,
 		CashBookIncome:   cbIncome,

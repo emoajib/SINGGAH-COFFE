@@ -36,7 +36,7 @@ export default function Sales() {
     const [editingOrder, setEditingOrder] = useState<any | null>(null)
     const [newPaymentMethod, setNewPaymentMethod] = useState<string>("")
 
-    const [profitLoss, setProfitLoss] = useState<{ gross_profit: number; net_profit: number } | null>(null)
+    const [profitLoss, setProfitLoss] = useState<{ gross_profit: number; total_expenses: number; net_profit: number } | null>(null)
     const [plLoading, setPlLoading] = useState(false)
 
     useEffect(() => {
@@ -48,7 +48,11 @@ export default function Sales() {
                 if (startDate) params.set('start', startDate)
                 if (endDate) params.set('end', endDate)
                 const res = await api.get('/reports/profit-loss', { params })
-                setProfitLoss({ gross_profit: res.data.gross_profit, net_profit: res.data.net_profit })
+                setProfitLoss({
+                    gross_profit: res.data.gross_profit,
+                    total_expenses: res.data.total_expenses ?? 0,
+                    net_profit: res.data.net_profit
+                })
             } catch {
                 setProfitLoss(null)
             } finally {
@@ -284,7 +288,7 @@ export default function Sales() {
 
             {/* Profit Cards - Owner/Manager Only */}
             {isOwnerOrManager && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-gray-500">Laba Kotor</CardTitle>
@@ -302,6 +306,21 @@ export default function Sales() {
                     </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-gray-500">Total Beban Operasional</CardTitle>
+                            <CreditCard className="w-4 h-4 text-rose-500" />
+                        </CardHeader>
+                        <CardContent>
+                            {plLoading ? (
+                                <div className="flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                            ) : (
+                                <div className="text-2xl font-bold text-rose-600">
+                                    {formatCurrency(profitLoss?.total_expenses || 0)}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-gray-500">Laba Bersih</CardTitle>
                             <Wallet className="w-4 h-4 text-blue-500" />
                         </CardHeader>
@@ -309,7 +328,7 @@ export default function Sales() {
                             {plLoading ? (
                                 <div className="flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
                             ) : (
-                                <div className="text-2xl font-bold text-blue-600">
+                                <div className={`text-2xl font-bold ${(profitLoss?.net_profit || 0) >= 0 ? "text-blue-600" : "text-red-600"}`}>
                                     {formatCurrency(profitLoss?.net_profit || 0)}
                                 </div>
                             )}

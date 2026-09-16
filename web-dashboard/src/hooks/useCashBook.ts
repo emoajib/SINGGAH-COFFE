@@ -61,3 +61,16 @@ export function useCashBook(params: CashBookParams) {
     exchangeMut,
   }
 }
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export function useExchangeCash() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (d: any) => CashBookService.exchangeCash(d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cashBooks"] })
+      qc.invalidateQueries({ queryKey: ["dashboard"] })
+      qc.invalidateQueries({ queryKey: ["profit-loss"] })
+    },
+  })
+}
