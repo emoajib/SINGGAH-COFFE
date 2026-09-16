@@ -155,6 +155,15 @@ type UpdateCashBookRequest struct {
 	Reference   string  `json:"reference"`
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type ExchangeCashRequest struct {
+	FromMethod  string  `json:"from_method" binding:"required,oneof=Cash QRIS Lainnya Transfer"`
+	ToMethod    string  `json:"to_method" binding:"required,oneof=Cash QRIS Lainnya Transfer"`
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+	Date        string  `json:"date"`
+	Description string  `json:"description"`
+}
+
 type ProductionTargetInput struct {
 	ProductID uint    `json:"product_id" binding:"required"`
 	TargetCup float64 `json:"target_cup" binding:"gte=0"`

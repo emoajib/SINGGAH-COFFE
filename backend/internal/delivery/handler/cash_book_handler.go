@@ -163,19 +163,25 @@ func (h *CashBookHandler) SyncFromTransactions(c *gin.Context) {
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *CashBookHandler) ExchangeCash(c *gin.Context) {
-	if !requireOwnerOrManager(c) {
-		return
-	}
 	uid, _ := getUserID(c)
 	outletID := getOutletID(c)
 
-	var req usecase.ExchangeCashRequest
+	var req request.ExchangeCashRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Format data tidak valid: %v", err)})
 		return
 	}
 
-	result, err := h.cashBookUsecase.ExchangeCash(req, outletID, uid)
+	date := parseDate(req.Date)
+	ucReq := usecase.ExchangeCashRequest{
+		FromMethod:  req.FromMethod,
+		ToMethod:    req.ToMethod,
+		Amount:      req.Amount,
+		Date:        date,
+		Description: req.Description,
+	}
+
+	result, err := h.cashBookUsecase.ExchangeCash(ucReq, outletID, uid)
 	if err != nil {
 		log.Printf("[ERROR] ExchangeCash failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
