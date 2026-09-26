@@ -142,6 +142,7 @@ type PublicLoyaltyCardResponse struct {
 	Tier           string                   `json:"tier"`
 	Programs       []ProgramProgressResponse `json:"programs"`
 	OutletName     string                   `json:"outlet_name"`
+	OutletLogoURL  string                   `json:"outlet_logo_url"`
 	RecentFeedback []FeedbackPublicResponse `json:"recent_feedback"`
 }
 

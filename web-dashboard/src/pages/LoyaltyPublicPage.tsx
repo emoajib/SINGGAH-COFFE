@@ -1,12 +1,65 @@
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { usePublicLoyaltyCard, useLoyaltyMutations } from '../hooks/useLoyalty';
-import { Coffee, Star, MessageSquare, Send, CheckCircle2, Gift, Sparkles, Award } from 'lucide-react';
+import { LoyaltyService } from '../services/loyaltyService';
+import api from '../lib/api';
+import { getImageUrl } from '../lib/utils';
+import {
+    Coffee,
+    Star,
+    MessageSquare,
+    Send,
+    CheckCircle2,
+    Gift,
+    Sparkles,
+    Award,
+    Phone,
+    User,
+    ArrowRight,
+    RefreshCw
+} from 'lucide-react';
 
 export default function LoyaltyPublicPage() {
-    const { token } = useParams<{ token: string }>();
-    const { data: card, isLoading, isError } = usePublicLoyaltyCard(token || '');
+    const { token: urlToken } = useParams<{ token: string }>();
+
+    // Deteksi apakah token dari URL adalah token kartu nyata atau 'public' / 'meja'
+    const isSpecialDeskUrl = !urlToken || urlToken === 'public' || urlToken === 'meja';
+
+    const [activeToken, setActiveToken] = useState<string>(() => {
+        if (!isSpecialDeskUrl) return urlToken;
+        return localStorage.getItem('singgah_loyalty_token') || '';
+    });
+
+    const [phone, setPhone] = useState<string>('');
+    const [name, setName] = useState<string>('');
+    const [isRegistering, setIsRegistering] = useState<boolean>(false);
+    const [registerError, setRegisterError] = useState<string>('');
+    const [showRegisterForm, setShowRegisterForm] = useState<boolean>(isSpecialDeskUrl && !localStorage.getItem('singgah_loyalty_token'));
+
+    // Branding info fallback saat kartu belum dimuat
+    const [branding, setBranding] = useState<{ logo_url: string; outlet_name: string }>({
+        logo_url: '',
+        outlet_name: 'Singgah Coffee'
+    });
+
+    useEffect(() => {
+        // Ambil info branding publik untuk halaman registrasi/meja
+        api.get('/branding')
+            .then((res) => {
+                if (res.data) {
+                    setBranding({
+                        logo_url: res.data.logo_url || '',
+                        outlet_name: res.data.outlet_name || 'Singgah Coffee'
+                    });
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    // Query data kartu jika token valid tersedia dan form registrasi tidak sedang dibuka paksa
+    const effectiveToken = !showRegisterForm && activeToken ? activeToken : '';
+    const { data: card, isLoading, isError } = usePublicLoyaltyCard(effectiveToken);
     const { submitFeedback } = useLoyaltyMutations();
 
     const [rating, setRating] = useState<number>(5);
@@ -14,12 +67,46 @@ export default function LoyaltyPublicPage() {
     const [message, setMessage] = useState<string>('');
     const [submitted, setSubmitted] = useState<boolean>(false);
 
+    // Handler ketika pelanggan mengisi No WhatsApp & Nama dari meja
+    const handleRegisterOrFind = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setRegisterError('');
+
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        if (cleanPhone.length < 8) {
+            setRegisterError('Nomor WhatsApp harus minimal 8 digit angka.');
+            return;
+        }
+
+        setIsRegistering(true);
+        try {
+            const res = await LoyaltyService.registerOrFind({
+                phone: phone.trim(),
+                name: name.trim() || undefined,
+                outlet_id: 1
+            });
+
+            if (res.token) {
+                localStorage.setItem('singgah_loyalty_token', res.token);
+                setActiveToken(res.token);
+                setShowRegisterForm(false);
+                // Update URL tanpa refresh halaman agar jika di-bookmark tersimpan kartu pribadinya
+                window.history.pushState(null, '', `/loyalty/${res.token}`);
+            }
+        } catch (err: unknown) {
+            const errorMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Gagal memproses kartu. Silakan coba lagi.';
+            setRegisterError(errorMsg);
+        } finally {
+            setIsRegistering(false);
+        }
+    };
+
     const handleSubmitFeedback = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token || !message.trim()) return;
+        if (!activeToken || !message.trim()) return;
 
         submitFeedback.mutate(
-            { token, payload: { rating, category, message: message.trim() } },
+            { token: activeToken, payload: { rating, category, message: message.trim() } },
             {
                 onSuccess: () => {
                     setSubmitted(true);
@@ -29,6 +116,123 @@ export default function LoyaltyPublicPage() {
         );
     };
 
+    // 1. TAMPILAN FORM PENDAFTARAN / SCAN MEJA
+    // Muncul jika pelanggan scan meja publik (/loyalty/public), atau kartu tidak ditemukan, atau pelanggan ingin ganti nomor
+    if (showRegisterForm || (!isLoading && (isError || !card) && !activeToken)) {
+        return (
+            <div className="min-h-screen bg-[#F5F0E6] text-slate-800 pb-12 font-sans">
+                {/* Header Brand */}
+                <div className="bg-[#4B3621] text-white pt-8 pb-14 px-6 rounded-b-[40px] shadow-lg relative overflow-hidden">
+                    <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-amber-600/20 rounded-full blur-2xl pointer-events-none" />
+                    <div className="max-w-md mx-auto text-center relative z-10">
+                        {branding.logo_url ? (
+                            <div className="w-16 h-16 rounded-2xl bg-white p-1.5 mx-auto shadow-md border-2 border-amber-400/40 flex items-center justify-center overflow-hidden mb-3">
+                                <img
+                                    src={getImageUrl(branding.logo_url)}
+                                    alt={branding.outlet_name}
+                                    className="w-full h-full object-contain rounded-xl"
+                                />
+                            </div>
+                        ) : (
+                            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center mx-auto mb-3 shadow-inner">
+                                <Coffee className="w-6 h-6 text-amber-300" />
+                            </div>
+                        )}
+                        <h1 className="text-2xl font-black tracking-tight text-amber-100">{branding.outlet_name}</h1>
+                        <p className="text-xs text-amber-200/80 mt-0.5 font-medium">Tempat Singgah & Menikmati Kopi</p>
+                    </div>
+                </div>
+
+                <div className="max-w-md mx-auto px-4 -mt-8 space-y-6">
+                    {/* Kartu Form Input Data Pelanggan */}
+                    <div className="bg-white rounded-3xl p-6 shadow-xl border border-amber-900/10 space-y-5">
+                        <div className="text-center space-y-1">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full inline-block">
+                                ⭐ Program Stempel Digital ⭐
+                            </span>
+                            <h2 className="text-lg font-black text-slate-900 leading-tight">
+                                Buka Kartu Stempel Digital Anda
+                            </h2>
+                            <p className="text-xs text-slate-500 leading-relaxed">
+                                Masukkan nama & nomor WhatsApp untuk mengumpulkan stempel kopi gratis serta menyampaikan kritik & saran.
+                            </p>
+                        </div>
+
+                        {registerError && (
+                            <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium">
+                                {registerError}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleRegisterOrFind} className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+                                    <User className="w-3.5 h-3.5 text-amber-700" />
+                                    Nama Lengkap / Panggilan
+                                </label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Contoh: Budi Santoso"
+                                    className="w-full text-xs p-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-700 bg-slate-50 text-slate-800 font-medium"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+                                    <Phone className="w-3.5 h-3.5 text-amber-700" />
+                                    Nomor WhatsApp / HP <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="tel"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    placeholder="Contoh: 081234567890"
+                                    required
+                                    className="w-full text-xs p-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-700 bg-slate-50 text-slate-800 font-medium font-mono"
+                                />
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                    Nomor digunakan untuk menyimpan stempel setiap kali Anda memesan kopi di kasir.
+                                </p>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isRegistering || !phone.trim()}
+                                className="w-full bg-[#4B3621] hover:bg-[#3D2C1B] text-white font-bold text-xs py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {isRegistering ? (
+                                    <>
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                        Membuka Kartu...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>Buka / Buat Kartu Stempel</span>
+                                        <ArrowRight className="w-4 h-4" />
+                                    </>
+                                )}
+                            </button>
+                        </form>
+
+                        {activeToken && (
+                            <div className="pt-2 text-center border-t border-slate-100">
+                                <button
+                                    onClick={() => setShowRegisterForm(false)}
+                                    className="text-xs text-amber-800 hover:text-amber-950 font-bold"
+                                >
+                                    Kembali ke Kartu Sebelumnya
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // 2. LOADING STATE
     if (isLoading) {
         return (
             <div className="min-h-screen bg-[#F5F0E6] flex flex-col items-center justify-center p-4">
@@ -40,19 +244,33 @@ export default function LoyaltyPublicPage() {
         );
     }
 
+    // 3. JIKA TOKEN TIDAK VALID / ERROR (Fallback ke form registrasi)
     if (isError || !card) {
         return (
             <div className="min-h-screen bg-[#F5F0E6] flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-16 h-16 rounded-3xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+                <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-800 flex items-center justify-center mb-4">
                     <Coffee className="w-8 h-8" />
                 </div>
                 <h2 className="text-xl font-black text-slate-800">Kartu Tidak Ditemukan</h2>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                    Pastikan tautan QR yang Anda pindai dari struk pembelian sudah sesuai.
+                <p className="text-xs text-slate-500 mt-1 max-w-xs mb-4">
+                    Nomor atau tautan kartu belum terdaftar di sistem. Anda dapat membukanya kembali dengan nomor HP Anda.
                 </p>
+                <button
+                    onClick={() => {
+                        setShowRegisterForm(true);
+                        setActiveToken('');
+                        localStorage.removeItem('singgah_loyalty_token');
+                    }}
+                    className="bg-[#4B3621] hover:bg-[#3D2C1B] text-white text-xs font-bold py-2.5 px-5 rounded-xl shadow-md transition-all active:scale-95"
+                >
+                    Masukkan Nomor WhatsApp Saya
+                </button>
             </div>
         );
     }
+
+    // 4. TAMPILAN UTAMA KARTU STEMPEL DIGITAL PELANGGAN
+    const outletLogo = card.outlet_logo_url ? getImageUrl(card.outlet_logo_url) : (branding.logo_url ? getImageUrl(branding.logo_url) : null);
 
     return (
         <div className="min-h-screen bg-[#F5F0E6] text-slate-800 pb-12 font-sans">
@@ -60,9 +278,19 @@ export default function LoyaltyPublicPage() {
             <div className="bg-[#4B3621] text-white pt-8 pb-14 px-6 rounded-b-[40px] shadow-lg relative overflow-hidden">
                 <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-amber-600/20 rounded-full blur-2xl pointer-events-none" />
                 <div className="max-w-md mx-auto text-center relative z-10">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center mx-auto mb-3 shadow-inner">
-                        <Coffee className="w-6 h-6 text-amber-300" />
-                    </div>
+                    {outletLogo ? (
+                        <div className="w-16 h-16 rounded-2xl bg-white p-1.5 mx-auto shadow-md border-2 border-amber-400/40 flex items-center justify-center overflow-hidden mb-3">
+                            <img
+                                src={outletLogo}
+                                alt={card.outlet_name}
+                                className="w-full h-full object-contain rounded-xl"
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center mx-auto mb-3 shadow-inner">
+                            <Coffee className="w-6 h-6 text-amber-300" />
+                        </div>
+                    )}
                     <h1 className="text-2xl font-black tracking-tight text-amber-100">{card.outlet_name}</h1>
                     <p className="text-xs text-amber-200/80 mt-0.5 font-medium">Kartu Stempel Digital Pelanggan</p>
                 </div>
@@ -72,9 +300,19 @@ export default function LoyaltyPublicPage() {
                 {/* Kartu Profil Member */}
                 <div className="bg-white rounded-3xl p-5 shadow-xl border border-amber-900/10 flex items-center justify-between">
                     <div>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full inline-block mb-1">
-                            {card.tier} Member
-                        </span>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full inline-block">
+                                {card.tier} Member
+                            </span>
+                            <button
+                                onClick={() => {
+                                    setShowRegisterForm(true);
+                                }}
+                                className="text-[10px] font-bold text-slate-400 hover:text-amber-800 underline"
+                            >
+                                Ganti Nomor
+                            </button>
+                        </div>
                         <h2 className="text-lg font-black text-slate-900 leading-tight">{card.customer_name}</h2>
                         <p className="text-xs text-slate-400 font-mono mt-0.5">{card.phone_masked}</p>
                     </div>

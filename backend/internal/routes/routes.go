@@ -59,6 +59,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 		// Public Loyalty Card & Customer Feedback (QR scan pelanggan) - Vetted by AI
 		api.GET("/loyalty/:token", h.Loyalty.GetPublicLoyaltyCard)
 		api.POST("/loyalty/:token/feedback", h.Loyalty.SubmitFeedback)
+		api.POST("/loyalty/register-or-find", h.Loyalty.RegisterOrFindCustomer)
 
 	// Protected Routes
 	protected := api.Group("/")

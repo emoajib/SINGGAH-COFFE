@@ -23,6 +23,11 @@ export const LoyaltyService = {
         return response.data;
     },
 
+    registerOrFind: async (payload: { phone: string; name?: string; outlet_id?: number }): Promise<{ token: string; card?: PublicLoyaltyCard }> => {
+        const response = await api.post('/loyalty/register-or-find', payload);
+        return response.data;
+    },
+
     submitFeedback: async (token: string, payload: SubmitFeedbackPayload): Promise<void> => {
         await api.post(`/loyalty/${token}/feedback`, payload);
     },

@@ -4,6 +4,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/usecase"
@@ -58,6 +59,51 @@ func (h *LoyaltyHandler) SubmitFeedback(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Terima kasih atas saran dan masukan Anda!", "feedback": fb})
+}
+
+// RegisterOrFindCustomer menangani pencarian atau registrasi kartu pelanggan mandiri dari scan meja
+func (h *LoyaltyHandler) RegisterOrFindCustomer(c *gin.Context) {
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	var req struct {
+		Phone    string `json:"phone" binding:"required"`
+		Name     string `json:"name"`
+		OutletID uint   `json:"outlet_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor WhatsApp/HP pelanggan wajib diisi"})
+		return
+	}
+
+	cleanPhone := usecase.CleanPhoneNumber(req.Phone)
+	if len(cleanPhone) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor WhatsApp/HP tidak valid (minimal 8 digit angka)"})
+		return
+	}
+
+	if req.OutletID == 0 {
+		req.OutletID = 1
+	}
+
+	cust, err := h.loyaltyUsecase.FindOrCreateCustomer(cleanPhone, strings.TrimSpace(req.Name), req.OutletID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses kartu pelanggan: " + err.Error()})
+		return
+	}
+
+	// Ambil data kartu loyalitas publik untuk token ini
+	card, err := h.loyaltyUsecase.GetPublicLoyaltyCard(cust.LoyaltyToken)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"token":    cust.LoyaltyToken,
+			"customer": cust,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": cust.LoyaltyToken,
+		"card":  card,
+	})
 }
 
 // ================= PROTECTED ENDPOINTS (KASIR & OWNER) =================

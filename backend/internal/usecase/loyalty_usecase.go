@@ -199,6 +199,11 @@ func (uc *LoyaltyUsecase) GetPublicLoyaltyCard(token string) (*entity.PublicLoya
 		outletName = s.Value
 	}
 
+	outletLogoURL := ""
+	if s, err := uc.settingRepo.FindByKey("outlet_logo_url"); err == nil && s.Value != "" {
+		outletLogoURL = s.Value
+	}
+
 	displayName := customer.Name
 	if displayName == "" {
 		displayName = "Pelanggan Setia"
@@ -211,6 +216,7 @@ func (uc *LoyaltyUsecase) GetPublicLoyaltyCard(token string) (*entity.PublicLoya
 		Tier:           customer.Tier,
 		Programs:       progResponses,
 		OutletName:     outletName,
+		OutletLogoURL:  outletLogoURL,
 		RecentFeedback: fbList,
 	}, nil
 }

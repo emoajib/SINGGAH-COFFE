@@ -1,6 +1,7 @@
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 import { useState } from 'react';
 import { useFeedbacks, useLoyaltyPrograms, useCustomers, useLoyaltyMutations } from '../hooks/useLoyalty';
+import { useSettings } from '../hooks/useSettings';
 import {
     MessageSquare,
     Star,
@@ -15,7 +16,7 @@ import {
     X,
     CheckCircle2
 } from 'lucide-react';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, getImageUrl } from '../lib/utils';
 import type { CustomerFeedback } from '../types';
 
 export default function FeedbackManagement() {
@@ -35,6 +36,7 @@ export default function FeedbackManagement() {
     const { data: feedbacks, isLoading: loadingFeedbacks } = useFeedbacks();
     const { data: programs, isLoading: loadingPrograms } = useLoyaltyPrograms();
     const { data: customers, isLoading: loadingCustomers } = useCustomers();
+    const { data: settings } = useSettings();
     const { replyFeedback, createProgram } = useLoyaltyMutations();
 
     const handleSendReply = () => {
@@ -386,12 +388,22 @@ export default function FeedbackManagement() {
 
                         {/* Desain Akrilik Meja Siap Cetak */}
                         <div id="standee-print-area" className="bg-[#4B3621] text-[#F5F0E6] rounded-2xl p-6 text-center border-2 border-amber-900/50 shadow-inner space-y-3">
-                            <div className="w-10 h-10 rounded-xl bg-amber-500/20 mx-auto flex items-center justify-center text-amber-300">
-                                <Coffee className="w-6 h-6" />
-                            </div>
+                            {settings?.outlet_logo_url ? (
+                                <div className="w-16 h-16 rounded-2xl bg-white p-1.5 mx-auto shadow-md border-2 border-amber-400/40 flex items-center justify-center overflow-hidden">
+                                    <img
+                                        src={getImageUrl(settings.outlet_logo_url)}
+                                        alt={settings.outlet_name || "Logo Singgah Coffee"}
+                                        className="w-full h-full object-contain rounded-xl"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 mx-auto flex items-center justify-center text-amber-300 border border-amber-400/30">
+                                    <Coffee className="w-6 h-6" />
+                                </div>
+                            )}
                             <div>
-                                <h4 className="font-black text-base tracking-wide uppercase">Singgah Coffee</h4>
-                                <p className="text-[11px] text-amber-200/90 font-medium">Tempat Singgah & Menikmati Kopi</p>
+                                <h4 className="font-black text-base tracking-wide uppercase">{settings?.outlet_name || "Singgah Coffee"}</h4>
+                                <p className="text-[11px] text-amber-200/90 font-medium">{settings?.receipt_footer || "Tempat Singgah & Menikmati Kopi"}</p>
                             </div>
 
                             {/* Kotak QR Code */}

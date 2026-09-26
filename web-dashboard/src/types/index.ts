@@ -628,6 +628,7 @@ export interface PublicLoyaltyCard {
   tier: string
   programs: ProgramProgress[]
   outlet_name: string
+  outlet_logo_url?: string
   recent_feedback: {
     rating: number
     message: string
