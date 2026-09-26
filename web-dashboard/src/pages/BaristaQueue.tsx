@@ -275,6 +275,24 @@ export default function BaristaQueue() {
                         </button>
                     )}
 
+                    {/* Tombol Selesaikan Semua Pesanan Aktif */}
+                    {orders.length > 0 && (
+                        <button
+                            onClick={() => {
+                                const confirmAll = window.confirm(`Tandai semua ${orders.length} pesanan yang aktif menjadi selesai / sudah disajikan?`);
+                                if (confirmAll) {
+                                    clearOldQueue();
+                                }
+                            }}
+                            disabled={isClearing}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 shadow-xs transition-colors active:scale-95"
+                            title="Tandai semua pesanan sudah disajikan ke pelanggan"
+                        >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{isClearing ? 'Memproses...' : `Selesaikan Semua (${orders.length})`}</span>
+                        </button>
+                    )}
+
                     <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl text-xs font-semibold">
                         <span className="px-3 py-1.5 rounded-xl bg-white text-slate-800 shadow-sm">
                             Total Aktif: <strong className="text-amber-800">{orders.length}</strong>
