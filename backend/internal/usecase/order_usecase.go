@@ -667,13 +667,15 @@ func (uc *OrderUsecase) GetActiveKitchenQueue(outletID ...uint) ([]entity.OrderR
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-// UpdateKitchenStatus memperbarui status pengerjaan pesanan oleh barista
+// UpdateKitchenStatus memperbarui status pengerjaan pesanan oleh barista atau catatan racikan
 func (uc *OrderUsecase) UpdateKitchenStatus(id uint, status string, notes string, outletID ...uint) (*entity.OrderResponse, error) {
-	validStatuses := map[string]bool{
-		"queued": true, "preparing": true, "ready": true, "served": true,
-	}
-	if !validStatuses[status] {
-		return nil, domainErrors.NewInvalidInputError("status dapur tidak valid: " + status)
+	if status != "" {
+		validStatuses := map[string]bool{
+			"queued": true, "preparing": true, "ready": true, "served": true,
+		}
+		if !validStatuses[status] {
+			return nil, domainErrors.NewInvalidInputError("status dapur tidak valid: " + status)
+		}
 	}
 
 	if err := uc.orderRepo.UpdateKitchenStatus(id, status, notes, outletID...); err != nil {
@@ -686,6 +688,11 @@ func (uc *OrderUsecase) UpdateKitchenStatus(id uint, status string, notes string
 	}
 	resp := order.ToResponse()
 	return &resp, nil
+}
+
+// ClearActiveKitchenQueue menandai semua pesanan aktif menjadi served (arsipkan antrian lampau)
+func (uc *OrderUsecase) ClearActiveKitchenQueue(outletID ...uint) error {
+	return uc.orderRepo.ClearActiveKitchenQueue(outletID...)
 }
 
 

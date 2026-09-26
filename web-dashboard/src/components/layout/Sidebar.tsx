@@ -19,6 +19,7 @@ import {
     PieChart,
     ChefHat,
     HeartHandshake,
+    Download,
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
@@ -121,6 +122,20 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
                     )
                 })}
             </nav>
+
+            {/* Tombol Download / Pasang Aplikasi PWA */}
+            <div className="px-3 py-2 border-t border-gray-100">
+                <button
+                    onClick={() => {
+                        window.dispatchEvent(new CustomEvent("open-pwa-install"))
+                        setSidebarOpen(false)
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-[#4B3621] border border-amber-200/80 font-bold text-xs transition-colors shadow-xs"
+                >
+                    <Download className="w-4 h-4 text-amber-700" />
+                    <span>Download Aplikasi</span>
+                </button>
+            </div>
 
             <div className="p-4 border-t border-gray-100">
                 

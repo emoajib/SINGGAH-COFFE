@@ -141,5 +141,16 @@ func Connect(cfg config.Config) *gorm.DB {
 		log.Println("Seeded default outlet and assigned users")
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Bersihkan antrian lampau: pesanan dari sebelum hari ini yang berstatus Completed
+	// otomatis diset kitchen_status = 'served' agar tidak memenuhi antrian aktif barista
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	if err := db.Model(&models.Order{}).
+		Where("order_time < ? AND kitchen_status IN ('queued', 'preparing', 'ready') AND status = 'Completed'", startOfDay).
+		Update("kitchen_status", "served").Error; err != nil {
+		log.Printf("Notice: historical kitchen queue cleanup skipped: %v", err)
+	}
+
 	return db
 }

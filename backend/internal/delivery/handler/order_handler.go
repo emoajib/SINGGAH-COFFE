@@ -120,6 +120,16 @@ func (h *OrderHandler) UpdateKitchenStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Status antrian berhasil diperbarui", "order": result})
 }
 
+// ClearActiveKitchenQueue menyelesaikan semua antrian dapur yang aktif
+func (h *OrderHandler) ClearActiveKitchenQueue(c *gin.Context) {
+	outletID := getOutletID(c)
+	if err := h.orderUsecase.ClearActiveKitchenQueue(outletID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membersihkan antrian dapur"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Semua antrian lampau berhasil diselesaikan"})
+}
+
 func (h *OrderHandler) VoidOrder(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

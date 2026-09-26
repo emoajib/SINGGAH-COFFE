@@ -175,8 +175,10 @@ func (r *orderRepository) GetAverageOrderValue(start, end string, outletID ...ui
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) FindActiveKitchenQueue(outletID ...uint) ([]entity.Order, error) {
+	// Batasi antrian aktif hanya dalam 24 jam terakhir agar order masa lampau tidak memenuhi antrian
+	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
 	tx := r.db.Preload("OrderItems").Preload("OrderItems.Product").
-		Where("kitchen_status IN ('queued', 'preparing', 'ready') AND status != 'Void'").
+		Where("kitchen_status IN ('queued', 'preparing', 'ready') AND status != 'Void' AND order_time >= ?", twentyFourHoursAgo).
 		Order("order_time asc").
 		Limit(100)
 
@@ -194,17 +196,19 @@ func (r *orderRepository) FindActiveKitchenQueue(outletID ...uint) ([]entity.Ord
 
 func (r *orderRepository) UpdateKitchenStatus(id uint, status string, notes string, outletID ...uint) error {
 	updates := map[string]interface{}{
-		"kitchen_status": status,
-		"updated_at":     time.Now(),
+		"updated_at": time.Now(),
 	}
-	now := time.Now()
-	switch status {
-	case "preparing":
-		updates["preparing_at"] = &now
-	case "ready":
-		updates["ready_at"] = &now
-	case "served":
-		updates["served_at"] = &now
+	if status != "" {
+		updates["kitchen_status"] = status
+		now := time.Now()
+		switch status {
+		case "preparing":
+			updates["preparing_at"] = &now
+		case "ready":
+			updates["ready_at"] = &now
+		case "served":
+			updates["served_at"] = &now
+		}
 	}
 	if notes != "" {
 		updates["preparation_notes"] = notes
@@ -213,6 +217,18 @@ func (r *orderRepository) UpdateKitchenStatus(id uint, status string, notes stri
 	tx := r.db.Model(&models.Order{}).Where("id = ?", id)
 	tx = scopeOutlet(tx, "orders", outletID...)
 	return tx.Updates(updates).Error
+}
+
+func (r *orderRepository) ClearActiveKitchenQueue(outletID ...uint) error {
+	now := time.Now()
+	tx := r.db.Model(&models.Order{}).
+		Where("kitchen_status IN ('queued', 'preparing', 'ready') AND status != 'Void'")
+	tx = scopeOutlet(tx, "orders", outletID...)
+	return tx.Updates(map[string]interface{}{
+		"kitchen_status": "served",
+		"served_at":      &now,
+		"updated_at":     now,
+	}).Error
 }
 
 func toDomainOrder(m *models.Order) *entity.Order {

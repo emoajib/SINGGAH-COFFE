@@ -12,7 +12,8 @@ export default function PWAInstallBanner() {
     const [isStandalone, setIsStandalone] = useState(false)
     const [isIOS, setIsIOS] = useState(false)
     const [showIOSModal, setShowIOSModal] = useState(false)
-    const [isDismissed, setIsDismissed] = useState(true) // default true to avoid flash
+    const [showAndroidModal, setShowAndroidModal] = useState(false)
+    const [isDismissed, setIsDismissed] = useState(false)
 
     useEffect(() => {
         // 1. Cek apakah sudah running standalone (sudah diinstall)
@@ -27,16 +28,13 @@ export default function PWAInstallBanner() {
             return
         }
 
-        // 2. Cek apakah banner sedang dalam masa dismiss (7 hari)
+        // 2. Cek apakah banner sedang dalam masa dismiss (3 hari)
         const dismissedUntil = localStorage.getItem("pwa_install_dismissed_until")
         if (dismissedUntil && new Date().getTime() < parseInt(dismissedUntil, 10)) {
             setIsDismissed(true)
-            return
         }
-        setIsDismissed(false)
 
         // 3. Deteksi iOS / iPadOS
-        // iPad di iOS 13+ melaporkan MacIntel dengan touch points > 1
         const ua = window.navigator.userAgent.toLowerCase()
         const isAppleDevice = /iphone|ipad|ipod/.test(ua) || (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1)
         setIsIOS(isAppleDevice)
@@ -45,21 +43,39 @@ export default function PWAInstallBanner() {
         const handleBeforeInstallPrompt = (e: Event) => {
             e.preventDefault()
             setDeferredPrompt(e as BeforeInstallPromptEvent)
+            setIsDismissed(false)
+        }
+
+        const handleOpenManual = () => {
+            setIsDismissed(false)
+            if (isAppleDevice) {
+                setShowIOSModal(true)
+            } else if (deferredPrompt) {
+                deferredPrompt.prompt().then(() => {
+                    deferredPrompt.userChoice.then((res) => {
+                        if (res.outcome === "accepted") setDeferredPrompt(null)
+                    })
+                })
+            } else {
+                setShowAndroidModal(true)
+            }
         }
 
         window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+        window.addEventListener("open-pwa-install", handleOpenManual)
 
         return () => {
             window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+            window.removeEventListener("open-pwa-install", handleOpenManual)
         }
-    }, [])
+    }, [deferredPrompt])
 
     const handleDismiss = () => {
-        // Simpan 7 hari ke depan
-        const expireTime = new Date().getTime() + 7 * 24 * 60 * 60 * 1000
+        const expireTime = new Date().getTime() + 3 * 24 * 60 * 60 * 1000
         localStorage.setItem("pwa_install_dismissed_until", expireTime.toString())
         setIsDismissed(true)
         setShowIOSModal(false)
+        setShowAndroidModal(false)
     }
 
     const handleInstallClick = async () => {
@@ -76,8 +92,7 @@ export default function PWAInstallBanner() {
             }
             setDeferredPrompt(null)
         } else {
-            // Fallback petunjuk jika bukan iOS dan deferred prompt tidak tersedia
-            alert("Untuk memasang aplikasi: buka menu browser (titik tiga) lalu pilih 'Pasang Aplikasi' atau 'Tambahkan ke Layar Utama'.")
+            setShowAndroidModal(true)
         }
     }
 
@@ -188,6 +203,72 @@ export default function PWAInstallBanner() {
                         <button
                             onClick={() => {
                                 setShowIOSModal(false)
+                                handleDismiss()
+                            }}
+                            className="w-full bg-[#4B3621] hover:bg-[#3D2C1B] text-white font-semibold py-2.5 rounded-xl text-xs transition-all shadow-md active:scale-95"
+                        >
+                            Saya Mengerti
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Panduan Khusus Android / Chrome */}
+            {showAndroidModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-slate-800 shadow-2xl relative border border-slate-100">
+                        <button
+                            onClick={() => setShowAndroidModal(false)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="text-center mb-5">
+                            <div className="w-14 h-14 rounded-2xl bg-amber-50 mx-auto flex items-center justify-center mb-3 border border-amber-100">
+                                <Download className="w-7 h-7 text-amber-700" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900">Pasang di Android / Tablet</h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Ikuti 3 langkah mudah di browser Chrome:
+                            </p>
+                        </div>
+
+                        <div className="space-y-3.5 mb-6 text-xs text-slate-700">
+                            <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold shrink-0 text-xs">
+                                    1
+                                </div>
+                                <div>
+                                    <span className="font-semibold text-slate-900">Buka Menu Peramban (⋮)</span>
+                                    <p className="text-slate-500 mt-0.5">Tekan ikon titik tiga di pojok kanan atas browser.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold shrink-0 text-xs">
+                                    2
+                                </div>
+                                <div>
+                                    <span className="font-semibold text-slate-900">Pilih "Pasang Aplikasi" / "Tambahkan"</span>
+                                    <p className="text-slate-500 mt-0.5">Pilih "Install App" atau "Tambahkan ke Layar Utama".</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold shrink-0 text-xs">
+                                    3
+                                </div>
+                                <div>
+                                    <span className="font-semibold text-slate-900">Tekan "Pasang" (Install)</span>
+                                    <p className="text-slate-500 mt-0.5">Aplikasi Singgah POS siap dibuka langsung dari layar utama.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setShowAndroidModal(false)
                                 handleDismiss()
                             }}
                             className="w-full bg-[#4B3621] hover:bg-[#3D2C1B] text-white font-semibold py-2.5 rounded-xl text-xs transition-all shadow-md active:scale-95"

@@ -20,5 +20,11 @@ export const OrderQueueService = {
     updateStatus: async (orderId: number, payload: UpdateKitchenStatusPayload): Promise<Order> => {
         const response = await api.patch(`/orders/${orderId}/kitchen-status`, payload);
         return response.data.order;
+    },
+
+    // Membersihkan/menyelesaikan semua antrian lampau
+    clearOldQueue: async (): Promise<{ message: string }> => {
+        const response = await api.post('/orders/queue/clear-old');
+        return response.data;
     }
 };

@@ -43,6 +43,26 @@ export const useOrderQueue = () => {
         }
     });
 
+    const clearOldQueueMutation = useMutation({
+        mutationFn: OrderQueueService.clearOldQueue,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] });
+            toast({
+                title: 'Antrian Lampau Dibersihkan',
+                description: 'Semua pesanan sebelum hari ini berhasil diarsipkan.',
+                variant: 'success',
+            });
+        },
+        onError: (err: unknown) => {
+            const errorMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Gagal membersihkan antrian lampau';
+            toast({
+                title: 'Peringatan',
+                description: errorMsg,
+                variant: 'error',
+            });
+        }
+    });
+
     return {
         orders: queueQuery.data || [],
         isLoading: queueQuery.isLoading,
@@ -50,5 +70,7 @@ export const useOrderQueue = () => {
         refetch: queueQuery.refetch,
         updateStatus: updateStatusMutation.mutate,
         isUpdating: updateStatusMutation.isPending,
+        clearOldQueue: clearOldQueueMutation.mutate,
+        isClearing: clearOldQueueMutation.isPending,
     };
 };

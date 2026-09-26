@@ -75,6 +75,7 @@ type OrderRepository interface {
 	// KDS (Kitchen Display System) - Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	FindActiveKitchenQueue(outletID ...uint) ([]entity.Order, error)
 	UpdateKitchenStatus(id uint, status string, notes string, outletID ...uint) error
+	ClearActiveKitchenQueue(outletID ...uint) error
 }
 
 // OrderItemRepository defines data access for order items
