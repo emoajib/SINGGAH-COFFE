@@ -28,6 +28,7 @@ import FeedbackManagement from "./pages/FeedbackManagement"
 import CashFloatModal from "./components/cash/CashFloatModal"
 import PWAInstallBanner from "./components/pwa/PWAInstallBanner"
 import { useLocation, Routes, Route } from "react-router-dom"
+import { Download } from "lucide-react"
 import { ToastProvider } from "./hooks/use-toast"
 import { Toaster } from "./components/ui/toaster"
 import { ErrorBoundary } from "./components/ui/error-boundary"
@@ -71,12 +72,22 @@ function AppContent() {
             <div className="bg-slate-100 h-screen overflow-hidden flex flex-col p-2 md:p-3">
                 <div className="flex justify-between items-center px-2 py-1 mb-2 shrink-0">
                     <h1 className="text-lg font-black text-slate-800">Kasir</h1>
-                    <button
-                        onClick={() => setActiveTab("dashboard")}
-                        className="text-xs px-3 py-1.5 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 font-bold text-slate-700 transition-colors"
-                    >
-                        Keluar Mode Kasir
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => window.dispatchEvent(new CustomEvent("open-pwa-install"))}
+                            className="text-xs px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-lg shadow-sm hover:bg-amber-100 font-bold text-amber-900 transition-colors flex items-center gap-1.5"
+                            title="Panduan Pasang Aplikasi di iPad / Android"
+                        >
+                            <Download className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Pasang di iPad</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("dashboard")}
+                            className="text-xs px-3 py-1.5 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 font-bold text-slate-700 transition-colors"
+                        >
+                            Keluar Mode Kasir
+                        </button>
+                    </div>
                 </div>
                 <div className="flex-1 min-h-0 overflow-hidden">
                     {needsCashFloatForPos ? <CashFloatModal open={true} onSuccess={() => setActiveTab("pos")} onClose={() => dispatch(setCashFloatPending(false))} /> : <PosTerminal />}

@@ -1,4 +1,4 @@
-import { Bell, User, LogOut, Menu } from "lucide-react"
+import { Bell, User, LogOut, Menu, Download } from "lucide-react"
 import { Button } from "../ui/button"
 import { useDispatch, useSelector } from "react-redux"
 import { logout } from "../../store/authSlice"
@@ -39,7 +39,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 </h2>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={() => window.dispatchEvent(new CustomEvent("open-pwa-install"))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/90 text-xs font-bold transition-all shadow-xs active:scale-95"
+                    title="Pasang Aplikasi di iPad / Tablet"
+                >
+                    <Download className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Pasang Aplikasi</span>
+                </button>
+
                 <Button variant="ghost" size="icon" className="relative">
                     <Bell className="w-5 h-5 text-gray-500" />
                     {/* Notification Alert Dot */}
