@@ -127,10 +127,16 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			if updateMasterPrice && newCost > 0 {
 				costToUse = newCost
 			}
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			// Category "Bahan Baku" + CostType "variable" agar:
+			// 1. BEP memperhitungkan HPP via GetTotalByCostType("variable")
+			// 2. Profit Sharing tidak salah memasukkan HPP ke basis bagi hasil
+			// 3. P&L report memisahkan HPP dari biaya operasional lain
 			exp := &entity.Expense{
 				Title:       "Pembelian: " + ingredient.Name,
 				Amount:      quantity * costToUse,
-				Category:    "Operasional",
+				Category:    "Bahan Baku",
+				CostType:    "variable",
 				Date:        time.Now(),
 				Description: "Auto-generated from Stock In",
 				Notes:       notes,

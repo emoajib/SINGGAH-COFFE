@@ -21,6 +21,12 @@ export default defineConfig({
             scope: '/',
             icons: [
                 {
+                    src: '/coffee-icon.svg',
+                    sizes: '512x512',
+                    type: 'image/svg+xml',
+                    purpose: 'any'
+                },
+                {
                     src: '/uploads/logo/pwa-icon.png',
                     sizes: '512x512',
                     type: 'image/png',

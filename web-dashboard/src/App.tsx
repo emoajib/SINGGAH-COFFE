@@ -23,6 +23,7 @@ import PsakJournal from "./pages/PsakJournal"
 import PsakReports from "./pages/PsakReports"
 import Login from "./pages/Login"
 import CashFloatModal from "./components/cash/CashFloatModal"
+import PWAInstallBanner from "./components/pwa/PWAInstallBanner"
 import { ToastProvider } from "./hooks/use-toast"
 import { Toaster } from "./components/ui/toaster"
 import { ErrorBoundary } from "./components/ui/error-boundary"
@@ -112,6 +113,7 @@ function App() {
         <ToastProvider>
             <ErrorBoundary>
                 <AppContent />
+                <PWAInstallBanner />
                 <Toaster />
             </ErrorBoundary>
         </ToastProvider>
