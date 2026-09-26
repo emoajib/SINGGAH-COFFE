@@ -74,6 +74,9 @@ const PosTerminal: React.FC = () => {
     const [closeLoading, setCloseLoading] = useState(false);
     const [closeSummary, setCloseSummary] = useState<{ variance: number; expected: number; closing: number } | null>(null);
     const [isExchangeOpen, setIsExchangeOpen] = useState(false);
+    // Vetted by AI: State antrian barista & nama pemesan
+    const [customerName, setCustomerName] = useState<string>('');
+    const [preparationNotes, setPreparationNotes] = useState<string>('');
 
     const dispatch = useDispatch()
     const { openCashRegister } = useSelector((state: RootState) => state.auth)
@@ -190,7 +193,11 @@ const PosTerminal: React.FC = () => {
         }));
     };
 
-    const clearCart = () => setCart([]);
+    const clearCart = () => {
+        setCart([]);
+        setCustomerName('');
+        setPreparationNotes('');
+    };
 
     const handleCheckout = async (method: string) => {
         if (cart.length === 0) return;
@@ -199,13 +206,17 @@ const PosTerminal: React.FC = () => {
             const orderData = {
                 items: cart.map(item => ({ product_id: item.id, quantity: item.quantity })),
                 payment_method: method,
-                customer_email: "customer@example.com"
+                customer_email: "customer@example.com",
+                customer_name: customerName.trim(),
+                preparation_notes: preparationNotes.trim(),
             };
             const data = await createOrder.mutateAsync(orderData) as any;
 
             setLastOrder(data.order || data);
             setInvoiceUrl(data.invoice_url || null);
             setCart([]);
+            setCustomerName('');
+            setPreparationNotes('');
             setShowSuccess(true);
 
             if (method === 'QRIS' && data.invoice_url) {
@@ -478,6 +489,24 @@ const PosTerminal: React.FC = () => {
 
                 {/* Bottom Fixed Area: Calculation Summary & Payment Buttons (FIXED / NON-SCROLLABLE) */}
                 <div className="shrink-0 bg-white border-t border-slate-200">
+                    {/* Input Info Antrian & Catatan Barista */}
+                    <div className="p-2.5 bg-slate-50/90 border-b border-slate-200 space-y-1.5">
+                        <input
+                            type="text"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            placeholder="Nama Pemesan (opsional, cth: Kak Dimas)"
+                            className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-700 bg-white text-slate-800 placeholder-slate-400 font-medium"
+                        />
+                        <input
+                            type="text"
+                            value={preparationNotes}
+                            onChange={(e) => setPreparationNotes(e.target.value)}
+                            placeholder="Catatan racikan / meja (opsional, cth: Less ice, No sugar)"
+                            className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-700 bg-white text-slate-800 placeholder-slate-400 font-medium"
+                        />
+                    </div>
+
                     {/* Calculation Summary */}
                     <div className="p-3 md:p-4 bg-slate-50/80 space-y-1.5">
                         <div className="flex justify-between text-xs text-slate-500 font-medium">
@@ -722,6 +751,23 @@ const PosTerminal: React.FC = () => {
                             : 'Pesanan telah berhasil diproses.'}
                     </p>
 
+                    {/* Vetted by AI: Highlight Nomor Antrian Barista */}
+                    {lastOrder?.queue_number !== undefined && lastOrder.queue_number > 0 && (
+                        <div className="my-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-2xl text-center shadow-sm">
+                            <span className="text-[10px] font-black text-amber-800 uppercase tracking-widest block">
+                                ☕ Nomor Antrian Barista
+                            </span>
+                            <span className="text-4xl font-black text-amber-900 tracking-tight block">
+                                #{lastOrder.queue_number}
+                            </span>
+                            {lastOrder.customer_name && (
+                                <span className="text-xs font-bold text-slate-700 mt-1 block">
+                                    Pemesan: {lastOrder.customer_name}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     {/* Highlight Information Kembalian Uang Tunai */}
                     {lastOrder?.payment_method === 'Cash' && (
                         <div className="my-4 p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl text-center shadow-sm">
@@ -761,7 +807,13 @@ const PosTerminal: React.FC = () => {
             </Dialog>
 
             <div className="sr-only whitespace-pre">
-                {lastOrder && <Receipt {...lastOrder} />}
+                {lastOrder && (
+                    <Receipt
+                        {...lastOrder}
+                        queueNumber={lastOrder.queue_number}
+                        customerName={lastOrder.customer_name}
+                    />
+                )}
             </div>
 
             {showCloseModal && openCashRegister && (

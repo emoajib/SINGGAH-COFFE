@@ -97,8 +97,16 @@ type Order struct {
 	CashierName   string      `json:"cashier_name"`
 	OrderItems    []OrderItem `json:"items" gorm:"foreignKey:OrderID"`
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-	OrderTime     time.Time   `json:"order_time" gorm:"index:idx_orders_outlet_time,priority:2;index"`
-	OutletID      uint        `json:"outlet_id" gorm:"index:idx_orders_outlet_time,priority:1;index"`
+	OrderTime        time.Time   `json:"order_time" gorm:"index:idx_orders_outlet_time,priority:2;index"`
+	OutletID         uint        `json:"outlet_id" gorm:"index:idx_orders_outlet_time,priority:1;index"`
+	CustomerName     string      `json:"customer_name" gorm:"size:100;default:''"`
+	QueueNumber      int         `json:"queue_number" gorm:"default:0;index:idx_orders_kitchen"`
+	KitchenStatus    string      `json:"kitchen_status" gorm:"size:20;default:'queued';index:idx_orders_kitchen"`
+	PreparationNotes string      `json:"preparation_notes" gorm:"type:text"`
+	QueuedAt         *time.Time  `json:"queued_at"`
+	PreparingAt      *time.Time  `json:"preparing_at"`
+	ReadyAt          *time.Time  `json:"ready_at"`
+	ServedAt         *time.Time  `json:"served_at"`
 }
 
 type OrderItem struct {

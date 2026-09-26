@@ -11,6 +11,7 @@ import BepAnalysis from "./pages/BepAnalysis"
 import Integration from "./pages/Integration"
 import Settings from "./pages/Settings"
 import PosTerminal from "./pages/PosTerminal"
+import BaristaQueue from "./pages/BaristaQueue"
 import ProductManagement from "./pages/ProductManagement"
 import Expenses from "./pages/Expenses"
 import BackupManagement from "./pages/BackupManagement"
@@ -84,6 +85,7 @@ function AppContent() {
                     ) : (
                         <>
                             {activeTab === "dashboard" && <DashboardHome setActiveTab={setActiveTab} />}
+                            {activeTab === "queue" && <BaristaQueue />}
                             {activeTab === "products" && <ProductManagement />}
                             {activeTab === "expenses" && <Expenses />}
                             {activeTab === "sales" && <Sales />}

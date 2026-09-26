@@ -11,6 +11,8 @@ interface ReceiptProps {
     total: number
     paymentMethod: string
     cashierName: string
+    queueNumber?: number
+    customerName?: string
 }
 
 export default function Receipt({
@@ -21,7 +23,9 @@ export default function Receipt({
     service,
     total,
     paymentMethod,
-    cashierName
+    cashierName,
+    queueNumber,
+    customerName
 }: ReceiptProps) {
     const { data: settings } = useSettings()
     const outletName = settings?.outlet_name || "Singgah Coffee"
@@ -44,6 +48,17 @@ export default function Receipt({
                 <h1 className="text-lg font-bold uppercase">{outletName}</h1>
                 <p className="text-[10px]">{outletAddress}</p>
                 <div className="border-b border-dashed border-black my-2"></div>
+
+                {/* Vetted by AI: Nomor Antrian & Nama Pemesan di Struk */}
+                {queueNumber !== undefined && queueNumber > 0 && (
+                    <div className="my-2 p-1.5 border-2 border-dashed border-black rounded">
+                        <span className="text-[9px] font-bold block uppercase tracking-wider">Nomor Antrian</span>
+                        <span className="text-2xl font-black block">#{queueNumber}</span>
+                        {customerName && (
+                            <span className="text-[10px] font-bold block mt-0.5">Nama: {customerName}</span>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="text-[10px] mb-4">

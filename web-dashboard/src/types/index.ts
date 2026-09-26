@@ -126,6 +126,7 @@ export interface StockMutation {
 }
 
 // ─── Order ──────────────────────────────────────────────────────────────────
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 export interface Order {
   id: number
   order_number: string
@@ -140,6 +141,15 @@ export interface Order {
   order_time: string
   created_at: string
   updated_at: string
+  customer_name?: string
+  customer_phone?: string
+  queue_number?: number
+  kitchen_status?: 'queued' | 'preparing' | 'ready' | 'served' | 'unpaid'
+  preparation_notes?: string
+  queued_at?: string
+  preparing_at?: string
+  ready_at?: string
+  served_at?: string
 }
 
 export interface OrderItem {
@@ -157,6 +167,9 @@ export interface CreateOrderRequest {
   payment_method: string
   cashier_name?: string
   customer_email?: string
+  customer_name?: string
+  customer_phone?: string
+  preparation_notes?: string
   items: { product_id: number; quantity: number }[]
 }
 

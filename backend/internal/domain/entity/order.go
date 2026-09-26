@@ -2,21 +2,30 @@ package entity
 
 import "time"
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type Order struct {
-	ID            uint
-	OrderNumber   string
-	TotalAmount   float64
-	PaymentMethod string
-	PaymentStatus string
-	PaymentRef    string
-	Status        string
-	UserID        uint
-	CashierName   string
-	OrderItems    []OrderItem
-	OrderTime     time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	OutletID      uint
+	ID               uint
+	OrderNumber      string
+	TotalAmount      float64
+	PaymentMethod    string
+	PaymentStatus    string
+	PaymentRef       string
+	Status           string
+	UserID           uint
+	CashierName      string
+	OrderItems       []OrderItem
+	OrderTime        time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	OutletID         uint
+	CustomerName     string
+	QueueNumber      int
+	KitchenStatus    string
+	PreparationNotes string
+	QueuedAt         *time.Time
+	PreparingAt      *time.Time
+	ReadyAt          *time.Time
+	ServedAt         *time.Time
 }
 
 type OrderItem struct {
@@ -30,19 +39,28 @@ type OrderItem struct {
 }
 
 type OrderResponse struct {
-	ID            uint                `json:"id"`
-	OrderNumber   string              `json:"order_number"`
-	TotalAmount   float64             `json:"total_amount"`
-	PaymentMethod string              `json:"payment_method"`
-	PaymentStatus string              `json:"payment_status"`
-	PaymentRef    string              `json:"payment_ref"`
-	Status        string              `json:"status"`
-	UserID        uint                `json:"user_id"`
-	CashierName   string              `json:"cashier_name"`
-	OrderItems    []OrderItemResponse `json:"items"`
-	OrderTime     time.Time           `json:"order_time"`
-	CreatedAt     time.Time           `json:"created_at"`
-	UpdatedAt     time.Time           `json:"updated_at"`
+	ID               uint                `json:"id"`
+	OrderNumber      string              `json:"order_number"`
+	TotalAmount      float64             `json:"total_amount"`
+	PaymentMethod    string              `json:"payment_method"`
+	PaymentStatus    string              `json:"payment_status"`
+	PaymentRef       string              `json:"payment_ref"`
+	Status           string              `json:"status"`
+	UserID           uint                `json:"user_id"`
+	CashierName      string              `json:"cashier_name"`
+	OrderItems       []OrderItemResponse `json:"items"`
+	OrderTime        time.Time           `json:"order_time"`
+	CreatedAt        time.Time           `json:"created_at"`
+	UpdatedAt        time.Time           `json:"updated_at"`
+	OutletID         uint                `json:"outlet_id"`
+	CustomerName     string              `json:"customer_name"`
+	QueueNumber      int                 `json:"queue_number"`
+	KitchenStatus    string              `json:"kitchen_status"`
+	PreparationNotes string              `json:"preparation_notes"`
+	QueuedAt         *time.Time          `json:"queued_at"`
+	PreparingAt      *time.Time          `json:"preparing_at"`
+	ReadyAt          *time.Time          `json:"ready_at"`
+	ServedAt         *time.Time          `json:"served_at"`
 }
 
 type OrderItemResponse struct {
@@ -69,18 +87,27 @@ func (o *Order) ToResponse() OrderResponse {
 		}
 	}
 	return OrderResponse{
-		ID:            o.ID,
-		OrderNumber:   o.OrderNumber,
-		TotalAmount:   o.TotalAmount,
-		PaymentMethod: o.PaymentMethod,
-		PaymentStatus: o.PaymentStatus,
-		PaymentRef:    o.PaymentRef,
-		Status:        o.Status,
-		UserID:        o.UserID,
-		CashierName:   o.CashierName,
-		OrderItems:    items,
-		OrderTime:     o.OrderTime,
-		CreatedAt:     o.CreatedAt,
-		UpdatedAt:     o.UpdatedAt,
+		ID:               o.ID,
+		OrderNumber:      o.OrderNumber,
+		TotalAmount:      o.TotalAmount,
+		PaymentMethod:    o.PaymentMethod,
+		PaymentStatus:    o.PaymentStatus,
+		PaymentRef:       o.PaymentRef,
+		Status:           o.Status,
+		UserID:           o.UserID,
+		CashierName:      o.CashierName,
+		OrderItems:       items,
+		OrderTime:        o.OrderTime,
+		CreatedAt:        o.CreatedAt,
+		UpdatedAt:        o.UpdatedAt,
+		OutletID:         o.OutletID,
+		CustomerName:     o.CustomerName,
+		QueueNumber:      o.QueueNumber,
+		KitchenStatus:    o.KitchenStatus,
+		PreparationNotes: o.PreparationNotes,
+		QueuedAt:         o.QueuedAt,
+		PreparingAt:      o.PreparingAt,
+		ReadyAt:          o.ReadyAt,
+		ServedAt:         o.ServedAt,
 	}
 }

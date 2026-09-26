@@ -59,15 +59,24 @@ type UpdateProductRequest struct {
 	} `json:"recipe"`
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type CreateOrderRequest struct {
-	OrderNumber   string `json:"order_number"`
-	PaymentMethod string `json:"payment_method" binding:"required"`
-	CashierName   string `json:"cashier_name"`
-	CustomerEmail string `json:"customer_email"`
-	Items         []struct {
+	OrderNumber      string `json:"order_number"`
+	PaymentMethod    string `json:"payment_method" binding:"required"`
+	CashierName      string `json:"cashier_name"`
+	CustomerEmail    string `json:"customer_email"`
+	CustomerName     string `json:"customer_name"`
+	CustomerPhone    string `json:"customer_phone"`
+	PreparationNotes string `json:"preparation_notes"`
+	Items            []struct {
 		ProductID uint `json:"product_id" binding:"required"`
 		Quantity  int  `json:"quantity" binding:"required,gt=0"`
 	} `json:"items" binding:"required,min=1"`
+}
+
+type UpdateKitchenStatusRequest struct {
+	KitchenStatus    string `json:"kitchen_status" binding:"required,oneof=queued preparing ready served"`
+	PreparationNotes string `json:"preparation_notes"`
 }
 
 type CreateIngredientRequest struct {

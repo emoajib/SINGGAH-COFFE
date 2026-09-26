@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"time"
+
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 
@@ -171,21 +173,71 @@ func (r *orderRepository) GetAverageOrderValue(start, end string, outletID ...ui
 	return avg, err
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *orderRepository) FindActiveKitchenQueue(outletID ...uint) ([]entity.Order, error) {
+	tx := r.db.Preload("OrderItems").Preload("OrderItems.Product").
+		Where("kitchen_status IN ('queued', 'preparing', 'ready') AND status != 'Void'").
+		Order("order_time asc").
+		Limit(100)
+
+	tx = scopeOutlet(tx, "orders", outletID...)
+	var ms []models.Order
+	if err := tx.Find(&ms).Error; err != nil {
+		return nil, err
+	}
+	result := make([]entity.Order, len(ms))
+	for i, m := range ms {
+		result[i] = *toDomainOrder(&m)
+	}
+	return result, nil
+}
+
+func (r *orderRepository) UpdateKitchenStatus(id uint, status string, notes string, outletID ...uint) error {
+	updates := map[string]interface{}{
+		"kitchen_status": status,
+		"updated_at":     time.Now(),
+	}
+	now := time.Now()
+	switch status {
+	case "preparing":
+		updates["preparing_at"] = &now
+	case "ready":
+		updates["ready_at"] = &now
+	case "served":
+		updates["served_at"] = &now
+	}
+	if notes != "" {
+		updates["preparation_notes"] = notes
+	}
+
+	tx := r.db.Model(&models.Order{}).Where("id = ?", id)
+	tx = scopeOutlet(tx, "orders", outletID...)
+	return tx.Updates(updates).Error
+}
+
 func toDomainOrder(m *models.Order) *entity.Order {
 	o := &entity.Order{
-		ID:            m.ID,
-		OrderNumber:   m.OrderNumber,
-		TotalAmount:   m.TotalAmount,
-		PaymentMethod: m.PaymentMethod,
-		PaymentStatus: m.PaymentStatus,
-		PaymentRef:    m.PaymentRef,
-		Status:        m.Status,
-		UserID:        m.UserID,
-		CashierName:   m.CashierName,
-		OrderTime:     m.OrderTime,
-		CreatedAt:     m.CreatedAt,
-		OutletID:      m.OutletID,
-		OrderItems:    make([]entity.OrderItem, len(m.OrderItems)),
+		ID:               m.ID,
+		OrderNumber:      m.OrderNumber,
+		TotalAmount:      m.TotalAmount,
+		PaymentMethod:    m.PaymentMethod,
+		PaymentStatus:    m.PaymentStatus,
+		PaymentRef:       m.PaymentRef,
+		Status:           m.Status,
+		UserID:           m.UserID,
+		CashierName:      m.CashierName,
+		OrderTime:        m.OrderTime,
+		CreatedAt:        m.CreatedAt,
+		OutletID:         m.OutletID,
+		CustomerName:     m.CustomerName,
+		QueueNumber:      m.QueueNumber,
+		KitchenStatus:    m.KitchenStatus,
+		PreparationNotes: m.PreparationNotes,
+		QueuedAt:         m.QueuedAt,
+		PreparingAt:      m.PreparingAt,
+		ReadyAt:          m.ReadyAt,
+		ServedAt:         m.ServedAt,
+		OrderItems:       make([]entity.OrderItem, len(m.OrderItems)),
 	}
 	for i, item := range m.OrderItems {
 		o.OrderItems[i] = entity.OrderItem{
@@ -220,15 +272,23 @@ func scopeOutlet(tx *gorm.DB, table string, outletID ...uint) *gorm.DB {
 
 func toModelOrder(e *entity.Order) *models.Order {
 	return &models.Order{
-		OrderNumber:   e.OrderNumber,
-		TotalAmount:   e.TotalAmount,
-		PaymentMethod: e.PaymentMethod,
-		PaymentStatus: e.PaymentStatus,
-		PaymentRef:    e.PaymentRef,
-		Status:        e.Status,
-		UserID:        e.UserID,
-		CashierName:   e.CashierName,
-		OrderTime:     e.OrderTime,
-		OutletID:      e.OutletID,
+		OrderNumber:      e.OrderNumber,
+		TotalAmount:      e.TotalAmount,
+		PaymentMethod:    e.PaymentMethod,
+		PaymentStatus:    e.PaymentStatus,
+		PaymentRef:       e.PaymentRef,
+		Status:           e.Status,
+		UserID:           e.UserID,
+		CashierName:      e.CashierName,
+		OrderTime:        e.OrderTime,
+		OutletID:         e.OutletID,
+		CustomerName:     e.CustomerName,
+		QueueNumber:      e.QueueNumber,
+		KitchenStatus:    e.KitchenStatus,
+		PreparationNotes: e.PreparationNotes,
+		QueuedAt:         e.QueuedAt,
+		PreparingAt:      e.PreparingAt,
+		ReadyAt:          e.ReadyAt,
+		ServedAt:         e.ServedAt,
 	}
 }

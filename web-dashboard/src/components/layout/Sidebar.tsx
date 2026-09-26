@@ -17,6 +17,7 @@ import {
     Landmark,
     FileText,
     PieChart,
+    ChefHat,
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
@@ -42,6 +43,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
     const menuItems = [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "manager", "cashier"] },
         { id: "pos", label: "Terminal Kasir", icon: Monitor, roles: ["owner", "manager", "cashier"] },
+        { id: "queue", label: "Antrian Barista", icon: ChefHat, roles: ["owner", "manager", "cashier"] },
         { id: "products", label: "Bahan & Resep", icon: Coffee, roles: ["owner", "manager"] },
         { id: "expenses", label: "Pengeluaran", icon: Wallet, roles: ["owner", "manager"] },
         { id: "sales", label: "Penjualan", icon: CreditCard, roles: ["owner", "manager"] },

@@ -60,10 +60,13 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	}
 
 	ucReq := usecase.CreateOrderRequest{
-		OrderNumber:   req.OrderNumber,
-		PaymentMethod: req.PaymentMethod,
-		CashierName:   cashierName,
-		CustomerEmail: req.CustomerEmail,
+		OrderNumber:      req.OrderNumber,
+		PaymentMethod:    req.PaymentMethod,
+		CashierName:      cashierName,
+		CustomerEmail:    req.CustomerEmail,
+		CustomerName:     req.CustomerName,
+		CustomerPhone:    req.CustomerPhone,
+		PreparationNotes: req.PreparationNotes,
 	}
 	for _, item := range req.Items {
 		ucReq.Items = append(ucReq.Items, struct {
@@ -79,6 +82,42 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, result)
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// GetKitchenQueue mengembalikan antrian pesanan aktif untuk layar barista (KDS)
+func (h *OrderHandler) GetKitchenQueue(c *gin.Context) {
+	outletID := getOutletID(c)
+	queue, err := h.orderUsecase.GetActiveKitchenQueue(outletID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch kitchen queue"})
+		return
+	}
+	c.JSON(http.StatusOK, queue)
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// UpdateKitchenStatus mengupdate status pengerjaan pesanan oleh barista
+func (h *OrderHandler) UpdateKitchenStatus(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
+
+	var req request.UpdateKitchenStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status dapur wajib diisi: queued, preparing, ready, served"})
+		return
+	}
+
+	result, err := h.orderUsecase.UpdateKitchenStatus(uint(id), req.KitchenStatus, req.PreparationNotes, getOutletID(c))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Status antrian berhasil diperbarui", "order": result})
 }
 
 func (h *OrderHandler) VoidOrder(c *gin.Context) {

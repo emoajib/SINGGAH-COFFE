@@ -8,6 +8,7 @@ import (
 
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
+	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 
@@ -37,11 +38,14 @@ func NewOrderUsecase(db *gorm.DB) *OrderUsecase {
 }
 
 type CreateOrderRequest struct {
-	OrderNumber   string `json:"order_number"`
-	PaymentMethod string `json:"payment_method"`
-	CashierName   string `json:"cashier_name"`
-	CustomerEmail string `json:"customer_email"`
-	Items         []struct {
+	OrderNumber      string `json:"order_number"`
+	PaymentMethod    string `json:"payment_method"`
+	CashierName      string `json:"cashier_name"`
+	CustomerEmail    string `json:"customer_email"`
+	CustomerName     string `json:"customer_name"`
+	CustomerPhone    string `json:"customer_phone"`
+	PreparationNotes string `json:"preparation_notes"`
+	Items            []struct {
 		ProductID uint `json:"product_id"`
 		Quantity  int  `json:"quantity"`
 	} `json:"items"`
@@ -189,22 +193,41 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		taxAmount := (totalAmount + serviceAmount) * (taxRate / 100)
 		finalTotal := totalAmount + serviceAmount + taxAmount
 
+		now := time.Now()
 		orderNumber := req.OrderNumber
 		if orderNumber == "" {
-			now := time.Now()
 			orderNumber = fmt.Sprintf("ORD-%s%03d", now.Format("20060102150405"), now.Nanosecond()/1e6)
 		}
 
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		// Hitung antrian hari ini (reset jam 00:00:00 setiap hari)
+		startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		var todayCount int64
+		tx.Model(&models.Order{}).Where("outlet_id = ? AND order_time >= ?", oid, startOfDay).Count(&todayCount)
+		queueNumber := int(todayCount) + 1
+
+		kitchenStatus := "queued"
+		var queuedAt *time.Time = &now
+		if req.PaymentMethod == "QRIS" {
+			kitchenStatus = "unpaid" // Barista baru meracik setelah pembayaran QRIS terkonfirmasi
+			queuedAt = nil
+		}
+
 		order := &entity.Order{
-			OrderNumber:   orderNumber,
-			TotalAmount:   finalTotal,
-			PaymentMethod: req.PaymentMethod,
-			PaymentStatus: "Paid",
-			Status:        "Completed",
-			UserID:        userID,
-			CashierName:   cashierName,
-			OrderTime:     time.Now(),
-			OutletID:      oid,
+			OrderNumber:      orderNumber,
+			TotalAmount:      finalTotal,
+			PaymentMethod:    req.PaymentMethod,
+			PaymentStatus:    "Paid",
+			Status:           "Completed",
+			UserID:           userID,
+			CashierName:      cashierName,
+			OrderTime:        now,
+			OutletID:         oid,
+			CustomerName:     req.CustomerName,
+			QueueNumber:      queueNumber,
+			KitchenStatus:    kitchenStatus,
+			PreparationNotes: req.PreparationNotes,
+			QueuedAt:         queuedAt,
 		}
 
 		// If QRIS, set as pending payment
@@ -519,6 +542,11 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 
 	order.PaymentStatus = "Paid"
 	order.Status = "Completed"
+	if order.KitchenStatus == "" || order.KitchenStatus == "unpaid" {
+		order.KitchenStatus = "queued"
+		now := time.Now()
+		order.QueuedAt = &now
+	}
 
 	if err := uc.db.Transaction(func(tx *gorm.DB) error {
 		orderRepo := postgres.NewOrderRepository(tx)
@@ -614,4 +642,41 @@ func mustMarshal(v interface{}) []byte {
 	data, _ := json.Marshal(v)
 	return data
 }
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// GetActiveKitchenQueue mengembalikan antrian pesanan aktif untuk barista (queued, preparing, ready)
+func (uc *OrderUsecase) GetActiveKitchenQueue(outletID ...uint) ([]entity.OrderResponse, error) {
+	orders, err := uc.orderRepo.FindActiveKitchenQueue(outletID...)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]entity.OrderResponse, len(orders))
+	for i, o := range orders {
+		resp[i] = o.ToResponse()
+	}
+	return resp, nil
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// UpdateKitchenStatus memperbarui status pengerjaan pesanan oleh barista
+func (uc *OrderUsecase) UpdateKitchenStatus(id uint, status string, notes string, outletID ...uint) (*entity.OrderResponse, error) {
+	validStatuses := map[string]bool{
+		"queued": true, "preparing": true, "ready": true, "served": true,
+	}
+	if !validStatuses[status] {
+		return nil, domainErrors.NewInvalidInputError("status dapur tidak valid: " + status)
+	}
+
+	if err := uc.orderRepo.UpdateKitchenStatus(id, status, notes, outletID...); err != nil {
+		return nil, err
+	}
+
+	order, err := uc.orderRepo.FindByIDWithItems(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := order.ToResponse()
+	return &resp, nil
+}
+
 

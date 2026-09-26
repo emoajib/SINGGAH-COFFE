@@ -272,5 +272,73 @@ func TestOrderUsecase_CompletePayment(t *testing.T) {
 	assert.NotNil(t, completed)
 	assert.Equal(t, "Completed", completed.Status)
 	assert.Equal(t, "Paid", completed.PaymentStatus)
+	assert.Equal(t, "queued", completed.KitchenStatus)
+	assert.NotNil(t, completed.QueuedAt)
 }
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestOrderUsecase_KitchenQueueAndStatusProgression(t *testing.T) {
+	db := setupOrderTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createOrderUsecase(db)
+
+	ing := &entity.Ingredient{Name: "Espresso Beans", Unit: "gram", CurrentStock: 1000, MinStock: 100, CostPerUnit: 50}
+	db.Create(ing)
+
+	prodID := seedProductWithRecipe(db, "Caramel Macchiato", "CM-001", 25000, ing.ID, 20)
+
+	// 1. Kasir input order dengan customer name & preparation notes
+	res, err := uc.Create(CreateOrderRequest{
+		OrderNumber:      "ORD-KDS-001",
+		PaymentMethod:    "Cash",
+		CashierName:      "Kasir Salsabil",
+		CustomerName:     "Kak Dimas",
+		CustomerPhone:    "081234567890",
+		PreparationNotes: "Less sweet, extra drizzle",
+		Items: []struct {
+			ProductID uint `json:"product_id"`
+			Quantity  int  `json:"quantity"`
+		}{
+			{ProductID: prodID, Quantity: 2},
+		},
+	}, 1, "Kasir Salsabil")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.Equal(t, 1, res.Order.QueueNumber, "Order pertama hari ini harus antrian #1")
+	assert.Equal(t, "queued", res.Order.KitchenStatus)
+	assert.Equal(t, "Kak Dimas", res.Order.CustomerName)
+	assert.Equal(t, "Less sweet, extra drizzle", res.Order.PreparationNotes)
+	assert.NotNil(t, res.Order.QueuedAt)
+
+	// 2. Barista cek antrian aktif
+	queue, err := uc.GetActiveKitchenQueue()
+	assert.NoError(t, err)
+	assert.Len(t, queue, 1)
+	assert.Equal(t, res.Order.ID, queue[0].ID)
+
+	// 3. Barista klik "Mulai Racik" (preparing)
+	updated, err := uc.UpdateKitchenStatus(res.Order.ID, "preparing", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "preparing", updated.KitchenStatus)
+	assert.NotNil(t, updated.PreparingAt)
+
+	// 4. Barista klik "Pesanan Siap" (ready)
+	updated, err = uc.UpdateKitchenStatus(res.Order.ID, "ready", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "ready", updated.KitchenStatus)
+	assert.NotNil(t, updated.ReadyAt)
+
+	// 5. Kasir/Pelayan klik "Selesai Disajikan" (served)
+	updated, err = uc.UpdateKitchenStatus(res.Order.ID, "served", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "served", updated.KitchenStatus)
+	assert.NotNil(t, updated.ServedAt)
+
+	// 6. Antrian aktif barista harus kosong karena status sudah served
+	queueAfterServed, err := uc.GetActiveKitchenQueue()
+	assert.NoError(t, err)
+	assert.Len(t, queueAfterServed, 0)
+}
+
 
