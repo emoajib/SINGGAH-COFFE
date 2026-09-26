@@ -179,13 +179,30 @@ func (h *OrderHandler) CompleteOrder(c *gin.Context) {
 		return
 	}
 
-	result, err := h.orderUsecase.CompletePayment(uint(id), getOutletID(c))
+	var req struct {
+		PaymentMethod string `json:"payment_method"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	result, err := h.orderUsecase.CompletePaymentWithMethod(uint(id), req.PaymentMethod, getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to complete order payment: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Order marked as completed and paid", "order": result})
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// GetUnpaidOrders mengembalikan semua pesanan yang belum dibayar (Open Bills) untuk sinkronisasi kasir & barista
+func (h *OrderHandler) GetUnpaidOrders(c *gin.Context) {
+	outletID := getOutletID(c)
+	orders, err := h.orderUsecase.GetUnpaidOrders(outletID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch unpaid orders: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, orders)
 }
 
 

@@ -15,7 +15,10 @@ import {
     Coffee,
     RotateCcw,
     AlertTriangle,
-    ArrowLeftRight
+    ArrowLeftRight,
+    FileText,
+    Clock,
+    Check
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Dialog } from "../components/ui/dialog"
@@ -24,7 +27,7 @@ import Receipt from "../components/pos/Receipt"
 import { getImageUrl, formatCurrency } from "../lib/utils"
 import ExchangeCashModal from "../components/cash/ExchangeCashModal"
 import { useProducts } from '../hooks/useProducts'
-import { useCreateOrder, useCompleteOrder } from '../hooks/useOrders'
+import { useCreateOrder, useCompleteOrder, useUnpaidOrders } from '../hooks/useOrders'
 import { useSettings } from '../hooks/useSettings'
 import { CashRegisterService } from "../services/cashRegisterService"
 import { useDispatch, useSelector } from "react-redux"
@@ -80,6 +83,8 @@ const PosTerminal: React.FC = () => {
     const [preparationNotes, setPreparationNotes] = useState<string>('');
     const [lastLoyaltyToken, setLastLoyaltyToken] = useState<string | null>(null);
     const [lastCustomerPhone, setLastCustomerPhone] = useState<string>('');
+    const { data: unpaidOrders = [] } = useUnpaidOrders();
+    const [showUnpaidModal, setShowUnpaidModal] = useState(false);
 
     const dispatch = useDispatch()
     const { openCashRegister } = useSelector((state: RootState) => state.auth)
@@ -305,6 +310,21 @@ const PosTerminal: React.FC = () => {
                             </button>
                         )}
                     </div>
+
+                        {/* Tombol Open Bill / Tagihan Terbuka Sinkronisasi Barista */}
+                        <button
+                            type="button"
+                            onClick={() => setShowUnpaidModal(true)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                unpaidOrders.length > 0
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm'
+                                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                            }`}
+                            title="Lihat tagihan pelanggan yang belum lunas (dibuat kasir atau barista)"
+                        >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Open Bill ({unpaidOrders.length})</span>
+                        </button>
 
                         {openCashRegister && (
                             <div className="flex items-center gap-2">
@@ -554,23 +574,31 @@ const PosTerminal: React.FC = () => {
                     </div>
 
                     {/* Payment Action Buttons (Sticky Bottom) */}
-                    <div className="p-3 border-t border-slate-200 grid grid-cols-2 gap-2.5 bg-white">
+                    <div className="p-3 border-t border-slate-200 grid grid-cols-3 gap-2 bg-white">
                         <button
                             onClick={() => {
                                 setCashAmount(0);
                                 setShowCashModal(true);
                             }}
                             disabled={cart.length === 0}
-                            className="py-3 px-3 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
+                            className="py-2.5 px-2 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-1.5"
                         >
-                            <Banknote size={16} /> Tunai
+                            <Banknote size={15} /> Tunai
                         </button>
                         <button
                             onClick={() => handleCheckout('QRIS')}
                             disabled={cart.length === 0}
-                            className="py-3 px-3 bg-amber-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-amber-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-amber-900/20 flex items-center justify-center gap-2"
+                            className="py-2.5 px-2 bg-amber-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-amber-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-amber-900/20 flex items-center justify-center gap-1.5"
                         >
-                            <CreditCard size={16} /> QRIS
+                            <CreditCard size={15} /> QRIS
+                        </button>
+                        <button
+                            onClick={() => handleCheckout('Unpaid')}
+                            disabled={cart.length === 0}
+                            className="py-2.5 px-2 bg-amber-50 text-amber-900 border border-amber-300 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-amber-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-xs flex items-center justify-center gap-1.5"
+                            title="Kirim pesanan ke dapur/barista untuk diracik, bayar nanti saat pelanggan minta bill"
+                        >
+                            <Clock size={15} /> Simpan Bill
                         </button>
                     </div>
                 </div>
@@ -947,6 +975,119 @@ const PosTerminal: React.FC = () => {
                 isOpen={isExchangeOpen}
                 onClose={() => setIsExchangeOpen(false)}
             />
+
+            {/* Modal Tagihan Terbuka / Open Bills di Layar Kasir */}
+            {showUnpaidModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-2xl w-full p-6 text-slate-800 shadow-2xl relative border border-slate-100 max-h-[90vh] flex flex-col">
+                        <button
+                            onClick={() => setShowUnpaidModal(false)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-2.5 mb-4">
+                            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center font-bold">
+                                <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-extrabold text-slate-900">Tagihan Terbuka / Open Bills (Kasir & Barista)</h3>
+                                <p className="text-xs text-slate-500">Pilih tagihan pelanggan untuk melanjutkan pelunasan pembayaran kasir</p>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                            {unpaidOrders.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400">
+                                    <Check className="w-10 h-10 mx-auto mb-2 text-emerald-500 opacity-60" />
+                                    <p className="text-xs font-bold text-slate-600">Semua Tagihan Sudah Lunas!</p>
+                                    <p className="text-[11px] text-slate-400 mt-1">Tidak ada pesanan belum lunas saat ini.</p>
+                                </div>
+                            ) : (
+                                unpaidOrders.map(order => (
+                                    <div
+                                        key={order.id}
+                                        className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-amber-400 transition-colors"
+                                    >
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-black px-2 py-0.5 rounded-md bg-[#4B3621] text-amber-300">
+                                                    #{order.queue_number || order.id}
+                                                </span>
+                                                <span className="font-bold text-xs text-slate-800">{order.customer_name || 'Pelanggan'}</span>
+                                                <span className="text-[10px] text-slate-400 font-mono">({order.order_number})</span>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                    order.kitchen_status === 'served'
+                                                        ? 'bg-emerald-100 text-emerald-800'
+                                                        : 'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                    {order.kitchen_status === 'served' ? '✓ Sudah Disajikan' : 'Sedang Dirack'}
+                                                </span>
+                                            </div>
+                                            <div className="text-xs text-slate-600 space-y-0.5">
+                                                {order.items?.map((it: any, idx: number) => (
+                                                    <span key={idx} className="mr-2 inline-block">
+                                                        {it.quantity}x {it.product?.name || 'Item'}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            {order.preparation_notes && (
+                                                <p className="text-[11px] text-amber-800 italic mt-0.5">Catatan: {order.preparation_notes}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200">
+                                            <div className="text-right">
+                                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Total Tagihan</span>
+                                                <span className="text-sm font-black text-amber-900">
+                                                    {formatCurrency(order.total_amount || 0)}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        const confirmCash = window.confirm(`Lunasi tagihan #${order.queue_number || order.id} (${order.customer_name || 'Pelanggan'}) sebesar ${formatCurrency(order.total_amount)} via TUNAI?`);
+                                                        if (confirmCash) {
+                                                            try {
+                                                                await completeOrder.mutateAsync({ id: order.id, payment_method: 'Cash' });
+                                                                alert('Tagihan berhasil dilunasi via Tunai!');
+                                                            } catch (e: any) {
+                                                                alert('Gagal melunasi: ' + (e?.response?.data?.error || e.message));
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow-sm active:scale-95"
+                                                >
+                                                    <Banknote size={14} /> Tunai
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        const confirmQris = window.confirm(`Lunasi tagihan #${order.queue_number || order.id} (${order.customer_name || 'Pelanggan'}) sebesar ${formatCurrency(order.total_amount)} via QRIS?`);
+                                                        if (confirmQris) {
+                                                            try {
+                                                                await completeOrder.mutateAsync({ id: order.id, payment_method: 'QRIS' });
+                                                                alert('Tagihan berhasil dilunasi via QRIS!');
+                                                            } catch (e: any) {
+                                                                alert('Gagal melunasi: ' + (e?.response?.data?.error || e.message));
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow-sm active:scale-95"
+                                                >
+                                                    <CreditCard size={14} /> QRIS
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

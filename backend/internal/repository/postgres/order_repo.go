@@ -194,6 +194,27 @@ func (r *orderRepository) FindActiveKitchenQueue(outletID ...uint) ([]entity.Ord
 	return result, nil
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *orderRepository) FindUnpaidOrders(outletID ...uint) ([]entity.Order, error) {
+	// Ambil pesanan yang belum lunas dalam 24 jam terakhir dan bukan Void
+	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
+	tx := r.db.Preload("OrderItems").Preload("OrderItems.Product").
+		Where("(payment_status = 'Unpaid' OR status = 'Pending') AND status != 'Void' AND order_time >= ?", twentyFourHoursAgo).
+		Order("order_time desc").
+		Limit(100)
+
+	tx = scopeOutlet(tx, "orders", outletID...)
+	var ms []models.Order
+	if err := tx.Find(&ms).Error; err != nil {
+		return nil, err
+	}
+	result := make([]entity.Order, len(ms))
+	for i, m := range ms {
+		result[i] = *toDomainOrder(&m)
+	}
+	return result, nil
+}
+
 func (r *orderRepository) UpdateKitchenStatus(id uint, status string, notes string, outletID ...uint) error {
 	updates := map[string]interface{}{
 		"updated_at": time.Now(),

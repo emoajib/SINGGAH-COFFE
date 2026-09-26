@@ -74,6 +74,7 @@ type OrderRepository interface {
 	GetAverageOrderValue(start, end string, outletID ...uint) (float64, error)
 	// KDS (Kitchen Display System) - Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	FindActiveKitchenQueue(outletID ...uint) ([]entity.Order, error)
+	FindUnpaidOrders(outletID ...uint) ([]entity.Order, error)
 	UpdateKitchenStatus(id uint, status string, notes string, outletID ...uint) error
 	ClearActiveKitchenQueue(outletID ...uint) error
 }

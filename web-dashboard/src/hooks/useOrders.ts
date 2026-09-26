@@ -52,15 +52,31 @@ export function useVoidOrder() {
 export function useCompleteOrder() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => api.post(`/orders/${id}/complete`),
+    mutationFn: (param: number | { id: number; payment_method?: string }) => {
+      const id = typeof param === 'number' ? param : param.id
+      const payload = typeof param === 'number' ? {} : { payment_method: param.payment_method }
+      return api.post(`/orders/${id}/complete`, payload)
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['unpaid-orders'] })
+      qc.invalidateQueries({ queryKey: ['kitchen-queue'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['profit-loss'] })
       qc.invalidateQueries({ queryKey: ['bep'] })
       // BUG FIX: complete order (Cash/QRIS paid) harus sync ke Buku Kas
       qc.invalidateQueries({ queryKey: ['cashBooks'] })
     },
+  })
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// Hook untuk sinkronisasi tagihan belum lunas (Open Bills) antara kasir dan barista (Live Sync 4s)
+export function useUnpaidOrders() {
+  return useQuery<Order[]>({
+    queryKey: ['unpaid-orders'],
+    queryFn: () => api.get('/orders/unpaid').then((r) => r.data),
+    refetchInterval: 4000,
   })
 }
 

@@ -87,6 +87,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/orders", h.Order.GetOrders)
 			protected.POST("/orders", h.Order.CreateOrder)
 			protected.GET("/orders/queue", h.Order.GetKitchenQueue)
+			protected.GET("/orders/unpaid", h.Order.GetUnpaidOrders)
 			protected.PATCH("/orders/:id/kitchen-status", h.Order.UpdateKitchenStatus)
 			protected.POST("/orders/queue/clear-old", h.Order.ClearActiveKitchenQueue)
 			protected.POST("/orders/:id/complete", h.Order.CompleteOrder)

@@ -92,13 +92,13 @@ func (uc *OrderUsecase) GetByID(id uint) (*entity.OrderResponse, error) {
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 var validPaymentMethods = map[string]bool{
-	"Cash": true, "QRIS": true, "Lainnya": true, "Transfer": true,
+	"Cash": true, "QRIS": true, "Lainnya": true, "Transfer": true, "Unpaid": true, "Belum Bayar": true,
 }
 
 func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName string, outletID ...uint) (*CreateOrderResponse, error) {
 	if !validPaymentMethods[req.PaymentMethod] {
 		return nil, domainErrors.NewInvalidInputError(
-			fmt.Sprintf("metode pembayaran tidak valid: %s. Pilih: Cash, QRIS, Lainnya, Transfer", req.PaymentMethod))
+			fmt.Sprintf("metode pembayaran tidak valid: %s. Pilih: Cash, QRIS, Lainnya, Transfer, Unpaid", req.PaymentMethod))
 	}
 
 	var result CreateOrderResponse
@@ -153,10 +153,10 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 				Cost:      product.Cost,
 			})
 
-			// Cash: deduct stock immediately.
+			// Cash & Unpaid (Barista Quick Order): deduct stock immediately.
 			// QRIS: defer deduction until CompletePayment to avoid
 			// permanent stock loss on abandoned/unpaid orders.
-			if req.PaymentMethod == "Cash" {
+			if req.PaymentMethod != "QRIS" {
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(itemInput.Quantity)
@@ -231,8 +231,8 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 			QueuedAt:         queuedAt,
 		}
 
-		// If QRIS, set as pending payment
-		if req.PaymentMethod == "QRIS" {
+		// If QRIS or Unpaid (Barista Open Bill), set as pending payment
+		if req.PaymentMethod == "QRIS" || req.PaymentMethod == "Unpaid" || req.PaymentMethod == "Belum Bayar" {
 			order.PaymentStatus = "Unpaid"
 			order.Status = "Pending"
 		}
@@ -540,6 +540,11 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 // CompletePayment marks a pending/unpaid order as paid and completed manually.
 // For QRIS orders, this is also where stock is actually deducted (deferred from Create).
 func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.OrderResponse, error) {
+	return uc.CompletePaymentWithMethod(id, "", outletID...)
+}
+
+// CompletePaymentWithMethod marks a pending/unpaid order as paid and completed with optional actual payment method (Cash / QRIS).
+func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, outletID ...uint) (*entity.OrderResponse, error) {
 	order, err := uc.orderRepo.FindByIDWithItems(id)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("order")
@@ -547,6 +552,13 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 
 	if order.Status == "Void" {
 		return nil, domainErrors.ErrOrderAlreadyVoided
+	}
+
+	previousMethod := order.PaymentMethod
+	if actualMethod != "" {
+		order.PaymentMethod = actualMethod
+	} else if order.PaymentMethod == "Unpaid" || order.PaymentMethod == "Belum Bayar" {
+		order.PaymentMethod = "Cash"
 	}
 
 	order.PaymentStatus = "Paid"
@@ -569,7 +581,7 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 
 		// QRIS orders: stock was NOT deducted at creation.
 		// Deduct now that payment is confirmed.
-		if order.PaymentMethod == "QRIS" {
+		if previousMethod == "QRIS" {
 			oid := order.OutletID
 			for _, item := range order.OrderItems {
 				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
@@ -601,7 +613,7 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 			}
 		}
 
-		// PSAK: Create outbox event for journal entry when QRIS order is paid
+		// PSAK: Create outbox event for journal entry when order is paid
 		outboxRepo := postgres.NewOutboxRepository(tx)
 		if err := outboxRepo.Create(&entity.EventOutbox{
 			EventType:     "order.completed",
@@ -620,6 +632,19 @@ func (uc *OrderUsecase) CompletePayment(id uint, outletID ...uint) (*entity.Orde
 
 	resp := order.ToResponse()
 	return &resp, nil
+}
+
+// GetUnpaidOrders mengembalikan semua pesanan yang belum lunas (Open Bills) untuk KDS & Kasir
+func (uc *OrderUsecase) GetUnpaidOrders(outletID ...uint) ([]entity.OrderResponse, error) {
+	orders, err := uc.orderRepo.FindUnpaidOrders(outletID...)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]entity.OrderResponse, len(orders))
+	for i, o := range orders {
+		resp[i] = o.ToResponse()
+	}
+	return resp, nil
 }
 
 func orderEventPayload(order *entity.Order) map[string]interface{} {
