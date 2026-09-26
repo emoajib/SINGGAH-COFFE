@@ -74,9 +74,12 @@ const PosTerminal: React.FC = () => {
     const [closeLoading, setCloseLoading] = useState(false);
     const [closeSummary, setCloseSummary] = useState<{ variance: number; expected: number; closing: number } | null>(null);
     const [isExchangeOpen, setIsExchangeOpen] = useState(false);
-    // Vetted by AI: State antrian barista & nama pemesan
+    // Vetted by AI: State antrian barista, nama pemesan, dan program loyalitas
     const [customerName, setCustomerName] = useState<string>('');
+    const [customerPhone, setCustomerPhone] = useState<string>('');
     const [preparationNotes, setPreparationNotes] = useState<string>('');
+    const [lastLoyaltyToken, setLastLoyaltyToken] = useState<string | null>(null);
+    const [lastCustomerPhone, setLastCustomerPhone] = useState<string>('');
 
     const dispatch = useDispatch()
     const { openCashRegister } = useSelector((state: RootState) => state.auth)
@@ -208,14 +211,18 @@ const PosTerminal: React.FC = () => {
                 payment_method: method,
                 customer_email: "customer@example.com",
                 customer_name: customerName.trim(),
+                customer_phone: customerPhone.trim(),
                 preparation_notes: preparationNotes.trim(),
             };
             const data = await createOrder.mutateAsync(orderData) as any;
 
             setLastOrder(data.order || data);
             setInvoiceUrl(data.invoice_url || null);
+            setLastLoyaltyToken(data.loyalty_token || null);
+            setLastCustomerPhone(customerPhone.trim());
             setCart([]);
             setCustomerName('');
+            setCustomerPhone('');
             setPreparationNotes('');
             setShowSuccess(true);
 
@@ -489,20 +496,29 @@ const PosTerminal: React.FC = () => {
 
                 {/* Bottom Fixed Area: Calculation Summary & Payment Buttons (FIXED / NON-SCROLLABLE) */}
                 <div className="shrink-0 bg-white border-t border-slate-200">
-                    {/* Input Info Antrian & Catatan Barista */}
+                    {/* Input Info Antrian, Loyalitas & Catatan Barista */}
                     <div className="p-2.5 bg-slate-50/90 border-b border-slate-200 space-y-1.5">
-                        <input
-                            type="text"
-                            value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
-                            placeholder="Nama Pemesan (opsional, cth: Kak Dimas)"
-                            className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-700 bg-white text-slate-800 placeholder-slate-400 font-medium"
-                        />
+                        <div className="grid grid-cols-2 gap-1.5">
+                            <input
+                                type="text"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                placeholder="Nama Pemesan (opsional)"
+                                className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-700 bg-white text-slate-800 placeholder-slate-400 font-medium"
+                            />
+                            <input
+                                type="tel"
+                                value={customerPhone}
+                                onChange={(e) => setCustomerPhone(e.target.value)}
+                                placeholder="No HP/WA (Poin Loyalitas)"
+                                className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-700 bg-white text-slate-800 placeholder-slate-400 font-medium"
+                            />
+                        </div>
                         <input
                             type="text"
                             value={preparationNotes}
                             onChange={(e) => setPreparationNotes(e.target.value)}
-                            placeholder="Catatan racikan / meja (opsional, cth: Less ice, No sugar)"
+                            placeholder="Catatan racikan / meja (opsional, cth: Less ice, Meja 4)"
                             className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-700 bg-white text-slate-800 placeholder-slate-400 font-medium"
                         />
                     </div>
@@ -784,6 +800,26 @@ const PosTerminal: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Vetted by AI: Highlight Kartu Stempel & Loyalty Token */}
+                    {lastLoyaltyToken && (
+                        <div className="my-3 p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-center shadow-xs">
+                            <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block">
+                                ⭐ Poin Loyalitas Pelanggan Tercatat
+                            </span>
+                            <p className="text-xs text-amber-800 mt-0.5">
+                                Pelanggan dapat memantau stempel atau memberikan masukan:
+                            </p>
+                            <a
+                                href={`/loyalty/${lastLoyaltyToken}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-bold text-amber-800 underline block mt-1 hover:text-amber-950"
+                            >
+                                Buka Kartu Loyalitas & Saran Pelanggan ↗
+                            </a>
+                        </div>
+                    )}
+
                     {lastOrder?.payment_status === 'Unpaid' && (
                         <div className="space-y-2 mb-4">
                             <Button
@@ -812,6 +848,8 @@ const PosTerminal: React.FC = () => {
                         {...lastOrder}
                         queueNumber={lastOrder.queue_number}
                         customerName={lastOrder.customer_name}
+                        loyaltyToken={lastLoyaltyToken || undefined}
+                        customerPhone={lastCustomerPhone}
                     />
                 )}
             </div>

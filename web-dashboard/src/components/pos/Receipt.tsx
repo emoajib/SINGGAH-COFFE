@@ -13,6 +13,8 @@ interface ReceiptProps {
     cashierName: string
     queueNumber?: number
     customerName?: string
+    loyaltyToken?: string
+    customerPhone?: string
 }
 
 export default function Receipt({
@@ -25,7 +27,9 @@ export default function Receipt({
     paymentMethod,
     cashierName,
     queueNumber,
-    customerName
+    customerName,
+    loyaltyToken,
+    customerPhone
 }: ReceiptProps) {
     const { data: settings } = useSettings()
     const outletName = settings?.outlet_name || "Singgah Coffee"
@@ -124,6 +128,17 @@ export default function Receipt({
                 <p>Thank you for visiting!</p>
                 <p>Singgah & Enjoy your coffee.</p>
             </div>
+
+            {loyaltyToken && (
+                <div className="mt-3 pt-2 border-t border-dashed border-black text-center text-[9px] not-italic">
+                    <p className="font-bold uppercase tracking-wider">Kartu Stempel & Ulasan</p>
+                    {customerPhone && <p className="text-[8px] text-gray-700">Pelanggan: {customerPhone}</p>}
+                    <p className="text-[8px] mt-0.5">Kumpulkan stempel & dapatkan reward!</p>
+                    <p className="text-[8px] font-mono font-bold mt-1 break-all">
+                        {window.location.origin}/loyalty/{loyaltyToken}
+                    </p>
+                </div>
+            )}
         </div>
     )
 }

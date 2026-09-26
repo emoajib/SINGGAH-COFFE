@@ -27,6 +27,7 @@ type Handlers struct {
 	ProfitSharing    *handler.ProfitSharingHandler
 	Account          *handler.AccountHandler
 	Journal          *handler.JournalHandler
+	Loyalty          *handler.LoyaltyHandler
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -55,6 +56,9 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 		api.POST("/auth/login", middleware.LoginRateLimiter(), h.Auth.Login)
 		api.POST("/webhooks/xendit", middleware.WebhookRateLimiter(), h.Webhook.HandleXenditWebhook)
 		api.GET("/branding", h.Settings.GetBranding)
+		// Public Loyalty Card & Customer Feedback (QR scan pelanggan) - Vetted by AI
+		api.GET("/loyalty/:token", h.Loyalty.GetPublicLoyaltyCard)
+		api.POST("/loyalty/:token/feedback", h.Loyalty.SubmitFeedback)
 
 	// Protected Routes
 	protected := api.Group("/")
@@ -87,6 +91,15 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/orders/:id/complete", h.Order.CompleteOrder)
 			protected.POST("/orders/:id/void", middleware.RoleMiddleware("owner", "manager"), h.Order.VoidOrder)
 			protected.PUT("/orders/:id/payment-method", middleware.RoleMiddleware("owner"), h.Order.UpdatePaymentMethod)
+
+			// Loyalty & Customer Feedback - Vetted by AI
+			protected.GET("/customers", h.Loyalty.GetCustomers)
+			protected.GET("/loyalty/programs", h.Loyalty.GetPrograms)
+			protected.POST("/loyalty/programs", middleware.RoleMiddleware("owner"), h.Loyalty.CreateProgram)
+			protected.PUT("/loyalty/programs/:id", middleware.RoleMiddleware("owner"), h.Loyalty.UpdateProgram)
+			protected.POST("/loyalty/redeem", h.Loyalty.RedeemReward)
+			protected.GET("/feedback", middleware.RoleMiddleware("owner", "manager"), h.Loyalty.GetFeedbacks)
+			protected.POST("/feedback/:id/reply", middleware.RoleMiddleware("owner", "manager"), h.Loyalty.ReplyFeedback)
 
 			// Inventory
 			protected.GET("/ingredients", h.Inventory.GetIngredients)

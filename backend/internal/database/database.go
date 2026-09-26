@@ -57,6 +57,12 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.PSAKEventOutbox{},
 		&models.PSAKSchemaVersion{},
 		&models.ProfitSharingPerson{},
+		// Loyalty & Customer Feedback - Vetted by AI
+		&models.Customer{},
+		&models.LoyaltyProgram{},
+		&models.LoyaltyStamp{},
+		&models.LoyaltyRedemption{},
+		&models.CustomerFeedback{},
 	)
 	if err != nil {
 		log.Printf("AutoMigrate failed: %v", err)

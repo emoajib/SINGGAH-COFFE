@@ -586,3 +586,66 @@ export interface ProfitSharingPreview {
   calculation: ProfitSharingCalculation
 }
 
+// ─── Loyalty & Customer Feedback - Vetted by AI ─────────────────────────────
+export interface Customer {
+  id: number
+  phone: string
+  name: string
+  email: string
+  total_orders: number
+  total_spend: number
+  loyalty_token: string
+  tier: string
+  created_at: string
+}
+
+export interface LoyaltyProgram {
+  id: number
+  name: string
+  description: string
+  threshold_type: string
+  threshold_value: number
+  reward_type: string
+  reward_note: string
+  is_active: boolean
+}
+
+export interface ProgramProgress {
+  program_id: number
+  program_name: string
+  reward_note: string
+  reward_type: string
+  current_stamps: number
+  threshold_value: number
+  is_eligible: boolean
+  progress_percent: number
+}
+
+export interface PublicLoyaltyCard {
+  customer_name: string
+  phone_masked: string
+  total_orders: number
+  tier: string
+  programs: ProgramProgress[]
+  outlet_name: string
+  recent_feedback: {
+    rating: number
+    message: string
+    owner_reply?: string
+    submitted_at: string
+  }[]
+}
+
+export interface CustomerFeedback {
+  id: number
+  customer_id: number
+  customer_name?: string
+  rating: number
+  category: string
+  message: string
+  owner_reply?: string
+  status: 'new' | 'read' | 'replied'
+  submitted_at: string
+}
+
+

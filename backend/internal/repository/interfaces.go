@@ -241,3 +241,42 @@ type OutboxRepository interface {
 	Cleanup(olderThanDays int) (int64, error)
 	ExistsByEventRef(eventType, referenceType string, referenceID uint) (bool, error)
 }
+
+// CustomerRepository defines data access for customers
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type CustomerRepository interface {
+	FindByID(id uint) (*entity.Customer, error)
+	FindByPhone(phone string, outletID ...uint) (*entity.Customer, error)
+	FindByToken(token string) (*entity.Customer, error)
+	FindAll(limit, offset int, outletID ...uint) ([]entity.Customer, error)
+	Create(customer *entity.Customer) error
+	Update(customer *entity.Customer) error
+	IncrementStats(id uint, spend float64) error
+}
+
+// LoyaltyRepository defines data access for programs, stamps, and redemptions
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type LoyaltyRepository interface {
+	FindPrograms(outletID ...uint) ([]entity.LoyaltyProgram, error)
+	FindActivePrograms(outletID ...uint) ([]entity.LoyaltyProgram, error)
+	FindProgramByID(id uint) (*entity.LoyaltyProgram, error)
+	CreateProgram(program *entity.LoyaltyProgram) error
+	UpdateProgram(program *entity.LoyaltyProgram) error
+	AddStamp(stamp *entity.LoyaltyStamp) error
+	CountActiveStamps(customerID, programID uint) (int, error)
+	MarkStampsUsed(customerID, programID, redemptionID uint, count int) error
+	CreateRedemption(redemption *entity.LoyaltyRedemption) error
+	GetCustomerRedemptions(customerID uint) ([]entity.LoyaltyRedemption, error)
+}
+
+// FeedbackRepository defines data access for customer feedback
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type FeedbackRepository interface {
+	Create(feedback *entity.CustomerFeedback) error
+	FindAll(limit, offset int, status string, outletID ...uint) ([]entity.CustomerFeedback, error)
+	FindByID(id uint) (*entity.CustomerFeedback, error)
+	FindByToken(token string, limit int) ([]entity.CustomerFeedback, error)
+	Reply(id uint, reply string, repliedBy uint) error
+	GetAverageRating(outletID ...uint) (float64, int64, error)
+}
+

@@ -18,6 +18,7 @@ import {
     FileText,
     PieChart,
     ChefHat,
+    HeartHandshake,
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
@@ -47,6 +48,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         { id: "products", label: "Bahan & Resep", icon: Coffee, roles: ["owner", "manager"] },
         { id: "expenses", label: "Pengeluaran", icon: Wallet, roles: ["owner", "manager"] },
         { id: "sales", label: "Penjualan", icon: CreditCard, roles: ["owner", "manager"] },
+        { id: "loyalty-feedback", label: "Loyalitas & Masukan", icon: HeartHandshake, roles: ["owner", "manager"] },
         { id: "reports", label: "Laporan", icon: BarChart3, roles: ["owner"] },
         { id: "cash-registers", label: "Kas", icon: Banknote, roles: ["owner", "manager", "cashier"] },
         { id: "cash-book", label: "Buku Kas", icon: BookOpen, roles: ["owner", "manager", "cashier"] },

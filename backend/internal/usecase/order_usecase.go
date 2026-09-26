@@ -52,8 +52,9 @@ type CreateOrderRequest struct {
 }
 
 type CreateOrderResponse struct {
-	Order      entity.OrderResponse `json:"order"`
-	InvoiceURL string               `json:"invoice_url"`
+	Order        entity.OrderResponse `json:"order"`
+	InvoiceURL   string               `json:"invoice_url"`
+	LoyaltyToken string               `json:"loyalty_token,omitempty"`
 }
 
 func (uc *OrderUsecase) GetAll(limit, offset int, outletID ...uint) ([]entity.OrderResponse, error) {
@@ -266,6 +267,14 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 				Status:        "pending",
 			}); err != nil {
 				return err
+			}
+			// Loyalty & Stempel: proses jika ada nomor HP pelanggan
+			if req.CustomerPhone != "" {
+				loyaltyUC := NewLoyaltyUsecase(tx)
+				cust, errLoyalty := loyaltyUC.ProcessOrderLoyalty(req.CustomerPhone, req.CustomerName, loaded.ID, loaded.TotalAmount, oid)
+				if errLoyalty == nil && cust != nil {
+					result.LoyaltyToken = cust.LoyaltyToken
+				}
 			}
 		}
 		result.Order = loaded.ToResponse()

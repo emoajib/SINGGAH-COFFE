@@ -23,13 +23,17 @@ import PsakCoA from "./pages/PsakCoA"
 import PsakJournal from "./pages/PsakJournal"
 import PsakReports from "./pages/PsakReports"
 import Login from "./pages/Login"
+import LoyaltyPublicPage from "./pages/LoyaltyPublicPage"
+import FeedbackManagement from "./pages/FeedbackManagement"
 import CashFloatModal from "./components/cash/CashFloatModal"
 import PWAInstallBanner from "./components/pwa/PWAInstallBanner"
+import { useLocation, Routes, Route } from "react-router-dom"
 import { ToastProvider } from "./hooks/use-toast"
 import { Toaster } from "./components/ui/toaster"
 import { ErrorBoundary } from "./components/ui/error-boundary"
 
 function AppContent() {
+    const location = useLocation()
     const [activeTab, setActiveTab] = useState("dashboard")
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const dispatch = useDispatch()
@@ -41,10 +45,19 @@ function AppContent() {
     const isOwner = userRole === "owner"
     const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
 
+    // Public QR scan route for customer self-check & feedback (no login needed)
+    if (location.pathname.startsWith("/loyalty/")) {
+        return (
+            <Routes>
+                <Route path="/loyalty/:token" element={<LoyaltyPublicPage />} />
+            </Routes>
+        )
+    }
+
     // Tab eksklusif owner saja
     const ownerOnlyTabs = ["reports", "bep", "kebutuhan-stok", "integration", "backup", "profit-sharing", "psak-coa", "psak-journal", "psak-reports"]
     // Tab yang boleh diakses manager & owner (bukan cashier)
-    const managerOnlyTabs: string[] = []
+    const managerOnlyTabs: string[] = ["loyalty-feedback"]
 
     if (!isAuthenticated) {
         return <Login />
@@ -98,9 +111,10 @@ function AppContent() {
                             {activeTab === "settings" && <Settings />}
                             {activeTab === "backup" && <BackupManagement />}
                             {activeTab === "profit-sharing" && <ProfitSharing />}
-{activeTab === "psak-coa" && <PsakCoA />}
-{activeTab === "psak-journal" && <PsakJournal />}
-{activeTab === "psak-reports" && <PsakReports />}
+                            {activeTab === "psak-coa" && <PsakCoA />}
+                            {activeTab === "psak-journal" && <PsakJournal />}
+                            {activeTab === "psak-reports" && <PsakReports />}
+                            {activeTab === "loyalty-feedback" && <FeedbackManagement />}
                         </>
                     )}
                 </main>
