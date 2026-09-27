@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"strings"
+
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 
@@ -47,7 +49,12 @@ func (r *expenseRepository) FindAllRange(start, end, category string, outletID .
 		}
 	}
 	if category != "" {
-		tx = tx.Where("category = ?", category)
+		aliases := getCategoryAliases(category)
+		if len(aliases) > 1 {
+			tx = tx.Where("category IN ?", aliases)
+		} else {
+			tx = tx.Where("category = ?", category)
+		}
 	}
 	tx = scopeOutlet(tx, "expenses", outletID...)
 	var ms []models.Expense
@@ -182,5 +189,26 @@ func toDomainExpense(m *models.Expense) *entity.Expense {
 		Notes:         m.Notes,
 		OutletID:      m.OutletID,
 		CreatedAt:     m.CreatedAt,
+	}
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func getCategoryAliases(cat string) []string {
+	clean := strings.ToLower(strings.TrimSpace(cat))
+	switch clean {
+	case "operasional", "operational":
+		return []string{"Operasional", "Operational", "operasional", "operational"}
+	case "bahan baku", "bahan baku (hpp)", "hpp":
+		return []string{"Bahan Baku (HPP)", "Bahan Baku", "bahan baku", "bahan baku (hpp)"}
+	case "gaji & upah", "gaji", "salary", "upah":
+		return []string{"Gaji & Upah", "Salary", "Gaji", "salary", "gaji"}
+	case "pemeliharaan & servis", "pemeliharaan", "maintenance", "servis":
+		return []string{"Pemeliharaan & Servis", "Maintenance", "Pemeliharaan", "maintenance"}
+	case "pemasaran / marketing", "pemasaran", "marketing":
+		return []string{"Pemasaran / Marketing", "Marketing", "Pemasaran", "marketing"}
+	case "lainnya", "other":
+		return []string{"Lainnya", "Other", "lainnya", "other"}
+	default:
+		return []string{cat}
 	}
 }

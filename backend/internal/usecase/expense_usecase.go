@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -82,13 +83,16 @@ func (uc *ExpenseUsecase) GetAllFiltered(start, end, category string, outletID .
 	}
 	resp := make([]entity.ExpenseResponse, len(expenses))
 	for i, e := range expenses {
-		resp[i] = e.ToResponse()
+		r := e.ToResponse()
+		r.Category = NormalizeCategory(r.Category)
+		resp[i] = r
 	}
 	return resp, nil
 }
 
 // Create menyimpan expense dan langsung sync ke Buku Kas secara real-time.
 // GAP 1 FIX: sebelumnya tidak ada sync ke Buku Kas sama sekali.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*entity.ExpenseResponse, error) {
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()
@@ -96,6 +100,7 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*en
 	if expense.PaymentMethod == "" {
 		expense.PaymentMethod = "Cash"
 	}
+	expense.Category = NormalizeCategory(expense.Category)
 	if len(outletID) > 0 {
 		expense.OutletID = outletID[0]
 	}
@@ -140,7 +145,7 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*en
 
 // Update memperbarui expense dan menyegarkan entry Buku Kas.
 // GAP 3 FIX: sebelumnya edit expense tidak mengupdate Buku Kas → data stale.
-// ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.ExpenseResponse, error) {
 	existing, err := uc.expenseRepo.FindByID(id)
 	if err != nil {
@@ -149,7 +154,7 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 
 	existing.Title = expense.Title
 	existing.Amount = expense.Amount
-	existing.Category = expense.Category
+	existing.Category = NormalizeCategory(expense.Category)
 	existing.CostType = expense.CostType
 	if expense.PaymentMethod != "" {
 		existing.PaymentMethod = expense.PaymentMethod
@@ -269,10 +274,7 @@ func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uin
 		}
 
 		// Kategori
-		cat := exp.Category
-		if cat == "" {
-			cat = "Other"
-		}
+		cat := NormalizeCategory(exp.Category)
 		if _, exists := catMap[cat]; !exists {
 			catMap[cat] = &entity.CategoryExpenseStat{Category: cat}
 		}
@@ -364,5 +366,33 @@ func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uin
 		TopExpenses:       topExpenses,
 		DailyRecap:        dailyStats,
 	}, nil
+}
+
+// NormalizeCategory menyelaraskan nama kategori ke 6 standar baku:
+// 1. Operasional
+// 2. Bahan Baku (HPP)
+// 3. Gaji & Upah
+// 4. Pemeliharaan & Servis
+// 5. Pemasaran / Marketing
+// 6. Lainnya
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func NormalizeCategory(cat string) string {
+	clean := strings.ToLower(strings.TrimSpace(cat))
+	switch clean {
+	case "operational", "operasional":
+		return "Operasional"
+	case "bahan baku", "bahan baku (hpp)", "hpp":
+		return "Bahan Baku (HPP)"
+	case "salary", "gaji", "gaji & upah", "upah":
+		return "Gaji & Upah"
+	case "maintenance", "pemeliharaan", "pemeliharaan & servis", "servis":
+		return "Pemeliharaan & Servis"
+	case "marketing", "pemasaran", "pemasaran / marketing":
+		return "Pemasaran / Marketing"
+	case "other", "lainnya", "":
+		return "Lainnya"
+	default:
+		return cat
+	}
 }
 

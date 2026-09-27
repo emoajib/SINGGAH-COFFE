@@ -19,15 +19,17 @@ interface RoutineTemplate {
 }
 
 const ROUTINE_TEMPLATES: RoutineTemplate[] = [
-    { name: "Tagihan Listrik & Air", category: "Operational", cost_type: "fixed", defaultDesc: "Listrik, air, dan utilitas operasional" },
-    { name: "Gas LPG", category: "Operational", cost_type: "fixed", defaultDesc: "Isi ulang tabung gas LPG" },
-    { name: "BBM (Bensin) Kendaraan", category: "Operational", cost_type: "fixed", defaultDesc: "Bahan bakar operasional / mobilitas" },
-    { name: "Sewa Tempat / Lapak / Parkir", category: "Operational", cost_type: "fixed", defaultDesc: "Sewa lapak / retribusi harian atau bulanan" },
-    { name: "Internet / Wi-Fi / Pulsa", category: "Operational", cost_type: "fixed", defaultDesc: "Koneksi POS dan operasional toko" },
-    { name: "Gaji / Upah Karyawan", category: "Salary", cost_type: "fixed", defaultDesc: "Gaji / upah barista atau operator" },
-    { name: "Perlengkapan Warung (Tisu, Sabun, Plastik)", category: "Operational", cost_type: "variable", defaultDesc: "Tisu, sabun, plastik kresek, dll" },
-    { name: "Servis & Perawatan Mesin / Alat", category: "Maintenance", cost_type: "fixed", defaultDesc: "Servis espresso maker, grinder, alat" },
-    { name: "Pemasaran & Promosi (Iklan/Banner)", category: "Marketing", cost_type: "variable", defaultDesc: "Media sosial, promo, spanduk" },
+    { name: "Tagihan Listrik & Air", category: "Operasional", cost_type: "fixed", defaultDesc: "Listrik, air, dan utilitas operasional" },
+    { name: "Gas LPG", category: "Operasional", cost_type: "fixed", defaultDesc: "Isi ulang tabung gas LPG" },
+    { name: "BBM (Bensin) Kendaraan", category: "Operasional", cost_type: "fixed", defaultDesc: "Bahan bakar operasional / mobilitas" },
+    { name: "Sewa Tempat / Lapak / Parkir", category: "Operasional", cost_type: "fixed", defaultDesc: "Sewa lapak / retribusi harian atau bulanan" },
+    { name: "Internet / Wi-Fi / Pulsa", category: "Operasional", cost_type: "fixed", defaultDesc: "Koneksi POS dan operasional toko" },
+    { name: "Perlengkapan Warung (Tisu, Sabun, Plastik)", category: "Operasional", cost_type: "variable", defaultDesc: "Tisu, sabun, plastik kresek, dll" },
+    { name: "Pembelian Bahan Baku (Kopi/Susu/Sirup/Cup)", category: "Bahan Baku (HPP)", cost_type: "variable", defaultDesc: "Belanja bahan baku minuman/makanan & kemasan" },
+    { name: "Gaji & Upah Karyawan / Barista", category: "Gaji & Upah", cost_type: "fixed", defaultDesc: "Gaji pokok, upah harian, lembur barista" },
+    { name: "Bagi Hasil / Profit Sharing", category: "Gaji & Upah", cost_type: "variable", defaultDesc: "Bagi hasil periode operasional berjalan" },
+    { name: "Servis & Perawatan Mesin / Alat", category: "Pemeliharaan & Servis", cost_type: "fixed", defaultDesc: "Servis espresso maker, grinder, chiller kulkas, alat" },
+    { name: "Pemasaran & Promosi (Iklan/Banner)", category: "Pemasaran / Marketing", cost_type: "variable", defaultDesc: "Media sosial, promo, spanduk, banner promosi" },
 ]
 
 export default function Expenses() {
@@ -56,7 +58,7 @@ export default function Expenses() {
     const [formData, setFormData] = useState<Partial<Expense>>({
         title: "",
         amount: 0,
-        category: "Operational",
+        category: "Operasional",
         cost_type: "variable",
         payment_method: "Cash",
         description: "",
@@ -117,7 +119,7 @@ export default function Expenses() {
         setFormData({
             title: "",
             amount: 0,
-            category: "Operational",
+            category: "Operasional",
             cost_type: "variable",
             payment_method: "Cash",
             description: "",
@@ -180,6 +182,10 @@ export default function Expenses() {
         }
         if (!formData.amount || formData.amount <= 0) {
             toast({ title: "Validasi Gagal", description: "Nominal jumlah harus lebih dari 0", variant: "error" })
+            return
+        }
+        if (formData.category === "Lainnya" && !formData.description?.trim()) {
+            toast({ title: "Validasi Gagal", description: "Kategori 'Lainnya' wajib mencantumkan catatan / keterangan", variant: "error" })
             return
         }
 
@@ -481,11 +487,12 @@ export default function Expenses() {
                                 onChange={(e) => setCategoryFilter(e.target.value)}
                             >
                                 <option value="">Semua Kategori</option>
-                                <option value="Operational">Operasional</option>
-                                <option value="Marketing">Pemasaran</option>
-                                <option value="Maintenance">Pemeliharaan</option>
-                                <option value="Salary">Gaji</option>
-                                <option value="Other">Lainnya</option>
+                                <option value="Operasional">Operasional</option>
+                                <option value="Bahan Baku (HPP)">Bahan Baku (HPP)</option>
+                                <option value="Gaji & Upah">Gaji & Upah</option>
+                                <option value="Pemeliharaan & Servis">Pemeliharaan & Servis</option>
+                                <option value="Pemasaran / Marketing">Pemasaran / Marketing</option>
+                                <option value="Lainnya">Lainnya</option>
                             </select>
                         </div>
                         <div className="space-y-1">
@@ -900,7 +907,7 @@ export default function Expenses() {
                                         setFormData(prev => ({
                                             ...prev,
                                             title: "",
-                                            category: "Operational",
+                                            category: "Operasional",
                                             cost_type: "variable",
                                             description: "",
                                         }))
@@ -1023,11 +1030,12 @@ export default function Expenses() {
                                 value={formData.category}
                                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                             >
-                                <option value="Operational">Operasional</option>
-                                <option value="Marketing">Pemasaran</option>
-                                <option value="Maintenance">Pemeliharaan</option>
-                                <option value="Salary">Gaji</option>
-                                <option value="Other">Lainnya</option>
+                                <option value="Operasional">Operasional</option>
+                                <option value="Bahan Baku (HPP)">Bahan Baku (HPP)</option>
+                                <option value="Gaji & Upah">Gaji & Upah</option>
+                                <option value="Pemeliharaan & Servis">Pemeliharaan & Servis</option>
+                                <option value="Pemasaran / Marketing">Pemasaran / Marketing</option>
+                                <option value="Lainnya">Lainnya</option>
                             </select>
                         </div>
                     </div>
@@ -1065,11 +1073,14 @@ export default function Expenses() {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">Deskripsi / Catatan (Opsional)</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                            Deskripsi / Catatan {formData.category === 'Lainnya' ? <span className="text-rose-600 font-bold ml-1">*Wajib diisi untuk Kategori Lainnya</span> : <span className="text-slate-400 font-normal ml-1">(Opsional)</span>}
+                        </label>
                         <Input
-                            placeholder="Detail pembelian, kuantiti, supplier, dll..."
+                            placeholder={formData.category === 'Lainnya' ? "Wajib cantumkan alasan / detail pengeluaran lainnya..." : "Detail pembelian, kuantiti, supplier, dll..."}
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            className={formData.category === 'Lainnya' && !formData.description?.trim() ? 'border-rose-400 bg-rose-50/20' : ''}
                         />
                     </div>
                 </div>
