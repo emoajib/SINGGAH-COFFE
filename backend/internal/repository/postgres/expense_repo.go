@@ -196,18 +196,18 @@ func toDomainExpense(m *models.Expense) *entity.Expense {
 func getCategoryAliases(cat string) []string {
 	clean := strings.ToLower(strings.TrimSpace(cat))
 	switch clean {
-	case "operasional", "operational":
-		return []string{"Operasional", "Operational", "operasional", "operational"}
-	case "bahan baku", "bahan baku (hpp)", "hpp":
-		return []string{"Bahan Baku (HPP)", "Bahan Baku", "bahan baku", "bahan baku (hpp)"}
-	case "gaji & upah", "gaji", "salary", "upah":
-		return []string{"Gaji & Upah", "Salary", "Gaji", "salary", "gaji"}
-	case "pemeliharaan & servis", "pemeliharaan", "maintenance", "servis":
-		return []string{"Pemeliharaan & Servis", "Maintenance", "Pemeliharaan", "maintenance"}
-	case "pemasaran / marketing", "pemasaran", "marketing":
-		return []string{"Pemasaran / Marketing", "Marketing", "Pemasaran", "marketing"}
-	case "lainnya", "other":
-		return []string{"Lainnya", "Other", "lainnya", "other"}
+	case "operasional", "operational", "biaya tetap", "fixed", "beban operasional", "operasional rutin":
+		return []string{"Operasional", "Operational", "operasional", "operational", "Biaya Tetap", "biaya tetap", "Fixed", "fixed"}
+	case "bahan baku", "bahan baku (hpp)", "hpp", "cogs", "raw material":
+		return []string{"Bahan Baku (HPP)", "Bahan Baku", "bahan baku", "bahan baku (hpp)", "hpp", "HPP", "cogs", "COGS"}
+	case "gaji & upah", "gaji", "salary", "upah", "honor", "bagi hasil":
+		return []string{"Gaji & Upah", "Salary", "Gaji", "salary", "gaji", "upah", "Upah", "honor", "Honor"}
+	case "pemeliharaan & servis", "pemeliharaan", "maintenance", "servis", "perawatan":
+		return []string{"Pemeliharaan & Servis", "Maintenance", "Pemeliharaan", "maintenance", "servis", "Servis", "perawatan"}
+	case "pemasaran / marketing", "pemasaran", "marketing", "promosi", "iklan":
+		return []string{"Pemasaran / Marketing", "Marketing", "Pemasaran", "marketing", "promosi", "Promosi"}
+	case "lainnya", "other", "misc", "":
+		return []string{"Lainnya", "Other", "lainnya", "other", "misc", "Misc", ""}
 	default:
 		return []string{cat}
 	}

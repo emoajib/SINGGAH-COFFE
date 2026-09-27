@@ -276,10 +276,14 @@ func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uin
 		// Kategori
 		cat := NormalizeCategory(exp.Category)
 		if _, exists := catMap[cat]; !exists {
-			catMap[cat] = &entity.CategoryExpenseStat{Category: cat}
+			catMap[cat] = &entity.CategoryExpenseStat{
+				Category: cat,
+				Items:    []entity.ExpenseResponse{},
+			}
 		}
 		catMap[cat].Total += amt
 		catMap[cat].Count++
+		catMap[cat].Items = append(catMap[cat].Items, resp)
 
 		// Harian
 		dateKey := exp.Date.Format("2006-01-02")
@@ -295,12 +299,19 @@ func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uin
 		}
 	}
 
-	// Persentase kategori
+	// Persentase kategori dan urutkan items dalam tiap kategori
 	var catStats []entity.CategoryExpenseStat
 	for _, stat := range catMap {
 		if totalExpense > 0 {
 			stat.Percentage = math.Round((stat.Total/totalExpense)*1000) / 10
 		}
+		// Urutkan rincian item pengeluaran: tanggal terbaru & ID terbesar
+		sort.Slice(stat.Items, func(i, j int) bool {
+			if stat.Items[i].Date.Equal(stat.Items[j].Date) {
+				return stat.Items[i].ID > stat.Items[j].ID
+			}
+			return stat.Items[i].Date.After(stat.Items[j].Date)
+		})
 		catStats = append(catStats, *stat)
 	}
 	sort.Slice(catStats, func(i, j int) bool {
@@ -379,20 +390,20 @@ func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uin
 func NormalizeCategory(cat string) string {
 	clean := strings.ToLower(strings.TrimSpace(cat))
 	switch clean {
-	case "operational", "operasional":
+	case "operational", "operasional", "biaya tetap", "fixed", "beban operasional", "operasional rutin":
 		return "Operasional"
-	case "bahan baku", "bahan baku (hpp)", "hpp":
+	case "bahan baku", "bahan baku (hpp)", "hpp", "cogs", "raw material":
 		return "Bahan Baku (HPP)"
-	case "salary", "gaji", "gaji & upah", "upah":
+	case "salary", "gaji", "gaji & upah", "upah", "honor", "bagi hasil":
 		return "Gaji & Upah"
-	case "maintenance", "pemeliharaan", "pemeliharaan & servis", "servis":
+	case "maintenance", "pemeliharaan", "pemeliharaan & servis", "servis", "perawatan":
 		return "Pemeliharaan & Servis"
-	case "marketing", "pemasaran", "pemasaran / marketing":
+	case "marketing", "pemasaran", "pemasaran / marketing", "promosi", "iklan":
 		return "Pemasaran / Marketing"
-	case "other", "lainnya", "":
+	case "other", "lainnya", "misc", "":
 		return "Lainnya"
 	default:
-		return cat
+		return "Lainnya"
 	}
 }
 

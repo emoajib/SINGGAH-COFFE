@@ -180,5 +180,20 @@ func Connect(cfg config.Config) *gorm.DB {
 		log.Println("Seeded default active baristas (SALMAN & RIO)")
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Standardize historical expense categories in database to the 6 canonical categories:
+	// 1. Operasional
+	// 2. Bahan Baku (HPP)
+	// 3. Gaji & Upah
+	// 4. Pemeliharaan & Servis
+	// 5. Pemasaran / Marketing
+	// 6. Lainnya
+	db.Exec("UPDATE expenses SET category = 'Operasional' WHERE LOWER(TRIM(category)) IN ('operational', 'biaya tetap', 'fixed', 'beban operasional', 'operasional rutin')")
+	db.Exec("UPDATE expenses SET category = 'Bahan Baku (HPP)' WHERE LOWER(TRIM(category)) IN ('bahan baku', 'hpp', 'cogs', 'raw material')")
+	db.Exec("UPDATE expenses SET category = 'Gaji & Upah' WHERE LOWER(TRIM(category)) IN ('salary', 'gaji', 'upah', 'honor', 'bagi hasil')")
+	db.Exec("UPDATE expenses SET category = 'Pemeliharaan & Servis' WHERE LOWER(TRIM(category)) IN ('maintenance', 'pemeliharaan', 'servis', 'perawatan')")
+	db.Exec("UPDATE expenses SET category = 'Pemasaran / Marketing' WHERE LOWER(TRIM(category)) IN ('marketing', 'pemasaran', 'promosi', 'iklan')")
+	db.Exec("UPDATE expenses SET category = 'Lainnya' WHERE LOWER(TRIM(category)) IN ('other', 'misc') OR category = '' OR category IS NULL")
+
 	return db
 }

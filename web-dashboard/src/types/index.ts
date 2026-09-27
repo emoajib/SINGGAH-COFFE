@@ -626,6 +626,7 @@ export interface CategoryExpenseStat {
   total: number
   percentage: number
   count: number
+  items?: Expense[]
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager

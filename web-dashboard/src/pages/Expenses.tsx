@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
 import type { Expense } from "../types"
@@ -6,10 +6,78 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Receipt, Pencil, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter, Flame, TrendingUp, CalendarDays, PieChart, BarChart3, Printer, Download } from "lucide-react"
+import { Search, Plus, Loader2, Trash2, Receipt, Pencil, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter, Flame, TrendingUp, CalendarDays, PieChart, BarChart3, Printer, Download, ChevronDown, ChevronUp } from "lucide-react"
 import { useExpenses, useExpenseSummary, useCreateExpense, useUpdateExpense, useDeleteExpense } from "../hooks/useExpenses"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
+
+// 6 Kategori Standar Baku Beban Biaya
+export const CANONICAL_CATEGORIES = [
+    "Operasional",
+    "Bahan Baku (HPP)",
+    "Gaji & Upah",
+    "Pemeliharaan & Servis",
+    "Pemasaran / Marketing",
+    "Lainnya"
+] as const;
+
+export const CATEGORY_META: Record<string, { label: string; badgeBg: string; barCol: string }> = {
+    "Operasional": {
+        label: "Operasional",
+        badgeBg: "bg-blue-50 text-blue-700 border-blue-200",
+        barCol: "bg-blue-600",
+    },
+    "Bahan Baku (HPP)": {
+        label: "Bahan Baku (HPP)",
+        badgeBg: "bg-amber-50 text-amber-700 border-amber-200",
+        barCol: "bg-amber-600",
+    },
+    "Gaji & Upah": {
+        label: "Gaji & Upah",
+        badgeBg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        barCol: "bg-emerald-600",
+    },
+    "Pemeliharaan & Servis": {
+        label: "Pemeliharaan & Servis",
+        badgeBg: "bg-purple-50 text-purple-700 border-purple-200",
+        barCol: "bg-purple-600",
+    },
+    "Pemasaran / Marketing": {
+        label: "Pemasaran / Marketing",
+        badgeBg: "bg-rose-50 text-rose-700 border-rose-200",
+        barCol: "bg-rose-600",
+    },
+    "Lainnya": {
+        label: "Lainnya",
+        badgeBg: "bg-slate-100 text-slate-700 border-slate-200",
+        barCol: "bg-slate-600",
+    },
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export const normalizeCategory = (cat?: string): string => {
+    if (!cat) return "Lainnya"
+    const clean = cat.trim().toLowerCase()
+    if (["operational", "operasional", "biaya tetap", "fixed", "beban operasional", "operasional rutin"].includes(clean)) {
+        return "Operasional"
+    }
+    if (["bahan baku", "bahan baku (hpp)", "hpp", "cogs", "raw material"].includes(clean)) {
+        return "Bahan Baku (HPP)"
+    }
+    if (["salary", "gaji", "gaji & upah", "upah", "honor", "bagi hasil"].includes(clean)) {
+        return "Gaji & Upah"
+    }
+    if (["maintenance", "pemeliharaan", "pemeliharaan & servis", "servis", "perawatan"].includes(clean)) {
+        return "Pemeliharaan & Servis"
+    }
+    if (["marketing", "pemasaran", "pemasaran / marketing", "promosi", "iklan"].includes(clean)) {
+        return "Pemasaran / Marketing"
+    }
+    if (["other", "lainnya", "misc"].includes(clean)) {
+        return "Lainnya"
+    }
+    return "Lainnya"
+}
 
 interface RoutineTemplate {
     name: string
@@ -72,6 +140,94 @@ export default function Expenses() {
     const createExpense = useCreateExpense()
     const updateExpense = useUpdateExpense()
     const deleteExpense = useDeleteExpense()
+
+    // Accordion Rincian Kategori State
+    const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({})
+
+    const toggleCategoryExpand = (cat: string) => {
+        setExpandedCategories(prev => ({
+            ...prev,
+            [cat]: !prev[cat]
+        }))
+    }
+
+    const toggleAllCategories = (expand: boolean) => {
+        const next: Record<string, boolean> = {}
+        categoryBreakdown.forEach(c => {
+            next[c.category] = expand
+        })
+        setExpandedCategories(next)
+    }
+
+    // Consolidated Category Breakdown (Zero-double guarantee & complete item list)
+    const categoryBreakdown = useMemo(() => {
+        const catMap = new Map<string, { category: string; total: number; count: number; items: Expense[] }>()
+
+        // 1. Inisialisasi 6 kategori standar agar urutannya konsisten
+        CANONICAL_CATEGORIES.forEach(cat => {
+            catMap.set(cat, { category: cat, total: 0, count: 0, items: [] })
+        })
+
+        // 2. Masukkan data dari summary backend (yang sudah punya items & total lengkap per periode)
+        if (summary?.category_breakdown) {
+            summary.category_breakdown.forEach((stat: any) => {
+                const canonical = normalizeCategory(stat.category)
+                if (!catMap.has(canonical)) {
+                    catMap.set(canonical, { category: canonical, total: 0, count: 0, items: [] })
+                }
+                const entry = catMap.get(canonical)!
+                entry.total += Number(stat.total) || 0
+                entry.count += Number(stat.count) || 0
+                if (Array.isArray(stat.items) && stat.items.length > 0) {
+                    const existingIds = new Set(entry.items.map(i => i.id))
+                    stat.items.forEach((item: Expense) => {
+                        if (!existingIds.has(item.id)) {
+                            entry.items.push(item)
+                            existingIds.add(item.id)
+                        }
+                    })
+                }
+            })
+        }
+
+        // 3. Gabungkan juga dari list expenses yang ada di frontend jika summary items belum terisi
+        if (Array.isArray(expenses)) {
+            expenses.forEach((e: Expense) => {
+                const canonical = normalizeCategory(e.category)
+                if (!catMap.has(canonical)) {
+                    catMap.set(canonical, { category: canonical, total: 0, count: 0, items: [] })
+                }
+                const entry = catMap.get(canonical)!
+                // Jika total masih 0 (summary belum ada), kita akumulasikan
+                if (!summary?.category_breakdown || summary.category_breakdown.length === 0) {
+                    entry.total += Number(e.amount) || 0
+                    entry.count += 1
+                }
+                const existingIds = new Set(entry.items.map(i => i.id))
+                if (!existingIds.has(e.id)) {
+                    entry.items.push(e)
+                }
+            })
+        }
+
+        // 4. Hitung persentase dan urutkan items per kategori
+        const activeCategories = Array.from(catMap.values()).filter(c => c.count > 0 || c.total > 0)
+        const grandTotal = activeCategories.reduce((sum, c) => sum + c.total, 0)
+
+        return activeCategories.map(c => {
+            const sortedItems = [...c.items].sort((a, b) => {
+                const da = new Date(a.date).getTime()
+                const db = new Date(b.date).getTime()
+                if (da === db) return (b.id || 0) - (a.id || 0)
+                return db - da
+            })
+            return {
+                ...c,
+                items: sortedItems,
+                percentage: grandTotal > 0 ? Math.round((c.total / grandTotal) * 1000) / 10 : 0
+            }
+        }).sort((a, b) => b.total - a.total)
+    }, [expenses, summary])
 
     const setPreset = (preset: 'today' | 'yesterday' | 'week' | 'month' | 'last_month') => {
         const now = new Date()
@@ -231,8 +387,11 @@ export default function Expenses() {
     }
 
     const filteredExpenses = expenses.filter(exp => {
+        const canonicalCat = normalizeCategory(exp.category)
         const matchesSearch = exp.title.toLowerCase().includes(search.toLowerCase()) ||
-            exp.category.toLowerCase().includes(search.toLowerCase())
+            exp.category.toLowerCase().includes(search.toLowerCase()) ||
+            canonicalCat.toLowerCase().includes(search.toLowerCase())
+        const matchesCategory = !categoryFilter || canonicalCat === categoryFilter
         const matchesMethod = !paymentMethodFilter || (exp.payment_method || 'Cash') === paymentMethodFilter
         
         let matchesTime = true
@@ -247,7 +406,7 @@ export default function Expenses() {
             }
         }
 
-        return matchesSearch && matchesMethod && matchesTime
+        return matchesSearch && matchesCategory && matchesMethod && matchesTime
     })
 
     const totalExpenseAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
@@ -586,36 +745,188 @@ export default function Expenses() {
 
             {/* Visual Breakdown & Top 3 Expenses */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Category Progress Breakdown */}
+                {/* Category Progress Breakdown with Itemized Drill-Down */}
                 <Card className="border-none shadow-sm lg:col-span-2">
-                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                        <CardTitle className="text-sm font-bold flex items-center gap-1.5 text-slate-800">
-                            <PieChart className="w-4 h-4 text-primary" />
-                            Distribusi Kategori Beban
-                        </CardTitle>
-                        <span className="text-xs text-slate-400">Komposisi Pengeluaran</span>
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between border-b border-slate-100">
+                        <div>
+                            <CardTitle className="text-sm font-bold flex items-center gap-1.5 text-slate-800">
+                                <PieChart className="w-4 h-4 text-primary" />
+                                Distribusi Kategori Beban
+                            </CardTitle>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                Klik kategori untuk melihat rincian transaksi pengeluaran
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {categoryBreakdown.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-[11px] px-2 text-slate-600 hover:text-slate-900 border-slate-200"
+                                        onClick={() => toggleAllCategories(true)}
+                                    >
+                                        Buka Semua
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-[11px] px-2 text-slate-600 hover:text-slate-900 border-slate-200"
+                                        onClick={() => toggleAllCategories(false)}
+                                    >
+                                        Tutup Semua
+                                    </Button>
+                                </div>
+                            )}
+                            <span className="text-xs text-slate-400 hidden sm:inline">6 Kategori Baku</span>
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        {(!summary?.category_breakdown || summary.category_breakdown.length === 0) ? (
-                            <p className="text-xs text-slate-400 py-4 text-center">Belum ada data kategori untuk periode ini</p>
+                    <CardContent className="pt-3">
+                        {categoryBreakdown.length === 0 ? (
+                            <p className="text-xs text-slate-400 py-6 text-center">Belum ada data kategori untuk periode ini</p>
                         ) : (
-                            <div className="space-y-3 pt-1">
-                                {summary.category_breakdown.map((cat: any) => (
-                                    <div key={cat.category} className="space-y-1">
-                                        <div className="flex justify-between items-center text-xs">
-                                            <span className="font-semibold text-slate-700">{cat.category}</span>
-                                            <span className="text-slate-500 font-medium">
-                                                Rp {formatNumber(cat.total)} ({cat.percentage}%) • {cat.count}x
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div className="space-y-3">
+                                {categoryBreakdown.map((cat) => {
+                                    const isExpanded = !!expandedCategories[cat.category]
+                                    const meta = CATEGORY_META[cat.category] || CATEGORY_META["Lainnya"]
+                                    return (
+                                        <div
+                                            key={cat.category}
+                                            className="rounded-xl border border-slate-200/80 bg-white overflow-hidden shadow-2xs transition-all hover:border-slate-300"
+                                        >
+                                            {/* Baris Ringkasan Kategori (Klik untuk buka/tutup rincian) */}
                                             <div
-                                                className="bg-primary h-2 rounded-full transition-all duration-300"
-                                                style={{ width: `${Math.min(100, Math.max(2, cat.percentage))}%` }}
-                                            />
+                                                className="p-3 cursor-pointer select-none hover:bg-slate-50/70 transition-colors"
+                                                onClick={() => toggleCategoryExpand(cat.category)}
+                                            >
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="p-1 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors">
+                                                            {isExpanded ? (
+                                                                <ChevronUp className="w-4 h-4 text-primary" />
+                                                            ) : (
+                                                                <ChevronDown className="w-4 h-4 text-slate-400" />
+                                                            )}
+                                                        </div>
+                                                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${meta.badgeBg}`}>
+                                                            {cat.category}
+                                                        </span>
+                                                        <span className="text-xs text-slate-400 font-medium">
+                                                            • {cat.count} transaksi
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="text-right">
+                                                            <span className="text-sm font-bold text-slate-900">
+                                                                Rp {formatNumber(cat.total)}
+                                                            </span>
+                                                            <span className="text-[11px] text-slate-500 font-medium ml-1.5">
+                                                                ({cat.percentage}%)
+                                                            </span>
+                                                        </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 px-2 text-[11px] font-semibold text-slate-600 hover:text-primary hover:bg-primary/10 gap-1"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setCategoryFilter(cat.category)
+                                                                const el = document.getElementById("expense-data-section")
+                                                                if (el) el.scrollIntoView({ behavior: 'smooth' })
+                                                            }}
+                                                            title={`Filter tabel utama ke kategori ${cat.category}`}
+                                                        >
+                                                            <Filter className="w-3 h-3" />
+                                                            Filter
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Progress Bar Persentase */}
+                                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mt-2">
+                                                    <div
+                                                        className={`${meta.barCol} h-1.5 rounded-full transition-all duration-300`}
+                                                        style={{ width: `${Math.min(100, Math.max(2, cat.percentage))}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Rincian Transaksi Pengeluaran di Bawah Kategori Ini */}
+                                            {isExpanded && (
+                                                <div className="border-t border-slate-100 bg-slate-50/70 p-3 space-y-2">
+                                                    <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">
+                                                        <span>Daftar Transaksi ({cat.items.length} Item)</span>
+                                                        <span>Nominal</span>
+                                                    </div>
+                                                    {cat.items.length === 0 ? (
+                                                        <p className="text-xs text-slate-400 text-center py-2 italic">
+                                                            Tidak ada rincian transaksi untuk filter aktif
+                                                        </p>
+                                                    ) : (
+                                                        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                                                            {cat.items.map((item, idx) => (
+                                                                <div
+                                                                    key={item.id || idx}
+                                                                    className="p-2 rounded-lg bg-white border border-slate-200/80 flex items-start justify-between gap-3 text-xs hover:border-slate-300 transition-colors"
+                                                                >
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                                            <span className="font-semibold text-slate-800 break-words">
+                                                                                {item.title}
+                                                                            </span>
+                                                                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                                                                (item.payment_method || 'Cash') === 'QRIS'
+                                                                                    ? 'bg-purple-100 text-purple-700'
+                                                                                    : 'bg-emerald-100 text-emerald-700'
+                                                                            }`}>
+                                                                                {item.payment_method || 'Cash'}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
+                                                                                {item.cost_type === 'fixed' ? 'Tetap' : 'Variabel'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                                                                            <span>
+                                                                                {item.date ? new Date(item.date).toLocaleDateString('id-ID', {
+                                                                                    day: '2-digit',
+                                                                                    month: 'short',
+                                                                                    year: 'numeric'
+                                                                                }) : '-'}
+                                                                                {item.date && !isNaN(new Date(item.date).getTime()) && ` • ${new Date(item.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`}
+                                                                            </span>
+                                                                            {item.notes && (
+                                                                                <span className="italic text-slate-600 font-medium truncate max-w-[200px]" title={item.notes}>
+                                                                                    • {item.notes}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right shrink-0 flex items-center gap-2">
+                                                                        <span className="font-bold text-slate-900">
+                                                                            Rp {formatNumber(item.amount)}
+                                                                        </span>
+                                                                        {canEdit && (
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="h-6 w-6 p-0 text-slate-400 hover:text-blue-600"
+                                                                                onClick={() => handleOpenEdit(item)}
+                                                                                title="Edit rincian pengeluaran ini"
+                                                                            >
+                                                                                <Pencil className="w-3 h-3" />
+                                                                            </Button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         )}
                     </CardContent>
@@ -662,7 +973,7 @@ export default function Expenses() {
             </div>
 
             {/* Expenses List & Daily View */}
-            <Card className="border-none shadow-sm">
+            <Card id="expense-data-section" className="border-none shadow-sm">
                 <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex flex-wrap items-center gap-3">
                         <CardTitle className="text-lg font-bold">Data Pengeluaran</CardTitle>
@@ -806,8 +1117,10 @@ export default function Expenses() {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                                                        {exp.category}
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                                        CATEGORY_META[normalizeCategory(exp.category)]?.badgeBg || 'bg-slate-100 text-slate-700 border-slate-200'
+                                                    }`}>
+                                                        {normalizeCategory(exp.category)}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3">

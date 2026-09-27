@@ -43,7 +43,7 @@ func TestExpenseUsecase_CreateSuccess(t *testing.T) {
 	expense := &entity.Expense{
 		Title:         "Test Expense",
 		Amount:        100.50,
-		Category:      "Rent",
+		Category:      "Operasional",
 		CostType:      "fixed",
 		PaymentMethod: "QRIS",
 		Description:   "Test expense description",
@@ -55,7 +55,7 @@ func TestExpenseUsecase_CreateSuccess(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, "Test Expense", resp.Title)
 	assert.Equal(t, 100.50, resp.Amount)
-	assert.Equal(t, "Rent", resp.Category)
+	assert.Equal(t, "Operasional", resp.Category)
 	assert.Equal(t, "fixed", resp.CostType)
 	assert.Equal(t, "QRIS", resp.PaymentMethod)
 	assert.Equal(t, "Test expense description", resp.Description)
@@ -94,13 +94,13 @@ func TestExpenseUsecase_GetAllWithData(t *testing.T) {
 	expense1 := &entity.Expense{
 		Title:     "Expense One",
 		Amount:    50.00,
-		Category:  "Rent",
+		Category:  "Operasional",
 		CostType:  "fixed",
 	}
 	expense2 := &entity.Expense{
 		Title:     "Expense Two",
 		Amount:    75.25,
-		Category:  "Utilities",
+		Category:  "Pemeliharaan & Servis",
 		CostType:  "variable",
 	}
 	uc.Create(expense1)
@@ -132,7 +132,7 @@ func TestExpenseUsecase_UpdateSuccess(t *testing.T) {
 	expense := &entity.Expense{
 		Title:     "Original Title",
 		Amount:    100.00,
-		Category:  "Rent",
+		Category:  "Operasional",
 		CostType:  "fixed",
 	}
 	createdResp, err := uc.Create(expense)
@@ -143,7 +143,7 @@ func TestExpenseUsecase_UpdateSuccess(t *testing.T) {
 	updatedExpense := &entity.Expense{
 		Title:     "Updated Title",
 		Amount:    150.00,
-		Category:  "Utilities",
+		Category:  "Pemeliharaan & Servis",
 		CostType:  "variable",
 		Description: "Updated description",
 	}
@@ -154,7 +154,7 @@ func TestExpenseUsecase_UpdateSuccess(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, "Updated Title", resp.Title)
 	assert.Equal(t, 150.00, resp.Amount)
-	assert.Equal(t, "Utilities", resp.Category)
+	assert.Equal(t, "Pemeliharaan & Servis", resp.Category)
 	assert.Equal(t, "variable", resp.CostType)
 	assert.Equal(t, "Updated description", resp.Description)
 }
@@ -173,7 +173,7 @@ func TestExpenseUsecase_UpdateNotFound(t *testing.T) {
 	expense := &entity.Expense{
 		Title:     "Non-existent Expense",
 		Amount:    100.00,
-		Category:  "Rent",
+		Category:  "Operasional",
 		CostType:  "fixed",
 	}
 	_, err := uc.Update(999, expense) // Non-existent ID
@@ -197,7 +197,7 @@ func TestExpenseUsecase_DeleteSuccess(t *testing.T) {
 	expense := &entity.Expense{
 		Title:     "Expense to Delete",
 		Amount:    100.00,
-		Category:  "Rent",
+		Category:  "Operasional",
 		CostType:  "fixed",
 	}
 	createdResp, err := uc.Create(expense)
@@ -231,7 +231,7 @@ func TestExpenseUsecase_UpdateCostTypeSuccess(t *testing.T) {
 	expense := &entity.Expense{
 		Title:     "Expense for CostType Update",
 		Amount:    100.00,
-		Category:  "Rent",
+		Category:  "Operasional",
 		CostType:  "fixed",
 	}
 	createdResp, err := uc.Create(expense)
@@ -268,4 +268,62 @@ func TestExpenseUsecase_UpdateCostTypeNotFound(t *testing.T) {
 	// Assert
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, errors.ErrNotFound)
+}
+
+func TestNormalizeCategory(t *testing.T) {
+	assert.Equal(t, "Operasional", NormalizeCategory("operational"))
+	assert.Equal(t, "Operasional", NormalizeCategory("OPERASIONAL"))
+	assert.Equal(t, "Operasional", NormalizeCategory("Biaya Tetap"))
+	assert.Equal(t, "Operasional", NormalizeCategory("Fixed"))
+	assert.Equal(t, "Bahan Baku (HPP)", NormalizeCategory("Bahan Baku"))
+	assert.Equal(t, "Bahan Baku (HPP)", NormalizeCategory("HPP"))
+	assert.Equal(t, "Gaji & Upah", NormalizeCategory("Salary"))
+	assert.Equal(t, "Gaji & Upah", NormalizeCategory("Gaji"))
+	assert.Equal(t, "Pemeliharaan & Servis", NormalizeCategory("Maintenance"))
+	assert.Equal(t, "Pemeliharaan & Servis", NormalizeCategory("Servis"))
+	assert.Equal(t, "Pemasaran / Marketing", NormalizeCategory("Marketing"))
+	assert.Equal(t, "Pemasaran / Marketing", NormalizeCategory("pemasaran"))
+	assert.Equal(t, "Lainnya", NormalizeCategory("other"))
+	assert.Equal(t, "Lainnya", NormalizeCategory(""))
+	assert.Equal(t, "Lainnya", NormalizeCategory("Unknown Category"))
+}
+
+func TestGetExpenseSummaryRecap_WithCategoryDrilldown(t *testing.T) {
+	db := setupExpenseTestDB()
+	defer func() {
+		sqlDB, _ := db.DB()
+		sqlDB.Close()
+	}()
+
+	uc := createExpenseUsecase(db)
+
+	// Insert expenses with duplicate aliases
+	e1 := &entity.Expense{Title: "Listrik", Amount: 500000, Category: "Operasional"}
+	e2 := &entity.Expense{Title: "Gas LPG", Amount: 200000, Category: "Operational"}
+	e3 := &entity.Expense{Title: "Sewa Tempat", Amount: 300000, Category: "Biaya Tetap"}
+	e4 := &entity.Expense{Title: "Biji Kopi", Amount: 400000, Category: "Bahan Baku"}
+	uc.Create(e1)
+	uc.Create(e2)
+	uc.Create(e3)
+	uc.Create(e4)
+
+	summary, err := uc.GetExpenseSummaryRecap("", "", 0)
+	assert.NoError(t, err)
+	assert.NotNil(t, summary)
+
+	// Harusnya hanya ada 2 kategori terkelompok: Operasional & Bahan Baku (HPP)
+	assert.Len(t, summary.CategoryBreakdown, 2)
+
+	// Cari kategori Operasional
+	var opStat *entity.CategoryExpenseStat
+	for _, c := range summary.CategoryBreakdown {
+		if c.Category == "Operasional" {
+			opStat = &c
+			break
+		}
+	}
+	assert.NotNil(t, opStat)
+	assert.Equal(t, 1000000.0, opStat.Total) // 500k + 200k + 300k
+	assert.Equal(t, 3, opStat.Count)
+	assert.Len(t, opStat.Items, 3) // Drilldown items populated!
 }

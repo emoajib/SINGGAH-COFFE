@@ -56,12 +56,12 @@ type FixedCostItem struct {
 	Amount float64 `json:"amount"`
 }
 
-// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type CategoryExpenseStat struct {
-	Category   string  `json:"category"`
-	Total      float64 `json:"total"`
-	Percentage float64 `json:"percentage"`
-	Count      int     `json:"count"`
+	Category   string            `json:"category"`
+	Total      float64           `json:"total"`
+	Percentage float64           `json:"percentage"`
+	Count      int               `json:"count"`
+	Items      []ExpenseResponse `json:"items,omitempty"`
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
