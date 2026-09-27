@@ -28,7 +28,10 @@ var wib = time.FixedZone("WIB", 7*60*60)
 // dikecualikan dari perhitungan bagi hasil. Kategori ini mewakili biaya
 // operasional inti yang menjadi tanggung jawab operasional outlet.
 var alwaysExcludedFromSharing = []string{
-	"Operasional", "Operational", "Marketing", "Maintenance", "Misc",
+	"Operasional", "Operational",
+	"Marketing", "Pemasaran", "Pemasaran / Marketing",
+	"Maintenance", "Pemeliharaan", "Pemeliharaan & Servis",
+	"Misc", "Lainnya", "Other",
 }
 
 type ProfitSharingUsecase struct {

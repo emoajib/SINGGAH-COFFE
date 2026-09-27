@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -246,15 +245,12 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 	}
 
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-	// Konsolidasi kategori pengeluaran: lebur "Operational" dan "Operasional" menjadi satu
+	// Konsolidasi kategori pengeluaran: lebur ke 6 kategori standar baku
 	consolidatedExpenses := make(map[string]float64)
 	var expenseCatOrder []string
 	var totalExpenses float64
 	for _, e := range expenses {
-		cat := e.Category
-		if strings.EqualFold(cat, "operational") || strings.EqualFold(cat, "operasional") {
-			cat = "Operasional"
-		}
+		cat := NormalizeCategory(e.Category)
 		if _, exists := consolidatedExpenses[cat]; !exists {
 			expenseCatOrder = append(expenseCatOrder, cat)
 		}

@@ -54,13 +54,21 @@ type ExpenseEventPayload struct {
 }
 
 // expenseCategoryToAccount maps expense categories to PSAK account codes.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 var expenseCategoryToAccount = map[string]string{
-	"Operational": "5201",
-	"Operasional": "5201",
-	"Marketing":   "5202",
-	"Maintenance": "5203",
-	"Salary":      "5204",
-	"Utilities":   "5205",
+	"Operational":           "5201",
+	"Operasional":           "5201",
+	"Bahan Baku (HPP)":      "5101",
+	"Bahan Baku":            "5101",
+	"Marketing":             "5202",
+	"Pemasaran / Marketing": "5202",
+	"Maintenance":           "5203",
+	"Pemeliharaan & Servis": "5203",
+	"Salary":                "5204",
+	"Gaji & Upah":           "5204",
+	"Utilities":             "5205",
+	"Lainnya":               "5201",
+	"Other":                 "5201",
 }
 
 // NewJournalEventHandler creates a handler with repos wired from db.
