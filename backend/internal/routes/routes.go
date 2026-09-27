@@ -29,6 +29,7 @@ type Handlers struct {
 	Journal          *handler.JournalHandler
 	Loyalty          *handler.LoyaltyHandler
 	Cashbon          *handler.CashbonHandler
+	Barista          *handler.BaristaHandler
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -142,6 +143,14 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/cashbons", middleware.RoleMiddleware("owner", "manager"), h.Cashbon.CreateCashbon)
 			protected.PUT("/cashbons/:id", middleware.RoleMiddleware("owner", "manager"), h.Cashbon.UpdateCashbon)
 			protected.DELETE("/cashbons/:id", middleware.RoleMiddleware("owner"), h.Cashbon.DeleteCashbon)
+
+			// Master Data Barista (Owner & Manager)
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			protected.GET("/baristas", middleware.RoleMiddleware("owner", "manager"), h.Barista.GetAll)
+			protected.GET("/baristas/:id", middleware.RoleMiddleware("owner", "manager"), h.Barista.GetByID)
+			protected.POST("/baristas", middleware.RoleMiddleware("owner", "manager"), h.Barista.Create)
+			protected.PUT("/baristas/:id", middleware.RoleMiddleware("owner", "manager"), h.Barista.Update)
+			protected.DELETE("/baristas/:id", middleware.RoleMiddleware("owner"), h.Barista.Delete)
 
 			// Cash Register — Cashier opens cash float on login
 			protected.POST("/cash-registers/open", h.CashRegister.OpenCashRegister)

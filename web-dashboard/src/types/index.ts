@@ -522,6 +522,21 @@ export interface ExpenseBreakdown {
   is_deducted?: boolean
 }
 
+// Master Data Barista
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface Barista {
+  id: number
+  outlet_id: number
+  name: string
+  phone?: string
+  default_share_pct: number
+  bank_account?: string
+  status: 'active' | 'inactive'
+  notes?: string
+  created_at?: string
+  updated_at?: string
+}
+
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 export interface BaristaCashbon {
   id: number

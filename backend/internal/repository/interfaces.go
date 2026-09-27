@@ -213,6 +213,16 @@ type BaristaCashbonRepository interface {
 	MarkSettledByPeriodID(periodID uint, outletID uint, tx ...*gorm.DB) error
 }
 
+// BaristaRepository defines data access for master barista/staff
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type BaristaRepository interface {
+	Create(barista *entity.Barista) error
+	FindByID(id uint, outletID uint) (*entity.Barista, error)
+	FindByOutlet(outletID uint, status string) ([]entity.Barista, error)
+	Update(barista *entity.Barista) error
+	Delete(id uint, outletID uint) error
+}
+
 // AccountRepository defines data access for PSAK Chart of Accounts
 type AccountRepository interface {
 	FindAll(outletID ...uint) ([]entity.Account, error)

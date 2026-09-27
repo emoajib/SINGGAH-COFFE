@@ -61,6 +61,7 @@ func main() {
 	journalUsecase := usecase.NewJournalUsecase(db)
 	loyaltyUsecase := usecase.NewLoyaltyUsecase(db)
 	cashbonUsecase := usecase.NewCashbonUsecase(db)
+	baristaUsecase := usecase.NewBaristaUsecase(db)
 
 	// Context for graceful background worker shutdowns
 	bgCtx, bgCancel := context.WithCancel(context.Background())
@@ -116,6 +117,7 @@ func main() {
 		Journal:          handler.NewJournalHandler(journalUsecase),
 		Loyalty:          handler.NewLoyaltyHandler(loyaltyUsecase),
 		Cashbon:          handler.NewCashbonHandler(cashbonUsecase),
+		Barista:          handler.NewBaristaHandler(baristaUsecase),
 	}
 
 	r := gin.New()

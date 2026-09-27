@@ -7,14 +7,15 @@ import {
   Loader2, Calculator, CheckCircle, Trash2, RefreshCw, DollarSign,
   FileText, UserPlus, X, Calendar, CalendarOff, Info, Printer,
   PlusCircle, AlertCircle, ArrowDownCircle,
-  Wallet, Check, Save
+  Wallet, Check, Save, Users, Edit, UserCheck, UserX, Phone, CreditCard
 } from "lucide-react"
 import { useProfitSharing } from "../hooks/useProfitSharing"
 import { useCashbons, useCreateCashbon, useDeleteCashbon } from "../hooks/useCashbon"
+import { useBaristas, useCreateBarista, useUpdateBarista, useDeleteBarista } from "../hooks/useBarista"
 import { ProfitSharingService } from "../services/profitSharingService"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber, formatDateTime } from "../lib/utils"
-import type { ProfitSharingPreview, ProfitSharingPeriod, ProfitSharingPerson, BaristaCashbon } from "../types"
+import type { ProfitSharingPreview, ProfitSharingPeriod, ProfitSharingPerson, BaristaCashbon, Barista } from "../types"
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -49,8 +50,24 @@ export default function ProfitSharing() {
   const createCashbonMutation = useCreateCashbon()
   const deleteCashbonMutation = useDeleteCashbon()
 
+  // Master Barista data & mutations
+  const { data: masterBaristas = [], isLoading: loadingBaristas } = useBaristas()
+  const createBaristaMutation = useCreateBarista()
+  const updateBaristaMutation = useUpdateBarista()
+  const deleteBaristaMutation = useDeleteBarista()
+
+  // Master Barista Modal state
+  const [showBaristaModal, setShowBaristaModal] = useState(false)
+  const [editingBarista, setEditingBarista] = useState<Barista | null>(null)
+  const [baristaFormName, setBaristaFormName] = useState("")
+  const [baristaFormPhone, setBaristaFormPhone] = useState("")
+  const [baristaFormPct, setBaristaFormPct] = useState(20)
+  const [baristaFormBank, setBaristaFormBank] = useState("")
+  const [baristaFormStatus, setBaristaFormStatus] = useState<'active' | 'inactive'>('active')
+  const [baristaFormNotes, setBaristaFormNotes] = useState("")
+
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'profit_sharing' | 'cashbons'>('profit_sharing')
+  const [activeTab, setActiveTab] = useState<'profit_sharing' | 'cashbons' | 'baristas'>('profit_sharing')
 
   // Form preview state
   const [startDate, setStartDate] = useState("")
@@ -81,6 +98,182 @@ export default function ProfitSharing() {
   const [cashbonReason, setCashbonReason] = useState("")
   const [cashbonMethod, setCashbonMethod] = useState("Cash")
   const [cashbonFilterStatus, setCashbonFilterStatus] = useState<'all' | 'pending' | 'settled'>('all')
+
+  // Auto-populate people with active master baristas when master data loads
+  useEffect(() => {
+    if (masterBaristas.length > 0 && people.length === 1 && people[0].role === 'owner') {
+      const activeBaristas = masterBaristas.filter(b => b.status === 'active')
+      if (activeBaristas.length > 0) {
+        const initialPeople: ProfitSharingPerson[] = [
+          people[0],
+          ...activeBaristas.map(b => ({
+            id: 0,
+            period_id: 0,
+            name: b.name,
+            role: 'barista' as const,
+            share_pct: b.default_share_pct || 20,
+            amount: 0,
+            leave_reduction: 0,
+            is_on_leave: false,
+            leave_days: 0,
+            leave_dates: ""
+          }))
+        ]
+        setPeople(initialPeople)
+      }
+    }
+  }, [masterBaristas])
+
+  // Sync people with active master baristas
+  const syncWithMasterBaristas = () => {
+    const activeBaristas = masterBaristas.filter(b => b.status === 'active')
+    if (activeBaristas.length === 0) {
+      toast({ title: "Perhatian", description: "Belum ada barista berstatus aktif di Master Data", variant: "error" })
+      return
+    }
+    const owner = people.find(p => p.role === 'owner') || {
+      id: 0, period_id: 0, name: "Owner", role: 'owner' as const, share_pct: ownerPct, amount: 0, leave_reduction: 0, is_on_leave: false, leave_days: 0, leave_dates: ""
+    }
+    const synced: ProfitSharingPerson[] = [
+      owner,
+      ...activeBaristas.map(b => {
+        const existing = people.find(p => p.role !== 'owner' && p.name.trim().toLowerCase() === b.name.trim().toLowerCase())
+        return {
+          id: existing?.id || 0,
+          period_id: 0,
+          name: b.name,
+          role: 'barista' as const,
+          share_pct: b.default_share_pct || 20,
+          amount: 0,
+          leave_reduction: existing?.leave_reduction || 0,
+          is_on_leave: existing?.is_on_leave || false,
+          leave_days: existing?.leave_days || 0,
+          leave_dates: existing?.leave_dates || ""
+        }
+      })
+    ]
+    setPeople(synced)
+    toast({ title: "Sinkronisasi Berhasil", description: `Memuat ${activeBaristas.length} barista aktif dari master data`, variant: "success" })
+  }
+
+  // Toggle barista inclusion into current profit sharing draft
+  const toggleBaristaInDraft = (barista: Barista) => {
+    const exists = people.some(p => p.role !== 'owner' && p.name.trim().toLowerCase() === barista.name.trim().toLowerCase())
+    if (exists) {
+      setPeople(people.filter(p => p.role === 'owner' || p.name.trim().toLowerCase() !== barista.name.trim().toLowerCase()))
+    } else {
+      setPeople([
+        ...people,
+        {
+          id: 0,
+          period_id: 0,
+          name: barista.name,
+          role: 'barista',
+          share_pct: barista.default_share_pct || 20,
+          amount: 0,
+          leave_reduction: 0,
+          is_on_leave: false,
+          leave_days: 0,
+          leave_dates: ""
+        }
+      ])
+    }
+  }
+
+  // Barista CRUD Handlers
+  const handleOpenCreateBarista = () => {
+    setEditingBarista(null)
+    setBaristaFormName("")
+    setBaristaFormPhone("")
+    setBaristaFormPct(20)
+    setBaristaFormBank("")
+    setBaristaFormStatus('active')
+    setBaristaFormNotes("")
+    setShowBaristaModal(true)
+  }
+
+  const handleOpenEditBarista = (b: Barista) => {
+    setEditingBarista(b)
+    setBaristaFormName(b.name)
+    setBaristaFormPhone(b.phone || "")
+    setBaristaFormPct(b.default_share_pct || 20)
+    setBaristaFormBank(b.bank_account || "")
+    setBaristaFormStatus(b.status)
+    setBaristaFormNotes(b.notes || "")
+    setShowBaristaModal(true)
+  }
+
+  const handleSaveBarista = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!baristaFormName.trim()) {
+      toast({ title: "Error", description: "Nama barista wajib diisi", variant: "error" })
+      return
+    }
+
+    try {
+      if (editingBarista) {
+        await updateBaristaMutation.mutateAsync({
+          id: editingBarista.id,
+          data: {
+            name: baristaFormName.trim(),
+            phone: baristaFormPhone.trim(),
+            default_share_pct: Number(baristaFormPct),
+            bank_account: baristaFormBank.trim(),
+            status: baristaFormStatus,
+            notes: baristaFormNotes.trim(),
+          }
+        })
+        toast({ title: "Berhasil", description: `Data barista ${baristaFormName} berhasil diperbarui`, variant: "success" })
+      } else {
+        await createBaristaMutation.mutateAsync({
+          name: baristaFormName.trim(),
+          phone: baristaFormPhone.trim(),
+          default_share_pct: Number(baristaFormPct),
+          bank_account: baristaFormBank.trim(),
+          status: baristaFormStatus,
+          notes: baristaFormNotes.trim(),
+        })
+        toast({ title: "Berhasil", description: `Barista ${baristaFormName} berhasil ditambahkan ke Master Data`, variant: "success" })
+      }
+      setShowBaristaModal(false)
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.response?.data?.error || "Gagal menyimpan barista", variant: "error" })
+    }
+  }
+
+  const handleToggleBaristaStatus = async (b: Barista) => {
+    const nextStatus = b.status === 'active' ? 'inactive' : 'active'
+    try {
+      await updateBaristaMutation.mutateAsync({
+        id: b.id,
+        data: {
+          name: b.name,
+          phone: b.phone,
+          default_share_pct: b.default_share_pct,
+          bank_account: b.bank_account,
+          status: nextStatus,
+          notes: b.notes,
+        }
+      })
+      toast({
+        title: "Status Diperbarui",
+        description: `Status barista ${b.name} kini ${nextStatus === 'active' ? 'Aktif' : 'Non-Aktif'}`,
+        variant: "success"
+      })
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.response?.data?.error || "Gagal mengubah status barista", variant: "error" })
+    }
+  }
+
+  const handleDeleteBarista = async (b: Barista) => {
+    if (!window.confirm(`Hapus barista ${b.name} dari Master Data? Data historis bagi hasil yang lalu tetap tersimpan.`)) return
+    try {
+      await deleteBaristaMutation.mutateAsync(b.id)
+      toast({ title: "Berhasil", description: `Barista ${b.name} berhasil dihapus dari Master Data`, variant: "success" })
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.response?.data?.error || "Gagal menghapus barista", variant: "error" })
+    }
+  }
 
   // Keep detailPeople synchronized when detailPeriod changes
   useEffect(() => {
@@ -701,6 +894,18 @@ export default function ProfitSharing() {
               </span>
             )}
           </Button>
+          <Button
+            variant={activeTab === 'baristas' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('baristas')}
+            className={`gap-1.5 rounded-lg text-xs font-semibold ${activeTab === 'baristas' ? 'shadow' : 'text-slate-600'}`}
+          >
+            <Users className="w-4 h-4" />
+            Data Barista
+            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-bold">
+              {masterBaristas.length}
+            </span>
+          </Button>
         </div>
       </div>
 
@@ -852,6 +1057,79 @@ export default function ProfitSharing() {
                       className="font-bold text-sm bg-indigo-50/50 border-indigo-200 text-indigo-900 focus:border-indigo-400"
                       title="Ketik di sini untuk langsung mengubah total jatah barista (Owner % otomatis menyesuaikan)"
                     />
+                  </div>
+                </div>
+
+                {/* Interactive Master Barista Quick Selector */}
+                <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 mb-3 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-indigo-600" />
+                      Pilih Barista yang Bertugas Periode Ini:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={syncWithMasterBaristas}
+                        className="h-6 px-2 text-[11px] text-indigo-700 hover:bg-indigo-50 font-semibold gap-1"
+                        title="Muat ulang seluruh barista aktif dari master data"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Sinkronkan Barista Aktif
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActiveTab('baristas')}
+                        className="h-6 px-2 text-[11px] text-slate-600 hover:bg-slate-200 font-semibold gap-1"
+                      >
+                        Kelola Data Barista
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {loadingBaristas ? (
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Memuat data barista...
+                      </span>
+                    ) : masterBaristas.length === 0 ? (
+                      <span className="text-xs text-slate-500">
+                        Belum ada data barista. Klik 'Kelola Data Barista' untuk mendaftarkan staf.
+                      </span>
+                    ) : (
+                      masterBaristas.map((b) => {
+                        const isSelected = people.some(
+                          p => p.role !== 'owner' && p.name.trim().toLowerCase() === b.name.trim().toLowerCase()
+                        )
+                        const isInactive = b.status === 'inactive'
+
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => toggleBaristaInDraft(b)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border shadow-2xs ${
+                              isSelected
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                : isInactive
+                                ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60'
+                                : 'bg-white text-slate-700 border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50'
+                            }`}
+                            title={isInactive ? "Barista non-aktif (klik untuk sertakan jika bertugas)" : "Klik untuk memilih / melepas barista"}
+                          >
+                            {isSelected ? <Check className="w-3.5 h-3.5" /> : <PlusCircle className="w-3.5 h-3.5 text-slate-400" />}
+                            <span>{b.name}</span>
+                            <span className={`text-[10px] px-1 py-0.2 rounded font-normal ${isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                              {b.default_share_pct}%
+                            </span>
+                          </button>
+                        )
+                      })
+                    )}
                   </div>
                 </div>
 
@@ -1287,6 +1565,202 @@ export default function ProfitSharing() {
                               ) : (
                                 <span className="text-slate-400 text-xs italic">-</span>
                               )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ================= TAB 3: DATA BARISTA ================= */}
+      {activeTab === 'baristas' && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="bg-gradient-to-br from-indigo-500/10 to-blue-500/5 border-indigo-200/60 shadow-sm">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">Total Barista Terdaftar</span>
+                  <h3 className="text-2xl font-black text-indigo-950 mt-1">{masterBaristas.length} Orang</h3>
+                  <p className="text-[11px] text-indigo-600/90 mt-0.5">Master data staf & barista kedai</p>
+                </div>
+                <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-sm">
+                  <Users className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-200/60 shadow-sm">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Barista Aktif</span>
+                  <h3 className="text-2xl font-black text-emerald-950 mt-1">
+                    {masterBaristas.filter(b => b.status === 'active').length} Orang
+                  </h3>
+                  <p className="text-[11px] text-emerald-600/90 mt-0.5">Siap masuk kalkulasi bagi hasil otomatis</p>
+                </div>
+                <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-sm">
+                  <UserCheck className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-amber-500/10 to-orange-500/5 border-amber-200/60 shadow-sm">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Total Porsi Default</span>
+                  <h3 className="text-2xl font-black text-amber-950 mt-1">
+                    {masterBaristas.filter(b => b.status === 'active').reduce((sum, b) => sum + (b.default_share_pct || 0), 0)}%
+                  </h3>
+                  <p className="text-[11px] text-amber-600/90 mt-0.5">Akumulasi porsi barista aktif</p>
+                </div>
+                <div className="p-3 bg-amber-600 text-white rounded-2xl shadow-sm">
+                  <Calculator className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Barista Table Card */}
+          <Card>
+            <CardHeader className="pb-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-600" />
+                  Daftar Master Data Barista
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Kelola staf kedai, status keaktifan, nomor kontak, info rekening pencairan, dan persentase default bagi hasil.
+                </p>
+              </div>
+
+              <Button
+                onClick={handleOpenCreateBarista}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 shadow-sm"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Tambah Barista Baru
+              </Button>
+            </CardHeader>
+
+            <CardContent className="pt-4">
+              {loadingBaristas ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                </div>
+              ) : masterBaristas.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm font-medium">Belum ada barista terdaftar.</p>
+                  <Button size="sm" onClick={handleOpenCreateBarista} className="mt-3 text-xs gap-1">
+                    <PlusCircle className="w-3.5 h-3.5" /> Tambah Barista Pertama
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs sm:text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-50 text-slate-600">
+                        <th className="text-left py-3 px-3">Nama Barista</th>
+                        <th className="text-center py-3 px-3">Porsi Standar</th>
+                        <th className="text-left py-3 px-3">Kontak / WA</th>
+                        <th className="text-left py-3 px-3">Rekening Pencairan</th>
+                        <th className="text-center py-3 px-3">Status</th>
+                        <th className="text-left py-3 px-3">Catatan</th>
+                        <th className="text-center py-3 px-3">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {masterBaristas.map((b) => {
+                        const isActive = b.status === 'active'
+                        return (
+                          <tr key={b.id} className="border-b hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
+                                  {b.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="font-bold text-slate-900">{b.name}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                                {b.default_share_pct}%
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-slate-600">
+                              {b.phone ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  {b.phone}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-slate-600">
+                              {b.bank_account ? (
+                                <span className="inline-flex items-center gap-1 font-medium text-slate-800">
+                                  <CreditCard className="w-3.5 h-3.5 text-indigo-500" />
+                                  {b.bank_account}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic">Kas Tunai (Laci)</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              {isActive ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  Aktif
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">
+                                  Non-Aktif
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-slate-500 text-xs">
+                              {b.notes || <span className="text-slate-400 italic">-</span>}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEditBarista(b)}
+                                  className="h-7 w-7 p-0 text-slate-600 hover:text-indigo-600"
+                                  title="Edit Barista"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleToggleBaristaStatus(b)}
+                                  className={`h-7 w-7 p-0 ${isActive ? 'text-amber-600 hover:text-amber-700' : 'text-emerald-600 hover:text-emerald-700'}`}
+                                  title={isActive ? "Non-aktifkan Barista" : "Aktifkan Barista"}
+                                >
+                                  {isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteBarista(b)}
+                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  title="Hapus Barista"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -1892,22 +2366,28 @@ export default function ProfitSharing() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Nama Barista <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  list="barista-names-list"
-                  type="text"
-                  placeholder="Ketik atau pilih nama barista..."
+                <select
                   value={cashbonBaristaName}
                   onChange={(e) => setCashbonBaristaName(e.target.value)}
-                  className="w-full border rounded-xl px-3 py-2 text-sm font-semibold text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full border rounded-xl px-3 py-2 text-sm font-semibold text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
                   required
-                />
-                <datalist id="barista-names-list">
-                  {people.filter(p => p.role !== 'owner').map((p, idx) => (
-                    <option key={idx} value={p.name} />
+                >
+                  <option value="">-- Pilih Barista dari Master Data --</option>
+                  {masterBaristas.filter(b => b.status === 'active').map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name} {b.phone ? `(${b.phone})` : ''} - Porsi {b.default_share_pct}%
+                    </option>
                   ))}
-                  <option value="Barista 1" />
-                  <option value="Barista 2" />
-                </datalist>
+                  {masterBaristas.filter(b => b.status === 'inactive').length > 0 && (
+                    <optgroup label="Barista Non-Aktif">
+                      {masterBaristas.filter(b => b.status === 'inactive').map((b) => (
+                        <option key={b.id} value={b.name}>
+                          {b.name} (Non-Aktif)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2121,6 +2601,131 @@ export default function ProfitSharing() {
                 Simpan & Selesai
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: KELOLA MASTER BARISTA ================= */}
+      {showBaristaModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowBaristaModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
+                  <Users className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {editingBarista ? "Edit Data Barista" : "Tambah Barista Baru"}
+                  </h3>
+                  <p className="text-xs text-slate-500">Master profil barista untuk bagi hasil & pencatatan kasbon</p>
+                </div>
+              </div>
+              <button onClick={() => setShowBaristaModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBarista} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Nama Lengkap Barista <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  placeholder="Contoh: SALMAN"
+                  value={baristaFormName}
+                  onChange={(e) => setBaristaFormName(e.target.value)}
+                  required
+                  className="font-semibold"
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Porsi Standar (%) <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={baristaFormPct}
+                    onChange={(e) => setBaristaFormPct(Number(e.target.value))}
+                    required
+                    className="font-bold text-indigo-700"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">Porsi default saat bagi hasil</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Status Barista
+                  </label>
+                  <select
+                    value={baristaFormStatus}
+                    onChange={(e) => setBaristaFormStatus(e.target.value as 'active' | 'inactive')}
+                    className="w-full border rounded-xl px-3 py-2 text-sm font-semibold text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
+                  >
+                    <option value="active">Aktif (Bertugas)</option>
+                    <option value="inactive">Non-Aktif (Resign/Cuti)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Nomor HP / WhatsApp
+                </label>
+                <Input
+                  placeholder="Contoh: 08123456789"
+                  value={baristaFormPhone}
+                  onChange={(e) => setBaristaFormPhone(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Rekening / E-Wallet Pencairan
+                </label>
+                <Input
+                  placeholder="Contoh: BCA 1234567890 a.n Salman"
+                  value={baristaFormBank}
+                  onChange={(e) => setBaristaFormBank(e.target.value)}
+                />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">Digunakan pada bukti serah terima kas/transfer</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Catatan / Keterangan
+                </label>
+                <Input
+                  placeholder="Catatan kepegawaian (opsional)..."
+                  value={baristaFormNotes}
+                  onChange={(e) => setBaristaFormNotes(e.target.value)}
+                />
+              </div>
+
+              <div className="pt-3 border-t flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowBaristaModal(false)}>
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={createBaristaMutation.isPending || updateBaristaMutation.isPending}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                >
+                  {(createBaristaMutation.isPending || updateBaristaMutation.isPending) ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <Check className="w-4 h-4 mr-1" />
+                  )}
+                  {editingBarista ? "Simpan Perubahan" : "Tambah Barista"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

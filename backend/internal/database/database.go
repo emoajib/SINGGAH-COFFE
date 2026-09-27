@@ -64,6 +64,8 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.LoyaltyStamp{},
 		&models.LoyaltyRedemption{},
 		&models.CustomerFeedback{},
+		// Master Data Barista - Vetted by AI
+		&models.Barista{},
 	)
 	if err != nil {
 		log.Printf("AutoMigrate failed: %v", err)
@@ -151,6 +153,31 @@ func Connect(cfg config.Config) *gorm.DB {
 		Where("order_time < ? AND kitchen_status IN ('queued', 'preparing', 'ready') AND status = 'Completed'", startOfDay).
 		Update("kitchen_status", "served").Error; err != nil {
 		log.Printf("Notice: historical kitchen queue cleanup skipped: %v", err)
+	}
+
+	// Seed Default Baristas if not exists (Salman & Rio)
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	var baristaCount int64
+	db.Model(&models.Barista{}).Count(&baristaCount)
+	if baristaCount == 0 {
+		defaultBaristas := []models.Barista{
+			{
+				OutletID:        1,
+				Name:            "SALMAN",
+				DefaultSharePct: 20.0,
+				Status:          "active",
+				Notes:           "Barista Utama",
+			},
+			{
+				OutletID:        1,
+				Name:            "RIO",
+				DefaultSharePct: 20.0,
+				Status:          "active",
+				Notes:           "Barista Utama",
+			},
+		}
+		db.Create(&defaultBaristas)
+		log.Println("Seeded default active baristas (SALMAN & RIO)")
 	}
 
 	return db
