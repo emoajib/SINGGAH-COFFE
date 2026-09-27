@@ -2,7 +2,11 @@ import { useState } from 'react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { formatNumber } from "../../lib/utils"
-import { Download, FileSpreadsheet, FileCode, Database } from 'lucide-react'
+import { Download, FileSpreadsheet, FileCode, Database, Loader2, Table } from 'lucide-react'
+import * as XLSX from 'xlsx'
+import api from '../../lib/api'
+import { useToast } from '../../hooks/use-toast'
+import type { Order, Expense } from '../../types'
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 
@@ -37,6 +41,8 @@ const PERIOD_CONFIG: Record<Period, { title: string; desc: string }> = {
 export function SalesChart({ data = [], weeklyData = [], monthlyData = [], yearlyData = [] }: SalesChartProps) {
     const [period, setPeriod] = useState<Period>('daily')
     const [showExportMenu, setShowExportMenu] = useState(false)
+    const [isExportingExcel, setIsExportingExcel] = useState(false)
+    const { toast } = useToast()
 
     const getActiveData = () => {
         switch (period) {
@@ -84,6 +90,271 @@ export function SalesChart({ data = [], weeklyData = [], monthlyData = [], yearl
                 moving_average_3p: ma3
             }
         })
+    }
+
+    // Ekspor Dataset Multi-Sheet Excel (.xlsx) Lengkap & Siap Olah Data Sains
+    const exportMultiSheetExcel = async () => {
+        setIsExportingExcel(true)
+        setShowExportMenu(false)
+        try {
+            const now = new Date()
+            const end = new Date(now)
+            const start = new Date(now)
+            
+            if (period === 'daily') {
+                // Hari ini saja
+            } else if (period === 'weekly') {
+                start.setDate(end.getDate() - 6)
+            } else if (period === 'monthly') {
+                start.setDate(end.getDate() - 29)
+            } else if (period === 'yearly') {
+                start.setFullYear(end.getFullYear() - 1)
+            }
+            
+            const startStr = start.toISOString().split('T')[0]
+            const endStr = end.toISOString().split('T')[0]
+
+            // Ambil data transaksi pesanan dan pengeluaran secara paralel
+            const [ordersRes, expensesRes] = await Promise.all([
+                api.get<Order[]>('/orders', { params: { limit: 10000, start: startStr, end: endStr } }).catch(() => ({ data: [] as Order[] })),
+                api.get<Expense[]>('/expenses', { params: { start: startStr, end: endStr } }).catch(() => ({ data: [] as Expense[] }))
+            ])
+
+            const orders = Array.isArray(ordersRes.data) ? ordersRes.data : []
+            const expenses = Array.isArray(expensesRes.data) ? expensesRes.data : []
+            const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+
+            // --- SHEET 1: REKAP HARIAN (TIME SERIES AGGREGATION) ---
+            const timeSeriesDataset = generateTimeSeriesDataset()
+            const dailyMap: Record<string, {
+                revenue: number
+                orderCount: number
+                cashAmount: number
+                qrisAmount: number
+                expenseAmount: number
+            }> = {}
+
+            orders.forEach(ord => {
+                const rawDate = ord.created_at || ord.order_time || ''
+                const dKey = rawDate ? rawDate.split('T')[0] : startStr
+                if (!dailyMap[dKey]) {
+                    dailyMap[dKey] = { revenue: 0, orderCount: 0, cashAmount: 0, qrisAmount: 0, expenseAmount: 0 }
+                }
+                const amt = ord.total_amount || 0
+                dailyMap[dKey].revenue += amt
+                dailyMap[dKey].orderCount += 1
+                if ((ord.payment_method || '').toLowerCase() === 'cash') {
+                    dailyMap[dKey].cashAmount += amt
+                } else {
+                    dailyMap[dKey].qrisAmount += amt
+                }
+            })
+
+            expenses.forEach(exp => {
+                const rawDate = exp.date ? (typeof exp.date === 'string' ? exp.date.split('T')[0] : '') : startStr
+                if (!dailyMap[rawDate]) {
+                    dailyMap[rawDate] = { revenue: 0, orderCount: 0, cashAmount: 0, qrisAmount: 0, expenseAmount: 0 }
+                }
+                dailyMap[rawDate].expenseAmount += (exp.amount || 0)
+            })
+
+            const sortedDates = Object.keys(dailyMap).sort()
+            let runningRev = 0
+            const rekapHarianRows = sortedDates.map((dateKey, idx) => {
+                const d = dailyMap[dateKey]
+                runningRev += d.revenue
+                const prevRev = idx > 0 ? dailyMap[sortedDates[idx - 1]].revenue : 0
+                const growthRate = prevRev > 0 ? Number(((d.revenue - prevRev) / prevRev * 100).toFixed(2)) : 0
+                
+                let smaSum = d.revenue
+                let smaCount = 1
+                if (idx >= 1) { smaSum += dailyMap[sortedDates[idx - 1]].revenue; smaCount++ }
+                if (idx >= 2) { smaSum += dailyMap[sortedDates[idx - 2]].revenue; smaCount++ }
+                const sma3 = Number((smaSum / smaCount).toFixed(0))
+
+                const dt = new Date(dateKey)
+                const dayName = isNaN(dt.getTime()) ? '-' : dayNames[dt.getDay()]
+                const aov = d.orderCount > 0 ? Math.round(d.revenue / d.orderCount) : 0
+                const netProfit = d.revenue - d.expenseAmount
+
+                return {
+                    Tanggal: dateKey,
+                    Hari: dayName,
+                    Total_Omzet_Rp: d.revenue,
+                    Jumlah_Transaksi: d.orderCount,
+                    Rata_Rata_Keranjang_AOV_Rp: aov,
+                    Penjualan_Tunai_Cash_Rp: d.cashAmount,
+                    Penjualan_NonTunai_QRIS_Rp: d.qrisAmount,
+                    Total_Pengeluaran_Beban_Rp: d.expenseAmount,
+                    Laba_Bersih_Harian_Rp: netProfit,
+                    Pertumbuhan_Omzet_Pct: growthRate,
+                    Moving_Average_3D_Rp: sma3,
+                    Akumulasi_Omzet_Berjalan_Rp: runningRev
+                }
+            })
+
+            const finalRekapRows = rekapHarianRows.length > 0 ? rekapHarianRows : timeSeriesDataset.map(r => ({
+                Periode_Index: r.period_index + 1,
+                Label_Waktu: r.period_label,
+                Total_Omzet_Rp: r.revenue,
+                Akumulasi_Omzet_Rp: r.cumulative_revenue,
+                Pertumbuhan_Pct: r.growth_rate_pct,
+                Moving_Average_3P_Rp: r.moving_average_3p
+            }))
+
+            // --- SHEET 2: DETAIL TRANSAKSI (PER STRUK) ---
+            const detailTransaksiRows = orders.map(ord => {
+                const dateObj = ord.created_at ? new Date(ord.created_at) : (ord.order_time ? new Date(ord.order_time) : null)
+                const dateStrVal = dateObj && !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : '-'
+                const timeStrVal = dateObj && !isNaN(dateObj.getTime()) ? dateObj.toTimeString().slice(0, 8) : '-'
+                const dayVal = dateObj && !isNaN(dateObj.getTime()) ? dayNames[dateObj.getDay()] : '-'
+
+                const items = ord.items || []
+                const totalQty = items.reduce((sum, it) => sum + (it.quantity || 0), 0)
+                const itemSummary = items.map(it => `${it.quantity}x ${it.product?.name || 'Item'}`).join('; ')
+
+                return {
+                    ID_Transaksi: ord.id,
+                    Nomor_Struk: ord.order_number,
+                    Tanggal: dateStrVal,
+                    Waktu_Jam: timeStrVal,
+                    Hari: dayVal,
+                    Total_Nominal_Rp: ord.total_amount,
+                    Metode_Pembayaran: ord.payment_method || 'Cash',
+                    Status_Bayar: ord.payment_status || 'Paid',
+                    Status_Pesanan: ord.status || 'Completed',
+                    Kasir: ord.cashier_name || 'Kasir',
+                    Pelanggan: ord.customer_name || 'Pelanggan Umum',
+                    Total_Qty_Item: totalQty,
+                    Rincian_Menu_Dipesan: itemSummary
+                }
+            })
+
+            // --- SHEET 3: DETAIL ITEM TERJUAL (PRODUCT LINE ITEMS) ---
+            const itemTerjualRows: any[] = []
+            orders.forEach(ord => {
+                const dateObj = ord.created_at ? new Date(ord.created_at) : (ord.order_time ? new Date(ord.order_time) : null)
+                const dateStrVal = dateObj && !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : '-'
+                const timeStrVal = dateObj && !isNaN(dateObj.getTime()) ? dateObj.toTimeString().slice(0, 8) : '-'
+                const items = ord.items || []
+
+                items.forEach(it => {
+                    const qty = it.quantity || 1
+                    const unitPrice = it.price || 0
+                    const subtotal = qty * unitPrice
+                    itemTerjualRows.push({
+                        ID_Transaksi: ord.id,
+                        Nomor_Struk: ord.order_number,
+                        Tanggal: dateStrVal,
+                        Waktu_Jam: timeStrVal,
+                        Kategori_Produk: it.product?.category || 'Menu Kafe',
+                        Nama_Produk: it.product?.name || 'Item',
+                        Kuantiti: qty,
+                        Harga_Satuan_Rp: unitPrice,
+                        Subtotal_Penjualan_Rp: subtotal,
+                        Metode_Bayar: ord.payment_method || 'Cash'
+                    })
+                })
+            })
+
+            // --- SHEET 4: PENGELUARAN HARIAN (EXPENSES) ---
+            const pengeluaranRows = expenses.map(exp => {
+                const expDate = exp.date ? (typeof exp.date === 'string' ? exp.date : '') : ''
+                const datePart = expDate ? expDate.split('T')[0] : '-'
+                const timePart = expDate && expDate.includes('T') ? expDate.split('T')[1].slice(0, 5) : '-'
+                return {
+                    ID_Pengeluaran: exp.id,
+                    Tanggal: datePart,
+                    Waktu_Jam: timePart,
+                    Judul_Pengeluaran: exp.title,
+                    Kategori: exp.category,
+                    Tipe_Biaya: exp.cost_type === 'fixed' ? 'Biaya Tetap' : 'Biaya Variabel',
+                    Nominal_Rp: exp.amount,
+                    Metode_Bayar: exp.payment_method || 'Cash',
+                    Catatan_Keterangan: exp.description || exp.notes || '-'
+                }
+            })
+
+            // --- SHEET 5: KAMUS DATA & METADATA ---
+            const kamusDataRows = [
+                { Sheet: 'Rekap_Harian', Kolom: 'Tanggal', Tipe: 'Date (YYYY-MM-DD)', Deskripsi: 'Tanggal kalender agregasi operasional harian' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Hari', Tipe: 'String', Deskripsi: 'Nama hari (Senin-Minggu) untuk analisis efek musiman akhir pekan' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Total_Omzet_Rp', Tipe: 'Numeric', Deskripsi: 'Total penerimaan kotor penjualan pada hari tersebut' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Jumlah_Transaksi', Tipe: 'Numeric', Deskripsi: 'Frekuensi struk transaksi belanja yang berhasil' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Rata_Rata_Keranjang_AOV_Rp', Tipe: 'Numeric', Deskripsi: 'Average Order Value (Total Omzet / Jumlah Transaksi)' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Penjualan_Tunai_Cash_Rp', Tipe: 'Numeric', Deskripsi: 'Penerimaan uang fisik tunai pada laci kasir' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Penjualan_NonTunai_QRIS_Rp', Tipe: 'Numeric', Deskripsi: 'Penerimaan non-tunai via QRIS / transfer' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Total_Pengeluaran_Beban_Rp', Tipe: 'Numeric', Deskripsi: 'Akumulasi beban kas keluar pada tanggal terkait' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Laba_Bersih_Harian_Rp', Tipe: 'Numeric', Deskripsi: 'Estimasi laba operasional harian (Omzet - Pengeluaran)' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Pertumbuhan_Omzet_Pct', Tipe: 'Numeric (%)', Deskripsi: 'Persentase perubahan omzet dibanding hari sebelumnya' },
+                { Sheet: 'Rekap_Harian', Kolom: 'Moving_Average_3D_Rp', Tipe: 'Numeric', Deskripsi: 'Simple Moving Average 3 Hari untuk perataan tren (Forecasting)' },
+                { Sheet: 'Detail_Transaksi', Kolom: 'Nomor_Struk', Tipe: 'String', Deskripsi: 'Nomor nota unik per transaksi kasir' },
+                { Sheet: 'Detail_Transaksi', Kolom: 'Waktu_Jam', Tipe: 'Time (HH:mm:ss)', Deskripsi: 'Jam transaksi untuk analisis jam sibuk (Peak Hours)' },
+                { Sheet: 'Detail_Item_Terjual', Kolom: 'Nama_Produk', Tipe: 'String', Deskripsi: 'Nama menu/produk untuk analisis BCG Matrix & Association Rule' },
+                { Sheet: 'Detail_Item_Terjual', Kolom: 'Kuantiti', Tipe: 'Numeric', Deskripsi: 'Volume penjualan item' },
+                { Sheet: 'Pengeluaran_Harian', Kolom: 'Kategori', Tipe: 'Categorical', Deskripsi: '6 Kategori baku: Operasional, Bahan Baku (HPP), Gaji & Upah, dll' },
+                { Sheet: 'Pengeluaran_Harian', Kolom: 'Tipe_Biaya', Tipe: 'Categorical', Deskripsi: 'Biaya Tetap (Fixed) atau Biaya Variabel (BEP Model)' }
+            ]
+
+            // Inisialisasi Workbook Excel
+            const wb = XLSX.utils.book_new()
+
+            // 1. Tambah Sheet Rekap Harian
+            const ws1 = XLSX.utils.json_to_sheet(finalRekapRows)
+            ws1['!cols'] = [
+                { wch: 14 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 22 },
+                { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 24 }
+            ]
+            XLSX.utils.book_append_sheet(wb, ws1, 'Rekap_Harian')
+
+            // 2. Tambah Sheet Detail Transaksi
+            const ws2 = XLSX.utils.json_to_sheet(detailTransaksiRows.length > 0 ? detailTransaksiRows : [{ Keterangan: 'Belum ada data transaksi di periode ini' }])
+            ws2['!cols'] = [
+                { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
+                { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 40 }
+            ]
+            XLSX.utils.book_append_sheet(wb, ws2, 'Detail_Transaksi')
+
+            // 3. Tambah Sheet Detail Item Terjual
+            const ws3 = XLSX.utils.json_to_sheet(itemTerjualRows.length > 0 ? itemTerjualRows : [{ Keterangan: 'Belum ada data item terjual di periode ini' }])
+            ws3['!cols'] = [
+                { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 18 },
+                { wch: 26 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }
+            ]
+            XLSX.utils.book_append_sheet(wb, ws3, 'Detail_Item_Terjual')
+
+            // 4. Tambah Sheet Pengeluaran Harian
+            const ws4 = XLSX.utils.json_to_sheet(pengeluaranRows.length > 0 ? pengeluaranRows : [{ Keterangan: 'Belum ada data pengeluaran di periode ini' }])
+            ws4['!cols'] = [
+                { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 28 }, { wch: 22 },
+                { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 32 }
+            ]
+            XLSX.utils.book_append_sheet(wb, ws4, 'Pengeluaran_Harian')
+
+            // 5. Tambah Sheet Kamus Data
+            const ws5 = XLSX.utils.json_to_sheet(kamusDataRows)
+            ws5['!cols'] = [{ wch: 20 }, { wch: 26 }, { wch: 20 }, { wch: 55 }]
+            XLSX.utils.book_append_sheet(wb, ws5, 'Kamus_Data')
+
+            // Unduh file Excel
+            const fileDate = new Date().toISOString().slice(0, 10)
+            XLSX.writeFile(wb, `Singgah_POS_Dataset_${period}_${fileDate}.xlsx`)
+
+            toast({
+                title: "Dataset Excel Berhasil Diekspor",
+                description: `Workbook 5-sheet (${finalRekapRows.length} baris rekap, ${detailTransaksiRows.length} transaksi) berhasil diunduh.`,
+                variant: "success"
+            })
+        } catch (error: any) {
+            console.error("Gagal mengekspor dataset Excel:", error)
+            toast({
+                title: "Ekspor Gagal",
+                description: error?.message || "Terjadi kesalahan saat mengekspor dataset.",
+                variant: "error"
+            })
+        } finally {
+            setIsExportingExcel(false)
+        }
     }
 
     // Ekspor ke CSV murni tanpa format simbol (Data Science UTF-8 RFC 4180)
@@ -223,37 +494,58 @@ export function SalesChart({ data = [], weeklyData = [], monthlyData = [], yearl
                     <div className="relative">
                         <button
                             type="button"
+                            disabled={isExportingExcel}
                             onClick={() => setShowExportMenu(!showExportMenu)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-xs transition-all border border-slate-700"
-                            title="Unduh dataset terstruktur untuk pemodelan data science (Python / Google Colab)"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-xs transition-all border border-slate-700 disabled:opacity-60"
+                            title="Unduh dataset terstruktur untuk pemodelan data science (Excel Multi-Sheet / Python / Google Colab)"
                         >
-                            <Database className="w-3.5 h-3.5 text-amber-400" />
-                            Ekspor Dataset
+                            {isExportingExcel ? (
+                                <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                            ) : (
+                                <Database className="w-3.5 h-3.5 text-amber-400" />
+                            )}
+                            {isExportingExcel ? "Menyiapkan..." : "Ekspor Dataset"}
                             <Download className="w-3 h-3 text-slate-300 ml-0.5" />
                         </button>
 
                         {showExportMenu && (
-                            <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-1.5 animate-in fade-in slide-in-from-top-1">
-                                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
-                                    Dataset {period.toUpperCase()} (Siap Data Sains)
+                            <div className="absolute right-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-1.5 animate-in fade-in slide-in-from-top-1">
+                                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1 flex items-center justify-between">
+                                    <span>Dataset {period.toUpperCase()}</span>
+                                    <span className="text-[9px] text-amber-600 font-bold bg-amber-50 px-1 rounded">Clean & Tidy</span>
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={exportDatasetCSV}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-lg text-left transition-colors"
+                                    onClick={exportMultiSheetExcel}
+                                    className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold text-slate-800 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg text-left transition-colors"
                                 >
-                                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                                    <Table className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <div>
+                                        <div className="font-bold flex items-center gap-1">
+                                            Excel Multi-Sheet (*.xlsx)
+                                            <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded font-normal">5 Sheet</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-normal">Rekap harian, transaksi, item, pengeluaran & kamus data</div>
+                                    </div>
+                                </button>
+                                <div className="my-1 border-t border-slate-100" />
+                                <button
+                                    type="button"
+                                    onClick={exportDatasetCSV}
+                                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-lg text-left transition-colors"
+                                >
+                                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
                                     <div>
                                         <div>Format CSV (*.csv)</div>
-                                        <div className="text-[10px] text-slate-400 font-normal">Untuk Pandas, Excel & R</div>
+                                        <div className="text-[10px] text-slate-400 font-normal">Time-series murni untuk Pandas & R</div>
                                     </div>
                                 </button>
                                 <button
                                     type="button"
                                     onClick={exportDatasetJSON}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-lg text-left transition-colors mt-0.5"
+                                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-lg text-left transition-colors mt-0.5"
                                 >
-                                    <FileCode className="w-4 h-4 text-blue-600" />
+                                    <FileCode className="w-4 h-4 text-blue-600 shrink-0" />
                                     <div>
                                         <div>Format JSON (*.json)</div>
                                         <div className="text-[10px] text-slate-400 font-normal">Untuk Python dict & API pipeline</div>
