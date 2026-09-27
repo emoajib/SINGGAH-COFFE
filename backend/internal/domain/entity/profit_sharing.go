@@ -27,19 +27,38 @@ type ProfitSharingPeriod struct {
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type BaristaCashbon struct {
+	ID            uint      `json:"id"`
+	OutletID      uint      `json:"outlet_id"`
+	PersonID      uint      `json:"person_id"`
+	BaristaName   string    `json:"barista_name"`
+	Amount        float64   `json:"amount"`
+	CashbonDate   time.Time `json:"cashbon_date"`
+	PaymentMethod string    `json:"payment_method"` // Cash, Transfer, Lainnya
+	Reason        string    `json:"reason"`
+	Status        string    `json:"status"` // pending, deducted, settled
+	PeriodID      uint      `json:"period_id"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ProfitSharingPerson struct {
-	ID             uint      `json:"id"`
-	PeriodID       uint      `json:"period_id"`
-	Name           string    `json:"name"`
-	Role           string    `json:"role"`
-	SharePct       float64   `json:"share_pct"`
-	Amount         float64   `json:"amount"`
-	IsOnLeave      bool      `json:"is_on_leave"`
-	LeaveReduction float64   `json:"leave_reduction"`
-	LeaveDays      int       `json:"leave_days"`
-	LeaveDates     string    `json:"leave_dates"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID               uint             `json:"id"`
+	PeriodID         uint             `json:"period_id"`
+	Name             string           `json:"name"`
+	Role             string           `json:"role"`
+	SharePct         float64          `json:"share_pct"`
+	GrossAmount      float64          `json:"gross_amount"`
+	LeaveReduction   float64          `json:"leave_reduction"`
+	CashbonReduction float64          `json:"cashbon_reduction"`
+	Amount           float64          `json:"amount"` // Jatah bersih diterima
+	IsOnLeave        bool             `json:"is_on_leave"`
+	LeaveDays        int              `json:"leave_days"`
+	LeaveDates       string           `json:"leave_dates"`
+	Cashbons         []BaristaCashbon `json:"cashbons,omitempty"`
+	CreatedAt        time.Time        `json:"created_at"`
+	UpdatedAt        time.Time        `json:"updated_at"`
 }
 
 type ProductSharingDetail struct {

@@ -218,3 +218,24 @@ type CreateJournalItemRequest struct {
 	Credit      int64  `json:"credit"`
 	Description string `json:"description"`
 }
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type CreateCashbonRequest struct {
+	PersonID      uint    `json:"person_id"`
+	BaristaName   string  `json:"barista_name" binding:"required"`
+	Amount        float64 `json:"amount" binding:"required,gt=0"`
+	CashbonDate   string  `json:"cashbon_date"`
+	PaymentMethod string  `json:"payment_method"`
+	Reason        string  `json:"reason"`
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type UpdateCashbonRequest struct {
+	PersonID      uint    `json:"person_id"`
+	BaristaName   string  `json:"barista_name"`
+	Amount        float64 `json:"amount"`
+	CashbonDate   string  `json:"cashbon_date"`
+	PaymentMethod string  `json:"payment_method"`
+	Reason        string  `json:"reason"`
+}
+

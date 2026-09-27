@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Receipt, Pencil, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter } from "lucide-react"
-import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } from "../hooks/useExpenses"
+import { Search, Plus, Loader2, Trash2, Receipt, Pencil, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter, Flame, TrendingUp, CalendarDays, PieChart, BarChart3 } from "lucide-react"
+import { useExpenses, useExpenseSummary, useCreateExpense, useUpdateExpense, useDeleteExpense } from "../hooks/useExpenses"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
 
@@ -64,10 +64,49 @@ export default function Expenses() {
     })
 
     const { toast } = useToast()
+    const [activeView, setActiveView] = useState<'list' | 'daily'>('list')
     const { data: expenses = [], isFetching: isLoading, refetch } = useExpenses(startDate, endDate, categoryFilter)
+    const { data: summary } = useExpenseSummary(startDate, endDate)
     const createExpense = useCreateExpense()
     const updateExpense = useUpdateExpense()
     const deleteExpense = useDeleteExpense()
+
+    const setPreset = (preset: 'today' | 'yesterday' | 'week' | 'month' | 'last_month') => {
+        const now = new Date()
+        const toDateStr = (d: Date) => {
+            const year = d.getFullYear()
+            const month = String(d.getMonth() + 1).padStart(2, '0')
+            const day = String(d.getDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
+        }
+        if (preset === 'today') {
+            const todayStr = toDateStr(now)
+            setStartDate(todayStr)
+            setEndDate(todayStr)
+        } else if (preset === 'yesterday') {
+            const y = new Date(now)
+            y.setDate(y.getDate() - 1)
+            const yStr = toDateStr(y)
+            setStartDate(yStr)
+            setEndDate(yStr)
+        } else if (preset === 'week') {
+            const w = new Date(now)
+            w.setDate(w.getDate() - 6)
+            setStartDate(toDateStr(w))
+            setEndDate(toDateStr(now))
+        } else if (preset === 'month') {
+            const first = new Date(now.getFullYear(), now.getMonth(), 1)
+            setStartDate(toDateStr(first))
+            setEndDate(toDateStr(now))
+        } else if (preset === 'last_month') {
+            const first = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            const last = new Date(now.getFullYear(), now.getMonth(), 0)
+            setStartDate(toDateStr(first))
+            setEndDate(toDateStr(last))
+        }
+        setStartTime("")
+        setEndTime("")
+    }
 
     const handleOpenAdd = () => {
         setEditingExpense(null)
@@ -228,9 +267,51 @@ export default function Expenses() {
                 </div>
             </div>
 
-            {/* Filter Bar */}
+            {/* Quick Presets & Filter Bar */}
             <Card className="border-none shadow-sm">
-                <CardContent className="pt-0 pb-4">
+                <CardContent className="pt-4 pb-4">
+                    {/* Quick Presets */}
+                    <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-slate-100">
+                        <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                            <CalendarDays className="w-3.5 h-3.5 text-slate-400" /> Periode Cepat:
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setPreset('today')}
+                            className="px-2.5 py-1 text-xs rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                        >
+                            Hari Ini
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPreset('yesterday')}
+                            className="px-2.5 py-1 text-xs rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                        >
+                            Kemarin
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPreset('week')}
+                            className="px-2.5 py-1 text-xs rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                        >
+                            7 Hari Terakhir
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPreset('month')}
+                            className="px-2.5 py-1 text-xs rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                        >
+                            Bulan Ini
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPreset('last_month')}
+                            className="px-2.5 py-1 text-xs rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                        >
+                            Bulan Lalu
+                        </button>
+                    </div>
+
                     <div className="flex flex-wrap gap-3 items-end">
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-gray-500">Tanggal Mulai</label>
@@ -321,8 +402,8 @@ export default function Expenses() {
                 </CardContent>
             </Card>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Executive Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="border-none shadow-sm bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-amber-500">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-semibold uppercase tracking-wider text-amber-800">Total Pengeluaran</CardTitle>
@@ -336,44 +417,207 @@ export default function Expenses() {
                 </Card>
                 <Card className="border-none shadow-sm bg-gradient-to-br from-emerald-50 to-green-50 border-l-4 border-emerald-500">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Pengeluaran Tunai (Cash)</CardTitle>
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Kas Laci Fisik (Cash)</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-emerald-900">Rp {formatNumber(totalCashExpense)}</div>
                         <p className="text-xs text-emerald-600 mt-1">
-                            Arus keluar kas fisik warung
+                            Arus kas keluar kasir
                         </p>
                     </CardContent>
                 </Card>
                 <Card className="border-none shadow-sm bg-gradient-to-br from-purple-50 to-indigo-50 border-l-4 border-purple-500">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-purple-800">Pengeluaran QRIS / Bank</CardTitle>
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-purple-800">Digital (QRIS / Bank)</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-purple-900">Rp {formatNumber(totalQrisExpense)}</div>
                         <p className="text-xs text-purple-600 mt-1">
-                            Arus keluar saldo non-tunai
+                            Arus keluar rekening toko
+                        </p>
+                    </CardContent>
+                </Card>
+                <Card className="border-none shadow-sm bg-gradient-to-br from-blue-50 to-cyan-50 border-l-4 border-blue-500">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-blue-800 flex items-center justify-between">
+                            <span>Burn Rate & Rasio</span>
+                            <Flame className="w-3.5 h-3.5 text-blue-500" />
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-blue-900">
+                            Rp {formatNumber(summary?.daily_average_burn || (filteredExpenses.length ? Math.round(totalExpenseAmount / Math.max(1, (summary?.daily_recap?.length || 1))) : 0))}
+                            <span className="text-xs font-normal text-blue-600">/hari</span>
+                        </div>
+                        <p className="text-xs text-blue-700 mt-1 flex items-center gap-1 font-medium">
+                            <TrendingUp className="w-3 h-3" />
+                            Rasio: {summary?.expense_ratio ?? 0}% thdp Omzet
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Expenses List */}
+            {/* Visual Breakdown & Top 3 Expenses */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Category Progress Breakdown */}
+                <Card className="border-none shadow-sm lg:col-span-2">
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                        <CardTitle className="text-sm font-bold flex items-center gap-1.5 text-slate-800">
+                            <PieChart className="w-4 h-4 text-primary" />
+                            Distribusi Kategori Beban
+                        </CardTitle>
+                        <span className="text-xs text-slate-400">Komposisi Pengeluaran</span>
+                    </CardHeader>
+                    <CardContent>
+                        {(!summary?.category_breakdown || summary.category_breakdown.length === 0) ? (
+                            <p className="text-xs text-slate-400 py-4 text-center">Belum ada data kategori untuk periode ini</p>
+                        ) : (
+                            <div className="space-y-3 pt-1">
+                                {summary.category_breakdown.map((cat: any) => (
+                                    <div key={cat.category} className="space-y-1">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="font-semibold text-slate-700">{cat.category}</span>
+                                            <span className="text-slate-500 font-medium">
+                                                Rp {formatNumber(cat.total)} ({cat.percentage}%) • {cat.count}x
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                            <div
+                                                className="bg-primary h-2 rounded-full transition-all duration-300"
+                                                style={{ width: `${Math.min(100, Math.max(2, cat.percentage))}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Top 3 Pos Pengeluaran Terbesar */}
+                <Card className="border-none shadow-sm">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center gap-1.5 text-slate-800">
+                            <BarChart3 className="w-4 h-4 text-amber-600" />
+                            Top 3 Pengeluaran Terbesar
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {(!summary?.top_expenses || summary.top_expenses.length === 0) ? (
+                            <p className="text-xs text-slate-400 py-4 text-center">Belum ada data pengeluaran</p>
+                        ) : (
+                            <div className="space-y-2.5 pt-1">
+                                {summary.top_expenses.slice(0, 3).map((top: any, idx: number) => (
+                                    <div key={top.id || idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                                    {idx + 1}
+                                                </span>
+                                                <p className="text-xs font-semibold text-slate-800 truncate">{top.title}</p>
+                                            </div>
+                                            <p className="text-[11px] text-slate-400 mt-0.5 pl-5">
+                                                {top.category} • {top.date ? new Date(top.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}
+                                            </p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <span className="text-xs font-bold text-slate-900">
+                                                Rp {formatNumber(top.amount)}
+                                            </span>
+                                            <span className="block text-[10px] text-slate-400">{top.payment_method || 'Cash'}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Expenses List & Daily View */}
             <Card className="border-none shadow-sm">
                 <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <CardTitle className="text-lg font-bold">Riwayat Pengeluaran</CardTitle>
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                        <Input
-                            placeholder="Cari pengeluaran..."
-                            className="pl-8"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
+                    <div className="flex flex-wrap items-center gap-3">
+                        <CardTitle className="text-lg font-bold">Data Pengeluaran</CardTitle>
+                        <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs">
+                            <button
+                                type="button"
+                                onClick={() => setActiveView('list')}
+                                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                                    activeView === 'list' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                Daftar Transaksi
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveView('daily')}
+                                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                                    activeView === 'daily' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                Rekap Harian Kas
+                            </button>
+                        </div>
                     </div>
+                    {activeView === 'list' && (
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input
+                                placeholder="Cari pengeluaran..."
+                                className="pl-8"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent>
-                    {isLoading ? (
+                    {activeView === 'daily' ? (
+                        (!summary?.daily_recap || summary.daily_recap.length === 0) ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <Receipt className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+                                <p>Tidak ada data rekap harian untuk periode ini</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-gray-500 uppercase bg-gray-50/50">
+                                        <tr>
+                                            <th className="px-4 py-3">Tanggal</th>
+                                            <th className="px-4 py-3 text-right">Kas Laci Fisik (Cash)</th>
+                                            <th className="px-4 py-3 text-right">Digital (QRIS / Bank)</th>
+                                            <th className="px-4 py-3 text-center">Jml Transaksi</th>
+                                            <th className="px-4 py-3 text-right">Total Kas Keluar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {summary.daily_recap.map((d: any) => (
+                                            <tr key={d.date} className="border-b hover:bg-gray-50/50">
+                                                <td className="px-4 py-3 font-semibold text-slate-800">
+                                                    {new Date(d.date).toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </td>
+                                                <td className="px-4 py-3 text-right text-emerald-700 font-bold">
+                                                    Rp {formatNumber(d.cash_amount)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right text-purple-700 font-bold">
+                                                    Rp {formatNumber(d.non_cash_amount)}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
+                                                        {d.count} trx
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-extrabold text-slate-900">
+                                                    Rp {formatNumber(d.total_amount)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )
+                    ) : isLoading ? (
                         <div className="flex justify-center p-8">
                             <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
                         </div>

@@ -76,35 +76,39 @@ func (r *profitSharingPeopleRepository) UpdateLeaveStatus(id uint, isOnLeave boo
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
 	return entity.ProfitSharingPerson{
-		ID:             m.ID,
-		PeriodID:       m.PeriodID,
-		Name:           m.Name,
-		Role:           m.Role,
-		SharePct:       m.SharePct,
-		Amount:         m.Amount,
-		IsOnLeave:      m.IsOnLeave,
-		LeaveReduction: m.LeaveReduction,
-		LeaveDays:      m.LeaveDays,
-		LeaveDates:     m.LeaveDates,
-		CreatedAt:      m.CreatedAt,
-		UpdatedAt:      m.UpdatedAt,
+		ID:               m.ID,
+		PeriodID:         m.PeriodID,
+		Name:             m.Name,
+		Role:             m.Role,
+		SharePct:         m.SharePct,
+		GrossAmount:      m.GrossAmount,
+		LeaveReduction:   m.LeaveReduction,
+		CashbonReduction: m.CashbonReduction,
+		Amount:           m.Amount,
+		IsOnLeave:        m.IsOnLeave,
+		LeaveDays:        m.LeaveDays,
+		LeaveDates:       m.LeaveDates,
+		CreatedAt:        m.CreatedAt,
+		UpdatedAt:        m.UpdatedAt,
 	}
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func toModelPerson(p entity.ProfitSharingPerson) *models.ProfitSharingPerson {
 	return &models.ProfitSharingPerson{
-		ID:             p.ID,
-		PeriodID:       p.PeriodID,
-		Name:           p.Name,
-		Role:           p.Role,
-		SharePct:       p.SharePct,
-		Amount:         p.Amount,
-		IsOnLeave:      p.IsOnLeave,
-		LeaveReduction: p.LeaveReduction,
-		LeaveDays:      p.LeaveDays,
-		LeaveDates:     p.LeaveDates,
-		CreatedAt:      p.CreatedAt,
-		UpdatedAt:      p.UpdatedAt,
+		ID:               p.ID,
+		PeriodID:         p.PeriodID,
+		Name:             p.Name,
+		Role:             p.Role,
+		SharePct:         p.SharePct,
+		GrossAmount:      p.GrossAmount,
+		LeaveReduction:   p.LeaveReduction,
+		CashbonReduction: p.CashbonReduction,
+		Amount:           p.Amount,
+		IsOnLeave:        p.IsOnLeave,
+		LeaveDays:        p.LeaveDays,
+		LeaveDates:       p.LeaveDates,
+		CreatedAt:        p.CreatedAt,
+		UpdatedAt:        p.UpdatedAt,
 	}
 }

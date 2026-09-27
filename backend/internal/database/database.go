@@ -57,6 +57,7 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.PSAKEventOutbox{},
 		&models.PSAKSchemaVersion{},
 		&models.ProfitSharingPerson{},
+		&models.BaristaCashbon{},
 		// Loyalty & Customer Feedback - Vetted by AI
 		&models.Customer{},
 		&models.LoyaltyProgram{},

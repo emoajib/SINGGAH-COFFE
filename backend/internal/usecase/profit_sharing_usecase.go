@@ -32,13 +32,14 @@ var alwaysExcludedFromSharing = []string{
 }
 
 type ProfitSharingUsecase struct {
-	db                       *gorm.DB
-	periodRepo               repository.ProfitSharingPeriodRepository
-	orderItemRepo            repository.OrderItemRepository
-	expenseRepo              repository.ExpenseRepository
-	cashBookRepo             repository.CashBookRepository
-	profitSharingPersonRepo  repository.ProfitSharingPersonRepository
-	settingRepo              repository.SettingRepository
+	db                      *gorm.DB
+	periodRepo              repository.ProfitSharingPeriodRepository
+	orderItemRepo           repository.OrderItemRepository
+	expenseRepo             repository.ExpenseRepository
+	cashBookRepo            repository.CashBookRepository
+	profitSharingPersonRepo repository.ProfitSharingPersonRepository
+	settingRepo             repository.SettingRepository
+	cashbonRepo             repository.BaristaCashbonRepository
 }
 
 func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
@@ -50,6 +51,7 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 		cashBookRepo:            postgres.NewCashBookRepository(db),
 		profitSharingPersonRepo: postgres.NewProfitSharingPeopleRepository(db),
 		settingRepo:             postgres.NewSettingRepository(db),
+		cashbonRepo:             postgres.NewBaristaCashbonRepository(db),
 	}
 }
 
@@ -165,15 +167,17 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 		}
 		for i := range people {
 			if people[i].Role == "owner" {
+				people[i].GrossAmount = multiOwnerShare
 				people[i].Amount = multiOwnerShare
 				people[i].LeaveReduction = 0
+				people[i].CashbonReduction = 0
 			} else {
 				share := math.Round(baristaPool*people[i].SharePct/totalBaristaPct/250) * 250
+				people[i].GrossAmount = share
 				var reduction float64
 				if people[i].IsOnLeave {
 					// Cuti penuh: jatah dialihkan 100% ke Owner
 					reduction = share
-					people[i].Amount = 0
 					people[i].LeaveReduction = reduction
 				} else if people[i].LeaveDays > 0 {
 					// Libur sebagian hari: proporsional hari libur terhadap total hari periode
@@ -185,24 +189,33 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 					if reduction > share {
 						reduction = share
 					}
-					people[i].Amount = share - reduction
 					people[i].LeaveReduction = reduction
 				} else {
-					// Hadir penuh: tidak ada potongan
-					people[i].Amount = share
+					// Hadir penuh: tidak ada potongan libur
 					people[i].LeaveReduction = 0
 				}
+
+				// Kurangi potongan kasbon barista (jika ada)
+				subtotal := share - people[i].LeaveReduction
+				cashbon := people[i].CashbonReduction
+				if cashbon > subtotal {
+					cashbon = subtotal
+				}
+				people[i].CashbonReduction = cashbon
+				people[i].Amount = subtotal - cashbon
 			}
 		}
-		// Owner also gets leave reductions from baristas (konservasi total bagi hasil)
+		// Owner also gets leave reductions and cashbon recoveries from baristas (konservasi total bagi hasil)
 		totalReductions := 0.0
 		for _, p := range people {
-			totalReductions += p.LeaveReduction
+			if p.Role != "owner" {
+				totalReductions += p.LeaveReduction + p.CashbonReduction
+			}
 		}
 		if len(people) > 0 {
 			for i := range people {
 				if people[i].Role == "owner" {
-					people[i].Amount += totalReductions
+					people[i].Amount = multiOwnerShare + totalReductions
 				}
 			}
 			result.OwnerAmount = multiOwnerShare + totalReductions
@@ -282,6 +295,27 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 	totalPeriodDays := int(math.Round(endCal.Sub(startCal).Hours()/24)) + 1
 	if totalPeriodDays < 1 {
 		totalPeriodDays = 1
+	}
+
+	// Cari kasbon pending barista pada rentang periode ini untuk dikaitkan ke draft
+	if len(people) > 0 {
+		pendingCashbons, _ := uc.cashbonRepo.FindPendingByDateRange(startNorm, endNorm, outletID)
+		for i := range people {
+			if people[i].Role == "barista" {
+				var personCashbons []entity.BaristaCashbon
+				var totalCashbon float64
+				for _, cb := range pendingCashbons {
+					if cb.PersonID == people[i].ID || (people[i].Name != "" && cb.BaristaName == people[i].Name) {
+						personCashbons = append(personCashbons, cb)
+						totalCashbon += cb.Amount
+					}
+				}
+				if len(personCashbons) > 0 && people[i].CashbonReduction == 0 {
+					people[i].CashbonReduction = totalCashbon
+					people[i].Cashbons = personCashbons
+				}
+			}
+		}
 	}
 
 	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays)
@@ -451,6 +485,25 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 
 	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, period.BasisType, totalPeriodDays)
 	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
+
+	// Tandai semua kasbon yang terpotong menjadi settled / lunas
+	pendingCashbons, _ := uc.cashbonRepo.FindPendingByDateRange(start, end, outletID[0])
+	for _, p := range people {
+		if p.Role == "barista" && p.CashbonReduction > 0 {
+			for _, cb := range pendingCashbons {
+				if cb.PersonID == p.ID || (p.Name != "" && cb.BaristaName == p.Name) {
+					_ = tx.Model(&models.BaristaCashbon{}).Where("id = ?", cb.ID).Updates(map[string]interface{}{
+						"status":    "settled",
+						"period_id": period.ID,
+						"person_id": p.ID,
+					}).Error
+				}
+			}
+		}
+	}
+	_ = tx.Model(&models.BaristaCashbon{}).Where("period_id = ?", period.ID).Updates(map[string]interface{}{
+		"status": "settled",
+	}).Error
 
 	// Update people amounts in DB
 	if len(people) > 0 {
@@ -659,6 +712,22 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	totalPeriodDays := int(math.Round(endCal.Sub(startCal).Hours()/24)) + 1
 	if totalPeriodDays < 1 {
 		totalPeriodDays = 1
+	}
+
+	// Sinkronisasi data kasbon terbaru untuk barista dalam draft
+	pendingCashbons, _ := uc.cashbonRepo.FindPendingByDateRange(start, end, outletID[0])
+	periodCashbons, _ := uc.cashbonRepo.FindByPeriodID(existing.ID, outletID[0])
+	allCandidateCashbons := append(pendingCashbons, periodCashbons...)
+	for i := range people {
+		if people[i].Role == "barista" {
+			var totalCashbon float64
+			for _, cb := range allCandidateCashbons {
+				if cb.PersonID == people[i].ID || (people[i].Name != "" && cb.BaristaName == people[i].Name) {
+					totalCashbon += cb.Amount
+				}
+			}
+			people[i].CashbonReduction = totalCashbon
+		}
 	}
 
 	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, existing.BasisType, totalPeriodDays)

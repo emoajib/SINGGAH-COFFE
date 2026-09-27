@@ -25,6 +25,7 @@ import PsakReports from "./pages/PsakReports"
 import Login from "./pages/Login"
 import LoyaltyPublicPage from "./pages/LoyaltyPublicPage"
 import FeedbackManagement from "./pages/FeedbackManagement"
+import GuideCenter from "./pages/GuideCenter"
 import CashFloatModal from "./components/cash/CashFloatModal"
 import PWAInstallBanner from "./components/pwa/PWAInstallBanner"
 import { useLocation, Routes, Route } from "react-router-dom"
@@ -100,7 +101,7 @@ function AppContent() {
         <div className="flex bg-gray-50 min-h-screen">
             <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-                <Header onMenuClick={() => setSidebarOpen(true)} />
+                <Header onMenuClick={() => setSidebarOpen(true)} onGuideClick={() => setActiveTab("guide")} />
                 <main className="p-4 md:p-6 flex-1 overflow-y-auto">
                     {ownerOnlyTabs.includes(activeTab) && !isOwner ? (
                         <div className="p-8 text-center text-gray-500">Akses ditolak: halaman ini hanya untuk pemilik.</div>
@@ -126,6 +127,7 @@ function AppContent() {
                             {activeTab === "psak-journal" && <PsakJournal />}
                             {activeTab === "psak-reports" && <PsakReports />}
                             {activeTab === "loyalty-feedback" && <FeedbackManagement />}
+                            {activeTab === "guide" && <GuideCenter setActiveTab={setActiveTab} />}
                         </>
                     )}
                 </main>

@@ -200,6 +200,19 @@ type ProfitSharingPersonRepository interface {
 	UpdateLeaveStatus(id uint, isOnLeave bool, reduction float64) error
 }
 
+// BaristaCashbonRepository defines data access for barista cashbons
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type BaristaCashbonRepository interface {
+	Create(cashbon *entity.BaristaCashbon) error
+	FindByID(id uint, outletID uint) (*entity.BaristaCashbon, error)
+	FindByOutlet(outletID uint, status string) ([]entity.BaristaCashbon, error)
+	FindByPeriodID(periodID uint, outletID uint) ([]entity.BaristaCashbon, error)
+	FindPendingByDateRange(start, end string, outletID uint) ([]entity.BaristaCashbon, error)
+	Update(cashbon *entity.BaristaCashbon) error
+	Delete(id uint, outletID uint) error
+	MarkSettledByPeriodID(periodID uint, outletID uint, tx ...*gorm.DB) error
+}
+
 // AccountRepository defines data access for PSAK Chart of Accounts
 type AccountRepository interface {
 	FindAll(outletID ...uint) ([]entity.Account, error)

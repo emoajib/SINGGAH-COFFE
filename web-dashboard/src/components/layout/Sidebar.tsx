@@ -20,6 +20,7 @@ import {
     ChefHat,
     HeartHandshake,
     Download,
+    HelpCircle,
 } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../store"
@@ -61,6 +62,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         { id: "kebutuhan-stok", label: "Kebutuhan Stok", icon: ShoppingCart, roles: ["owner"] },
         { id: "integration", label: "Integrasi", icon: Puzzle, roles: ["owner"] },
         { id: "backup", label: "Backup", icon: HardDrive, roles: ["owner"] },
+        { id: "guide", label: "Panduan & SOP", icon: HelpCircle, roles: ["owner", "manager", "cashier"] },
         { id: "settings", label: "Pengaturan", icon: Settings, roles: ["owner", "manager", "cashier"] },
     ]
 

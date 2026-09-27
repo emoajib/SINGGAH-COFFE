@@ -28,6 +28,7 @@ type Handlers struct {
 	Account          *handler.AccountHandler
 	Journal          *handler.JournalHandler
 	Loyalty          *handler.LoyaltyHandler
+	Cashbon          *handler.CashbonHandler
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -128,10 +129,19 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/settings/upload-logo", middleware.RoleMiddleware("owner"), h.Settings.UploadLogo)
 			// Expenses
 			protected.GET("/expenses", middleware.RoleMiddleware("owner", "manager"), h.Expense.GetExpenses)
+			protected.GET("/expenses/summary", middleware.RoleMiddleware("owner", "manager"), h.Expense.GetExpenseSummary)
 			protected.POST("/expenses", middleware.RoleMiddleware("owner", "manager"), h.Expense.CreateExpense)
 			protected.PUT("/expenses/:id", middleware.RoleMiddleware("owner", "manager"), h.Expense.UpdateExpense)
 			protected.PUT("/expenses/:id/cost-type", middleware.RoleMiddleware("owner"), h.Expense.UpdateCostType)
 			protected.DELETE("/expenses/:id", middleware.RoleMiddleware("owner"), h.Expense.DeleteExpense)
+
+			// Barista Cashbons (Owner & Manager)
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			protected.GET("/cashbons", middleware.RoleMiddleware("owner", "manager"), h.Cashbon.GetCashbons)
+			protected.GET("/cashbons/:id", middleware.RoleMiddleware("owner", "manager"), h.Cashbon.GetCashbonByID)
+			protected.POST("/cashbons", middleware.RoleMiddleware("owner", "manager"), h.Cashbon.CreateCashbon)
+			protected.PUT("/cashbons/:id", middleware.RoleMiddleware("owner", "manager"), h.Cashbon.UpdateCashbon)
+			protected.DELETE("/cashbons/:id", middleware.RoleMiddleware("owner"), h.Cashbon.DeleteCashbon)
 
 			// Cash Register — Cashier opens cash float on login
 			protected.POST("/cash-registers/open", h.CashRegister.OpenCashRegister)

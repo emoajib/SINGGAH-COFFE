@@ -42,6 +42,21 @@ func (h *ExpenseHandler) GetExpenses(c *gin.Context) {
 	c.JSON(http.StatusOK, expenses)
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (h *ExpenseHandler) GetExpenseSummary(c *gin.Context) {
+	outletID := getOutletID(c)
+	start := c.Query("start")
+	end := c.Query("end")
+
+	summary, err := h.expenseUsecase.GetExpenseSummaryRecap(start, end, outletID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung ringkasan rekap pengeluaran"})
+		return
+	}
+
+	c.JSON(http.StatusOK, summary)
+}
+
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (h *ExpenseHandler) CreateExpense(c *gin.Context) {
 	var req request.CreateExpenseRequest

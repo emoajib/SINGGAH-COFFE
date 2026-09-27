@@ -523,17 +523,36 @@ export interface ExpenseBreakdown {
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface BaristaCashbon {
+  id: number
+  outlet_id: number
+  person_id?: number
+  barista_name: string
+  amount: number
+  cashbon_date: string
+  payment_method: string
+  reason?: string
+  status: 'pending' | 'deducted' | 'settled'
+  period_id?: number
+  created_at?: string
+  updated_at?: string
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 export interface ProfitSharingPerson {
   id: number
   period_id: number
   name: string
   role: 'owner' | 'barista'
   share_pct: number
+  gross_amount?: number
+  leave_reduction: number
+  cashbon_reduction?: number
   amount: number
   is_on_leave: boolean
-  leave_reduction: number
   leave_days?: number
   leave_dates?: string
+  cashbons?: BaristaCashbon[]
 }
 
 export interface ProfitSharingPeriod {
@@ -584,6 +603,40 @@ export interface ProfitSharingCalculation {
 export interface ProfitSharingPreview {
   period: ProfitSharingPeriod
   calculation: ProfitSharingCalculation
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface CategoryExpenseStat {
+  category: string
+  total: number
+  percentage: number
+  count: number
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface DailyExpenseRecap {
+  date: string
+  total_amount: number
+  cash_amount: number
+  non_cash_amount: number
+  count: number
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface ExpenseSummaryRecap {
+  period_start: string
+  period_end: string
+  total_expense: number
+  cash_expense: number
+  non_cash_expense: number
+  fixed_cost_total: number
+  variable_cost_total: number
+  daily_average_burn: number
+  total_revenue: number
+  expense_ratio: number
+  category_breakdown: CategoryExpenseStat[]
+  top_expenses: Expense[]
+  daily_recap: DailyExpenseRecap[]
 }
 
 // ─── Loyalty & Customer Feedback - Vetted by AI ─────────────────────────────

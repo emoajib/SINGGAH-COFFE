@@ -2,10 +2,13 @@ package usecase
 
 import (
 	"fmt"
+	"math"
+	"sort"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
+	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 
@@ -233,3 +236,133 @@ func (uc *ExpenseUsecase) Delete(id uint) error {
 		return expenseRepo.Delete(id)
 	})
 }
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uint) (*entity.ExpenseSummaryRecap, error) {
+	expenses, err := uc.expenseRepo.FindAllRange(start, end, "", outletID)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalExpense, cashExpense, nonCashExpense, fixedTotal, variableTotal float64
+	catMap := make(map[string]*entity.CategoryExpenseStat)
+	dailyMap := make(map[string]*entity.DailyExpenseRecap)
+	responses := make([]entity.ExpenseResponse, len(expenses))
+
+	for i, exp := range expenses {
+		resp := exp.ToResponse()
+		responses[i] = resp
+
+		amt := exp.Amount
+		totalExpense += amt
+
+		if resp.PaymentMethod == "Cash" {
+			cashExpense += amt
+		} else {
+			nonCashExpense += amt
+		}
+
+		if exp.CostType == "fixed" {
+			fixedTotal += amt
+		} else {
+			variableTotal += amt
+		}
+
+		// Kategori
+		cat := exp.Category
+		if cat == "" {
+			cat = "Other"
+		}
+		if _, exists := catMap[cat]; !exists {
+			catMap[cat] = &entity.CategoryExpenseStat{Category: cat}
+		}
+		catMap[cat].Total += amt
+		catMap[cat].Count++
+
+		// Harian
+		dateKey := exp.Date.Format("2006-01-02")
+		if _, exists := dailyMap[dateKey]; !exists {
+			dailyMap[dateKey] = &entity.DailyExpenseRecap{Date: dateKey}
+		}
+		dailyMap[dateKey].TotalAmount += amt
+		dailyMap[dateKey].Count++
+		if resp.PaymentMethod == "Cash" {
+			dailyMap[dateKey].CashAmount += amt
+		} else {
+			dailyMap[dateKey].NonCashAmount += amt
+		}
+	}
+
+	// Persentase kategori
+	var catStats []entity.CategoryExpenseStat
+	for _, stat := range catMap {
+		if totalExpense > 0 {
+			stat.Percentage = math.Round((stat.Total/totalExpense)*1000) / 10
+		}
+		catStats = append(catStats, *stat)
+	}
+	sort.Slice(catStats, func(i, j int) bool {
+		return catStats[i].Total > catStats[j].Total
+	})
+
+	// Rekap harian urut tanggal
+	var dailyStats []entity.DailyExpenseRecap
+	for _, d := range dailyMap {
+		dailyStats = append(dailyStats, *d)
+	}
+	sort.Slice(dailyStats, func(i, j int) bool {
+		return dailyStats[i].Date < dailyStats[j].Date
+	})
+
+	// Top 5 pengeluaran terbesar
+	sort.Slice(responses, func(i, j int) bool {
+		return responses[i].Amount > responses[j].Amount
+	})
+	topLimit := 5
+	if len(responses) < topLimit {
+		topLimit = len(responses)
+	}
+	topExpenses := responses[:topLimit]
+
+	// Hitung total revenue untuk rasio beban
+	var totalRevenue float64
+	orderTx := uc.db.Model(&models.Order{}).Where("status = ?", "completed")
+	if outletID > 0 {
+		orderTx = orderTx.Where("outlet_id = ?", outletID)
+	}
+	if start != "" {
+		orderTx = orderTx.Where("DATE(created_at) >= DATE(?)", start)
+	}
+	if end != "" {
+		orderTx = orderTx.Where("DATE(created_at) <= DATE(?)", end)
+	}
+	_ = orderTx.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&totalRevenue)
+
+	var expenseRatio float64
+	if totalRevenue > 0 {
+		expenseRatio = math.Round((totalExpense/totalRevenue)*1000) / 10
+	}
+
+	days := len(dailyStats)
+	if days == 0 {
+		days = 1
+	}
+	dailyBurn := math.Round(totalExpense / float64(days))
+
+	return &entity.ExpenseSummaryRecap{
+		PeriodStart:       start,
+		PeriodEnd:         end,
+		TotalExpense:      totalExpense,
+		CashExpense:       cashExpense,
+		NonCashExpense:    nonCashExpense,
+		FixedCostTotal:    fixedTotal,
+		VariableCostTotal: variableTotal,
+		DailyAverageBurn:  dailyBurn,
+		TotalRevenue:      totalRevenue,
+		ExpenseRatio:      expenseRatio,
+		CategoryBreakdown: catStats,
+		TopExpenses:       topExpenses,
+		DailyRecap:        dailyStats,
+	}, nil
+}
+

@@ -37,21 +37,44 @@ func (ProfitSharingPeriod) TableName() string {
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ProfitSharingPerson struct {
-	ID             uint           `gorm:"primaryKey" json:"id"`
-	CreatedAt      time.Time      `gorm:"index" json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
-	PeriodID       uint           `json:"period_id" gorm:"index"`
-	Name           string         `json:"name"`
-	Role           string         `json:"role"` // owner, barista
-	SharePct       float64        `json:"share_pct"`
-	Amount         float64        `json:"amount"`
-	IsOnLeave      bool           `json:"is_on_leave"`
-	LeaveReduction float64        `json:"leave_reduction"`
-	LeaveDays      int            `json:"leave_days" gorm:"default:0"`
-	LeaveDates     string         `json:"leave_dates" gorm:"type:text"`
+	ID               uint           `gorm:"primaryKey" json:"id"`
+	CreatedAt        time.Time      `gorm:"index" json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
+	PeriodID         uint           `json:"period_id" gorm:"index"`
+	Name             string         `json:"name"`
+	Role             string         `json:"role"` // owner, barista
+	SharePct         float64        `json:"share_pct"`
+	GrossAmount      float64        `json:"gross_amount"`
+	LeaveReduction   float64        `json:"leave_reduction"`
+	CashbonReduction float64        `json:"cashbon_reduction"`
+	Amount           float64        `json:"amount"` // Jatah bersih diterima
+	IsOnLeave        bool           `json:"is_on_leave"`
+	LeaveDays        int            `json:"leave_days" gorm:"default:0"`
+	LeaveDates       string         `json:"leave_dates" gorm:"type:text"`
 }
 
 func (ProfitSharingPerson) TableName() string {
 	return "profit_sharing_people"
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type BaristaCashbon struct {
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	CreatedAt     time.Time      `gorm:"index" json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	OutletID      uint           `json:"outlet_id" gorm:"index"`
+	PersonID      uint           `json:"person_id" gorm:"index"`
+	BaristaName   string         `json:"barista_name" gorm:"index"`
+	Amount        float64        `json:"amount"`
+	CashbonDate   time.Time      `json:"cashbon_date" gorm:"index"`
+	PaymentMethod string         `json:"payment_method" gorm:"default:Cash"` // Cash, Transfer, Lainnya
+	Reason        string         `json:"reason"`
+	Status        string         `json:"status" gorm:"default:pending;index"` // pending, deducted, settled
+	PeriodID      uint           `json:"period_id" gorm:"index"`
+}
+
+func (BaristaCashbon) TableName() string {
+	return "barista_cashbons"
 }

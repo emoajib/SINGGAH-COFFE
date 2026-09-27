@@ -123,3 +123,61 @@ func TestCalcFinancialsBasisTypeAndLeaveReduction(t *testing.T) {
 		t.Errorf("expected resMulti.OwnerAmount to be 1134500, got %v", resMulti.OwnerAmount)
 	}
 }
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestCalcFinancialsWithCashbonReduction(t *testing.T) {
+	basis := 5000000.0
+	cogs := 2000000.0
+	expenses := 1000000.0
+	ratio := 40.0
+	ownerPct := 60.0
+	// Net profit = 5,000,000 - 2,000,000 - 1,000,000 = 2,000,000
+	// Owner base = 2,000,000 * 60% = 1,200,000
+	// Barista pool = 800,000
+	// Barista 1 (50% of barista pool) = 400,000. Has cashbon of 150,000 -> net = 250,000
+	// Barista 2 (50% of barista pool) = 400,000. Has 0 cashbon -> net = 400,000
+	// Owner receives 1,200,000 + 150,000 (recovered cashbon) = 1,350,000
+	people := []entity.ProfitSharingPerson{
+		{Name: "Owner", Role: "owner", SharePct: 60},
+		{Name: "Barista A", Role: "barista", SharePct: 20, CashbonReduction: 150000},
+		{Name: "Barista B", Role: "barista", SharePct: 20, CashbonReduction: 0},
+	}
+
+	res := calcFinancials(basis, cogs, expenses, ratio, nil, ownerPct, people, 0, 0, "net", 7)
+
+	var baristaA, baristaB, owner entity.ProfitSharingPerson
+	for _, p := range people {
+		if p.Name == "Barista A" {
+			baristaA = p
+		} else if p.Name == "Barista B" {
+			baristaB = p
+		} else if p.Name == "Owner" {
+			owner = p
+		}
+	}
+
+	if baristaA.GrossAmount != 400000 {
+		t.Errorf("expected Barista A GrossAmount to be 400000, got %v", baristaA.GrossAmount)
+	}
+	if baristaA.CashbonReduction != 150000 {
+		t.Errorf("expected Barista A CashbonReduction to be 150000, got %v", baristaA.CashbonReduction)
+	}
+	if baristaA.Amount != 250000 {
+		t.Errorf("expected Barista A Amount to be 250000, got %v", baristaA.Amount)
+	}
+	if baristaB.Amount != 400000 {
+		t.Errorf("expected Barista B Amount to be 400000, got %v", baristaB.Amount)
+	}
+	if owner.Amount != 1350000 {
+		t.Errorf("expected Owner Amount to be 1350000, got %v", owner.Amount)
+	}
+	if res.OwnerAmount != 1350000 {
+		t.Errorf("expected res.OwnerAmount to be 1350000, got %v", res.OwnerAmount)
+	}
+	// Check exact balance: Owner + Baristas = Net profit (2,000,000)
+	totalDistributed := owner.Amount + baristaA.Amount + baristaB.Amount
+	if totalDistributed != 2000000 {
+		t.Errorf("expected total distributed to be 2000000, got %v", totalDistributed)
+	}
+}
+

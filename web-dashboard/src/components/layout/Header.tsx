@@ -1,4 +1,4 @@
-import { Bell, User, LogOut, Menu, Download } from "lucide-react"
+import { Bell, User, LogOut, Menu, Download, HelpCircle } from "lucide-react"
 import { Button } from "../ui/button"
 import { useDispatch, useSelector } from "react-redux"
 import { logout } from "../../store/authSlice"
@@ -9,9 +9,10 @@ import { fetchSettings } from "../../services/settingsService"
 
 interface HeaderProps {
     onMenuClick?: () => void
+    onGuideClick?: () => void
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick, onGuideClick }: HeaderProps) {
     const dispatch = useDispatch()
     const { user } = useSelector((state: RootState) => state.auth)
     const [outletName, setOutletName] = useState("Singgah Coffee")
@@ -48,6 +49,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     <Download className="w-3.5 h-3.5 text-amber-700" />
                     <span>Pasang Aplikasi</span>
                 </button>
+
+                {onGuideClick && (
+                    <button
+                        onClick={onGuideClick}
+                        className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border border-indigo-200 text-xs font-bold transition-all shadow-xs active:scale-95"
+                        title="Buku Panduan & SOP Operasional Kafe"
+                    >
+                        <HelpCircle className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Panduan & SOP</span>
+                    </button>
+                )}
 
                 <Button variant="ghost" size="icon" className="relative">
                     <Bell className="w-5 h-5 text-gray-500" />
