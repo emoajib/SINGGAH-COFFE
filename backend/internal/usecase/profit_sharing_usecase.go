@@ -228,6 +228,22 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 	return result
 }
 
+// matchesBarista mencocokkan catatan kasbon dengan barista terkait secara aman.
+// Menghindari bug 0 == 0 saat person ID masih 0 (preview/draft), serta mendukung
+// pencocokan nama secara case-insensitive dan whitespace-trimmed.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func matchesBarista(cb entity.BaristaCashbon, person entity.ProfitSharingPerson) bool {
+	if cb.PersonID > 0 && person.ID > 0 && cb.PersonID == person.ID {
+		return true
+	}
+	cbName := strings.TrimSpace(cb.BaristaName)
+	pName := strings.TrimSpace(person.Name)
+	if cbName != "" && pName != "" && strings.EqualFold(cbName, pName) {
+		return true
+	}
+	return false
+}
+
 // Preview calculates profit sharing for a period and persists a draft record.
 // NOTE: This method writes to the database to create/update a draft period
 // that can later be finalized or recalculated. The draft is overwritten on
@@ -308,7 +324,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 				var personCashbons []entity.BaristaCashbon
 				var totalCashbon float64
 				for _, cb := range pendingCashbons {
-					if cb.PersonID == people[i].ID || (people[i].Name != "" && cb.BaristaName == people[i].Name) {
+					if matchesBarista(cb, people[i]) {
 						personCashbons = append(personCashbons, cb)
 						totalCashbon += cb.Amount
 					}
@@ -494,7 +510,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	for _, p := range people {
 		if p.Role == "barista" && p.CashbonReduction > 0 {
 			for _, cb := range pendingCashbons {
-				if cb.PersonID == p.ID || (p.Name != "" && cb.BaristaName == p.Name) {
+				if matchesBarista(cb, p) {
 					_ = tx.Model(&models.BaristaCashbon{}).Where("id = ?", cb.ID).Updates(map[string]interface{}{
 						"status":    "settled",
 						"period_id": period.ID,
@@ -609,7 +625,11 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 			return err
 		}
 	} else {
-		// Create one cashbook entry per person
+		// Bersihkan entri expense lama untuk periode ini jika ada (idempotensi)
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		_ = tx.Where("outlet_id = ? AND notes = ?", outletID[0], fmt.Sprintf("profit_sharing_period_%d", existing.ID)).Delete(&models.Expense{})
+
+		// Create one cashbook entry and expense entry per person
 		for _, p := range people {
 			if p.Amount <= 0 {
 				continue
@@ -622,6 +642,9 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 			if p.IsOnLeave {
 				desc += fmt.Sprintf(" (Cuti, pengurangan Rp %.0f)", p.LeaveReduction)
 			}
+			if p.CashbonReduction > 0 {
+				desc += fmt.Sprintf(" (Potong kasbon: Rp %.0f)", p.CashbonReduction)
+			}
 			if err := tx.Create(&models.CashBook{
 				OutletID:    outletID[0],
 				Date:        time.Now(),
@@ -632,6 +655,26 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 				Reference:   ref,
 			}).Error; err != nil {
 				return err
+			}
+
+			// Masukkan bagi hasil barista/pegawai langsung ke Data Pengeluaran (kategori 'Gaji & Upah')
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			if p.Role == "barista" {
+				expenseTitle := fmt.Sprintf("Bagi Hasil: %s", p.Name)
+				expenseRecord := models.Expense{
+					Title:         expenseTitle,
+					Amount:        p.Amount,
+					Category:      "Gaji & Upah",
+					CostType:      "variable",
+					PaymentMethod: "Cash",
+					Date:          time.Now(),
+					Description:   desc,
+					Notes:         fmt.Sprintf("profit_sharing_period_%d", existing.ID),
+					OutletID:      outletID[0],
+				}
+				if err := tx.Create(&expenseRecord).Error; err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -725,7 +768,7 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		if people[i].Role == "barista" {
 			var totalCashbon float64
 			for _, cb := range allCandidateCashbons {
-				if cb.PersonID == people[i].ID || (people[i].Name != "" && cb.BaristaName == people[i].Name) {
+				if matchesBarista(cb, people[i]) {
 					totalCashbon += cb.Amount
 				}
 			}

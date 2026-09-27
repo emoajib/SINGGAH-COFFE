@@ -181,3 +181,33 @@ func TestCalcFinancialsWithCashbonReduction(t *testing.T) {
 	}
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestMatchesBarista(t *testing.T) {
+	// Case 1: PersonID == 0 and cb.PersonID == 0 but DIFFERENT names -> MUST NOT MATCH (Bug 0 == 0 fix)
+	cbRio := entity.BaristaCashbon{ID: 1, BaristaName: "RIO", PersonID: 0, Amount: 100000}
+	pSalman := entity.ProfitSharingPerson{ID: 0, Name: "SALMAN", Role: "barista"}
+	if matchesBarista(cbRio, pSalman) {
+		t.Errorf("expected matchesBarista to return false for different names when ID=0, but got true (0==0 bug reproduced)")
+	}
+
+	// Case 2: Matching by name with case & whitespace variation -> MUST MATCH
+	cbSalman := entity.BaristaCashbon{ID: 2, BaristaName: "  SALMAN  ", PersonID: 0, Amount: 100000}
+	pSalman2 := entity.ProfitSharingPerson{ID: 0, Name: "salman", Role: "barista"}
+	if !matchesBarista(cbSalman, pSalman2) {
+		t.Errorf("expected matchesBarista to return true for name match with different cases/spaces")
+	}
+
+	// Case 3: Matching by PersonID > 0 -> MUST MATCH
+	cbWithID := entity.BaristaCashbon{ID: 3, BaristaName: "Rio", PersonID: 10, Amount: 100000}
+	pWithID := entity.ProfitSharingPerson{ID: 10, Name: "Rio B", Role: "barista"}
+	if !matchesBarista(cbWithID, pWithID) {
+		t.Errorf("expected matchesBarista to return true when PersonID matches and > 0")
+	}
+
+	// Case 4: Different PersonID > 0 -> MUST NOT MATCH
+	pOtherID := entity.ProfitSharingPerson{ID: 11, Name: "Other", Role: "barista"}
+	if matchesBarista(cbWithID, pOtherID) {
+		t.Errorf("expected matchesBarista to return false when PersonID is different")
+	}
+}
+
