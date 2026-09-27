@@ -37,10 +37,15 @@ export default function GuideCenter({ setActiveTab }: GuideCenterProps) {
   const { user } = useSelector((state: RootState) => state.auth)
   const userRole = (user?.role || 'cashier').toLowerCase().trim() as 'owner' | 'manager' | 'cashier'
 
-  // Selected role tab: defaults to user's role
-  const [selectedRole, setSelectedRole] = useState<'owner' | 'manager' | 'cashier'>(userRole)
+  // Default role tab & guide based on RBAC rules
+  const defaultRole = userRole === 'owner' ? 'owner' : userRole === 'manager' ? 'manager' : 'cashier'
+  const [selectedRole, setSelectedRole] = useState<'owner' | 'manager' | 'cashier'>(defaultRole)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedGuideId, setSelectedGuideId] = useState<string>("owner-bagi-hasil")
+  const [selectedGuideId, setSelectedGuideId] = useState<string>(() => {
+    if (userRole === 'owner') return "owner-bagi-hasil"
+    if (userRole === 'manager') return "manager-hpp-resep"
+    return "cashier-buka-kasir"
+  })
   const [checklist, setChecklist] = useState<Record<string, boolean>>({})
 
   const toggleCheck = (id: string) => {
@@ -343,10 +348,28 @@ export default function GuideCenter({ setActiveTab }: GuideCenterProps) {
     }
   ], [])
 
-  // Filter guides by role and search query
-  const filteredGuides = useMemo(() => {
+  // Filter master panduan berdasarkan hak akses (Role-Based Access Control)
+  // Owner: akses semua panduan (Owner, Manajer, Kasir)
+  // Manajer: HANYA akses panduan Manajer dan Kasir (Panduan Owner disembunyikan total)
+  // Kasir: HANYA akses panduan Kasir (Panduan Owner & Manajer disembunyikan total)
+  const accessibleGuides = useMemo(() => {
     return guides.filter(g => {
-      const matchRole = (selectedRole === 'owner') ? true : (g.category === selectedRole)
+      if (userRole === 'owner') return true
+      if (userRole === 'manager') return g.category === 'manager' || g.category === 'cashier'
+      return g.category === 'cashier'
+    })
+  }, [guides, userRole])
+
+  // Filter guides yang dapat diakses berdasarkan tab aktif dan input pencarian
+  const filteredGuides = useMemo(() => {
+    return accessibleGuides.filter(g => {
+      // Pastikan kategori yang dipilih diizinkan untuk role saat ini
+      const matchRole = userRole === 'owner' 
+        ? g.category === selectedRole 
+        : userRole === 'manager'
+          ? (selectedRole === 'cashier' ? g.category === 'cashier' : g.category === 'manager')
+          : g.category === 'cashier'
+
       const q = searchQuery.toLowerCase().trim()
       const matchSearch = !q ||
         g.title.toLowerCase().includes(q) ||
@@ -355,12 +378,12 @@ export default function GuideCenter({ setActiveTab }: GuideCenterProps) {
         g.steps.some(s => s.title.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
       return matchRole && matchSearch
     })
-  }, [guides, selectedRole, searchQuery])
+  }, [accessibleGuides, selectedRole, searchQuery, userRole])
 
-  // Active guide being viewed
+  // Active guide being viewed (fallback otomatis ke panduan pertama yang berhak diakses)
   const activeGuide = useMemo(() => {
-    return guides.find(g => g.id === selectedGuideId) || filteredGuides[0] || guides[0]
-  }, [guides, selectedGuideId, filteredGuides])
+    return accessibleGuides.find(g => g.id === selectedGuideId) || filteredGuides[0] || accessibleGuides[0]
+  }, [accessibleGuides, selectedGuideId, filteredGuides])
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -395,29 +418,47 @@ export default function GuideCenter({ setActiveTab }: GuideCenterProps) {
           </div>
         </div>
 
-        {/* Role Switcher Tabs */}
+        {/* Role Switcher Tabs (Disesuaikan Ketat Sesuai Hak Akses Role) */}
         <div className="mt-8 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 bg-white/10 p-1.5 rounded-2xl backdrop-blur-sm border border-white/10">
+            {/* Tab Owner: HANYA untuk Owner */}
+            {userRole === 'owner' && (
+              <button
+                onClick={() => {
+                  setSelectedRole('owner')
+                  setSelectedGuideId("owner-bagi-hasil")
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  selectedRole === 'owner' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Landmark className="w-3.5 h-3.5" />
+                Panduan Owner ({guides.filter(g => g.category === 'owner').length})
+              </button>
+            )}
+
+            {/* Tab Manajer: Tampil untuk Owner & Manajer (Kasir Dilarang) */}
+            {(userRole === 'owner' || userRole === 'manager') && (
+              <button
+                onClick={() => {
+                  setSelectedRole('manager')
+                  setSelectedGuideId("manager-hpp-resep")
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  selectedRole === 'manager' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Panduan Manajer ({guides.filter(g => g.category === 'manager').length})
+              </button>
+            )}
+
+            {/* Tab Kasir: Tampil untuk Semua Role */}
             <button
-              onClick={() => setSelectedRole('owner')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                selectedRole === 'owner' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Landmark className="w-3.5 h-3.5" />
-              Panduan Owner ({guides.filter(g => g.category === 'owner').length})
-            </button>
-            <button
-              onClick={() => setSelectedRole('manager')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                selectedRole === 'manager' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Panduan Manajer ({guides.filter(g => g.category === 'manager').length})
-            </button>
-            <button
-              onClick={() => setSelectedRole('cashier')}
+              onClick={() => {
+                setSelectedRole('cashier')
+                setSelectedGuideId("cashier-buka-kasir")
+              }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 selectedRole === 'cashier' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
               }`}
@@ -432,7 +473,7 @@ export default function GuideCenter({ setActiveTab }: GuideCenterProps) {
             <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Cari SOP (kasbon, bagi hasil, kas laci...)"
+              placeholder={userRole === 'cashier' ? "Cari SOP kasir, buka kas, order..." : "Cari SOP (kasbon, bagi hasil, kas laci...)"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:bg-white/15 focus:border-amber-400"

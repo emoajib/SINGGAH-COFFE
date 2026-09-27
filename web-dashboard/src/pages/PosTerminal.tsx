@@ -18,7 +18,9 @@ import {
     ArrowLeftRight,
     FileText,
     Clock,
-    Check
+    Check,
+    Wifi,
+    WifiOff
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Dialog } from "../components/ui/dialog"
@@ -85,6 +87,33 @@ const PosTerminal: React.FC = () => {
     const [lastCustomerPhone, setLastCustomerPhone] = useState<string>('');
     const { data: unpaidOrders = [] } = useUnpaidOrders();
     const [showUnpaidModal, setShowUnpaidModal] = useState(false);
+
+    // Network status detection for offline POS guidance
+    const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+    const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    const handleCheckConnection = async () => {
+        setIsCheckingConnection(true);
+        try {
+            const res = await fetch('/health?t=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+            setIsOnline(res.ok);
+        } catch {
+            setIsOnline(false);
+        } finally {
+            setIsCheckingConnection(false);
+        }
+    };
 
     const dispatch = useDispatch()
     const { openCashRegister } = useSelector((state: RootState) => state.auth)
@@ -275,6 +304,38 @@ const PosTerminal: React.FC = () => {
             {/* Main Section: Catalog & Header */}
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 border-r border-slate-200">
                 
+                {/* Offline Mode Alert Banner */}
+                {!isOnline && (
+                    <div className="bg-amber-600 text-white px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-md shrink-0 animate-in fade-in slide-in-from-top duration-300">
+                        <div className="flex items-center gap-2">
+                            <span className="p-1 rounded-full bg-amber-700/80">
+                                <WifiOff className="w-4 h-4 text-amber-200" />
+                            </span>
+                            <span>
+                                <strong>Mode Offline Aktif:</strong> Koneksi internet kedai terputus. Pembayaran QRIS/Transfer mungkin gagal. Utamakan transaksi Kas Tunai laci.
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleCheckConnection}
+                            disabled={isCheckingConnection}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-white text-amber-950 hover:bg-amber-100 rounded-lg text-[11px] font-extrabold shadow-sm transition-all"
+                        >
+                            {isCheckingConnection ? (
+                                <>
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Mengecek...
+                                </>
+                            ) : (
+                                <>
+                                    <Wifi className="w-3 h-3" />
+                                    Cek Koneksi
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
+
                  {/* Header */}
                  <header className="bg-white border-b border-slate-200 p-4 md:px-6 md:py-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                      <div className="flex items-center gap-3">

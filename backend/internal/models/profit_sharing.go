@@ -64,14 +64,14 @@ type BaristaCashbon struct {
 	CreatedAt     time.Time      `gorm:"index" json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	OutletID      uint           `json:"outlet_id" gorm:"index"`
+	OutletID      uint           `json:"outlet_id" gorm:"index;index:idx_cashbons_outlet_status;index:idx_cashbons_outlet_date"`
 	PersonID      uint           `json:"person_id" gorm:"index"`
 	BaristaName   string         `json:"barista_name" gorm:"index"`
 	Amount        float64        `json:"amount"`
-	CashbonDate   time.Time      `json:"cashbon_date" gorm:"index"`
+	CashbonDate   time.Time      `json:"cashbon_date" gorm:"index;index:idx_cashbons_outlet_date"`
 	PaymentMethod string         `json:"payment_method" gorm:"default:Cash"` // Cash, Transfer, Lainnya
 	Reason        string         `json:"reason"`
-	Status        string         `json:"status" gorm:"default:pending;index"` // pending, deducted, settled
+	Status        string         `json:"status" gorm:"default:pending;index;index:idx_cashbons_outlet_status"`
 	PeriodID      uint           `json:"period_id" gorm:"index"`
 }
 

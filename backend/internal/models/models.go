@@ -133,10 +133,10 @@ type Expense struct {
 	Category      string    `json:"category"`                // Operational, Marketing, Maintenance
 	CostType      string    `json:"cost_type" gorm:"default:fixed"` // fixed, variable
 	PaymentMethod string    `json:"payment_method" gorm:"default:Cash"` // Cash, QRIS, Lainnya
-	Date          time.Time `json:"date" gorm:"index"`
+	Date          time.Time `json:"date" gorm:"index;index:idx_expenses_outlet_date"`
 	Description   string    `json:"description"`
 	Notes         string    `json:"notes"`
-	OutletID      uint      `json:"outlet_id" gorm:"index"`
+	OutletID      uint      `json:"outlet_id" gorm:"index;index:idx_expenses_outlet_date"`
 }
 
 type Setting struct {

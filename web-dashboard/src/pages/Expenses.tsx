@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Dialog } from "../components/ui/dialog"
-import { Search, Plus, Loader2, Trash2, Receipt, Pencil, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter, Flame, TrendingUp, CalendarDays, PieChart, BarChart3 } from "lucide-react"
+import { Search, Plus, Loader2, Trash2, Receipt, Pencil, ClipboardList, Edit3, Banknote, CreditCard, Clock, Filter, Flame, TrendingUp, CalendarDays, PieChart, BarChart3, Printer, Download } from "lucide-react"
 import { useExpenses, useExpenseSummary, useCreateExpense, useUpdateExpense, useDeleteExpense } from "../hooks/useExpenses"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
@@ -247,6 +247,126 @@ export default function Expenses() {
     const totalExpenseAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
     const totalCashExpense = filteredExpenses.filter(exp => (exp.payment_method || 'Cash') === 'Cash').reduce((sum, exp) => sum + exp.amount, 0)
     const totalQrisExpense = filteredExpenses.filter(exp => exp.payment_method === 'QRIS').reduce((sum, exp) => sum + exp.amount, 0)
+
+    // Ekspor Data Pengeluaran ke CSV untuk arsip & data sains
+    const exportExpensesCSV = () => {
+        if (filteredExpenses.length === 0) {
+            toast({ title: "Info", description: "Tidak ada data pengeluaran untuk diekspor", variant: "info" })
+            return
+        }
+
+        const headers = ["ID", "Tanggal", "Waktu", "Judul_Pengeluaran", "Kategori", "Metode_Bayar", "Tipe_Biaya", "Nominal_Rp"]
+        const rows = filteredExpenses.map(exp => {
+            const expDate = new Date(exp.date)
+            const dateStr = !isNaN(expDate.getTime()) ? expDate.toISOString().slice(0, 10) : exp.date
+            const timeStr = !isNaN(expDate.getTime()) ? expDate.toTimeString().slice(0, 5) : '-'
+            return [
+                exp.id,
+                `"${dateStr}"`,
+                `"${timeStr}"`,
+                `"${(exp.title || '').replace(/"/g, '""')}"`,
+                `"${(exp.category || '').replace(/"/g, '""')}"`,
+                `"${exp.payment_method || 'Cash'}"`,
+                `"${exp.cost_type || 'operational'}"`,
+                exp.amount
+            ]
+        })
+
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n")
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.setAttribute("href", url)
+        link.setAttribute("download", `rekap_pengeluaran_${startDate || 'all'}_sd_${endDate || 'all'}.csv`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+    }
+
+    // Cetak Slip Rekonsiliasi Kas Laci (Print Window Thermal / A4)
+    const handlePrintCashClosingSlip = () => {
+        const cashExpenses = filteredExpenses.filter(exp => (exp.payment_method || 'Cash') === 'Cash')
+        const printWindow = window.open('', '_blank', 'width=650,height=700')
+        if (!printWindow) {
+            alert("Harap izinkan pop-up browser untuk mencetak slip rekap kas.")
+            return
+        }
+
+        const dateRangeLabel = startDate && endDate 
+            ? `${startDate} s/d ${endDate}` 
+            : startDate 
+                ? `Tanggal ${startDate}` 
+                : 'Semua Periode'
+
+        const rowsHtml = cashExpenses.map((exp, idx) => `
+            <tr style="border-bottom: 1px dashed #ccc;">
+                <td style="padding: 6px 4px; text-align: left;">${idx + 1}. ${exp.title}</td>
+                <td style="padding: 6px 4px; text-align: left; color: #666; font-size: 11px;">${exp.category}</td>
+                <td style="padding: 6px 4px; text-align: right; font-weight: bold;">Rp ${formatNumber(exp.amount)}</td>
+            </tr>
+        `).join('')
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Rekap Pengeluaran Kas Laci - Singgah Coffee</title>
+                <style>
+                    body { font-family: monospace, sans-serif; font-size: 12px; margin: 20px; color: #111; }
+                    .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
+                    .header h2 { margin: 0; font-size: 16px; }
+                    .header p { margin: 2px 0; font-size: 11px; color: #555; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    .total-box { border-top: 2px solid #000; margin-top: 12px; padding-top: 8px; text-align: right; font-size: 14px; font-weight: bold; }
+                    .sign-box { margin-top: 30px; display: flex; justify-content: space-between; text-align: center; }
+                    .sign-col { width: 45%; }
+                    .sign-line { margin-top: 50px; border-bottom: 1px solid #000; }
+                    @media print { body { margin: 0; } }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>SINGGAH COFFEE & EATERY</h2>
+                    <p>BUKTI REKONSILIASI PENGELUARAN KAS LACI (PETTY CASH)</p>
+                    <p>Periode: <strong>${dateRangeLabel}</strong></p>
+                    <p>Dicetak: ${new Date().toLocaleString('id-ID')}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr style="border-bottom: 1px solid #000; font-size: 11px;">
+                            <th style="text-align: left; padding-bottom: 4px;">Keterangan</th>
+                            <th style="text-align: left; padding-bottom: 4px;">Kategori</th>
+                            <th style="text-align: right; padding-bottom: 4px;">Nominal (Rp)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml || '<tr><td colspan="3" style="text-align:center; padding: 10px;">Tidak ada pengeluaran kas tunai</td></tr>'}
+                    </tbody>
+                </table>
+                <div class="total-box">
+                    Total Pengeluaran Kas Laci: Rp ${formatNumber(totalCashExpense)}
+                </div>
+                <div class="sign-box">
+                    <div class="sign-col">
+                        <p>Kasir / Barista Penyerah</p>
+                        <div class="sign-line"></div>
+                        <p style="font-size: 11px; margin-top: 4px;">( ${user?.name || 'Kasir Toko'} )</p>
+                    </div>
+                    <div class="sign-col">
+                        <p>Manajer / Owner Penerima</p>
+                        <div class="sign-line"></div>
+                        <p style="font-size: 11px; margin-top: 4px;">( .................................... )</p>
+                    </div>
+                </div>
+                <script>
+                    window.onload = function() { window.print(); }
+                </script>
+            </body>
+            </html>
+        `)
+        printWindow.document.close()
+    }
 
     return (
         <div className="space-y-6">
@@ -560,17 +680,37 @@ export default function Expenses() {
                             </button>
                         </div>
                     </div>
-                    {activeView === 'list' && (
-                        <div className="relative w-full sm:w-64">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                            <Input
-                                placeholder="Cari pengeluaran..."
-                                className="pl-8"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                        </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <button
+                            type="button"
+                            onClick={handlePrintCashClosingSlip}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-2xs transition-all"
+                            title="Cetak struk rekonsiliasi pengeluaran kas laci untuk serah terima shift kasir"
+                        >
+                            <Printer className="w-3.5 h-3.5 text-slate-600" />
+                            Cetak Rekap Kas
+                        </button>
+                        <button
+                            type="button"
+                            onClick={exportExpensesCSV}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-2xs transition-all"
+                            title="Unduh seluruh data pengeluaran dalam format file Excel / CSV"
+                        >
+                            <Download className="w-3.5 h-3.5 text-emerald-600" />
+                            Ekspor CSV
+                        </button>
+                        {activeView === 'list' && (
+                            <div className="relative w-full sm:w-64">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                                <Input
+                                    placeholder="Cari pengeluaran..."
+                                    className="pl-8"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {activeView === 'daily' ? (

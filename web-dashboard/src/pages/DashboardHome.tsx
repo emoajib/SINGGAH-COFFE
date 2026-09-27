@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { SalesChart } from "../components/dashboard/SalesChart"
 import { TopSellingItems } from "../components/dashboard/TopSellingItems"
+import { MenuEngineeringMatrix } from "../components/dashboard/MenuEngineeringMatrix"
 import { useEffect, useState } from "react"
 import { InventoryService } from "../services/inventoryService"
 import { AlertTriangle, Loader2, ShoppingCart, Download, FileText, FileSpreadsheet, Calendar } from "lucide-react"
@@ -794,6 +795,11 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                 />
                 <TopSellingItems items={summary.top_products || []} />
             </div>
+
+            {/* Menu Engineering (BCG Matrix) Analysis for Owner & Manager */}
+            {(user?.role === 'owner' || user?.role === 'manager') && summary.product_sales && summary.product_sales.length > 0 && (
+                <MenuEngineeringMatrix products={summary.product_sales} />
+            )}
 
             {/* Product Sales Breakdown */}
             <Card>
