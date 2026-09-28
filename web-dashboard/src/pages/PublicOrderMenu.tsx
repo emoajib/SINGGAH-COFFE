@@ -76,21 +76,27 @@ export default function PublicOrderMenu() {
   }, []);
 
   const categories = useMemo(() => {
-    if (!menuData) return ['Semua'];
+    if (!menuData || !Array.isArray(menuData.categories)) return ['Semua'];
     return ['Semua', ...menuData.categories];
   }, [menuData]);
 
-  const filteredItems = useMemo(() => {
+  const itemsList = useMemo<PublicMenuItem[]>(() => {
     if (!menuData) return [];
-    return menuData.items.filter((item) => {
+    if (Array.isArray(menuData.items)) return menuData.items;
+    if (Array.isArray(menuData.products)) return menuData.products;
+    return [];
+  }, [menuData]);
+
+  const filteredItems = useMemo<PublicMenuItem[]>(() => {
+    return itemsList.filter((item: PublicMenuItem) => {
       const matchCat = selectedCategory === 'Semua' || item.category === selectedCategory;
       const matchSearch =
         !searchQuery.trim() ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchCat && matchSearch;
     });
-  }, [menuData, selectedCategory, searchQuery]);
+  }, [itemsList, selectedCategory, searchQuery]);
 
   // Cart Calculations
   const totalItemCount = useMemo(() => {

@@ -17,7 +17,7 @@ func setupProductTestDB() *gorm.DB {
 	if err != nil {
 		panic("Failed to connect to database: " + err.Error())
 	}
-	db.AutoMigrate(&models.Product{}, &models.Ingredient{}, &models.RecipeItem{}, &models.PSAKEventOutbox{})
+	db.AutoMigrate(&models.Product{}, &models.Ingredient{}, &models.RecipeItem{}, &models.PSAKEventOutbox{}, &models.Setting{})
 	return db
 }
 
@@ -202,3 +202,26 @@ func TestProductUsecase_CreateWithRecipeCalculatesCost(t *testing.T) {
 	assert.Equal(t, float64(expectedCost), resp.Cost)
 	assert.Len(t, resp.Recipe, 2)
 }
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestProductUsecase_GetPublicMenu(t *testing.T) {
+	db := setupProductTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createProductUsecase(db)
+
+	db.Create(&models.Setting{Key: "self_order_enabled", Value: "true"})
+	db.Create(&models.Product{Name: "Signature Aren", Category: "Coffee", Price: 22000, Stock: 50, Description: "Kopi susu gula aren", Sku: "SKU-01"})
+	db.Create(&models.Product{Name: "Matcha Latte", Category: "Non-Coffee", Price: 25000, Stock: 0, Description: "Matcha murni", Sku: "SKU-02"})
+
+	menu, err := uc.GetPublicMenu()
+	assert.NoError(t, err)
+	assert.NotNil(t, menu)
+	assert.True(t, menu.SelfOrderEnabled)
+	assert.Equal(t, "Singgah Coffee", menu.StoreName)
+	assert.Len(t, menu.Categories, 2)
+	assert.Len(t, menu.Products, 2)
+	assert.Len(t, menu.Items, 2)
+	assert.True(t, menu.Products[0].Available)
+	assert.False(t, menu.Products[1].Available)
+}
+

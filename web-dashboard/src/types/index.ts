@@ -190,10 +190,12 @@ export interface PublicMenuItem {
 }
 
 export interface PublicMenuResponse {
-  store_name: string
+  store_name?: string
+  outlet_name?: string
   self_order_enabled: boolean
   categories: string[]
   items: PublicMenuItem[]
+  products?: PublicMenuItem[]
 }
 
 export interface PublicOrderItemRequest {

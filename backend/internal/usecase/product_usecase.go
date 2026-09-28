@@ -14,12 +14,14 @@ import (
 type ProductUsecase struct {
 	productRepo    repository.ProductRepository
 	ingredientRepo repository.IngredientRepository
+	settingRepo    repository.SettingRepository
 }
 
 func NewProductUsecase(db *gorm.DB) *ProductUsecase {
 	return &ProductUsecase{
 		productRepo:    postgres.NewProductRepository(db),
 		ingredientRepo: postgres.NewIngredientRepository(db),
+		settingRepo:    postgres.NewSettingRepository(db),
 	}
 }
 
@@ -175,12 +177,16 @@ type PublicProductItem struct {
 	Stock       int     `json:"stock"`
 	Description string  `json:"description"`
 	ImageURL    string  `json:"image_url"`
+	Available   bool    `json:"available"`
 }
 
 type PublicMenuResponse struct {
-	OutletName string              `json:"outlet_name"`
-	Categories []string            `json:"categories"`
-	Products   []PublicProductItem `json:"products"`
+	StoreName        string              `json:"store_name"`
+	OutletName       string              `json:"outlet_name"`
+	SelfOrderEnabled bool                `json:"self_order_enabled"`
+	Categories       []string            `json:"categories"`
+	Products         []PublicProductItem `json:"products"`
+	Items            []PublicProductItem `json:"items"`
 }
 
 // GetPublicMenu returns public-facing menu catalog for smartphone self-ordering
@@ -189,6 +195,15 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 	products, err := uc.productRepo.FindAll(300, 0)
 	if err != nil {
 		return nil, err
+	}
+
+	selfOrderEnabled := true
+	if uc.settingRepo != nil {
+		if setting, err := uc.settingRepo.FindByKey("self_order_enabled"); err == nil {
+			if strings.ToLower(strings.TrimSpace(setting.Value)) == "false" {
+				selfOrderEnabled = false
+			}
+		}
 	}
 
 	categoryMap := make(map[string]bool)
@@ -213,12 +228,16 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 			Stock:       p.Stock,
 			Description: p.Description,
 			ImageURL:    p.ImageURL,
+			Available:   p.Stock > 0,
 		})
 	}
 
 	return &PublicMenuResponse{
-		OutletName: "Singgah Coffee",
-		Categories: categoryOrder,
-		Products:   publicProducts,
+		StoreName:        "Singgah Coffee",
+		OutletName:       "Singgah Coffee",
+		SelfOrderEnabled: selfOrderEnabled,
+		Categories:       categoryOrder,
+		Products:         publicProducts,
+		Items:            publicProducts,
 	}, nil
 }
