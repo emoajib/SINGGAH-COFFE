@@ -120,6 +120,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.DELETE("/ingredients/:id", middleware.RoleMiddleware("owner", "manager"), h.Inventory.DeleteIngredient)
 			protected.GET("/ingredients/:id/history", middleware.RoleMiddleware("owner", "manager"), h.Inventory.GetStockHistory)
 			protected.POST("/inventory/mutation", middleware.RoleMiddleware("owner", "manager"), h.Inventory.UpdateStock)
+			// Transfer stok antar lokasi (gudang ↔ kedai) — Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			protected.POST("/inventory/transfer", middleware.RoleMiddleware("owner", "manager"), h.Inventory.TransferStock)
 
 			// Reports & Dashboard
 			protected.GET("/dashboard/summary", h.Report.GetDashboardSummary)

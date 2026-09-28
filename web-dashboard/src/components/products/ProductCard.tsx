@@ -10,6 +10,8 @@ interface Ingredient {
     purchase_unit: string;
     purchase_unit_size: number;
     current_stock: number;
+    warehouse_stock: number;
+    kedai_stock: number;
     min_stock: number;
     cost_per_unit: number;
 }

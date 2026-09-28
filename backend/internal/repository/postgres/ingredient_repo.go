@@ -79,6 +79,23 @@ func (r *ingredientRepository) UpdateStockAtomic(id uint, delta float64, operato
 	return r.db.Model(&models.Ingredient{}).Where("id = ?", id).UpdateColumn("current_stock", expr).Error
 }
 
+// UpdateStockAtomicByLocation updates warehouse_stock or kedai_stock atomically.
+// location: "warehouse" → column warehouse_stock, "kedai" → column kedai_stock.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *ingredientRepository) UpdateStockAtomicByLocation(id uint, delta float64, operator string, location string) error {
+	col := "kedai_stock"
+	if location == "warehouse" {
+		col = "warehouse_stock"
+	}
+	var expr interface{}
+	if operator == "sub" {
+		expr = gorm.Expr(col+" - ?", delta)
+	} else {
+		expr = gorm.Expr(col+" + ?", delta)
+	}
+	return r.db.Model(&models.Ingredient{}).Where("id = ?", id).UpdateColumn(col, expr).Error
+}
+
 func (r *ingredientRepository) UpdateCostPerUnit(id uint, cost float64) error {
 	return r.db.Model(&models.Ingredient{}).Where("id = ?", id).Update("cost_per_unit", cost).Error
 }
@@ -118,6 +135,8 @@ func toDomainIngredient(m *models.Ingredient) *entity.Ingredient {
 		PurchaseUnit:     m.PurchaseUnit,
 		PurchaseUnitSize: m.PurchaseUnitSize,
 		CurrentStock:     m.CurrentStock,
+		WarehouseStock:   m.WarehouseStock,
+		KedaiStock:       m.KedaiStock,
 		MinStock:         m.MinStock,
 		CostPerUnit:      m.CostPerUnit,
 		OutletID:         m.OutletID,
@@ -132,6 +151,8 @@ func toModelIngredient(e *entity.Ingredient) *models.Ingredient {
 		PurchaseUnit:     e.PurchaseUnit,
 		PurchaseUnitSize: e.PurchaseUnitSize,
 		CurrentStock:     e.CurrentStock,
+		WarehouseStock:   e.WarehouseStock,
+		KedaiStock:       e.KedaiStock,
 		MinStock:         e.MinStock,
 		CostPerUnit:      e.CostPerUnit,
 		OutletID:         e.OutletID,

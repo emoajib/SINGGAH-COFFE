@@ -19,10 +19,16 @@ func (r *stockMutationRepository) Create(mutation *entity.StockMutation) error {
 	m := &models.StockMutation{
 		IngredientID: mutation.IngredientID,
 		Type:         mutation.Type,
+		Location:     mutation.Location,
+		FromLocation: mutation.FromLocation,
+		ToLocation:   mutation.ToLocation,
 		Quantity:     mutation.Quantity,
 		ReferenceID:  mutation.ReferenceID,
 		Notes:        mutation.Notes,
 		OutletID:     mutation.OutletID,
+	}
+	if m.Location == "" {
+		m.Location = "kedai"
 	}
 	if !mutation.Date.IsZero() {
 		m.Date = mutation.Date
@@ -47,6 +53,9 @@ func (r *stockMutationRepository) FindByIngredientID(ingredientID uint, outletID
 			ID:           m.ID,
 			IngredientID: m.IngredientID,
 			Type:         m.Type,
+			Location:     m.Location,
+			FromLocation: m.FromLocation,
+			ToLocation:   m.ToLocation,
 			Quantity:     m.Quantity,
 			ReferenceID:  m.ReferenceID,
 			Notes:        m.Notes,

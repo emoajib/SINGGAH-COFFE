@@ -140,7 +140,12 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 		}
 	}
 
-	if err := h.inventoryUsecase.UpdateStock(
+	location := req.Location
+	if location == "" {
+		location = "kedai"
+	}
+
+	if err := h.inventoryUsecase.UpdateStockWithLocation(
 		req.IngredientID,
 		req.Type,
 		quantity,
@@ -148,6 +153,7 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 		req.IsPurchase,
 		req.UpdateMasterPrice,
 		req.NewCostPerUnit,
+		location,
 		getOutletID(c),
 	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
@@ -155,6 +161,40 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Stock updated successfully"})
+}
+
+// TransferStock handles POST /inventory/transfer
+// Memindahkan stok dari gudang ↔ kedai secara atomik.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (h *InventoryHandler) TransferStock(c *gin.Context) {
+	var req request.TransferStockRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input: " + err.Error()})
+		return
+	}
+
+	from := req.FromLocation
+	to := req.ToLocation
+	if from == "" {
+		from = "warehouse"
+	}
+	if to == "" {
+		to = "kedai"
+	}
+
+	if err := h.inventoryUsecase.TransferStock(
+		req.IngredientID,
+		req.Quantity,
+		from,
+		to,
+		req.Notes,
+		getOutletID(c),
+	); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Transfer stok berhasil"})
 }
 
 func parseDate(dateStr string) time.Time {

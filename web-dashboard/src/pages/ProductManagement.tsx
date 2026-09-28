@@ -5,6 +5,7 @@ import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
 import { Button } from "../components/ui/button"
 import { StockAdjustmentDialog } from '../components/inventory/StockAdjustmentDialog';
+import { TransferStockDialog } from '../components/inventory/TransferStockDialog';
 import { useProducts, useDeleteProduct } from '../hooks/useProducts'
 import { useIngredients, useDeleteIngredient, useCreateStockMutation } from '../hooks/useIngredients'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,7 +18,8 @@ import { ProductFormModal } from '../components/products/ProductFormModal';
 interface Ingredient {
     id: number; name: string; category: string; unit: string;
     purchase_unit: string; purchase_unit_size: number;
-    current_stock: number; min_stock: number; cost_per_unit: number;
+    current_stock: number; warehouse_stock: number; kedai_stock: number;
+    min_stock: number; cost_per_unit: number;
 }
 
 interface RecipeItem {
@@ -37,6 +39,7 @@ const ProductManagement: React.FC = () => {
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [restockModal, setRestockModal] = useState({ isOpen: false, itemId: 0, type: 'IN' as 'IN' | 'OUT' | 'AUDIT' });
     const [historyModal, setHistoryModal] = useState({ isOpen: false, ingredient: null as Ingredient | null, history: [] as any[] });
+    const [transferIngredient, setTransferIngredient] = useState<Ingredient | null>(null);
     const [loading, setLoading] = useState(false);
     const productsQuery = useProducts();
     const ingredientsQuery = useIngredients();
@@ -97,6 +100,7 @@ const ProductManagement: React.FC = () => {
                         onEdit={(ing) => { setEditingIngredient(ing); setIsIngModalOpen(true); }}
                         onDelete={handleDeleteIngredient}
                         onRestock={(ing, t) => setRestockModal({ isOpen: true, itemId: ing.id, type: t })}
+                        onTransfer={(ing) => setTransferIngredient(ing)}
                         onHistory={handleOpenHistory}
                     />
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-4">
@@ -180,6 +184,14 @@ const ProductManagement: React.FC = () => {
                         queryClient.invalidateQueries({ queryKey: ['ingredients'] });
                     } catch { alert('Gagal memperbarui stok'); }
                     finally { setLoading(false); }
+                }}
+            />
+
+            <TransferStockDialog
+                ingredient={transferIngredient}
+                onClose={() => setTransferIngredient(null)}
+                onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ['ingredients'] });
                 }}
             />
 

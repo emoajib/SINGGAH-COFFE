@@ -52,6 +52,8 @@ type Ingredient struct {
 	PurchaseUnit     string  `json:"purchase_unit"` // kg, liter, gram, pcs
 	PurchaseUnitSize float64 `json:"purchase_unit_size"` // isi per satuan beli (1000 gr/kg, 100 gr/pack)
 	CurrentStock     float64 `json:"current_stock"`
+	WarehouseStock   float64 `json:"warehouse_stock" gorm:"default:0"` // Stok penyimpanan gudang utama
+	KedaiStock       float64 `json:"kedai_stock" gorm:"default:0"`     // Stok operasional meja bar barista
 	MinStock         float64 `json:"min_stock"`
 	CostPerUnit      float64 `json:"cost_per_unit"`
 	OutletID         uint    `json:"outlet_id" gorm:"index"`
@@ -75,7 +77,10 @@ type RecipeItem struct {
 type StockMutation struct {
 	BaseModel
 	IngredientID uint      `json:"ingredient_id" gorm:"index"`
-	Type         string    `json:"type"` // IN (Purchase), OUT (Sales), ADJ (Audit)
+	Type         string    `json:"type"` // IN (Purchase), OUT (Sales), ADJ (Audit), TRANSFER
+	Location     string    `json:"location" gorm:"size:20;default:'kedai'"`
+	FromLocation string    `json:"from_location" gorm:"size:20;default:''"`
+	ToLocation   string    `json:"to_location" gorm:"size:20;default:''"`
 	Quantity     float64   `json:"quantity"`
 	ReferenceID  string    `json:"reference_id"` // PO Number or Order Number
 	Notes        string    `json:"notes"`

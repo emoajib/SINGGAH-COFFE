@@ -102,12 +102,21 @@ type UpdateIngredientRequest struct {
 
 type StockMutationRequest struct {
 	IngredientID      uint    `json:"ingredient_id" binding:"required"`
-	Type              string  `json:"type" binding:"required,oneof=IN OUT ADJ ADJ_ADD ADJ_SUB"`
+	Type              string  `json:"type" binding:"required,oneof=IN OUT ADJ ADJ_ADD ADJ_SUB TRANSFER"`
+	Location          string  `json:"location"` // warehouse, kedai
 	Quantity          float64 `json:"quantity" binding:"required,gt=0"`
 	Notes             string  `json:"notes"`
 	IsPurchase        bool    `json:"is_purchase"`
 	UpdateMasterPrice bool    `json:"update_master_price"`
 	NewCostPerUnit    float64 `json:"new_cost_per_unit"`
+}
+
+type TransferStockRequest struct {
+	IngredientID uint    `json:"ingredient_id" binding:"required"`
+	Quantity     float64 `json:"quantity" binding:"required,gt=0"`
+	FromLocation string  `json:"from_location"` // "warehouse" atau "kedai" (default: "warehouse")
+	ToLocation   string  `json:"to_location"`   // "warehouse" atau "kedai" (default: "kedai")
+	Notes        string  `json:"notes"`
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager

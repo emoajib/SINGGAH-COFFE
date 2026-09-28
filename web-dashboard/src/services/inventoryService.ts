@@ -2,7 +2,7 @@ import api from '../lib/api';
 import type { Ingredient, LowStockAlert, CreateIngredientRequest, CreateStockMutationRequest, StockMutation } from '../types';
 
 export type { Ingredient };
-export type MutationType = 'IN' | 'OUT' | 'ADJ_ADD' | 'ADJ_SUB';
+export type MutationType = 'IN' | 'OUT' | 'ADJ_ADD' | 'ADJ_SUB' | 'TRANSFER';
 
 export const InventoryService = {
     // Get all ingredients
@@ -39,6 +39,24 @@ export const InventoryService = {
     // Update stock (Mutation)
     mutateStock: async (mutation: CreateStockMutationRequest): Promise<void> => {
         await api.post('/inventory/mutation', mutation);
+    },
+
+    // Transfer stok antar lokasi (gudang ↔ kedai)
+    // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+    transferStock: async (
+        ingredientId: number,
+        quantity: number,
+        fromLocation: string,
+        toLocation: string,
+        notes?: string
+    ): Promise<void> => {
+        await api.post('/inventory/transfer', {
+            ingredient_id: ingredientId,
+            quantity,
+            from_location: fromLocation,
+            to_location: toLocation,
+            notes: notes || '',
+        });
     },
 
     // Get Stock History

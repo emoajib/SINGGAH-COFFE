@@ -207,6 +207,16 @@ func Connect(cfg config.Config) *gorm.DB {
 	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_code VARCHAR(10) NOT NULL DEFAULT ''")
 	_ = db.Exec("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS notes VARCHAR(100) NOT NULL DEFAULT ''")
 
+	// Ensure ingredients has warehouse_stock & kedai_stock for dual-location stock (idempotent / non-blocking)
+	_ = db.Exec("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS warehouse_stock DECIMAL(10,3) NOT NULL DEFAULT 0")
+	_ = db.Exec("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS kedai_stock DECIMAL(10,3) NOT NULL DEFAULT 0")
+	_ = db.Exec("ALTER TABLE stock_mutations ADD COLUMN IF NOT EXISTS location VARCHAR(20) NOT NULL DEFAULT 'kedai'")
+	_ = db.Exec("ALTER TABLE stock_mutations ADD COLUMN IF NOT EXISTS from_location VARCHAR(20) NOT NULL DEFAULT ''")
+	_ = db.Exec("ALTER TABLE stock_mutations ADD COLUMN IF NOT EXISTS to_location VARCHAR(20) NOT NULL DEFAULT ''")
+
+	// Backfill: jika kedai_stock masih 0 dan current_stock > 0, set kedai_stock = current_stock (backward compatibility)
+	_ = db.Exec("UPDATE ingredients SET kedai_stock = current_stock WHERE (kedai_stock = 0 OR kedai_stock IS NULL) AND current_stock > 0")
+
 	// Ensure self_order setting exists
 	var soCount int64
 	db.Model(&models.Setting{}).Where("`key` = ?", "self_order_enabled").Count(&soCount)

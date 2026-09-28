@@ -1,6 +1,6 @@
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
-import { ArrowUpCircle, ArrowDownCircle, History, Edit2, Trash2, Tag, ShoppingBag, Scale } from 'lucide-react'
+import { ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, History, Edit2, Trash2, Tag, ShoppingBag, Scale, Warehouse, Coffee } from 'lucide-react'
 import { formatNumber } from '../../lib/utils'
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -13,6 +13,8 @@ interface Ingredient {
     purchase_unit: string;
     purchase_unit_size: number;
     current_stock: number;
+    warehouse_stock: number;
+    kedai_stock: number;
     min_stock: number;
     cost_per_unit: number;
 }
@@ -22,6 +24,7 @@ interface IngredientsTableProps {
     onEdit: (ing: Ingredient) => void;
     onDelete: (id: number) => void;
     onRestock: (ing: Ingredient, type: 'IN' | 'OUT' | 'AUDIT') => void;
+    onTransfer: (ing: Ingredient) => void;
     onHistory: (ing: Ingredient) => void;
 }
 
@@ -55,7 +58,7 @@ export function getDisplayPurchaseUnit(ing: Ingredient): string {
     return pUnit;
 }
 
-export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onHistory }: IngredientsTableProps) {
+export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onTransfer, onHistory }: IngredientsTableProps) {
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -106,6 +109,19 @@ export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onH
                                             ≈ {(ing.current_stock / unitSize).toFixed(1)} {purchaseUnit}
                                         </div>
                                     )}
+                                    {/* Dual-location stock breakdown */}
+                                    {(ing.warehouse_stock > 0 || ing.kedai_stock > 0) && (
+                                        <div className="flex items-center justify-center gap-2 mt-1.5">
+                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                <Warehouse size={9} />
+                                                {formatNumber(ing.warehouse_stock)}
+                                            </span>
+                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                <Coffee size={9} />
+                                                {formatNumber(ing.kedai_stock)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4">
                                     <Badge variant={ing.current_stock > ing.min_stock ? 'success' : 'destructive'} className="capitalize">
@@ -133,6 +149,17 @@ export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onH
                                             title="Audit Fisik / Stock Opname (Cocokkan Stok Nyata)"
                                         >
                                             <Scale className="h-4 w-4" />
+                                        </Button>
+
+                                        {/* Tombol Transfer Gudang ↔ Kedai */}
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 w-8 p-0 rounded-full border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white transition-all shadow-xs"
+                                            onClick={() => onTransfer(ing)}
+                                            title="Transfer Stok Gudang ↔ Kedai"
+                                        >
+                                            <ArrowLeftRight className="h-4 w-4" />
                                         </Button>
 
                                         {/* Tombol Stok Masuk */}

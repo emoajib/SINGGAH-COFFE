@@ -43,6 +43,9 @@ type IngredientRepository interface {
 	Update(ingredient *entity.Ingredient) error
 	UpdateStock(id uint, newStock float64) error
 	UpdateStockAtomic(id uint, delta float64, operator string) error
+	// UpdateStockAtomicByLocation updates warehouse_stock or kedai_stock based on location.
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	UpdateStockAtomicByLocation(id uint, delta float64, operator string, location string) error
 	UpdateCostPerUnit(id uint, cost float64) error
 	Delete(id uint) error
 	CountLowStock(outletID ...uint) (int64, error)

@@ -83,6 +83,14 @@ func (uc *InventoryUsecase) CreateIngredient(req *entity.Ingredient, outletID ..
 }
 
 func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, quantity float64, notes string, isPurchase bool, updateMasterPrice bool, newCost float64, outletID ...uint) error {
+	return uc.UpdateStockWithLocation(ingredientID, mutationType, quantity, notes, isPurchase, updateMasterPrice, newCost, "kedai", outletID...)
+}
+
+// UpdateStockWithLocation adalah versi extended dari UpdateStock yang mendukung dual-location stock.
+// location: "warehouse" (stok gudang) atau "kedai" (stok operasional bar).
+// Untuk pembelian (isPurchase=true), stok masuk ke location yang ditentukan.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationType string, quantity float64, notes string, isPurchase bool, updateMasterPrice bool, newCost float64, location string, outletID ...uint) error {
 	return uc.db.Transaction(func(tx *gorm.DB) error {
 		mutationRepo := postgres.NewStockMutationRepository(tx)
 		ingredientRepo := postgres.NewIngredientRepository(tx)
@@ -92,10 +100,14 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 		if len(outletID) > 0 {
 			oid = outletID[0]
 		}
+		if location == "" {
+			location = "kedai"
+		}
 
 		mutation := &entity.StockMutation{
 			IngredientID: ingredientID,
 			Type:         mutationType,
+			Location:     location,
 			Quantity:     quantity,
 			Notes:        notes,
 			Date:         time.Now(),
@@ -111,7 +123,12 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 		if mutationType == string(entity.MutationOut) || mutationType == string(entity.MutationSub) {
 			operator = "sub"
 		}
+
+		// Update current_stock (total) selalu, lalu update lokasi spesifik
 		if err := ingredientRepo.UpdateStockAtomic(ingredientID, quantity, operator); err != nil {
+			return err
+		}
+		if err := ingredientRepo.UpdateStockAtomicByLocation(ingredientID, quantity, operator, location); err != nil {
 			return err
 		}
 
@@ -185,6 +202,80 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 		if isPurchase && mutationType == string(entity.MutationIn) {
 			productRepo := postgres.NewProductRepository(tx)
 			_ = productRepo.RecalculateCosts(ingredientID)
+		}
+
+		return nil
+	})
+}
+
+// TransferStock memindahkan stok dari gudang (warehouse) ke kedai atau sebaliknya.
+// Operasi ini BUKAN pembelian — tidak membuat expense/cash book entry.
+// Atomik: kedua sisi (deduct+add) dalam satu transaksi.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *InventoryUsecase) TransferStock(ingredientID uint, quantity float64, from, to string, notes string, outletID ...uint) error {
+	if from == to {
+		return fmt.Errorf("lokasi asal dan tujuan tidak boleh sama")
+	}
+	if from != "warehouse" && from != "kedai" {
+		return fmt.Errorf("lokasi asal tidak valid: %s", from)
+	}
+	if to != "warehouse" && to != "kedai" {
+		return fmt.Errorf("lokasi tujuan tidak valid: %s", to)
+	}
+	if quantity <= 0 {
+		return fmt.Errorf("jumlah transfer harus lebih dari 0")
+	}
+
+	return uc.db.Transaction(func(tx *gorm.DB) error {
+		ingredientRepo := postgres.NewIngredientRepository(tx)
+		mutationRepo := postgres.NewStockMutationRepository(tx)
+
+		oid := uint(0)
+		if len(outletID) > 0 {
+			oid = outletID[0]
+		}
+
+		// Lock baris ingredient untuk cek stok cukup
+		ingredient, err := ingredientRepo.FindByIDForUpdate(ingredientID)
+		if err != nil {
+			return fmt.Errorf("bahan tidak ditemukan: %w", err)
+		}
+
+		// Cek kecukupan stok di lokasi asal
+		var fromStock float64
+		if from == "warehouse" {
+			fromStock = ingredient.WarehouseStock
+		} else {
+			fromStock = ingredient.KedaiStock
+		}
+		if fromStock < quantity {
+			return fmt.Errorf("stok %s tidak cukup (tersedia: %.2f, diminta: %.2f)", from, fromStock, quantity)
+		}
+
+		// Kurangi stok di lokasi asal
+		if err := ingredientRepo.UpdateStockAtomicByLocation(ingredientID, quantity, "sub", from); err != nil {
+			return fmt.Errorf("gagal kurangi stok %s: %w", from, err)
+		}
+		// Tambah stok di lokasi tujuan
+		if err := ingredientRepo.UpdateStockAtomicByLocation(ingredientID, quantity, "add", to); err != nil {
+			return fmt.Errorf("gagal tambah stok %s: %w", to, err)
+		}
+		// current_stock (total) tidak berubah pada transfer antar lokasi
+
+		// Catat mutasi TRANSFER
+		mutation := &entity.StockMutation{
+			IngredientID: ingredientID,
+			Type:         string(entity.MutationTransfer),
+			Location:     to,
+			FromLocation: from,
+			ToLocation:   to,
+			Quantity:     quantity,
+			Notes:        notes,
+			Date:         time.Now(),
+			OutletID:     oid,
+		}
+		if err := mutationRepo.Create(mutation); err != nil {
+			return fmt.Errorf("gagal catat mutasi transfer: %w", err)
 		}
 
 		return nil

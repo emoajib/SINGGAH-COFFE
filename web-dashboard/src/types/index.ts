@@ -76,6 +76,8 @@ export interface Ingredient {
   purchase_unit: string
   purchase_unit_size: number
   current_stock: number
+  warehouse_stock: number  // Stok di gudang utama
+  kedai_stock: number      // Stok operasional bar/kedai
   min_stock: number
   cost_per_unit: number
   created_at?: string
@@ -117,7 +119,10 @@ export interface StockMutation {
   id: number
   ingredient_id: number
   ingredient_name: string
-  type: 'IN' | 'OUT' | 'ADJ_ADD' | 'ADJ_SUB'
+  type: 'IN' | 'OUT' | 'ADJ_ADD' | 'ADJ_SUB' | 'TRANSFER'
+  location?: string       // warehouse, kedai
+  from_location?: string  // untuk TRANSFER
+  to_location?: string    // untuk TRANSFER
   quantity: number
   notes: string
   date: string
