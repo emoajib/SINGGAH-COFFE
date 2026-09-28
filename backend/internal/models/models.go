@@ -103,6 +103,10 @@ type Order struct {
 	QueueNumber      int         `json:"queue_number" gorm:"default:0;index:idx_orders_kitchen"`
 	KitchenStatus    string      `json:"kitchen_status" gorm:"size:20;default:'queued';index:idx_orders_kitchen"`
 	PreparationNotes string      `json:"preparation_notes" gorm:"type:text"`
+	OrderSource      string      `json:"order_source" gorm:"type:varchar(20);default:'cashier';index"` // cashier, self_order
+	CustomerPhone    string      `json:"customer_phone" gorm:"type:varchar(30);default:''"`
+	TrackingToken    string      `json:"tracking_token" gorm:"type:varchar(64);index;default:''"`
+	PickupCode       string      `json:"pickup_code" gorm:"type:varchar(10);default:''"`
 	QueuedAt         *time.Time  `json:"queued_at"`
 	PreparingAt      *time.Time  `json:"preparing_at"`
 	ReadyAt          *time.Time  `json:"ready_at"`
@@ -117,6 +121,7 @@ type OrderItem struct {
 	Quantity  int     `json:"quantity"`
 	Price     float64 `json:"price"` // Price at moment of sale
 	Cost      float64 `json:"cost"`  // HPP at moment of sale (for P&L)
+	Notes     string  `json:"notes" gorm:"type:varchar(100);default:''"`
 }
 
 type ProcessedWebhook struct {

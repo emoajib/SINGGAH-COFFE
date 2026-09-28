@@ -8,6 +8,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/models"
@@ -339,6 +340,145 @@ func TestOrderUsecase_KitchenQueueAndStatusProgression(t *testing.T) {
 	queueAfterServed, err := uc.GetActiveKitchenQueue()
 	assert.NoError(t, err)
 	assert.Len(t, queueAfterServed, 0)
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestOrderUsecase_CreatePublicSelfOrder_SuccessAndCompletePayment(t *testing.T) {
+	db := setupOrderTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createOrderUsecase(db)
+
+	ing := &entity.Ingredient{Name: "Espresso Bean", Unit: "gram", CurrentStock: 500, MinStock: 50, CostPerUnit: 200}
+	db.Create(ing)
+
+	prodID := seedProductWithRecipe(db, "Kopi Gula Aren", "KGA-01", 22000, ing.ID, 15)
+
+	req := request.PublicCreateOrderRequest{
+		CustomerName:  "Budi Santoso",
+		CustomerPhone: "08123456789",
+		Notes:         "Es sedikit, jangan manis-manis",
+		Items: []request.PublicOrderItemRequest{
+			{ProductID: prodID, Quantity: 2, Notes: "Less ice"},
+		},
+	}
+
+	// 1. Pelanggan submit pesanan mandiri
+	res, err := uc.CreatePublicSelfOrder(req)
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.Equal(t, "Budi Santoso", res.CustomerName)
+	assert.Equal(t, 44000.0, res.TotalAmount)
+	assert.Equal(t, "waiting_payment", res.KitchenStatus)
+	assert.Equal(t, "Unpaid", res.PaymentStatus)
+	assert.Equal(t, "Pending", res.Status)
+	assert.Len(t, res.PickupCode, 4)
+	assert.NotEmpty(t, res.TrackingToken)
+	assert.Len(t, res.Items, 1)
+	assert.Equal(t, "Less ice", res.Items[0].Notes)
+
+	// Pastikan stok bahan baku BELUM berkurang karena status masih Unpaid
+	var ingCheck entity.Ingredient
+	db.First(&ingCheck, ing.ID)
+	assert.Equal(t, 500.0, ingCheck.CurrentStock, "Stok tidak boleh terpotong sebelum pesanan lunas")
+
+	// 2. Barista queue TIDAK boleh memuat pesanan ini (karena belum lunas)
+	activeQueue, err := uc.GetActiveKitchenQueue()
+	assert.NoError(t, err)
+	assert.Len(t, activeQueue, 0, "Pesanan unpaid tidak boleh masuk antrian racik barista")
+
+	// 3. Pelanggan melacak status via tracking token
+	trackStatus, err := uc.GetPublicOrderStatus(res.TrackingToken)
+	assert.NoError(t, err)
+	assert.NotNil(t, trackStatus)
+	assert.Equal(t, 0, trackStatus.QueueNumber, "QueueNumber masih 0 karena belum bayar di kasir")
+	assert.Equal(t, res.PickupCode, trackStatus.PickupCode)
+	assert.Equal(t, "waiting_payment", trackStatus.KitchenStatus)
+
+	// 4. Kasir memproses pelunasan pesanan mandiri di POS
+	var dbOrder models.Order
+	db.Where("tracking_token = ?", res.TrackingToken).First(&dbOrder)
+	assert.NotZero(t, dbOrder.ID)
+
+	completed, err := uc.CompletePaymentWithMethod(dbOrder.ID, "Cash")
+	assert.NoError(t, err)
+	assert.NotNil(t, completed)
+	assert.Equal(t, "Paid", completed.PaymentStatus)
+	assert.Equal(t, "Completed", completed.Status)
+	assert.Equal(t, "queued", completed.KitchenStatus)
+	assert.Greater(t, completed.QueueNumber, 0, "QueueNumber resmi harus diterbitkan setelah lunas")
+
+	// 5. Stok bahan baku sekarang HARUS terpotong sesuai resep (15g * 2 = 30g)
+	db.First(&ingCheck, ing.ID)
+	assert.Equal(t, 470.0, ingCheck.CurrentStock, "Stok harus berkurang 30g setelah lunas")
+
+	// 6. Sekarang barista melihat pesanan di antrian aktif
+	activeQueueAfterPay, err := uc.GetActiveKitchenQueue()
+	assert.NoError(t, err)
+	assert.Len(t, activeQueueAfterPay, 1, "Pesanan harus masuk antrian racik setelah lunas")
+	assert.Equal(t, completed.QueueNumber, activeQueueAfterPay[0].QueueNumber)
+
+	// 7. Pelanggan cek kembali via tracking token, QueueNumber & KitchenStatus sudah terupdate
+	trackStatusAfterPay, err := uc.GetPublicOrderStatus(res.TrackingToken)
+	assert.NoError(t, err)
+	assert.Equal(t, completed.QueueNumber, trackStatusAfterPay.QueueNumber)
+	assert.Equal(t, "queued", trackStatusAfterPay.KitchenStatus)
+	assert.Equal(t, "Paid", trackStatusAfterPay.PaymentStatus)
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestOrderUsecase_CreatePublicSelfOrder_DisabledSetting(t *testing.T) {
+	db := setupOrderTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createOrderUsecase(db)
+
+	// Set self_order_enabled = "false"
+	db.Create(&models.Setting{Key: "self_order_enabled", Value: "false"})
+
+	prod := &models.Product{Name: "Americano", Price: 15000, Stock: 10}
+	db.Create(prod)
+
+	req := request.PublicCreateOrderRequest{
+		CustomerName: "Deni",
+		Items: []request.PublicOrderItemRequest{
+			{ProductID: prod.ID, Quantity: 1},
+		},
+	}
+
+	_, err := uc.CreatePublicSelfOrder(req)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dinonaktifkan")
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestOrderUsecase_CreatePublicSelfOrder_QueueLimitExceeded(t *testing.T) {
+	db := setupOrderTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createOrderUsecase(db)
+
+	prod := &models.Product{Name: "Latte", Price: 20000, Stock: 100}
+	db.Create(prod)
+
+	// Seed 20 unpaid self-orders
+	for i := 0; i < 20; i++ {
+		db.Create(&models.Order{
+			OrderNumber:   fmt.Sprintf("SGH-TEST-%d", i),
+			OrderSource:   "self_order",
+			PaymentStatus: "Unpaid",
+			Status:        "Pending",
+			KitchenStatus: "waiting_payment",
+		})
+	}
+
+	req := request.PublicCreateOrderRequest{
+		CustomerName: "Citra",
+		Items: []request.PublicOrderItemRequest{
+			{ProductID: prod.ID, Quantity: 1},
+		},
+	}
+
+	_, err := uc.CreatePublicSelfOrder(req)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Antrean pemesanan mandiri sedang penuh")
 }
 
 

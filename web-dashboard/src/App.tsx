@@ -24,6 +24,8 @@ import PsakJournal from "./pages/PsakJournal"
 import PsakReports from "./pages/PsakReports"
 import Login from "./pages/Login"
 import LoyaltyPublicPage from "./pages/LoyaltyPublicPage"
+import PublicOrderMenu from "./pages/PublicOrderMenu"
+import PublicOrderStatus from "./pages/PublicOrderStatus"
 import FeedbackManagement from "./pages/FeedbackManagement"
 import GuideCenter from "./pages/GuideCenter"
 import CashFloatModal from "./components/cash/CashFloatModal"
@@ -46,6 +48,16 @@ function AppContent() {
     const isManager = userRole === "manager"
     const isOwner = userRole === "owner"
     const cashFloatPending = auth?.cashFloatPending !== false && !(auth?.openCashRegister)
+
+    // Public QR scan route for customer self-order & tracking (no login needed)
+    if (location.pathname === "/order" || location.pathname.startsWith("/order/")) {
+        return (
+            <Routes>
+                <Route path="/order" element={<PublicOrderMenu />} />
+                <Route path="/order/status/:token" element={<PublicOrderStatus />} />
+            </Routes>
+        )
+    }
 
     // Public QR scan route for customer self-check & feedback (no login needed)
     if (location.pathname.startsWith("/loyalty/")) {

@@ -144,8 +144,11 @@ export interface Order {
   customer_name?: string
   customer_phone?: string
   queue_number?: number
-  kitchen_status?: 'queued' | 'preparing' | 'ready' | 'served' | 'unpaid'
+  kitchen_status?: 'queued' | 'preparing' | 'ready' | 'served' | 'unpaid' | 'waiting_payment'
   preparation_notes?: string
+  order_source?: string
+  pickup_code?: string
+  tracking_token?: string
   queued_at?: string
   preparing_at?: string
   ready_at?: string
@@ -160,6 +163,7 @@ export interface OrderItem {
   quantity: number
   price: number
   cost: number
+  notes?: string
 }
 
 export interface CreateOrderRequest {
@@ -171,6 +175,73 @@ export interface CreateOrderRequest {
   customer_phone?: string
   preparation_notes?: string
   items: { product_id: number; quantity: number }[]
+}
+
+// ─── Customer Self-Order (Public Mobile) ──────────────────────────────────
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface PublicMenuItem {
+  id: number
+  name: string
+  category: string
+  price: number
+  image_url: string
+  description: string
+  available: boolean
+}
+
+export interface PublicMenuResponse {
+  store_name: string
+  self_order_enabled: boolean
+  categories: string[]
+  items: PublicMenuItem[]
+}
+
+export interface PublicOrderItemRequest {
+  product_id: number
+  quantity: number
+  notes?: string
+}
+
+export interface PublicCreateOrderRequest {
+  customer_name: string
+  customer_phone?: string
+  notes?: string
+  items: PublicOrderItemRequest[]
+}
+
+export interface PublicOrderItemSummary {
+  product_name: string
+  quantity: number
+  price: number
+  subtotal: number
+  notes?: string
+}
+
+export interface PublicOrderCreateResponse {
+  order_number: string
+  pickup_code: string
+  tracking_token: string
+  customer_name: string
+  total_amount: number
+  item_count: number
+  status: string
+  payment_status: string
+  kitchen_status: string
+  order_time: string
+  items: PublicOrderItemSummary[]
+}
+
+export interface PublicOrderStatusResponse {
+  order_number: string
+  pickup_code: string
+  queue_number: number
+  customer_name: string
+  status: string
+  payment_status: string
+  kitchen_status: string
+  total_amount: number
+  order_time: string
+  items: PublicOrderItemSummary[]
 }
 
 // ─── Expense ────────────────────────────────────────────────────────────────

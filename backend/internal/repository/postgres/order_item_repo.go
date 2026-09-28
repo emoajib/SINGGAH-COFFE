@@ -24,6 +24,7 @@ func (r *orderItemRepository) Create(items []entity.OrderItem) error {
 			Quantity:  item.Quantity,
 			Price:     item.Price,
 			Cost:      item.Cost,
+			Notes:     item.Notes,
 		}
 	}
 	return r.db.Create(&ms).Error

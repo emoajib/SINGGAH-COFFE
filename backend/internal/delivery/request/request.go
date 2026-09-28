@@ -244,3 +244,19 @@ type UpdateCashbonRequest struct {
 	Reason        string  `json:"reason"`
 }
 
+// Self-Order Public Request DTOs — Zero Client Trust
+// Price is deliberately omitted: server recalculates all prices directly from database
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type PublicOrderItemRequest struct {
+	ProductID uint   `json:"product_id" binding:"required,gt=0"`
+	Quantity  int    `json:"quantity" binding:"required,gt=0,lte=50"`
+	Notes     string `json:"notes" binding:"omitempty,max=100"`
+}
+
+type PublicCreateOrderRequest struct {
+	CustomerName  string                   `json:"customer_name" binding:"required,min=2,max=40"`
+	CustomerPhone string                   `json:"customer_phone" binding:"omitempty,max=20"`
+	Notes         string                   `json:"notes" binding:"omitempty,max=255"`
+	Items         []PublicOrderItemRequest `json:"items" binding:"required,min=1,max=20,dive"`
+}
+

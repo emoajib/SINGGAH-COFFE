@@ -200,5 +200,19 @@ func Connect(cfg config.Config) *gorm.DB {
 	_ = db.Exec("ALTER TABLE cash_books ADD COLUMN IF NOT EXISTS sub_type VARCHAR(30) NOT NULL DEFAULT ''")
 	_ = db.Exec("ALTER TABLE cash_books ADD COLUMN IF NOT EXISTS investor_name VARCHAR(100) NOT NULL DEFAULT ''")
 
+	// Ensure orders has self-order tracking columns (idempotent / non-blocking)
+	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_source VARCHAR(20) NOT NULL DEFAULT 'cashier'")
+	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(30) NOT NULL DEFAULT ''")
+	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_token VARCHAR(64) NOT NULL DEFAULT ''")
+	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_code VARCHAR(10) NOT NULL DEFAULT ''")
+	_ = db.Exec("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS notes VARCHAR(100) NOT NULL DEFAULT ''")
+
+	// Ensure self_order setting exists
+	var soCount int64
+	db.Model(&models.Setting{}).Where("`key` = ?", "self_order_enabled").Count(&soCount)
+	if soCount == 0 {
+		db.Create(&models.Setting{Key: "self_order_enabled", Value: "true", SettingGroup: "general"})
+	}
+
 	return db
 }

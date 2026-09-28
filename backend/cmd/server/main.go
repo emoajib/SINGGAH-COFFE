@@ -118,6 +118,7 @@ func main() {
 		Loyalty:          handler.NewLoyaltyHandler(loyaltyUsecase),
 		Cashbon:          handler.NewCashbonHandler(cashbonUsecase),
 		Barista:          handler.NewBaristaHandler(baristaUsecase),
+		PublicOrder:      handler.NewPublicOrderHandler(productUsecase, orderUsecase),
 	}
 
 	r := gin.New()

@@ -1,11 +1,15 @@
 package usecase
 
 import (
+	crand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
+	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/models"
@@ -555,6 +559,7 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 	}
 
 	previousMethod := order.PaymentMethod
+	previousStatus := order.PaymentStatus
 	if actualMethod != "" {
 		order.PaymentMethod = actualMethod
 	} else if order.PaymentMethod == "Unpaid" || order.PaymentMethod == "Belum Bayar" {
@@ -563,7 +568,7 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 
 	order.PaymentStatus = "Paid"
 	order.Status = "Completed"
-	if order.KitchenStatus == "" || order.KitchenStatus == "unpaid" {
+	if order.KitchenStatus == "" || order.KitchenStatus == "unpaid" || order.KitchenStatus == "waiting_payment" {
 		order.KitchenStatus = "queued"
 		now := time.Now()
 		order.QueuedAt = &now
@@ -575,13 +580,23 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 		ingredientRepo := postgres.NewIngredientRepository(tx)
 		mutationRepo := postgres.NewStockMutationRepository(tx)
 
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		// Assign QueueNumber jika belum ada (misal self_order yang dibuat dengan queue_number = 0)
+		if order.QueueNumber == 0 {
+			now := time.Now()
+			startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			var queueCount int64
+			tx.Model(&models.Order{}).Where("outlet_id = ? AND order_time >= ? AND queue_number > 0", order.OutletID, startOfDay).Count(&queueCount)
+			order.QueueNumber = int(queueCount) + 1
+		}
+
 		if err := orderRepo.Update(order); err != nil {
 			return err
 		}
 
-		// QRIS orders: stock was NOT deducted at creation.
+		// QRIS, Self-Order, or previously Unpaid orders: stock was NOT deducted at creation.
 		// Deduct now that payment is confirmed.
-		if previousMethod == "QRIS" {
+		if previousMethod == "QRIS" || order.OrderSource == "self_order" || previousMethod == "Belum Bayar" || previousMethod == "Unpaid" || previousStatus == "Unpaid" {
 			oid := order.OutletID
 			for _, item := range order.OrderItems {
 				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
@@ -599,7 +614,7 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 							Type:         string(entity.MutationOut),
 							Quantity:     deductionAmount,
 							ReferenceID:  order.OrderNumber,
-							Notes:        "QRIS Payment Confirmed - Sales Deduction",
+							Notes:        "Payment Confirmed - Sales Deduction",
 							OutletID:     oid,
 						}); err != nil {
 							return err
@@ -718,6 +733,250 @@ func (uc *OrderUsecase) UpdateKitchenStatus(id uint, status string, notes string
 // ClearActiveKitchenQueue menandai semua pesanan aktif menjadi served (arsipkan antrian lampau)
 func (uc *OrderUsecase) ClearActiveKitchenQueue(outletID ...uint) error {
 	return uc.orderRepo.ClearActiveKitchenQueue(outletID...)
+}
+
+// PublicOrderCreateResponse returns token, order number and pickup code to the customer smartphone
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type PublicOrderCreateResponse struct {
+	OrderNumber   string                   `json:"order_number"`
+	PickupCode    string                   `json:"pickup_code"`
+	TrackingToken string                   `json:"tracking_token"`
+	CustomerName  string                   `json:"customer_name"`
+	TotalAmount   float64                  `json:"total_amount"`
+	ItemCount     int                      `json:"item_count"`
+	Status        string                   `json:"status"`
+	PaymentStatus string                   `json:"payment_status"`
+	KitchenStatus string                   `json:"kitchen_status"`
+	OrderTime     time.Time                `json:"order_time"`
+	Items         []PublicOrderItemSummary `json:"items"`
+}
+
+type PublicOrderItemSummary struct {
+	ProductName string  `json:"product_name"`
+	Quantity    int     `json:"quantity"`
+	Price       float64 `json:"price"`
+	Subtotal    float64 `json:"subtotal"`
+	Notes       string  `json:"notes"`
+}
+
+type PublicOrderStatusResponse struct {
+	OrderNumber   string                   `json:"order_number"`
+	PickupCode    string                   `json:"pickup_code"`
+	QueueNumber   int                      `json:"queue_number"`
+	CustomerName  string                   `json:"customer_name"`
+	Status        string                   `json:"status"`
+	PaymentStatus string                   `json:"payment_status"`
+	KitchenStatus string                   `json:"kitchen_status"`
+	TotalAmount   float64                  `json:"total_amount"`
+	OrderTime     time.Time                `json:"order_time"`
+	Items         []PublicOrderItemSummary `json:"items"`
+}
+
+func generateTrackingToken() string {
+	b := make([]byte, 16)
+	_, _ = crand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func generatePickupCode() string {
+	b := make([]byte, 2)
+	_, _ = crand.Read(b)
+	num := (int(b[0])<<8|int(b[1]))%9000 + 1000
+	return fmt.Sprintf("%04d", num)
+}
+
+// CreatePublicSelfOrder creates an unpaid pending order from smartphone customer
+// Server recalculates all prices directly from database (Zero Client Trust)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *OrderUsecase) CreatePublicSelfOrder(req request.PublicCreateOrderRequest, outletID ...uint) (*PublicOrderCreateResponse, error) {
+	oid := uint(0)
+	if len(outletID) > 0 {
+		oid = outletID[0]
+	}
+
+	// 1. Check if self order is enabled by owner/manager
+	if setting, err := uc.settingRepo.FindByKey("self_order_enabled"); err == nil {
+		if strings.ToLower(strings.TrimSpace(setting.Value)) == "false" {
+			return nil, domainErrors.NewInvalidInputError("Pemesanan mandiri sedang dinonaktifkan sementara oleh kedai. Silakan memesan langsung ke kasir.")
+		}
+	}
+
+	// 2. Anti-spam cap: max 20 pending unpaid self-orders in outlet
+	unpaidCount, err := uc.orderRepo.CountActiveUnpaidSelfOrders(oid)
+	if err == nil && unpaidCount >= 20 {
+		return nil, domainErrors.NewInvalidInputError("Antrean pemesanan mandiri sedang penuh. Silakan langsung memesan ke kasir.")
+	}
+
+	// 3. Validate & sanitize CustomerName
+	cleanName := strings.TrimSpace(req.CustomerName)
+	if len(cleanName) < 2 || len(cleanName) > 40 {
+		return nil, domainErrors.NewInvalidInputError("Nama pemesan harus antara 2 hingga 40 karakter.")
+	}
+
+	var result PublicOrderCreateResponse
+
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		orderRepo := postgres.NewOrderRepository(tx)
+		orderItemRepo := postgres.NewOrderItemRepository(tx)
+		productRepo := postgres.NewProductRepository(tx)
+		ingredientRepo := postgres.NewIngredientRepository(tx)
+		settingRepo := postgres.NewSettingRepository(tx)
+
+		var totalAmount float64
+		var orderItems []entity.OrderItem
+		var itemSummaries []PublicOrderItemSummary
+
+		for _, itemInput := range req.Items {
+			product, err := productRepo.FindByIDWithRecipeForUpdate(itemInput.ProductID)
+			if err != nil {
+				return domainErrors.NewNotFoundError("produk")
+			}
+
+			// Validate current stock availability (without deducting yet)
+			if len(product.Recipe) > 0 {
+				for _, recipeItem := range product.Recipe {
+					needed := recipeItem.Quantity * float64(itemInput.Quantity)
+					ingredient, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID)
+					if err != nil {
+						return err
+					}
+					if ingredient.CurrentStock < needed {
+						return domainErrors.NewInsufficientStockError(ingredient.Name)
+					}
+				}
+			} else {
+				if float64(product.Stock) < float64(itemInput.Quantity) {
+					return domainErrors.NewInsufficientStockError(product.Name)
+				}
+			}
+
+			subtotal := product.Price * float64(itemInput.Quantity)
+			totalAmount += subtotal
+
+			orderItems = append(orderItems, entity.OrderItem{
+				ProductID: product.ID,
+				Quantity:  itemInput.Quantity,
+				Price:     product.Price,
+				Cost:      product.Cost,
+				Notes:     strings.TrimSpace(itemInput.Notes),
+			})
+
+			itemSummaries = append(itemSummaries, PublicOrderItemSummary{
+				ProductName: product.Name,
+				Quantity:    itemInput.Quantity,
+				Price:       product.Price,
+				Subtotal:    subtotal,
+				Notes:       strings.TrimSpace(itemInput.Notes),
+			})
+		}
+
+		// Tax & Service rates
+		taxRate := 0.0
+		serviceRate := 0.0
+		if taxSetting, err := settingRepo.FindByKey("tax_percentage"); err == nil {
+			taxRate, _ = strconv.ParseFloat(taxSetting.Value, 64)
+		}
+		if serviceSetting, err := settingRepo.FindByKey("service_charge"); err == nil {
+			serviceRate, _ = strconv.ParseFloat(serviceSetting.Value, 64)
+		}
+
+		serviceAmount := totalAmount * (serviceRate / 100)
+		taxAmount := (totalAmount + serviceAmount) * (taxRate / 100)
+		finalTotal := totalAmount + serviceAmount + taxAmount
+
+		now := time.Now()
+		pickupCode := generatePickupCode()
+		trackingToken := generateTrackingToken()
+		orderNumber := fmt.Sprintf("SGH-%s-%s", now.Format("20060102"), pickupCode)
+
+		order := &entity.Order{
+			OrderNumber:      orderNumber,
+			TotalAmount:      finalTotal,
+			PaymentMethod:    "Belum Bayar",
+			PaymentStatus:    "Unpaid",
+			Status:           "Pending",
+			KitchenStatus:    "waiting_payment", // Barista does not brew until paid at cashier
+			OrderSource:      "self_order",
+			CustomerName:     cleanName,
+			CustomerPhone:    strings.TrimSpace(req.CustomerPhone),
+			PreparationNotes: strings.TrimSpace(req.Notes),
+			TrackingToken:    trackingToken,
+			PickupCode:       pickupCode,
+			OrderTime:        now,
+			OutletID:         oid,
+			QueueNumber:      0, // Queue number is officially minted upon payment confirmation
+		}
+
+		if err := orderRepo.Create(order); err != nil {
+			return err
+		}
+
+		for i := range orderItems {
+			orderItems[i].OrderID = order.ID
+		}
+		if err := orderItemRepo.Create(orderItems); err != nil {
+			return err
+		}
+
+		result = PublicOrderCreateResponse{
+			OrderNumber:   orderNumber,
+			PickupCode:    pickupCode,
+			TrackingToken: trackingToken,
+			CustomerName:  cleanName,
+			TotalAmount:   finalTotal,
+			ItemCount:     len(orderItems),
+			Status:        order.Status,
+			PaymentStatus: order.PaymentStatus,
+			KitchenStatus: order.KitchenStatus,
+			OrderTime:     now,
+			Items:         itemSummaries,
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// GetPublicOrderStatus fetches order tracking status using secret tracking token (anti-IDOR)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *OrderUsecase) GetPublicOrderStatus(trackingToken string) (*PublicOrderStatusResponse, error) {
+	order, err := uc.orderRepo.FindByTrackingToken(trackingToken)
+	if err != nil {
+		return nil, domainErrors.NewNotFoundError("order")
+	}
+
+	var items []PublicOrderItemSummary
+	for _, it := range order.OrderItems {
+		pName := it.Product.Name
+		if pName == "" {
+			pName = "Menu Singgah"
+		}
+		items = append(items, PublicOrderItemSummary{
+			ProductName: pName,
+			Quantity:    it.Quantity,
+			Price:       it.Price,
+			Subtotal:    it.Price * float64(it.Quantity),
+			Notes:       it.Notes,
+		})
+	}
+
+	return &PublicOrderStatusResponse{
+		OrderNumber:   order.OrderNumber,
+		PickupCode:    order.PickupCode,
+		QueueNumber:   order.QueueNumber,
+		CustomerName:  order.CustomerName,
+		Status:        order.Status,
+		PaymentStatus: order.PaymentStatus,
+		KitchenStatus: order.KitchenStatus,
+		TotalAmount:   order.TotalAmount,
+		OrderTime:     order.OrderTime,
+		Items:         items,
+	}, nil
 }
 
 

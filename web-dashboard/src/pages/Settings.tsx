@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../components/ui/card"
-import { Store, Printer, Percent, Bell, Loader2, User as UserIcon, Users, Zap, Eye, EyeOff, FileText } from "lucide-react"
+import { Store, Printer, Percent, Bell, Loader2, User as UserIcon, Users, Zap, Eye, EyeOff, FileText, QrCode } from "lucide-react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
 import type { User } from '../types'
@@ -18,6 +18,7 @@ import { SopSettings } from "./Settings/SopSettings"
 import { PrinterSettings } from "./Settings/PrinterSettings"
 import { NotificationSettings } from "./Settings/NotificationSettings"
 import { IntegrationSettings } from "./Settings/IntegrationSettings"
+import { SelfOrderSettings } from "./Settings/SelfOrderSettings"
 
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
@@ -52,7 +53,8 @@ export default function Settings() {
         xendit_api_key: "",
         xendit_callback_token: "",
         initial_capital: "0",
-        initial_capital_amortization_months: "12"
+        initial_capital_amortization_months: "12",
+        self_order_enabled: "true"
     })
 
     // User profile state
@@ -325,6 +327,15 @@ export default function Settings() {
                             <Zap className="w-4 h-4" /> API Integrasi
                         </Button>
                     )}
+                    {(user?.role === 'owner' || user?.role === 'manager') && (
+                        <Button
+                            variant={activeSection === "self-order" ? "secondary" : "ghost"}
+                            className="w-full justify-start gap-3"
+                            onClick={() => setActiveSection("self-order")}
+                        >
+                            <QrCode className="w-4 h-4" /> Pemesanan QR (Self-Order)
+                        </Button>
+                    )}
                 </div>
 
                 {/* Main Settings Content Area */}
@@ -336,6 +347,15 @@ export default function Settings() {
                             saving={saving}
                             handleInputChange={handleInputChange}
                             handleLogoUpload={handleLogoUpload}
+                            handleSaveSettings={handleSaveSettings}
+                        />
+                    )}
+
+                    {activeSection === "self-order" && (user?.role === 'owner' || user?.role === 'manager') && (
+                        <SelfOrderSettings
+                            settings={settings}
+                            saving={saving}
+                            handleInputChange={handleInputChange}
                             handleSaveSettings={handleSaveSettings}
                         />
                     )}

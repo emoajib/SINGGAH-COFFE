@@ -77,6 +77,9 @@ type OrderRepository interface {
 	FindUnpaidOrders(outletID ...uint) ([]entity.Order, error)
 	UpdateKitchenStatus(id uint, status string, notes string, outletID ...uint) error
 	ClearActiveKitchenQueue(outletID ...uint) error
+	// Self-Order (Public Mobile Ordering) - Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	FindByTrackingToken(token string) (*entity.Order, error)
+	CountActiveUnpaidSelfOrders(outletID ...uint) (int64, error)
 }
 
 // OrderItemRepository defines data access for order items

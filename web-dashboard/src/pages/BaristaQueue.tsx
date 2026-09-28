@@ -22,7 +22,8 @@ import {
     Receipt,
     Banknote,
     CreditCard,
-    Search
+    Search,
+    QrCode
 } from 'lucide-react';
 import type { Order, Product } from '../types';
 
@@ -744,18 +745,34 @@ export default function BaristaQueue() {
                                         className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-amber-400 transition-colors"
                                     >
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
+                                            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                                                 <span className="text-xs font-black px-2 py-0.5 rounded-md bg-[#4B3621] text-amber-300">
-                                                    #{order.queue_number || order.id}
+                                                    {order.queue_number && order.queue_number > 0 ? `#${order.queue_number}` : `ID #${order.id}`}
                                                 </span>
+                                                {order.order_source === 'self_order' && (
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 border border-indigo-200 inline-flex items-center gap-1">
+                                                        <QrCode className="w-3 h-3" /> QR Mandiri
+                                                    </span>
+                                                )}
+                                                {order.pickup_code && (
+                                                    <span className="text-[10px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                                                        Kode: {order.pickup_code}
+                                                    </span>
+                                                )}
                                                 <span className="font-bold text-xs text-slate-800">{order.customer_name || 'Pelanggan'}</span>
                                                 <span className="text-[10px] text-slate-400 font-mono">({order.order_number})</span>
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                                    order.kitchen_status === 'served'
+                                                    order.kitchen_status === 'waiting_payment'
+                                                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                        : order.kitchen_status === 'served'
                                                         ? 'bg-emerald-100 text-emerald-800'
                                                         : 'bg-blue-100 text-blue-800'
                                                 }`}>
-                                                    {order.kitchen_status === 'served' ? '✓ Sudah Disajikan' : 'Sedang Diproses'}
+                                                    {order.kitchen_status === 'waiting_payment'
+                                                        ? '⏳ Menunggu Pembayaran'
+                                                        : order.kitchen_status === 'served'
+                                                        ? '✓ Sudah Disajikan'
+                                                        : 'Sedang Diproses'}
                                                 </span>
                                             </div>
                                             <div className="text-xs text-slate-600 space-y-0.5">

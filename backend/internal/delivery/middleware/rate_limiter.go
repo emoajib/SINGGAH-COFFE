@@ -174,3 +174,44 @@ func WebhookRateLimiter() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+var selfOrderLimiters sync.Map
+
+func getSelfOrderLimiter(ip string) *rate.Limiter {
+	val, _ := selfOrderLimiters.LoadOrStore(ip, &apiLimiter{
+		limiter:  rate.NewLimiter(rate.Every(10*time.Second), 5), // max burst 5, 1 order per 10s
+		lastSeen: time.Now(),
+	})
+	al := val.(*apiLimiter)
+	al.mu.Lock()
+	al.lastSeen = time.Now()
+	al.mu.Unlock()
+	return al.limiter
+}
+
+// SelfOrderRateLimiter protects public ordering endpoint from flooding and spam bots
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func SelfOrderRateLimiter() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		limiter := getSelfOrderLimiter(ip)
+		if !limiter.Allow() {
+			c.Header("Retry-After", "10")
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"error":       "Terlalu banyak permintaan pemesanan. Mohon tunggu beberapa saat sebelum mencoba lagi.",
+				"retry_after": 10,
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+// RequestBodySizeLimiter prevents giant payload memory bloat (OOM defense for GOMEMLIMIT=200MiB)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func RequestBodySizeLimiter(maxBytes int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
+		c.Next()
+	}
+}

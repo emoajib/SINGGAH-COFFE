@@ -22,6 +22,10 @@ type Order struct {
 	QueueNumber      int
 	KitchenStatus    string
 	PreparationNotes string
+	OrderSource      string // cashier, self_order
+	CustomerPhone    string
+	TrackingToken    string
+	PickupCode       string
 	QueuedAt         *time.Time
 	PreparingAt      *time.Time
 	ReadyAt          *time.Time
@@ -36,6 +40,7 @@ type OrderItem struct {
 	Quantity  int
 	Price     float64
 	Cost      float64
+	Notes     string
 }
 
 type OrderResponse struct {
@@ -57,6 +62,10 @@ type OrderResponse struct {
 	QueueNumber      int                 `json:"queue_number"`
 	KitchenStatus    string              `json:"kitchen_status"`
 	PreparationNotes string              `json:"preparation_notes"`
+	OrderSource      string              `json:"order_source"`
+	CustomerPhone    string              `json:"customer_phone"`
+	TrackingToken    string              `json:"tracking_token"`
+	PickupCode       string              `json:"pickup_code"`
 	QueuedAt         *time.Time          `json:"queued_at"`
 	PreparingAt      *time.Time          `json:"preparing_at"`
 	ReadyAt          *time.Time          `json:"ready_at"`
@@ -64,13 +73,14 @@ type OrderResponse struct {
 }
 
 type OrderItemResponse struct {
-	ID        uint             `json:"id"`
-	OrderID   uint             `json:"order_id"`
-	ProductID uint             `json:"product_id"`
-	Product   ProductResponse  `json:"product"`
-	Quantity  int              `json:"quantity"`
-	Price     float64          `json:"price"`
-	Cost      float64          `json:"cost"`
+	ID        uint            `json:"id"`
+	OrderID   uint            `json:"order_id"`
+	ProductID uint            `json:"product_id"`
+	Product   ProductResponse `json:"product"`
+	Quantity  int             `json:"quantity"`
+	Price     float64         `json:"price"`
+	Cost      float64         `json:"cost"`
+	Notes     string          `json:"notes"`
 }
 
 func (o *Order) ToResponse() OrderResponse {
@@ -84,6 +94,7 @@ func (o *Order) ToResponse() OrderResponse {
 			Quantity:  item.Quantity,
 			Price:     item.Price,
 			Cost:      item.Cost,
+			Notes:     item.Notes,
 		}
 	}
 	return OrderResponse{
@@ -105,6 +116,10 @@ func (o *Order) ToResponse() OrderResponse {
 		QueueNumber:      o.QueueNumber,
 		KitchenStatus:    o.KitchenStatus,
 		PreparationNotes: o.PreparationNotes,
+		OrderSource:      o.OrderSource,
+		CustomerPhone:    o.CustomerPhone,
+		TrackingToken:    o.TrackingToken,
+		PickupCode:       o.PickupCode,
 		QueuedAt:         o.QueuedAt,
 		PreparingAt:      o.PreparingAt,
 		ReadyAt:          o.ReadyAt,

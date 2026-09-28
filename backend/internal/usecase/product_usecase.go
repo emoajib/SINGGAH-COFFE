@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"strings"
+
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/repository"
@@ -161,4 +163,62 @@ func (uc *ProductUsecase) Update(id uint, req CreateProductRequest) (*entity.Pro
 
 func (uc *ProductUsecase) Delete(id uint) error {
 	return uc.productRepo.Delete(id)
+}
+
+// PublicProductItem represents sanitised product info for public mobile ordering (no HPP / recipe leaks)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type PublicProductItem struct {
+	ID          uint    `json:"id"`
+	Name        string  `json:"name"`
+	Category    string  `json:"category"`
+	Price       float64 `json:"price"`
+	Stock       int     `json:"stock"`
+	Description string  `json:"description"`
+	ImageURL    string  `json:"image_url"`
+}
+
+type PublicMenuResponse struct {
+	OutletName string              `json:"outlet_name"`
+	Categories []string            `json:"categories"`
+	Products   []PublicProductItem `json:"products"`
+}
+
+// GetPublicMenu returns public-facing menu catalog for smartphone self-ordering
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, error) {
+	products, err := uc.productRepo.FindAll(300, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	categoryMap := make(map[string]bool)
+	var categoryOrder []string
+	var publicProducts []PublicProductItem
+
+	for _, p := range products {
+		cat := strings.TrimSpace(p.Category)
+		if cat == "" {
+			cat = "Lainnya"
+		}
+		if !categoryMap[cat] {
+			categoryMap[cat] = true
+			categoryOrder = append(categoryOrder, cat)
+		}
+
+		publicProducts = append(publicProducts, PublicProductItem{
+			ID:          p.ID,
+			Name:        p.Name,
+			Category:    cat,
+			Price:       p.Price,
+			Stock:       p.Stock,
+			Description: p.Description,
+			ImageURL:    p.ImageURL,
+		})
+	}
+
+	return &PublicMenuResponse{
+		OutletName: "Singgah Coffee",
+		Categories: categoryOrder,
+		Products:   publicProducts,
+	}, nil
 }

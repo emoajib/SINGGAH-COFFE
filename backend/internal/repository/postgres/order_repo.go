@@ -80,11 +80,30 @@ func (r *orderRepository) Create(order *entity.Order) error {
 }
 
 func (r *orderRepository) Update(order *entity.Order) error {
-	return r.db.Model(&models.Order{}).Where("id = ?", order.ID).Updates(map[string]interface{}{
-		"total_amount":   order.TotalAmount,
-		"payment_status": order.PaymentStatus,
-		"status":         order.Status,
-	}).Error
+	updates := map[string]interface{}{
+		"total_amount":      order.TotalAmount,
+		"payment_status":    order.PaymentStatus,
+		"payment_method":    order.PaymentMethod,
+		"status":            order.Status,
+		"kitchen_status":    order.KitchenStatus,
+		"queue_number":      order.QueueNumber,
+		"preparation_notes": order.PreparationNotes,
+		"customer_name":     order.CustomerName,
+		"customer_phone":    order.CustomerPhone,
+	}
+	if order.QueuedAt != nil {
+		updates["queued_at"] = order.QueuedAt
+	}
+	if order.PreparingAt != nil {
+		updates["preparing_at"] = order.PreparingAt
+	}
+	if order.ReadyAt != nil {
+		updates["ready_at"] = order.ReadyAt
+	}
+	if order.ServedAt != nil {
+		updates["served_at"] = order.ServedAt
+	}
+	return r.db.Model(&models.Order{}).Where("id = ?", order.ID).Updates(updates).Error
 }
 
 func (r *orderRepository) GetTotalSalesSince(since string, outletID ...uint) (float64, error) {
@@ -270,6 +289,10 @@ func toDomainOrder(m *models.Order) *entity.Order {
 		QueueNumber:      m.QueueNumber,
 		KitchenStatus:    m.KitchenStatus,
 		PreparationNotes: m.PreparationNotes,
+		OrderSource:      m.OrderSource,
+		CustomerPhone:    m.CustomerPhone,
+		TrackingToken:    m.TrackingToken,
+		PickupCode:       m.PickupCode,
 		QueuedAt:         m.QueuedAt,
 		PreparingAt:      m.PreparingAt,
 		ReadyAt:          m.ReadyAt,
@@ -295,6 +318,7 @@ func toDomainOrder(m *models.Order) *entity.Order {
 			Quantity: item.Quantity,
 			Price:    item.Price,
 			Cost:     item.Cost,
+			Notes:    item.Notes,
 		}
 	}
 	return o
@@ -323,9 +347,37 @@ func toModelOrder(e *entity.Order) *models.Order {
 		QueueNumber:      e.QueueNumber,
 		KitchenStatus:    e.KitchenStatus,
 		PreparationNotes: e.PreparationNotes,
+		OrderSource:      e.OrderSource,
+		CustomerPhone:    e.CustomerPhone,
+		TrackingToken:    e.TrackingToken,
+		PickupCode:       e.PickupCode,
 		QueuedAt:         e.QueuedAt,
 		PreparingAt:      e.PreparingAt,
 		ReadyAt:          e.ReadyAt,
 		ServedAt:         e.ServedAt,
 	}
+}
+
+// FindByTrackingToken finds an order by its secret tracking token (anti-IDOR)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *orderRepository) FindByTrackingToken(token string) (*entity.Order, error) {
+	if token == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var m models.Order
+	if err := r.db.Preload("OrderItems.Product").Where("tracking_token = ?", token).First(&m).Error; err != nil {
+		return nil, err
+	}
+	return toDomainOrder(&m), nil
+}
+
+// CountActiveUnpaidSelfOrders returns count of pending unpaid self orders in last 15 mins (anti-spam quota)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *orderRepository) CountActiveUnpaidSelfOrders(outletID ...uint) (int64, error) {
+	var count int64
+	tx := r.db.Model(&models.Order{}).
+		Where("order_source = 'self_order' AND payment_status = 'Unpaid' AND status != 'Cancelled'")
+	tx = scopeOutlet(tx, "orders", outletID...)
+	err := tx.Count(&count).Error
+	return count, err
 }

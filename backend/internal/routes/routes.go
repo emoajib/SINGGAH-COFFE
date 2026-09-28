@@ -30,6 +30,7 @@ type Handlers struct {
 	Loyalty          *handler.LoyaltyHandler
 	Cashbon          *handler.CashbonHandler
 	Barista          *handler.BaristaHandler
+	PublicOrder      *handler.PublicOrderHandler
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -62,6 +63,11 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 		api.GET("/loyalty/:token", h.Loyalty.GetPublicLoyaltyCard)
 		api.POST("/loyalty/:token/feedback", h.Loyalty.SubmitFeedback)
 		api.POST("/loyalty/register-or-find", h.Loyalty.RegisterOrFindCustomer)
+
+		// Public Self-Order (Mobile Ordering Smartphone) - Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		api.GET("/public/menu", h.PublicOrder.GetPublicMenu)
+		api.POST("/public/orders", middleware.RequestBodySizeLimiter(64*1024), middleware.SelfOrderRateLimiter(), h.PublicOrder.CreatePublicOrder)
+		api.GET("/public/orders/track/:token", h.PublicOrder.GetPublicOrderStatus)
 
 	// Protected Routes
 	protected := api.Group("/")
