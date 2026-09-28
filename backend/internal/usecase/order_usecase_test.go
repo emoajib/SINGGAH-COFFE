@@ -23,6 +23,7 @@ func setupOrderTestDB() *gorm.DB {
 		&models.Order{}, &models.OrderItem{}, &models.Product{}, &models.Ingredient{},
 		&models.RecipeItem{}, &models.StockMutation{}, &models.Setting{},
 		&models.Expense{}, &models.CashBook{}, &models.PSAKEventOutbox{},
+		&models.Customer{}, &models.LoyaltyProgram{}, &models.LoyaltyStamp{},
 	)
 	return db
 }
@@ -423,6 +424,14 @@ func TestOrderUsecase_CreatePublicSelfOrder_SuccessAndCompletePayment(t *testing
 	assert.Equal(t, completed.QueueNumber, trackStatusAfterPay.QueueNumber)
 	assert.Equal(t, "queued", trackStatusAfterPay.KitchenStatus)
 	assert.Equal(t, "Paid", trackStatusAfterPay.PaymentStatus)
+
+	// 8. Verifikasi sinkronisasi loyalitas & member pelanggan dari self-order
+	var cust models.Customer
+	err = db.Where("phone = ?", "08123456789").First(&cust).Error
+	assert.NoError(t, err, "Pelanggan dari self-order harus otomatis tersinkron ke data member loyalitas")
+	assert.Equal(t, "Budi Santoso", cust.Name)
+	assert.Equal(t, 1, cust.TotalOrders)
+	assert.Equal(t, 44000.0, cust.TotalSpend)
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager

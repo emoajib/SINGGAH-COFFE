@@ -10,7 +10,9 @@ import {
   RefreshCw,
   AlertCircle,
   Check,
-  PartyPopper
+  PartyPopper,
+  Star,
+  MessageSquare
 } from 'lucide-react';
 import { publicOrderService } from '../services/publicOrderService';
 import type { PublicOrderStatusResponse } from '../types';
@@ -341,6 +343,28 @@ export default function PublicOrderStatus() {
               {formatCurrency(order.total_amount)}
             </span>
           </div>
+        </div>
+
+        {/* Banner Loyalitas & Masukan Pelanggan */}
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-3xl p-4 border border-amber-200/80 shadow-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#4B3621] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Star className="w-5 h-5 fill-current text-amber-300" />
+            </div>
+            <div>
+              <h4 className="text-xs font-black text-amber-950">Kartu Stempel & Ulasan</h4>
+              <p className="text-[11px] text-amber-800 leading-tight">
+                Cek stempel digital & kirim ulasan kepuasan Anda.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/loyalty/public')}
+            className="px-3.5 py-2 bg-[#4B3621] hover:bg-[#3D2C1B] text-amber-200 text-[11px] font-black rounded-xl shrink-0 shadow-xs active:scale-95 transition-all flex items-center gap-1.5"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Buka</span>
+          </button>
         </div>
 
         {/* Bottom Actions */}

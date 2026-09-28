@@ -640,6 +640,13 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 			return err
 		}
 
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		// Loyalty & Stempel: proses jika ada nomor HP pelanggan saat pelunasan (termasuk pesanan self-order QR)
+		if order.CustomerPhone != "" {
+			loyaltyUC := NewLoyaltyUsecase(tx)
+			_, _ = loyaltyUC.ProcessOrderLoyalty(order.CustomerPhone, order.CustomerName, order.ID, order.TotalAmount, order.OutletID)
+		}
+
 		return NewCashBookUsecase(tx).EnsureOrderIncome(order)
 	}); err != nil {
 		return nil, err

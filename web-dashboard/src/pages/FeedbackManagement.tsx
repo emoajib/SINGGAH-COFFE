@@ -25,6 +25,7 @@ export default function FeedbackManagement() {
     const [replyText, setReplyText] = useState<string>('');
     const [showCreateProgramModal, setShowCreateProgramModal] = useState<boolean>(false);
     const [showQRStandeeModal, setShowQRStandeeModal] = useState<boolean>(false);
+    const [qrStandeeType, setQrStandeeType] = useState<'order' | 'loyalty'>('order');
 
     // Form state untuk program loyalitas baru
     const [progName, setProgName] = useState('');
@@ -75,11 +76,11 @@ export default function FeedbackManagement() {
         );
     };
 
-    const publicQRUrl = typeof window !== 'undefined'
-        ? `${window.location.origin}/loyalty/public`
-        : 'https://sosiomen.com/loyalty/public';
+    const currentQRUrl = typeof window !== 'undefined'
+        ? (qrStandeeType === 'order' ? `${window.location.origin}/order` : `${window.location.origin}/loyalty/public`)
+        : (qrStandeeType === 'order' ? 'https://sosiomen.com/order' : 'https://sosiomen.com/loyalty/public');
 
-    const qrImageSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(publicQRUrl)}`;
+    const qrImageSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(currentQRUrl)}`;
 
     return (
         <div className="space-y-6">
@@ -379,11 +380,42 @@ export default function FeedbackManagement() {
                             <X className="w-5 h-5" />
                         </button>
 
-                        <div className="text-center mb-4">
-                            <h3 className="text-base font-extrabold text-slate-900">Standee Meja QR Code</h3>
+                        <div className="text-center mb-3">
+                            <h3 className="text-base font-extrabold text-slate-900">Cetak Standee QR Meja</h3>
                             <p className="text-xs text-slate-500 mt-0.5">
-                                Pajang di meja kasir atau meja kopi untuk pelanggan scan.
+                                Pilih jenis barcode yang ingin dipajang di meja kafe.
                             </p>
+                        </div>
+
+                        {/* Switcher Tipe QR */}
+                        <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1.5 rounded-2xl mb-4 text-xs font-bold">
+                            <button
+                                type="button"
+                                onClick={() => setQrStandeeType('order')}
+                                className={`py-1.5 rounded-xl transition-all ${
+                                    qrStandeeType === 'order'
+                                        ? 'bg-[#4B3621] text-amber-300 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                ☕ Pesan Mandiri (/order)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setQrStandeeType('loyalty')}
+                                className={`py-1.5 rounded-xl transition-all ${
+                                    qrStandeeType === 'loyalty'
+                                        ? 'bg-[#4B3621] text-amber-300 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                ⭐ Stempel & Saran
+                            </button>
+                        </div>
+
+                        {/* Info Sinkronisasi Otomatis */}
+                        <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-2.5 mb-3 text-[11px] text-amber-900 leading-relaxed">
+                            <span className="font-bold">✨ Otomatis Sinkron:</span> Nomor HP pelanggan yang memesan via <span className="font-semibold underline">/order</span> otomatis masuk ke daftar <b>Pelanggan</b> &amp; menambah <b>Program Stempel</b> saat pelunasan di kasir.
                         </div>
 
                         {/* Desain Akrilik Meja Siap Cetak */}
@@ -403,7 +435,11 @@ export default function FeedbackManagement() {
                             )}
                             <div>
                                 <h4 className="font-black text-base tracking-wide uppercase">{settings?.outlet_name || "Singgah Coffee"}</h4>
-                                <p className="text-[11px] text-amber-200/90 font-medium">{settings?.receipt_footer || "Tempat Singgah & Menikmati Kopi"}</p>
+                                <p className="text-[11px] text-amber-200/90 font-medium">
+                                    {qrStandeeType === 'order'
+                                        ? (settings?.outlet_description || "Pesan Menu Tanpa Antre di Kasir")
+                                        : (settings?.receipt_footer || "Tempat Singgah & Menikmati Kopi")}
+                                </p>
                             </div>
 
                             {/* Kotak QR Code */}
@@ -417,15 +453,17 @@ export default function FeedbackManagement() {
 
                             <div className="space-y-1 pt-1">
                                 <span className="text-xs font-black uppercase text-amber-300 tracking-wider block">
-                                    ⭐ Scan Di Sini ⭐
+                                    {qrStandeeType === 'order' ? '☕ SCAN UNTUK PESAN ☕' : '⭐ SCAN DI SINI ⭐'}
                                 </span>
                                 <p className="text-[10px] text-amber-100 leading-tight">
-                                    Kumpulkan Stempel Digital & Dapatkan Menu Gratis atau Cinderamata Kafe!
+                                    {qrStandeeType === 'order'
+                                        ? '1. Scan Barcode · 2. Pilih Menu · 3. Bayar di Kasir'
+                                        : 'Kumpulkan Stempel Digital & Dapatkan Menu Gratis atau Cinderamata Kafe!'}
                                 </p>
                             </div>
                         </div>
 
-                        <div className="mt-5 space-y-2">
+                        <div className="mt-4 space-y-2">
                             <button
                                 onClick={() => window.print()}
                                 className="w-full bg-[#4B3621] hover:bg-[#3D2C1B] text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
