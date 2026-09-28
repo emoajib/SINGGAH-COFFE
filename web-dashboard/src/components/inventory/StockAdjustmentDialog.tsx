@@ -35,6 +35,7 @@ interface StockAdjustmentDialogProps {
         location: string; // 'warehouse' | 'kedai'
     }) => Promise<void>;
     isLoading?: boolean;
+    defaultLocation?: 'warehouse' | 'kedai';
 }
 
 const AUDIT_REASONS = [
@@ -53,7 +54,8 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
     ingredient,
     type: initialType,
     onConfirm,
-    isLoading = false
+    isLoading = false,
+    defaultLocation,
 }) => {
     const [activeMode, setActiveMode] = useState<'IN' | 'OUT' | 'AUDIT'>('IN');
     const [location, setLocation] = useState<'warehouse' | 'kedai'>('kedai');
@@ -73,7 +75,7 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
     useEffect(() => {
         if (isOpen && ingredient) {
             setActiveMode(initialType);
-            setLocation('kedai');
+            setLocation(defaultLocation || 'kedai');
             setQty(0);
             setRealStock(ingredient.kedai_stock ?? ingredient.current_stock ?? 0);
             setAuditReason(AUDIT_REASONS[0]);
