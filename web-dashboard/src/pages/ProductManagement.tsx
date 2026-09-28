@@ -35,7 +35,7 @@ const ProductManagement: React.FC = () => {
     const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
     const [isIngModalOpen, setIsIngModalOpen] = useState(false);
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-    const [restockModal, setRestockModal] = useState({ isOpen: false, itemId: 0, type: 'IN' as 'IN' | 'OUT' });
+    const [restockModal, setRestockModal] = useState({ isOpen: false, itemId: 0, type: 'IN' as 'IN' | 'OUT' | 'AUDIT' });
     const [historyModal, setHistoryModal] = useState({ isOpen: false, ingredient: null as Ingredient | null, history: [] as any[] });
     const [loading, setLoading] = useState(false);
     const productsQuery = useProducts();
@@ -168,15 +168,16 @@ const ProductManagement: React.FC = () => {
                     try {
                         await createStockMutation.mutateAsync({
                             ingredient_id: restockModal.itemId,
-                            type: restockModal.type,
+                            type: (data.type || restockModal.type) as any,
                             quantity: data.qty,
-                            notes: restockModal.type === 'IN' ? (data.isPurchase ? "Pembelian Bahan" : "Koreksi Stok Masuk") : "Koreksi Stok Keluar/Limbah",
+                            notes: data.notes || (restockModal.type === 'IN' ? (data.isPurchase ? "Pembelian Bahan" : "Koreksi Stok Masuk") : "Koreksi Stok Keluar/Limbah"),
                             is_purchase: data.isPurchase,
                             update_master_price: data.updateMasterPrice,
                             new_cost_per_unit: data.newPrice
                         });
                         setRestockModal({ ...restockModal, isOpen: false });
                         queryClient.invalidateQueries({ queryKey: ['products'] });
+                        queryClient.invalidateQueries({ queryKey: ['ingredients'] });
                     } catch { alert('Gagal memperbarui stok'); }
                     finally { setLoading(false); }
                 }}
@@ -193,7 +194,7 @@ const ProductManagement: React.FC = () => {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <Badge variant={item.type === 'IN' || item.type === 'ADJ_ADD' ? 'success' : 'destructive'} className="text-[10px] h-5">
-                                                {item.type === 'IN' ? 'MASUK' : item.type === 'OUT' ? 'KELUAR' : item.type}
+                                                {item.type === 'IN' ? 'MASUK' : item.type === 'OUT' ? 'KELUAR' : item.type === 'ADJ_ADD' ? 'AUDIT (+)' : item.type === 'ADJ_SUB' ? 'AUDIT (-)' : item.type}
                                             </Badge>
                                             <span className="font-bold text-sm">{item.type === 'IN' || item.type === 'ADJ_ADD' ? '+' : '-'}{Number(item.quantity)} {historyModal.ingredient?.unit}</span>
                                         </div>

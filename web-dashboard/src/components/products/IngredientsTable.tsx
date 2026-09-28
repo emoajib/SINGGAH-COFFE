@@ -1,6 +1,6 @@
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
-import { ArrowUpCircle, ArrowDownCircle, History, Edit2, Trash2, Tag, ShoppingBag } from 'lucide-react'
+import { ArrowUpCircle, ArrowDownCircle, History, Edit2, Trash2, Tag, ShoppingBag, Scale } from 'lucide-react'
 import { formatNumber } from '../../lib/utils'
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -21,8 +21,38 @@ interface IngredientsTableProps {
     ingredients: Ingredient[];
     onEdit: (ing: Ingredient) => void;
     onDelete: (id: number) => void;
-    onRestock: (ing: Ingredient, type: 'IN' | 'OUT') => void;
+    onRestock: (ing: Ingredient, type: 'IN' | 'OUT' | 'AUDIT') => void;
     onHistory: (ing: Ingredient) => void;
+}
+
+/**
+ * Normalisasi cerdas kemasan beli agar terhindar dari anomali data (misal: 1 ml = 1.000 ml atau 1 gram = 1.000 gram)
+ */
+export function getDisplayPurchaseUnit(ing: Ingredient): string {
+    const pUnit = (ing.purchase_unit || '').trim().toLowerCase();
+    const uUnit = (ing.unit || '').trim().toLowerCase();
+    const size = ing.purchase_unit_size > 0 ? ing.purchase_unit_size : (uUnit === 'gram' || uUnit === 'ml' ? 1000 : 1);
+
+    // Kasus anomali: purchase unit sama persis dengan unit dasar tapi size > 1
+    if (!pUnit || pUnit === uUnit) {
+        if (uUnit === 'gram') {
+            return size >= 5000 ? 'sak/bal' : 'kg';
+        }
+        if (uUnit === 'ml') {
+            return 'liter';
+        }
+        if (uUnit === 'pcs') {
+            return size > 1 ? 'pack' : 'pcs';
+        }
+        return pUnit || uUnit;
+    }
+
+    // Kasus anomali: cup/sedotan unit pcs tapi purchase_unit diisi kg
+    if (uUnit === 'pcs' && (pUnit === 'kg' || pUnit === 'gram')) {
+        return size >= 500 ? 'dus' : 'pack';
+    }
+
+    return pUnit;
 }
 
 export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onHistory }: IngredientsTableProps) {
@@ -41,7 +71,7 @@ export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onH
                 </thead>
                 <tbody>
                     {ingredients.map((ing) => {
-                        const purchaseUnit = ing.purchase_unit || (ing.unit === 'gram' ? 'kg' : ing.unit === 'ml' ? 'liter' : 'pcs');
+                        const purchaseUnit = getDisplayPurchaseUnit(ing);
                         const unitSize = ing.purchase_unit_size > 0 ? ing.purchase_unit_size : (ing.unit === 'gram' || ing.unit === 'ml' ? 1000 : 1);
                         const costPerPurchaseUnit = ing.cost_per_unit * unitSize;
 
@@ -93,39 +123,60 @@ export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onH
                                     )}
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div className="flex justify-center gap-2">
+                                    <div className="flex justify-center gap-1.5">
+                                        {/* Tombol Audit Stok / Stock Opname */}
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-8 w-8 p-0 rounded-full border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
+                                            className="h-8 w-8 p-0 rounded-full border-amber-300 bg-amber-50 text-amber-800 hover:bg-[#4B3621] hover:text-amber-200 transition-all shadow-xs"
+                                            onClick={() => onRestock(ing, 'AUDIT')}
+                                            title="Audit Fisik / Stock Opname (Cocokkan Stok Nyata)"
+                                        >
+                                            <Scale className="h-4 w-4" />
+                                        </Button>
+
+                                        {/* Tombol Stok Masuk */}
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 w-8 p-0 rounded-full border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-xs"
                                             onClick={() => onRestock(ing, 'IN')}
                                             title="Stok Masuk / Pembelian"
                                         >
                                             <ArrowUpCircle className="h-4 w-4" />
                                         </Button>
+
+                                        {/* Tombol Stok Keluar */}
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-8 w-8 p-0 rounded-full border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white"
+                                            className="h-8 w-8 p-0 rounded-full border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all shadow-xs"
                                             onClick={() => onRestock(ing, 'OUT')}
                                             title="Stok Keluar / Limbah"
                                         >
                                             <ArrowDownCircle className="h-4 w-4" />
                                         </Button>
+
+                                        {/* Tombol Riwayat Mutasi */}
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-8 w-8 p-0 rounded-full border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white"
+                                            className="h-8 w-8 p-0 rounded-full border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-xs"
                                             onClick={() => onHistory(ing)}
                                             title="Riwayat Mutasi Stok"
                                         >
                                             <History className="h-4 w-4" />
                                         </Button>
-                                        <div className="w-px h-8 bg-gray-200 mx-1" />
-                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600" onClick={() => onEdit(ing)}>
+
+                                        <div className="w-px h-8 bg-gray-200 mx-0.5" />
+
+                                        {/* Edit Spesifikasi */}
+                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50" onClick={() => onEdit(ing)} title="Edit Bahan">
                                             <Edit2 className="h-4 w-4" />
                                         </Button>
-                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-600" onClick={() => onDelete(ing.id)}>
+
+                                        {/* Hapus Bahan */}
+                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-600 hover:bg-red-50" onClick={() => onDelete(ing.id)} title="Hapus Bahan">
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </div>
