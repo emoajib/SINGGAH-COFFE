@@ -183,6 +183,7 @@ type PublicProductItem struct {
 type PublicMenuResponse struct {
 	StoreName        string              `json:"store_name"`
 	OutletName       string              `json:"outlet_name"`
+	LogoURL          string              `json:"logo_url"`
 	SelfOrderEnabled bool                `json:"self_order_enabled"`
 	Categories       []string            `json:"categories"`
 	Products         []PublicProductItem `json:"products"`
@@ -198,10 +199,20 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 	}
 
 	selfOrderEnabled := true
+	logoURL := ""
+	storeName := "Singgah Coffee"
 	if uc.settingRepo != nil {
 		if setting, err := uc.settingRepo.FindByKey("self_order_enabled"); err == nil {
 			if strings.ToLower(strings.TrimSpace(setting.Value)) == "false" {
 				selfOrderEnabled = false
+			}
+		}
+		if setting, err := uc.settingRepo.FindByKey("outlet_logo_url"); err == nil {
+			logoURL = strings.TrimSpace(setting.Value)
+		}
+		if setting, err := uc.settingRepo.FindByKey("outlet_name"); err == nil {
+			if val := strings.TrimSpace(setting.Value); val != "" {
+				storeName = val
 			}
 		}
 	}
@@ -221,12 +232,19 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 		}
 
 		// Availability logic:
-		// 1. Positive physical stock -> Available
-		// 2. Product has a recipe or is a beverage item prepared on demand -> Available
-		// 3. Retail/packaged items (e.g. snack, makanan kemasan) with zero stock and no recipe -> Unavailable
+		// 1. Minuman & produk racikan barista: SELALU Available (diracik on demand)
+		// 2. Produk dengan resep: Available
+		// 3. Hanya produk fisik kemasan/retail non-minuman dengan stock <= 0 yang out of stock
 		isAvailable := true
-		if p.Stock <= 0 && len(p.Recipe) == 0 {
-			lowerCat := strings.ToLower(cat)
+		lowerCat := strings.ToLower(cat)
+		isBeverage := strings.Contains(lowerCat, "kopi") ||
+			strings.Contains(lowerCat, "tea") ||
+			strings.Contains(lowerCat, "air") ||
+			strings.Contains(lowerCat, "non kopi") ||
+			strings.Contains(lowerCat, "minum") ||
+			strings.Contains(lowerCat, "gula")
+
+		if !isBeverage && len(p.Recipe) == 0 && p.Stock <= 0 {
 			if lowerCat == "makanan" || lowerCat == "snack" || lowerCat == "retail" {
 				isAvailable = false
 			}
@@ -245,8 +263,9 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 	}
 
 	return &PublicMenuResponse{
-		StoreName:        "Singgah Coffee",
-		OutletName:       "Singgah Coffee",
+		StoreName:        storeName,
+		OutletName:       storeName,
+		LogoURL:          logoURL,
 		SelfOrderEnabled: selfOrderEnabled,
 		Categories:       categoryOrder,
 		Products:         publicProducts,

@@ -192,6 +192,7 @@ export interface PublicMenuItem {
 export interface PublicMenuResponse {
   store_name?: string
   outlet_name?: string
+  logo_url?: string
   self_order_enabled: boolean
   categories: string[]
   items: PublicMenuItem[]

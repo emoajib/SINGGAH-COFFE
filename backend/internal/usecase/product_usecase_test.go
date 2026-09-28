@@ -210,6 +210,7 @@ func TestProductUsecase_GetPublicMenu(t *testing.T) {
 	uc := createProductUsecase(db)
 
 	db.Create(&models.Setting{Key: "self_order_enabled", Value: "true"})
+	db.Create(&models.Setting{Key: "outlet_logo_url", Value: "/uploads/logo.png"})
 	db.Create(&models.Product{Name: "Signature Aren", Category: "Coffee", Price: 22000, Stock: 50, Description: "Kopi susu gula aren", Sku: "SKU-01"})
 	db.Create(&models.Product{Name: "Matcha Latte", Category: "Non-Coffee", Price: 25000, Stock: 0, Description: "Matcha murni", Sku: "SKU-02"})
 	db.Create(&models.Product{Name: "Kacang Kulit", Category: "Makanan", Price: 5000, Stock: 0, Description: "Snack kemasan", Sku: "SKU-03"})
@@ -219,6 +220,7 @@ func TestProductUsecase_GetPublicMenu(t *testing.T) {
 	assert.NotNil(t, menu)
 	assert.True(t, menu.SelfOrderEnabled)
 	assert.Equal(t, "Singgah Coffee", menu.StoreName)
+	assert.Equal(t, "/uploads/logo.png", menu.LogoURL)
 	assert.Len(t, menu.Categories, 3)
 	assert.Len(t, menu.Products, 3)
 	assert.Len(t, menu.Items, 3)
