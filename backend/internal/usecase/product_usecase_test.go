@@ -212,16 +212,18 @@ func TestProductUsecase_GetPublicMenu(t *testing.T) {
 	db.Create(&models.Setting{Key: "self_order_enabled", Value: "true"})
 	db.Create(&models.Product{Name: "Signature Aren", Category: "Coffee", Price: 22000, Stock: 50, Description: "Kopi susu gula aren", Sku: "SKU-01"})
 	db.Create(&models.Product{Name: "Matcha Latte", Category: "Non-Coffee", Price: 25000, Stock: 0, Description: "Matcha murni", Sku: "SKU-02"})
+	db.Create(&models.Product{Name: "Kacang Kulit", Category: "Makanan", Price: 5000, Stock: 0, Description: "Snack kemasan", Sku: "SKU-03"})
 
 	menu, err := uc.GetPublicMenu()
 	assert.NoError(t, err)
 	assert.NotNil(t, menu)
 	assert.True(t, menu.SelfOrderEnabled)
 	assert.Equal(t, "Singgah Coffee", menu.StoreName)
-	assert.Len(t, menu.Categories, 2)
-	assert.Len(t, menu.Products, 2)
-	assert.Len(t, menu.Items, 2)
-	assert.True(t, menu.Products[0].Available)
-	assert.False(t, menu.Products[1].Available)
+	assert.Len(t, menu.Categories, 3)
+	assert.Len(t, menu.Products, 3)
+	assert.Len(t, menu.Items, 3)
+	assert.True(t, menu.Products[0].Available)  // Signature Aren: Stock > 0 -> Available
+	assert.True(t, menu.Products[1].Available)  // Matcha Latte: Beverage category on demand -> Available
+	assert.False(t, menu.Products[2].Available) // Kacang Kulit: Makanan kemasan stock 0 -> Unavailable
 }
 

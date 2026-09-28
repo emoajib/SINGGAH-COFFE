@@ -215,16 +215,36 @@ export default function PublicOrderMenu() {
     );
   }
 
-  if (errorMsg || (menuData && !menuData.self_order_enabled)) {
+  // 1. Specifically disabled by outlet owner in settings
+  if (menuData && menuData.self_order_enabled === false) {
+    return (
+      <div className="min-h-screen bg-[#FAF7F2] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center mb-4">
+          <BadgeAlert className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-black text-slate-800">Pemesanan Mandiri Dinonaktifkan</h2>
+        <p className="text-xs text-slate-600 mt-2 max-w-sm">
+          Kedai saat ini sedang menonaktifkan pemesanan via smartphone. Silakan langsung memesan ke meja kasir.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-6 px-5 py-2.5 bg-[#4B3621] text-amber-300 rounded-xl font-bold text-xs shadow-md"
+        >
+          Coba Muat Ulang
+        </button>
+      </div>
+    );
+  }
+
+  // 2. Generic network or server error
+  if (errorMsg) {
     return (
       <div className="min-h-screen bg-[#FAF7F2] flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center mb-4">
           <BadgeAlert className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-black text-slate-800">Pemesanan Mandiri Dinonaktifkan</h2>
-        <p className="text-xs text-slate-600 mt-2 max-w-sm">
-          {errorMsg || 'Kedai saat ini sedang menonaktifkan pemesanan via smartphone. Silakan langsung memesan ke meja kasir.'}
-        </p>
+        <h2 className="text-xl font-black text-slate-800">Gagal Memuat Menu</h2>
+        <p className="text-xs text-slate-600 mt-2 max-w-sm">{errorMsg}</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-6 px-5 py-2.5 bg-[#4B3621] text-amber-300 rounded-xl font-bold text-xs shadow-md"

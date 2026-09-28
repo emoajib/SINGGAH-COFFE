@@ -220,6 +220,18 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 			categoryOrder = append(categoryOrder, cat)
 		}
 
+		// Availability logic:
+		// 1. Positive physical stock -> Available
+		// 2. Product has a recipe or is a beverage item prepared on demand -> Available
+		// 3. Retail/packaged items (e.g. snack, makanan kemasan) with zero stock and no recipe -> Unavailable
+		isAvailable := true
+		if p.Stock <= 0 && len(p.Recipe) == 0 {
+			lowerCat := strings.ToLower(cat)
+			if lowerCat == "makanan" || lowerCat == "snack" || lowerCat == "retail" {
+				isAvailable = false
+			}
+		}
+
 		publicProducts = append(publicProducts, PublicProductItem{
 			ID:          p.ID,
 			Name:        p.Name,
@@ -228,7 +240,7 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 			Stock:       p.Stock,
 			Description: p.Description,
 			ImageURL:    p.ImageURL,
-			Available:   p.Stock > 0,
+			Available:   isAvailable,
 		})
 	}
 
