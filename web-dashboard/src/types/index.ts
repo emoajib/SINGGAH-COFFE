@@ -235,6 +235,8 @@ export interface PublicOrderCreateResponse {
 }
 
 export interface PublicOrderStatusResponse {
+  store_name?: string
+  logo_url?: string
   order_number: string
   pickup_code: string
   queue_number: number

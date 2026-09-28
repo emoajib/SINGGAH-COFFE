@@ -760,6 +760,8 @@ type PublicOrderItemSummary struct {
 }
 
 type PublicOrderStatusResponse struct {
+	StoreName     string                   `json:"store_name"`
+	LogoURL       string                   `json:"logo_url"`
 	OrderNumber   string                   `json:"order_number"`
 	PickupCode    string                   `json:"pickup_code"`
 	QueueNumber   int                      `json:"queue_number"`
@@ -950,6 +952,19 @@ func (uc *OrderUsecase) GetPublicOrderStatus(trackingToken string) (*PublicOrder
 		return nil, domainErrors.NewNotFoundError("order")
 	}
 
+	logoURL := ""
+	storeName := "Singgah Coffee"
+	if uc.settingRepo != nil {
+		if setting, err := uc.settingRepo.FindByKey("outlet_logo_url"); err == nil {
+			logoURL = strings.TrimSpace(setting.Value)
+		}
+		if setting, err := uc.settingRepo.FindByKey("outlet_name"); err == nil {
+			if val := strings.TrimSpace(setting.Value); val != "" {
+				storeName = val
+			}
+		}
+	}
+
 	var items []PublicOrderItemSummary
 	for _, it := range order.OrderItems {
 		pName := it.Product.Name
@@ -966,6 +981,8 @@ func (uc *OrderUsecase) GetPublicOrderStatus(trackingToken string) (*PublicOrder
 	}
 
 	return &PublicOrderStatusResponse{
+		StoreName:     storeName,
+		LogoURL:       logoURL,
 		OrderNumber:   order.OrderNumber,
 		PickupCode:    order.PickupCode,
 		QueueNumber:   order.QueueNumber,

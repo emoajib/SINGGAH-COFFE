@@ -1,5 +1,5 @@
 import { MenuItem } from "../../services/productService"
-import { formatCurrency } from "../../lib/utils"
+import { formatCurrency, getImageUrl } from "../../lib/utils"
 import { useSettings } from "../../hooks/useSettings"
 
 interface ReceiptProps {
@@ -41,11 +41,11 @@ export default function Receipt({
         <div id="receipt-print" className="bg-white p-4 font-mono text-black">
             <div className="text-center mb-4">
                 {outletLogoUrl && (
-                    <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden">
+                    <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden flex items-center justify-center">
                         <img
-                            src={outletLogoUrl}
+                            src={getImageUrl(outletLogoUrl)}
                             alt="Logo"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                         />
                     </div>
                 )}

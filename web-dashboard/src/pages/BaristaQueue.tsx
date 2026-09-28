@@ -3,6 +3,8 @@ import { useState, useMemo } from 'react';
 import { useOrderQueue } from '../hooks/useOrderQueue';
 import { useProducts } from '../hooks/useProducts';
 import { useCreateOrder, useUnpaidOrders, useCompleteOrder } from '../hooks/useOrders';
+import { useSettings } from '../hooks/useSettings';
+import { getImageUrl } from '../lib/utils';
 import {
     Clock,
     Coffee,
@@ -33,6 +35,7 @@ export default function BaristaQueue() {
     const { data: productsRaw = [] } = useProducts();
     const createOrderMutation = useCreateOrder();
     const completeOrderMutation = useCompleteOrder();
+    const { data: settings } = useSettings();
 
     const products: Product[] = Array.isArray(productsRaw) ? (productsRaw as unknown as Product[]) : [];
 
@@ -354,9 +357,19 @@ export default function BaristaQueue() {
             {/* Header KDS */}
             <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-800 shadow-inner">
-                        <ChefHat className="w-6 h-6" />
-                    </div>
+                    {settings?.outlet_logo_url ? (
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-amber-200/80 p-1 flex items-center justify-center shadow-xs overflow-hidden shrink-0">
+                            <img
+                                src={getImageUrl(settings.outlet_logo_url)}
+                                alt={settings.outlet_name || "Logo Toko"}
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-800 shadow-inner shrink-0">
+                            <ChefHat className="w-6 h-6" />
+                        </div>
+                    )}
                     <div>
                         <div className="flex items-center gap-2">
                             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Antrian Barista (KDS)</h2>

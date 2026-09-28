@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { publicOrderService } from '../services/publicOrderService';
 import type { PublicOrderStatusResponse } from '../types';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, getImageUrl } from '../lib/utils';
 
 export default function PublicOrderStatus() {
   const { token } = useParams<{ token: string }>();
@@ -143,6 +143,21 @@ export default function PublicOrderStatus() {
         <div className="bg-white rounded-3xl p-6 border border-amber-900/10 shadow-xl relative overflow-hidden text-center">
           {/* Subtle background decoration */}
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl"></div>
+
+          {/* Logo Toko Unggahan Owner */}
+          {order.logo_url ? (
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-white p-1 border border-amber-900/10 shadow-sm flex items-center justify-center overflow-hidden">
+              <img
+                src={getImageUrl(order.logo_url)}
+                alt={order.store_name || "Singgah Coffee"}
+                className="w-full h-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center shadow-xs">
+              <Coffee className="w-6 h-6" />
+            </div>
+          )}
 
           {/* Customer Greeting */}
           <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">
