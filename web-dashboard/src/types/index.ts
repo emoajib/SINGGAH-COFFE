@@ -106,6 +106,7 @@ export interface CreateStockMutationRequest {
   is_purchase?: boolean
   update_master_price?: boolean
   new_cost_per_unit?: number
+  location?: string  // 'warehouse' | 'kedai' (default: 'kedai')
 }
 
 // ─── Low Stock Alert ─────────────────────────────────────────────────────────

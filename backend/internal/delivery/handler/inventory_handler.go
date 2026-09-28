@@ -50,13 +50,27 @@ func (h *InventoryHandler) CreateIngredient(c *gin.Context) {
 		return
 	}
 
+	// Hitung current_stock dari dual-location jika diisi
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	warehouseStock := req.WarehouseStock
+	kedaiStock := req.KedaiStock
+	currentStock := req.CurrentStock
+	if warehouseStock > 0 || kedaiStock > 0 {
+		currentStock = warehouseStock + kedaiStock
+	} else if currentStock > 0 {
+		// backward-compat: stok lama diasumsikan semua di kedai
+		kedaiStock = currentStock
+	}
+
 	ingredient := &entity.Ingredient{
 		Name:             req.Name,
 		Category:         req.Category,
 		Unit:             req.Unit,
 		PurchaseUnit:     req.PurchaseUnit,
 		PurchaseUnitSize: req.PurchaseUnitSize,
-		CurrentStock:     req.CurrentStock,
+		CurrentStock:     currentStock,
+		WarehouseStock:   warehouseStock,
+		KedaiStock:       kedaiStock,
 		MinStock:         req.MinStock,
 		CostPerUnit:      req.CostPerUnit,
 	}
@@ -69,6 +83,7 @@ func (h *InventoryHandler) CreateIngredient(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, result)
 }
+
 
 func (h *InventoryHandler) UpdateIngredient(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)

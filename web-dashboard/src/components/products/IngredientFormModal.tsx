@@ -15,6 +15,8 @@ interface Ingredient {
     purchase_unit: string;
     purchase_unit_size: number;
     current_stock: number;
+    warehouse_stock: number;
+    kedai_stock: number;
     min_stock: number;
     cost_per_unit: number;
 }
@@ -49,6 +51,8 @@ export function IngredientFormModal({ isOpen, onClose, editingIngredient, onSave
         purchase_unit_size: 1000 as number | string,
         cost_per_unit: 0 as number | string,
         min_stock: 0 as number | string,
+        warehouse_stock: 0 as number | string,
+        kedai_stock: 0 as number | string,
     });
 
     useEffect(() => {
@@ -61,9 +65,11 @@ export function IngredientFormModal({ isOpen, onClose, editingIngredient, onSave
                 purchase_unit_size: editingIngredient.purchase_unit_size || 1000,
                 cost_per_unit: editingIngredient.cost_per_unit,
                 min_stock: editingIngredient.min_stock,
+                warehouse_stock: editingIngredient.warehouse_stock || 0,
+                kedai_stock: editingIngredient.kedai_stock || 0,
             });
         } else {
-            setFormData({ name: '', category: '', unit: 'gram', purchase_unit: 'kg', purchase_unit_size: 1000, cost_per_unit: 0, min_stock: 0 });
+            setFormData({ name: '', category: '', unit: 'gram', purchase_unit: 'kg', purchase_unit_size: 1000, cost_per_unit: 0, min_stock: 0, warehouse_stock: 0, kedai_stock: 0 });
         }
     }, [editingIngredient, isOpen]);
 
@@ -76,6 +82,8 @@ export function IngredientFormModal({ isOpen, onClose, editingIngredient, onSave
                 purchase_unit_size: Number(formData.purchase_unit_size),
                 cost_per_unit: Number(formData.cost_per_unit),
                 min_stock: Number(formData.min_stock),
+                warehouse_stock: Number(formData.warehouse_stock),
+                kedai_stock: Number(formData.kedai_stock),
             };
 
             if (editingIngredient) {
@@ -202,6 +210,46 @@ export function IngredientFormModal({ isOpen, onClose, editingIngredient, onSave
                         </p>
                     </div>
                 </div>
+
+                {/* Stok Awal per Lokasi — hanya saat tambah bahan baru */}
+                {!editingIngredient && (
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-700 uppercase tracking-wider text-[10px]">Stok Awal per Lokasi</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] font-semibold text-indigo-700 flex items-center gap-1 mb-1">
+                                    🏭 Gudang ({formData.unit})
+                                </label>
+                                <Input
+                                    type="number"
+                                    step="any"
+                                    min={0}
+                                    value={formData.warehouse_stock}
+                                    onChange={e => setFormData({ ...formData, warehouse_stock: e.target.value })}
+                                    placeholder="0"
+                                    className="border-indigo-200 focus:border-indigo-400"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-semibold text-amber-700 flex items-center gap-1 mb-1">
+                                    ☕ Kedai / Bar ({formData.unit})
+                                </label>
+                                <Input
+                                    type="number"
+                                    step="any"
+                                    min={0}
+                                    value={formData.kedai_stock}
+                                    onChange={e => setFormData({ ...formData, kedai_stock: e.target.value })}
+                                    placeholder="0"
+                                    className="border-amber-200 focus:border-amber-400"
+                                />
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-gray-500">
+                            Total stok awal: <strong>{(Number(formData.warehouse_stock) + Number(formData.kedai_stock)).toFixed(1)}</strong> {formData.unit}
+                        </p>
+                    </div>
+                )}
 
                 <div className="flex justify-end gap-3 pt-4">
                     <Button type="button" variant="outline" onClick={onClose}>Batal</Button>

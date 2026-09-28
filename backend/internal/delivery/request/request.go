@@ -86,6 +86,8 @@ type CreateIngredientRequest struct {
 	PurchaseUnit     string  `json:"purchase_unit"`
 	PurchaseUnitSize float64 `json:"purchase_unit_size" binding:"gte=0"`
 	CurrentStock     float64 `json:"current_stock" binding:"gte=0"`
+	WarehouseStock   float64 `json:"warehouse_stock" binding:"gte=0"` // Stok awal di gudang
+	KedaiStock       float64 `json:"kedai_stock" binding:"gte=0"`    // Stok awal di kedai
 	MinStock         float64 `json:"min_stock" binding:"gte=0"`
 	CostPerUnit      float64 `json:"cost_per_unit" binding:"required,gt=0"`
 }

@@ -177,7 +177,8 @@ const ProductManagement: React.FC = () => {
                             notes: data.notes || (restockModal.type === 'IN' ? (data.isPurchase ? "Pembelian Bahan" : "Koreksi Stok Masuk") : "Koreksi Stok Keluar/Limbah"),
                             is_purchase: data.isPurchase,
                             update_master_price: data.updateMasterPrice,
-                            new_cost_per_unit: data.newPrice
+                            new_cost_per_unit: data.newPrice,
+                            location: data.location || 'kedai',
                         });
                         setRestockModal({ ...restockModal, isOpen: false });
                         queryClient.invalidateQueries({ queryKey: ['products'] });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Info, Loader2, ArrowUpCircle, ArrowDownCircle, Scale, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Info, Loader2, ArrowUpCircle, ArrowDownCircle, Scale, AlertTriangle, CheckCircle2, Warehouse, Coffee } from 'lucide-react';
 import { formatNumber } from '../../lib/utils';
 import { Dialog } from "../ui/dialog";
 import { Button } from "../ui/button";
@@ -15,6 +15,8 @@ interface Ingredient {
     purchase_unit?: string;
     purchase_unit_size?: number;
     current_stock: number;
+    warehouse_stock: number;
+    kedai_stock: number;
     cost_per_unit: number;
 }
 
@@ -30,6 +32,7 @@ interface StockAdjustmentDialogProps {
         isPurchase: boolean;
         updateMasterPrice: boolean;
         newPrice: number;
+        location: string; // 'warehouse' | 'kedai'
     }) => Promise<void>;
     isLoading?: boolean;
 }
@@ -53,6 +56,7 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
     isLoading = false
 }) => {
     const [activeMode, setActiveMode] = useState<'IN' | 'OUT' | 'AUDIT'>('IN');
+    const [location, setLocation] = useState<'warehouse' | 'kedai'>('kedai');
     const [qty, setQty] = useState<number>(0);
     const [realStock, setRealStock] = useState<number>(0);
     const [auditReason, setAuditReason] = useState<string>(AUDIT_REASONS[0]);
@@ -61,11 +65,17 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
     const [isPurchase, setIsPurchase] = useState(true);
     const [updateMasterPrice, setUpdateMasterPrice] = useState(false);
 
+    // Stok aktif sesuai lokasi yang dipilih untuk audit
+    const locationStock = location === 'warehouse'
+        ? (ingredient?.warehouse_stock ?? ingredient?.current_stock ?? 0)
+        : (ingredient?.kedai_stock ?? ingredient?.current_stock ?? 0);
+
     useEffect(() => {
         if (isOpen && ingredient) {
             setActiveMode(initialType);
+            setLocation('kedai');
             setQty(0);
-            setRealStock(ingredient.current_stock || 0);
+            setRealStock(ingredient.kedai_stock ?? ingredient.current_stock ?? 0);
             setAuditReason(AUDIT_REASONS[0]);
             setCustomNotes('');
             setPrice(ingredient.cost_per_unit || 0);
@@ -74,10 +84,16 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
         }
     }, [isOpen, ingredient, initialType]);
 
+    // Reset realStock saat lokasi berubah
+    useEffect(() => {
+        if (ingredient) setRealStock(locationStock);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location]);
+
     if (!ingredient) return null;
 
-    // Hitung selisih untuk mode audit
-    const currentStock = ingredient.current_stock || 0;
+    // Hitung selisih untuk mode audit — berdasarkan lokasi yang dipilih
+    const currentStock = locationStock;
     const stockDiff = realStock - currentStock;
     const financialDiff = Math.abs(stockDiff) * (ingredient.cost_per_unit || 0);
 
@@ -92,7 +108,8 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
             const isAddition = stockDiff > 0;
             const diffAmount = Math.abs(stockDiff);
             const mutationType = isAddition ? 'ADJ_ADD' : 'ADJ_SUB';
-            const noteText = `Audit Fisik / Stock Opname: disesuaikan dari ${formatNumber(currentStock)} ${ingredient.unit} menjadi ${formatNumber(realStock)} ${ingredient.unit} (${isAddition ? '+' : '-'}${formatNumber(diffAmount)} ${ingredient.unit}) - ${auditReason}${customNotes.trim() ? ` (${customNotes.trim()})` : ''}`;
+            const locLabel = location === 'warehouse' ? 'Gudang' : 'Kedai';
+            const noteText = `Audit Fisik ${locLabel} / Stock Opname: disesuaikan dari ${formatNumber(currentStock)} ${ingredient.unit} menjadi ${formatNumber(realStock)} ${ingredient.unit} (${isAddition ? '+' : '-'}${formatNumber(diffAmount)} ${ingredient.unit}) - ${auditReason}${customNotes.trim() ? ` (${customNotes.trim()})` : ''}`;
 
             await onConfirm({
                 qty: diffAmount,
@@ -100,7 +117,8 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
                 notes: noteText,
                 isPurchase: false,
                 updateMasterPrice: false,
-                newPrice: ingredient.cost_per_unit
+                newPrice: ingredient.cost_per_unit,
+                location,
             });
             return;
         }
@@ -113,9 +131,10 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
             isPurchase: activeMode === 'IN' && isPurchase,
             updateMasterPrice: activeMode === 'IN' && updateMasterPrice,
             newPrice: price,
-            notes: activeMode === 'IN' 
-                ? (isPurchase ? "Pembelian Bahan Masuk" : "Koreksi Stok Masuk")
-                : "Koreksi Stok Keluar / Limbah"
+            notes: activeMode === 'IN'
+                ? (isPurchase ? `Pembelian Bahan Masuk ke ${location === 'warehouse' ? 'Gudang' : 'Kedai'}` : `Koreksi Stok Masuk (${location === 'warehouse' ? 'Gudang' : 'Kedai'})`)
+                : `Koreksi Stok Keluar / Limbah (${location === 'warehouse' ? 'Gudang' : 'Kedai'})`,
+            location,
         });
     };
 
@@ -168,6 +187,49 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
                     </button>
                 </div>
 
+                {/* LOKASI STOK SELECTOR */}
+                <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
+                        Lokasi Stok
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setLocation('kedai')}
+                            className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-xs font-bold transition-all ${
+                                location === 'kedai'
+                                    ? 'border-amber-400 bg-amber-50 text-amber-800'
+                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                            }`}
+                        >
+                            <Coffee size={14} />
+                            <div className="text-left">
+                                <div>Kedai / Bar</div>
+                                <div className="text-[10px] font-normal opacity-70">
+                                    {formatNumber(ingredient.kedai_stock ?? ingredient.current_stock)} {ingredient.unit}
+                                </div>
+                            </div>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setLocation('warehouse')}
+                            className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-xs font-bold transition-all ${
+                                location === 'warehouse'
+                                    ? 'border-indigo-400 bg-indigo-50 text-indigo-800'
+                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                            }`}
+                        >
+                            <Warehouse size={14} />
+                            <div className="text-left">
+                                <div>Gudang</div>
+                                <div className="text-[10px] font-normal opacity-70">
+                                    {formatNumber(ingredient.warehouse_stock ?? 0)} {ingredient.unit}
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
                 {/* Ingredient Info Card */}
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between">
                     <div>
@@ -178,7 +240,9 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
                         </p>
                     </div>
                     <div className="text-right">
-                        <span className="text-[10px] font-bold text-slate-400 block uppercase">Stok Sistem</span>
+                        <span className="text-[10px] font-bold text-slate-400 block uppercase">
+                            Stok {location === 'warehouse' ? 'Gudang' : 'Kedai'}
+                        </span>
                         <span className="text-sm font-black text-slate-800">
                             {formatNumber(currentStock)} <span className="text-xs font-normal text-slate-500">{ingredient.unit}</span>
                         </span>
@@ -191,10 +255,10 @@ export const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
                         <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 space-y-3">
                             <div className="flex items-center gap-2 text-amber-900 font-extrabold text-xs">
                                 <Scale className="w-4 h-4 text-amber-800" />
-                                <span>Pencocokan Stok Fisik Kedai (Stock Opname)</span>
+                                <span>Audit Fisik {location === 'warehouse' ? 'Gudang' : 'Kedai / Bar'} (Stock Opname)</span>
                             </div>
                             <p className="text-[11px] text-amber-800 leading-relaxed">
-                                Timbang atau hitung jumlah fisik riil yang ada di kedai. Sistem akan secara otomatis menghitung selisih dan memperbarui data stok aplikasi seketika.
+                                Timbang atau hitung jumlah fisik riil di {location === 'warehouse' ? 'gudang' : 'kedai'}. Sistem akan otomatis menghitung selisih dan memperbarui stok.
                             </p>
 
                             <div className="pt-2">
