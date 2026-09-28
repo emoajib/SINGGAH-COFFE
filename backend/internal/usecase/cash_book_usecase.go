@@ -66,6 +66,37 @@ func (uc *CashBookUsecase) Create(c *entity.CashBook, outletID ...uint) (*entity
 	if err := uc.cashBookRepo.Create(c); err != nil {
 		return nil, err
 	}
+
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Publish PSAK event outbox if transaction involves investor
+	var eventType string
+	switch c.SubType {
+	case "investor_capital":
+		eventType = "investor.capital_in"
+	case "investor_loan":
+		eventType = "investor.loan_in"
+	case "loan_payment":
+		eventType = "investor.loan_payment"
+	}
+
+	if eventType != "" {
+		outboxRepo := postgres.NewOutboxRepository(uc.db)
+		_ = outboxRepo.Create(&entity.EventOutbox{
+			EventType:     eventType,
+			ReferenceType: "cash_book",
+			ReferenceID:   c.ID,
+			Payload: mustMarshal(map[string]interface{}{
+				"id":            c.ID,
+				"investor_name": c.InvestorName,
+				"amount":        c.Amount,
+				"method":        c.Method,
+				"outlet_id":     c.OutletID,
+				"notes":         c.Description,
+			}),
+			Status: "pending",
+		})
+	}
+
 	resp := c.ToResponse()
 	return &resp, nil
 }
@@ -78,6 +109,8 @@ func (uc *CashBookUsecase) Update(id uint, c *entity.CashBook) (*entity.CashBook
 	existing.Date = c.Date
 	existing.Method = c.Method
 	existing.Type = c.Type
+	existing.SubType = c.SubType
+	existing.InvestorName = c.InvestorName
 	existing.Amount = c.Amount
 	existing.Description = c.Description
 	existing.Reference = c.Reference

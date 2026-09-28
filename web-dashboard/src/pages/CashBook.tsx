@@ -34,8 +34,10 @@ export default function CashBookPage() {
   const [editing, setEditing] = useState<CashBook | null>(null)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
-    method: 'Cash' as 'Cash' | 'QRIS' | 'Lainnya',
+    method: 'Cash' as 'Cash' | 'QRIS' | 'Lainnya' | 'Transfer',
     type: 'income' as 'income' | 'expense',
+    sub_type: '' as '' | 'investor_capital' | 'investor_loan' | 'loan_payment',
+    investor_name: '',
     amount: 0,
     description: '',
     reference: '',
@@ -45,7 +47,8 @@ export default function CashBookPage() {
 
   const filtered = items.filter((it) =>
     it.description.toLowerCase().includes(search.toLowerCase()) ||
-    it.method.toLowerCase().includes(search.toLowerCase())
+    it.method.toLowerCase().includes(search.toLowerCase()) ||
+    (it.investor_name && it.investor_name.toLowerCase().includes(search.toLowerCase()))
   )
 
   const totalIncome = items.filter(i => i.type === 'income').reduce((s, i) => s + i.amount, 0)
@@ -56,8 +59,8 @@ export default function CashBookPage() {
   const expenseCash = items.filter(i => i.type === 'expense' && i.method === 'Cash').reduce((s, i) => s + i.amount, 0)
   const saldoCash = incomeCash - expenseCash
 
-  const incomeQris = items.filter(i => i.type === 'income' && i.method === 'QRIS').reduce((s, i) => s + i.amount, 0)
-  const expenseQris = items.filter(i => i.type === 'expense' && i.method === 'QRIS').reduce((s, i) => s + i.amount, 0)
+  const incomeQris = items.filter(i => i.type === 'income' && (i.method === 'QRIS' || i.method === 'Transfer')).reduce((s, i) => s + i.amount, 0)
+  const expenseQris = items.filter(i => i.type === 'expense' && (i.method === 'QRIS' || i.method === 'Transfer')).reduce((s, i) => s + i.amount, 0)
   const saldoQris = incomeQris - expenseQris
 
   const totalSaldo = totalIncome - totalExpense
@@ -68,6 +71,8 @@ export default function CashBookPage() {
       date: new Date().toISOString().split('T')[0],
       method: 'Cash',
       type: 'income',
+      sub_type: '',
+      investor_name: '',
       amount: 0,
       description: '',
       reference: '',
@@ -81,6 +86,8 @@ export default function CashBookPage() {
       date: it.date.split('T')[0],
       method: it.method,
       type: it.type,
+      sub_type: (it.sub_type as any) || '',
+      investor_name: it.investor_name || '',
       amount: it.amount,
       description: it.description,
       reference: it.reference,
@@ -172,6 +179,7 @@ export default function CashBookPage() {
                 <option value="">Semua</option>
                 <option value="Cash">Cash (Tunai)</option>
                 <option value="QRIS">QRIS</option>
+                <option value="Transfer">Transfer / Bank</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
             </div>
@@ -286,11 +294,38 @@ export default function CashBookPage() {
                 {filtered.map((it) => (
                   <tr key={it.id} className="bg-white border-b hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-900">{new Date(it.date).toLocaleDateString('id-ID')}</td>
-                    <td className="px-6 py-4"><span className="px-2 py-1 rounded-full bg-gray-100 text-xs text-gray-600 font-medium">{it.method}</span></td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${it.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                        {it.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        it.method === 'Transfer' ? 'bg-blue-100 text-blue-700' :
+                        it.method === 'QRIS' ? 'bg-purple-100 text-purple-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {it.method}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex items-center w-max px-2 py-0.5 rounded-full text-xs font-medium ${
+                          it.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {it.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                        </span>
+                        {it.sub_type === 'investor_capital' && (
+                          <span className="inline-flex items-center w-max px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            Modal: {it.investor_name || 'Investor'}
+                          </span>
+                        )}
+                        {it.sub_type === 'investor_loan' && (
+                          <span className="inline-flex items-center w-max px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            Pinjaman: {it.investor_name || 'Investor'}
+                          </span>
+                        )}
+                        {it.sub_type === 'loan_payment' && (
+                          <span className="inline-flex items-center w-max px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                            Bayar Hutang: {it.investor_name || 'Investor'}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">{it.description}</td>
                     <td className={`px-6 py-4 font-bold ${it.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -355,30 +390,81 @@ export default function CashBookPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Metode</label>
+              <label className="text-sm font-medium">Metode Pembayaran</label>
               <select value={formData.method} onChange={(e) => setFormData({ ...formData, method: e.target.value as any })}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <option value="Cash">Cash</option>
+                <option value="Cash">Cash (Tunai)</option>
                 <option value="QRIS">QRIS</option>
+                <option value="Transfer">Transfer / Bank</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Tipe</label>
-              <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+              <label className="text-sm font-medium">Arus Kas (Tipe)</label>
+              <select 
+                value={formData.type} 
+                onChange={(e) => {
+                  const newType = e.target.value as 'income' | 'expense'
+                  setFormData({ 
+                    ...formData, 
+                    type: newType,
+                    sub_type: '', // reset sub_type saat tipe kas berubah
+                  })
+                }}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <option value="income">Pemasukan</option>
-                <option value="expense">Pengeluaran</option>
+                <option value="income">Pemasukan (+)</option>
+                <option value="expense">Pengeluaran (-)</option>
               </select>
             </div>
           </div>
+
+          {/* Vetted by AI - Manual Review Required by Senior Engineer/Manager */}
+          {/* Sub Tipe Transaksi (Investor vs Operasional) */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Klasifikasi Transaksi</label>
+            <select
+              value={formData.sub_type}
+              onChange={(e) => setFormData({ ...formData, sub_type: e.target.value as any })}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
+            >
+              {formData.type === 'income' ? (
+                <>
+                  <option value="">Operasional Kedai (Penjualan / Kas Masuk Rutin)</option>
+                  <option value="investor_capital">Setoran Modal Investor (Equity — Tidak masuk Omzet)</option>
+                  <option value="investor_loan">Pinjaman Dana Investor (Hutang — Tidak masuk Omzet)</option>
+                </>
+              ) : (
+                <>
+                  <option value="">Operasional Kedai (Beban Toko Biasa)</option>
+                  <option value="loan_payment">Pembayaran Hutang / Cicilan Pinjaman Investor</option>
+                </>
+              )}
+            </select>
+            {formData.sub_type !== '' && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
+                ℹ️ Transaksi investor dicatat khusus di Buku Kas &amp; PSAK, dan secara otomatis dikecualikan dari perhitungan Omzet/Laba Rugi operasional barista.
+              </p>
+            )}
+          </div>
+
+          {formData.sub_type !== '' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nama Investor / Pihak Terkait</label>
+              <Input
+                value={formData.investor_name}
+                onChange={(e) => setFormData({ ...formData, investor_name: e.target.value })}
+                placeholder="cth. Salman, Bpk. Hendra, Investor Utama"
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Deskripsi</label>
-            <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="cth. Setoran harian, Biaya operasional" />
+            <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="cth. Setoran modal outlet, Biaya operasional" />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Referensi (opsional)</label>
-            <Input value={formData.reference} onChange={(e) => setFormData({ ...formData, reference: e.target.value })} placeholder="cth. order_id, expense_id" />
+            <Input value={formData.reference} onChange={(e) => setFormData({ ...formData, reference: e.target.value })} placeholder="cth. order_id, exp_123, trx_inv" />
           </div>
         </div>
       </Dialog>

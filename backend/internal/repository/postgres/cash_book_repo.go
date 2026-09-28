@@ -53,14 +53,16 @@ func (r *cashBookRepository) FindByID(id uint) (*entity.CashBook, error) {
 
 func (r *cashBookRepository) Create(c *entity.CashBook) error {
 	m := &models.CashBook{
-		OutletID:    c.OutletID,
-		Date:        c.Date,
-		Method:      c.Method,
-		Type:        c.Type,
-		Amount:      c.Amount,
-		Description: c.Description,
-		Reference:   c.Reference,
-		CreatedBy:   c.CreatedBy,
+		OutletID:     c.OutletID,
+		Date:         c.Date,
+		Method:       c.Method,
+		Type:         c.Type,
+		SubType:      c.SubType,
+		InvestorName: c.InvestorName,
+		Amount:       c.Amount,
+		Description:  c.Description,
+		Reference:    c.Reference,
+		CreatedBy:    c.CreatedBy,
 	}
 	if err := r.db.Create(m).Error; err != nil {
 		return err
@@ -71,12 +73,14 @@ func (r *cashBookRepository) Create(c *entity.CashBook) error {
 
 func (r *cashBookRepository) Update(c *entity.CashBook) error {
 	return r.db.Model(&models.CashBook{}).Where("id = ?", c.ID).Updates(map[string]interface{}{
-		"date":        c.Date,
-		"method":      c.Method,
-		"type":        c.Type,
-		"amount":      c.Amount,
-		"description": c.Description,
-		"reference":   c.Reference,
+		"date":          c.Date,
+		"method":        c.Method,
+		"type":          c.Type,
+		"sub_type":      c.SubType,
+		"investor_name": c.InvestorName,
+		"amount":        c.Amount,
+		"description":   c.Description,
+		"reference":     c.Reference,
 	}).Error
 }
 
@@ -163,17 +167,46 @@ func (r *cashBookRepository) DeleteByProfitSharingPeriod(periodID uint, outletID
 	return res.RowsAffected, res.Error
 }
 
+// GetOperationalTotalsRange returns income/expense totals excluding investor sub_types.
+// Investor entries (investor_capital, investor_loan, loan_payment) bukan revenue operasional
+// dan tidak boleh inflate CashBookIncome di P&L report.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *cashBookRepository) GetOperationalTotalsRange(start, end string, outletID ...uint) (income float64, expense float64, err error) {
+	buildTx := func() *gorm.DB {
+		tx := r.db.Model(&models.CashBook{}).
+			Where("(sub_type = '' OR sub_type IS NULL)") // hanya operasional biasa
+		if start != "" {
+			tx = tx.Where("DATE(date) >= ?", start)
+		}
+		if end != "" {
+			tx = tx.Where("DATE(date) <= ?", end)
+		}
+		return scopeOutlet(tx, "cash_books", outletID...)
+	}
+	if err = buildTx().Where("type = ?", "income").
+		Select("COALESCE(SUM(amount), 0)").Row().Scan(&income); err != nil {
+		return 0, 0, err
+	}
+	if err = buildTx().Where("type = ?", "expense").
+		Select("COALESCE(SUM(amount), 0)").Row().Scan(&expense); err != nil {
+		return 0, 0, err
+	}
+	return income, expense, nil
+}
+
 func toDomainCashBook(m *models.CashBook) *entity.CashBook {
 	return &entity.CashBook{
-		ID:          m.ID,
-		OutletID:    m.OutletID,
-		Date:        m.Date,
-		Method:      m.Method,
-		Type:        m.Type,
-		Amount:      m.Amount,
-		Description: m.Description,
-		Reference:   m.Reference,
-		CreatedBy:   m.CreatedBy,
-		CreatedAt:   m.CreatedAt,
+		ID:           m.ID,
+		OutletID:     m.OutletID,
+		Date:         m.Date,
+		Method:       m.Method,
+		Type:         m.Type,
+		SubType:      m.SubType,
+		InvestorName: m.InvestorName,
+		Amount:       m.Amount,
+		Description:  m.Description,
+		Reference:    m.Reference,
+		CreatedBy:    m.CreatedBy,
+		CreatedAt:    m.CreatedAt,
 	}
 }

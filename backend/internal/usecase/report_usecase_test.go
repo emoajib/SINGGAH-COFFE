@@ -16,7 +16,7 @@ func setupReportTestDB() *gorm.DB {
 	if err != nil {
 		panic("Failed to connect to database: " + err.Error())
 	}
-	db.AutoMigrate(&models.Order{}, &models.OrderItem{}, &models.Expense{}, &models.Ingredient{}, &models.Product{}, &models.PSAKEventOutbox{})
+	db.AutoMigrate(&models.Order{}, &models.OrderItem{}, &models.Expense{}, &models.Ingredient{}, &models.Product{}, &models.CashBook{}, &models.PSAKEventOutbox{})
 	return db
 }
 
@@ -131,4 +131,77 @@ func TestReportUsecase_GetDashboardSummary(t *testing.T) {
 	assert.Equal(t, 75000.0, summary.TotalSales)
 	assert.Equal(t, int64(1), summary.TransactionsToday)
 	assert.GreaterOrEqual(t, summary.LowStockCount, int64(1))
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestReportUsecase_GetProfitLossReport_ExcludesInvestorCashBook(t *testing.T) {
+	dashboardMu.Lock()
+	dashboardCache = nil
+	dashboardMu.Unlock()
+
+	db := setupReportTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createReportUsecase(db)
+
+	now := time.Now()
+	// 1. Entri operasional biasa di cash book
+	db.Create(&models.CashBook{
+		OutletID:    1,
+		Date:        now,
+		Method:      "Cash",
+		Type:        "income",
+		SubType:     "",
+		Amount:      50000,
+		Description: "Penjualan offline / tip",
+	})
+	db.Create(&models.CashBook{
+		OutletID:    1,
+		Date:        now,
+		Method:      "Cash",
+		Type:        "expense",
+		SubType:     "",
+		Amount:      10000,
+		Description: "Beli sabun cuci",
+	})
+
+	// 2. Entri investor: modal disetor Rp 10.000.000 & pinjaman Rp 5.000.000
+	db.Create(&models.CashBook{
+		OutletID:     1,
+		Date:         now,
+		Method:       "Transfer",
+		Type:         "income",
+		SubType:      "investor_capital",
+		InvestorName: "Investor A",
+		Amount:       10000000,
+		Description:  "Setoran modal awal",
+	})
+	db.Create(&models.CashBook{
+		OutletID:     1,
+		Date:         now,
+		Method:       "Transfer",
+		Type:         "income",
+		SubType:      "investor_loan",
+		InvestorName: "Investor B",
+		Amount:       5000000,
+		Description:  "Pinjaman ekspansi",
+	})
+	db.Create(&models.CashBook{
+		OutletID:     1,
+		Date:         now,
+		Method:       "Transfer",
+		Type:         "expense",
+		SubType:      "loan_payment",
+		InvestorName: "Investor B",
+		Amount:       1000000,
+		Description:  "Cicilan pinjaman",
+	})
+
+	report, err := uc.GetProfitLossReport("2020-01-01", "2030-12-31", 1)
+	assert.NoError(t, err)
+	assert.NotNil(t, report)
+
+	// Pastikan CashBookIncome hanya 50.000 (bukan 15.050.000!)
+	assert.Equal(t, 50000.0, report.CashBookIncome)
+	// Pastikan CashBookExpense hanya 10.000 (bukan 1.010.000!)
+	assert.Equal(t, 10000.0, report.CashBookExpense)
 }

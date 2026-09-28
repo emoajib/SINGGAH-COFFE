@@ -193,7 +193,12 @@ func Connect(cfg config.Config) *gorm.DB {
 	db.Exec("UPDATE expenses SET category = 'Gaji & Upah' WHERE LOWER(TRIM(category)) IN ('salary', 'gaji', 'upah', 'honor', 'bagi hasil')")
 	db.Exec("UPDATE expenses SET category = 'Pemeliharaan & Servis' WHERE LOWER(TRIM(category)) IN ('maintenance', 'pemeliharaan', 'servis', 'perawatan')")
 	db.Exec("UPDATE expenses SET category = 'Pemasaran / Marketing' WHERE LOWER(TRIM(category)) IN ('marketing', 'pemasaran', 'promosi', 'iklan')")
+	db.Exec("UPDATE expenses SET category = 'Peralatan' WHERE LOWER(TRIM(category)) IN ('peralatan', 'equipment', 'alat', 'perlengkapan alat', 'tools', 'inventaris')")
 	db.Exec("UPDATE expenses SET category = 'Lainnya' WHERE LOWER(TRIM(category)) IN ('other', 'misc') OR category = '' OR category IS NULL")
+
+	// Ensure cash_books has sub_type and investor_name (idempotent / non-blocking)
+	_ = db.Exec("ALTER TABLE cash_books ADD COLUMN IF NOT EXISTS sub_type VARCHAR(30) NOT NULL DEFAULT ''")
+	_ = db.Exec("ALTER TABLE cash_books ADD COLUMN IF NOT EXISTS investor_name VARCHAR(100) NOT NULL DEFAULT ''")
 
 	return db
 }

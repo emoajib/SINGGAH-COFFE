@@ -146,22 +146,27 @@ type CloseCashRegisterRequest struct {
 }
 
 // Buku Kas (owner-only)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type CreateCashBookRequest struct {
-	Date        string  `json:"date" binding:"required"`
-	Method      string  `json:"method" binding:"required,oneof=Cash QRIS Lainnya"`
-	Type        string  `json:"type" binding:"required,oneof=income expense"`
-	Amount      float64 `json:"amount" binding:"required,gt=0"`
-	Description string  `json:"description"`
-	Reference   string  `json:"reference"`
+	Date         string  `json:"date" binding:"required"`
+	Method       string  `json:"method" binding:"required,oneof=Cash QRIS Lainnya Transfer"`
+	Type         string  `json:"type" binding:"required,oneof=income expense"`
+	SubType      string  `json:"sub_type"` // "" | "investor_capital" | "investor_loan" | "loan_payment"
+	InvestorName string  `json:"investor_name"`
+	Amount       float64 `json:"amount" binding:"required,gt=0"`
+	Description  string  `json:"description"`
+	Reference    string  `json:"reference"`
 }
 
 type UpdateCashBookRequest struct {
-	Date        string  `json:"date" binding:"required"`
-	Method      string  `json:"method" binding:"required,oneof=Cash QRIS Lainnya"`
-	Type        string  `json:"type" binding:"required,oneof=income expense"`
-	Amount      float64 `json:"amount" binding:"required,gt=0"`
-	Description string  `json:"description"`
-	Reference   string  `json:"reference"`
+	Date         string  `json:"date" binding:"required"`
+	Method       string  `json:"method" binding:"required,oneof=Cash QRIS Lainnya Transfer"`
+	Type         string  `json:"type" binding:"required,oneof=income expense"`
+	SubType      string  `json:"sub_type"`
+	InvestorName string  `json:"investor_name"`
+	Amount       float64 `json:"amount" binding:"required,gt=0"`
+	Description  string  `json:"description"`
+	Reference    string  `json:"reference"`
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager

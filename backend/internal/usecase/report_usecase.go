@@ -295,7 +295,7 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 			Count:         otherCount,
 		})
 	}
-	cbIncome, cbExpense, _ := uc.cashBookRepo.GetTotalsRange(start, end, outletID...)
+	cbIncome, cbExpense, _ := uc.cashBookRepo.GetOperationalTotalsRange(start, end, outletID...)
 	grossProfit := revenue - cogs
 	netProfit := grossProfit - totalExpenses
 

@@ -185,6 +185,10 @@ type CashBookRepository interface {
 	Delete(id uint) error
 	GetTotalsSince(since string, outletID ...uint) (income float64, expense float64, err error)
 	GetTotalsRange(start, end string, outletID ...uint) (income float64, expense float64, err error)
+	// GetOperationalTotalsRange excludes investor sub_types (investor_capital, investor_loan, loan_payment)
+	// agar modal/pinjaman investor tidak inflate CashBookIncome di P&L report.
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	GetOperationalTotalsRange(start, end string, outletID ...uint) (income float64, expense float64, err error)
 	ExistsByReference(ref string, outletID ...uint) (bool, error)
 	DeleteByReference(ref string, outletID ...uint) (int64, error)
 	ExistsByProfitSharingPeriod(periodID uint, outletID ...uint) (bool, error)

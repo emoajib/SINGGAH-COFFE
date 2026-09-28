@@ -393,8 +393,10 @@ export interface CashBook {
   id: number
   outlet_id: number
   date: string
-  method: 'Cash' | 'QRIS' | 'Lainnya'
+  method: 'Cash' | 'QRIS' | 'Lainnya' | 'Transfer'
   type: 'income' | 'expense'
+  sub_type?: '' | 'investor_capital' | 'investor_loan' | 'loan_payment'
+  investor_name?: string
   amount: number
   description: string
   reference: string
@@ -404,8 +406,10 @@ export interface CashBook {
 
 export interface CashBookRequest {
   date: string
-  method: 'Cash' | 'QRIS' | 'Lainnya'
+  method: 'Cash' | 'QRIS' | 'Lainnya' | 'Transfer'
   type: 'income' | 'expense'
+  sub_type?: '' | 'investor_capital' | 'investor_loan' | 'loan_payment'
+  investor_name?: string
   amount: number
   description?: string
   reference?: string

@@ -95,8 +95,16 @@ func (h *JournalEventHandler) ProcessEvent(event *entity.EventOutbox) error {
 		return h.handleExpenseUpdated(event)
 	case "expense.deleted":
 		return h.handleExpenseDeleted(event)
+	case "investor.capital_in":
+		return h.handleInvestorCapitalIn(event)
+	case "investor.loan_in":
+		return h.handleInvestorLoanIn(event)
+	case "investor.loan_payment":
+		return h.handleInvestorLoanPayment(event)
 	default:
-		return fmt.Errorf("unknown event type: %s", event.EventType)
+		// Unknown events: log and skip (jangan block queue processing)
+		log.Printf("[JournalHandler] WARN: unknown event type %s (id=%d), skipping", event.EventType, event.ID)
+		return nil
 	}
 }
 
@@ -440,4 +448,136 @@ func (h *JournalEventHandler) voidOriginalEntry(sourceType string, sourceID uint
 // toIDR converts float64 amount to int64 (Rupiah has no fractional unit).
 func toIDR(amount float64) int64 {
 	return int64(amount)
+}
+
+// ─── Investor Journal Handlers ───────────────────────────────────────────────
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+
+// InvestorEventPayload adalah payload JSON untuk event investor.capital_in/loan_in/loan_payment.
+type InvestorEventPayload struct {
+	ID           uint    `json:"id"`
+	InvestorName string  `json:"investor_name"`
+	Amount       float64 `json:"amount"`
+	Method       string  `json:"method"` // Cash, Transfer, QRIS
+	OutletID     uint    `json:"outlet_id"`
+	Notes        string  `json:"notes"`
+}
+
+// handleInvestorCapitalIn: Investor setor modal ekuitas.
+// DR 1101 Kas (atau 1102 jika Transfer) / CR 3101 Modal Disetor
+func (h *JournalEventHandler) handleInvestorCapitalIn(event *entity.EventOutbox) error {
+	var p InvestorEventPayload
+	if err := json.Unmarshal(event.Payload, &p); err != nil {
+		return fmt.Errorf("unmarshal investor capital payload: %w", err)
+	}
+	cashCode := "1101"
+	if p.Method == "Transfer" || p.Method == "QRIS" {
+		cashCode = "1102"
+	}
+	accounts, err := h.lookupAccounts(p.OutletID, cashCode, "3101")
+	if err != nil {
+		return fmt.Errorf("lookup accounts investor capital: %w", err)
+	}
+	entryNumber, err := h.journalRepo.GetNextEntryNumber(p.OutletID)
+	if err != nil {
+		return err
+	}
+	desc := fmt.Sprintf("Setoran Modal Investor — %s", p.InvestorName)
+	if p.Notes != "" {
+		desc += " (" + p.Notes + ")"
+	}
+	sourceID := p.ID
+	items := []entity.JournalEntryItem{
+		{AccountID: accounts[cashCode].ID, AccountCode: cashCode, AccountName: accounts[cashCode].Name,
+			Debit: toIDR(p.Amount), Credit: 0, Description: desc, OutletID: p.OutletID},
+		{AccountID: accounts["3101"].ID, AccountCode: "3101", AccountName: accounts["3101"].Name,
+			Debit: 0, Credit: toIDR(p.Amount), Description: desc, OutletID: p.OutletID},
+	}
+	return h.journalRepo.Create(&entity.JournalEntry{
+		EntryNumber: entryNumber,
+		Date:        time.Now(),
+		Description: desc,
+		SourceType:  "investor",
+		SourceID:    &sourceID,
+		Status:      "posted",
+		OutletID:    p.OutletID,
+	}, items)
+}
+
+// handleInvestorLoanIn: Investor pinjamkan dana (hutang).
+// DR 1101 Kas / CR 2201 Hutang Jangka Panjang
+func (h *JournalEventHandler) handleInvestorLoanIn(event *entity.EventOutbox) error {
+	var p InvestorEventPayload
+	if err := json.Unmarshal(event.Payload, &p); err != nil {
+		return fmt.Errorf("unmarshal investor loan payload: %w", err)
+	}
+	cashCode := "1101"
+	if p.Method == "Transfer" || p.Method == "QRIS" {
+		cashCode = "1102"
+	}
+	accounts, err := h.lookupAccounts(p.OutletID, cashCode, "2201")
+	if err != nil {
+		return fmt.Errorf("lookup accounts investor loan: %w", err)
+	}
+	entryNumber, err := h.journalRepo.GetNextEntryNumber(p.OutletID)
+	if err != nil {
+		return err
+	}
+	desc := fmt.Sprintf("Pinjaman dari Investor — %s", p.InvestorName)
+	if p.Notes != "" {
+		desc += " (" + p.Notes + ")"
+	}
+	sourceID := p.ID
+	items := []entity.JournalEntryItem{
+		{AccountID: accounts[cashCode].ID, AccountCode: cashCode, AccountName: accounts[cashCode].Name,
+			Debit: toIDR(p.Amount), Credit: 0, Description: desc, OutletID: p.OutletID},
+		{AccountID: accounts["2201"].ID, AccountCode: "2201", AccountName: accounts["2201"].Name,
+			Debit: 0, Credit: toIDR(p.Amount), Description: desc, OutletID: p.OutletID},
+	}
+	return h.journalRepo.Create(&entity.JournalEntry{
+		EntryNumber: entryNumber,
+		Date:        time.Now(),
+		Description: desc,
+		SourceType:  "investor",
+		SourceID:    &sourceID,
+		Status:      "posted",
+		OutletID:    p.OutletID,
+	}, items)
+}
+
+// handleInvestorLoanPayment: Bayar cicilan/angsuran hutang investor.
+// DR 2201 Hutang Jangka Panjang / CR 1101 Kas
+func (h *JournalEventHandler) handleInvestorLoanPayment(event *entity.EventOutbox) error {
+	var p InvestorEventPayload
+	if err := json.Unmarshal(event.Payload, &p); err != nil {
+		return fmt.Errorf("unmarshal investor loan payment payload: %w", err)
+	}
+	accounts, err := h.lookupAccounts(p.OutletID, "2201", "1101")
+	if err != nil {
+		return fmt.Errorf("lookup accounts loan payment: %w", err)
+	}
+	entryNumber, err := h.journalRepo.GetNextEntryNumber(p.OutletID)
+	if err != nil {
+		return err
+	}
+	desc := fmt.Sprintf("Pembayaran Hutang Investor — %s", p.InvestorName)
+	if p.Notes != "" {
+		desc += " (" + p.Notes + ")"
+	}
+	sourceID := p.ID
+	items := []entity.JournalEntryItem{
+		{AccountID: accounts["2201"].ID, AccountCode: "2201", AccountName: accounts["2201"].Name,
+			Debit: toIDR(p.Amount), Credit: 0, Description: desc, OutletID: p.OutletID},
+		{AccountID: accounts["1101"].ID, AccountCode: "1101", AccountName: accounts["1101"].Name,
+			Debit: 0, Credit: toIDR(p.Amount), Description: desc, OutletID: p.OutletID},
+	}
+	return h.journalRepo.Create(&entity.JournalEntry{
+		EntryNumber: entryNumber,
+		Date:        time.Now(),
+		Description: desc,
+		SourceType:  "investor",
+		SourceID:    &sourceID,
+		Status:      "posted",
+		OutletID:    p.OutletID,
+	}, items)
 }

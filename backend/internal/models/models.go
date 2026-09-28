@@ -167,12 +167,14 @@ type CashRegister struct {
 type CashBook struct {
 	BaseModel
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-	OutletID    uint      `json:"outlet_id" gorm:"index:idx_cb_outlet_ref,priority:1;index"`
-	Date        time.Time `json:"date" gorm:"index"`
-	Method      string    `json:"method" gorm:"index"` // Cash, QRIS, Lainnya
-	Type        string    `json:"type" gorm:"index"`   // income, expense
-	Amount      float64   `json:"amount"`
-	Description string    `json:"description"`
-	Reference   string    `json:"reference" gorm:"index:idx_cb_outlet_ref,priority:2;index"` // optional: order_id, expense_id, etc.
-	CreatedBy   uint      `json:"created_by" gorm:"index"`
+	OutletID     uint      `json:"outlet_id" gorm:"index:idx_cb_outlet_ref,priority:1;index"`
+	Date         time.Time `json:"date" gorm:"index"`
+	Method       string    `json:"method" gorm:"index"` // Cash, QRIS, Lainnya, Transfer
+	Type         string    `json:"type" gorm:"index"`   // income, expense
+	SubType      string    `json:"sub_type" gorm:"type:varchar(30);default:''"` // ""|"investor_capital"|"investor_loan"|"loan_payment"
+	InvestorName string    `json:"investor_name" gorm:"type:varchar(100);default:''"`
+	Amount       float64   `json:"amount"`
+	Description  string    `json:"description"`
+	Reference    string    `json:"reference" gorm:"index:idx_cb_outlet_ref,priority:2;index"` // optional: order_id, expense_id, etc.
+	CreatedBy    uint      `json:"created_by" gorm:"index"`
 }

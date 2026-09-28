@@ -81,14 +81,16 @@ func (h *CashBookHandler) CreateCashBook(c *gin.Context) {
 
 	uid, _ := getUserID(c)
 	item := &entity.CashBook{
-		OutletID:    getOutletID(c),
-		Date:        parseDate(req.Date),
-		Method:      req.Method,
-		Type:        req.Type,
-		Amount:      req.Amount,
-		Description: req.Description,
-		Reference:   req.Reference,
-		CreatedBy:   uid,
+		OutletID:     getOutletID(c),
+		Date:         parseDate(req.Date),
+		Method:       req.Method,
+		Type:         req.Type,
+		SubType:      req.SubType,
+		InvestorName: req.InvestorName,
+		Amount:       req.Amount,
+		Description:  req.Description,
+		Reference:    req.Reference,
+		CreatedBy:    uid,
 	}
 
 	result, err := h.cashBookUsecase.Create(item, getOutletID(c))
@@ -114,12 +116,14 @@ func (h *CashBookHandler) UpdateCashBook(c *gin.Context) {
 	}
 
 	item := &entity.CashBook{
-		Date:        parseDate(req.Date),
-		Method:      req.Method,
-		Type:        req.Type,
-		Amount:      req.Amount,
-		Description: req.Description,
-		Reference:   req.Reference,
+		Date:         parseDate(req.Date),
+		Method:       req.Method,
+		Type:         req.Type,
+		SubType:      req.SubType,
+		InvestorName: req.InvestorName,
+		Amount:       req.Amount,
+		Description:  req.Description,
+		Reference:    req.Reference,
 	}
 	result, err := h.cashBookUsecase.Update(uint(id), item)
 	if err != nil {
