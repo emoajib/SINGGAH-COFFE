@@ -11,13 +11,14 @@ import { useExpenses, useExpenseSummary, useCreateExpense, useUpdateExpense, use
 import { useToast } from "../hooks/use-toast"
 import { formatNumber } from "../lib/utils"
 
-// 6 Kategori Standar Baku Beban Biaya
+// 7 Kategori Standar Baku Beban Biaya
 export const CANONICAL_CATEGORIES = [
     "Operasional",
     "Bahan Baku (HPP)",
     "Gaji & Upah",
     "Pemeliharaan & Servis",
     "Pemasaran / Marketing",
+    "Peralatan",
     "Lainnya"
 ] as const;
 
@@ -47,6 +48,11 @@ export const CATEGORY_META: Record<string, { label: string; badgeBg: string; bar
         badgeBg: "bg-rose-50 text-rose-700 border-rose-200",
         barCol: "bg-rose-600",
     },
+    "Peralatan": {
+        label: "Peralatan",
+        badgeBg: "bg-orange-50 text-orange-700 border-orange-200",
+        barCol: "bg-orange-500",
+    },
     "Lainnya": {
         label: "Lainnya",
         badgeBg: "bg-slate-100 text-slate-700 border-slate-200",
@@ -73,6 +79,9 @@ export const normalizeCategory = (cat?: string): string => {
     if (["marketing", "pemasaran", "pemasaran / marketing", "promosi", "iklan"].includes(clean)) {
         return "Pemasaran / Marketing"
     }
+    if (["peralatan", "equipment", "alat", "perlengkapan alat", "tools", "inventaris"].includes(clean)) {
+        return "Peralatan"
+    }
     if (["other", "lainnya", "misc"].includes(clean)) {
         return "Lainnya"
     }
@@ -96,8 +105,9 @@ const ROUTINE_TEMPLATES: RoutineTemplate[] = [
     { name: "Pembelian Bahan Baku (Kopi/Susu/Sirup/Cup)", category: "Bahan Baku (HPP)", cost_type: "variable", defaultDesc: "Belanja bahan baku minuman/makanan & kemasan" },
     { name: "Gaji & Upah Karyawan / Barista", category: "Gaji & Upah", cost_type: "fixed", defaultDesc: "Gaji pokok, upah harian, lembur barista" },
     { name: "Bagi Hasil / Profit Sharing", category: "Gaji & Upah", cost_type: "variable", defaultDesc: "Bagi hasil periode operasional berjalan" },
-    { name: "Servis & Perawatan Mesin / Alat", category: "Pemeliharaan & Servis", cost_type: "fixed", defaultDesc: "Servis espresso maker, grinder, chiller kulkas, alat" },
-    { name: "Pemasaran & Promosi (Iklan/Banner)", category: "Pemasaran / Marketing", cost_type: "variable", defaultDesc: "Media sosial, promo, spanduk, banner promosi" },
+    { name: "Servis & Perawatan Mesin / Alat", category: "Pemeliharaan & Servis", cost_type: "fixed" as const, defaultDesc: "Servis espresso maker, grinder, chiller kulkas, alat" },
+    { name: "Beli Peralatan Kedai (Gelas/Tamper/Teko/Grinder)", category: "Peralatan", cost_type: "fixed" as const, defaultDesc: "Pembelian peralatan dan inventaris operasional kedai" },
+    { name: "Pemasaran & Promosi (Iklan/Banner)", category: "Pemasaran / Marketing", cost_type: "variable" as const, defaultDesc: "Media sosial, promo, spanduk, banner promosi" },
 ]
 
 export default function Expenses() {

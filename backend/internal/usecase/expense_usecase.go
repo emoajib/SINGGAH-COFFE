@@ -379,13 +379,14 @@ func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uin
 	}, nil
 }
 
-// NormalizeCategory menyelaraskan nama kategori ke 6 standar baku:
+// NormalizeCategory menyelaraskan nama kategori ke 7 standar baku:
 // 1. Operasional
 // 2. Bahan Baku (HPP)
 // 3. Gaji & Upah
 // 4. Pemeliharaan & Servis
 // 5. Pemasaran / Marketing
-// 6. Lainnya
+// 6. Peralatan
+// 7. Lainnya
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func NormalizeCategory(cat string) string {
 	clean := strings.ToLower(strings.TrimSpace(cat))
@@ -400,6 +401,8 @@ func NormalizeCategory(cat string) string {
 		return "Pemeliharaan & Servis"
 	case "marketing", "pemasaran", "pemasaran / marketing", "promosi", "iklan":
 		return "Pemasaran / Marketing"
+	case "peralatan", "equipment", "alat", "perlengkapan alat", "tools", "inventaris":
+		return "Peralatan"
 	case "other", "lainnya", "misc", "":
 		return "Lainnya"
 	default:

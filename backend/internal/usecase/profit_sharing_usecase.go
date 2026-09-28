@@ -31,6 +31,7 @@ var alwaysExcludedFromSharing = []string{
 	"Operasional", "Operational",
 	"Marketing", "Pemasaran", "Pemasaran / Marketing",
 	"Maintenance", "Pemeliharaan", "Pemeliharaan & Servis",
+	"Peralatan", "Equipment", // CapEx — tidak memotong bagi hasil barista
 	"Misc", "Lainnya", "Other",
 }
 

@@ -164,24 +164,13 @@ func (uc *InventoryUsecase) UpdateStock(ingredientID uint, mutationType string, 
 			}); err != nil {
 				return err
 			}
-			// Sync ke Buku Kas dalam transaksi yang sama.
-			// Pola idempoten reference "expense:{id}" mencegah duplikasi
-			// saat Owner menjalankan SyncFromTransactions di kemudian hari.
+			// Sync ke Buku Kas — gunakan syncExpenseToCashBook() yang idempoten
+			// (DELETE+INSERT via reference "expense:{id}") konsisten dengan expense_usecase.
+			// Pola ini aman dipanggil berulang tanpa duplikasi entry Buku Kas.
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 			if exp.ID > 0 && exp.Amount > 0 {
 				cashBookRepo := postgres.NewCashBookRepository(tx)
-				ref := fmt.Sprintf("expense:%d", exp.ID)
-				exists, _ := cashBookRepo.ExistsByReference(ref, oid)
-				if !exists {
-					_ = cashBookRepo.Create(&entity.CashBook{
-						OutletID:    oid,
-						Date:        exp.Date,
-						Method:      "Lainnya",
-						Type:        "expense",
-						Amount:      exp.Amount,
-						Description: "Pengeluaran: " + exp.Title,
-						Reference:   ref,
-					})
-				}
+				syncExpenseToCashBook(cashBookRepo, exp)
 			}
 		}
 

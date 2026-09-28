@@ -286,6 +286,12 @@ func TestNormalizeCategory(t *testing.T) {
 	assert.Equal(t, "Lainnya", NormalizeCategory("other"))
 	assert.Equal(t, "Lainnya", NormalizeCategory(""))
 	assert.Equal(t, "Lainnya", NormalizeCategory("Unknown Category"))
+	// Peralatan (kategori ke-7)
+	assert.Equal(t, "Peralatan", NormalizeCategory("peralatan"))
+	assert.Equal(t, "Peralatan", NormalizeCategory("PERALATAN"))
+	assert.Equal(t, "Peralatan", NormalizeCategory("equipment"))
+	assert.Equal(t, "Peralatan", NormalizeCategory("alat"))
+	assert.Equal(t, "Peralatan", NormalizeCategory("inventaris"))
 }
 
 func TestGetExpenseSummaryRecap_WithCategoryDrilldown(t *testing.T) {

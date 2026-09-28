@@ -67,6 +67,8 @@ var expenseCategoryToAccount = map[string]string{
 	"Salary":                "5204",
 	"Gaji & Upah":           "5204",
 	"Utilities":             "5205",
+	"Peralatan":             "5206", // Beban Peralatan (CapEx yang diexpensed)
+	"Equipment":             "5206", // alias English
 	"Lainnya":               "5201",
 	"Other":                 "5201",
 }
