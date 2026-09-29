@@ -128,10 +128,13 @@ func (uc *AccountUsecase) SeedDefaultAccounts(outletID uint) (int, error) {
 		{Code: "1101", Name: "Kas", Type: "asset", IsActive: true, OutletID: outletID},
 		{Code: "1102", Name: "Piutang Usaha", Type: "asset", IsActive: true, OutletID: outletID},
 		{Code: "1103", Name: "Persediaan", Type: "asset", IsActive: true, OutletID: outletID},
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		{Code: "1104", Name: "Bank / QRIS", Type: "asset", IsActive: true, OutletID: outletID},
 		{Code: "1201", Name: "Peralatan", Type: "asset", IsActive: true, OutletID: outletID},
 		{Code: "1202", Name: "Akumulasi Depresiasi", Type: "asset", IsActive: true, OutletID: outletID},
 		{Code: "2101", Name: "Utang Usaha", Type: "liability", IsActive: true, OutletID: outletID},
 		{Code: "2102", Name: "Utang Pajak (PPN)", Type: "liability", IsActive: true, OutletID: outletID},
+		{Code: "2201", Name: "Utang Jangka Panjang", Type: "liability", IsActive: true, OutletID: outletID},
 		{Code: "3101", Name: "Modal Usaha", Type: "equity", IsActive: true, OutletID: outletID},
 		{Code: "3102", Name: "Laba Ditahan", Type: "equity", IsActive: true, OutletID: outletID},
 		{Code: "4101", Name: "Pendapatan Penjualan", Type: "revenue", IsActive: true, OutletID: outletID},
@@ -142,6 +145,7 @@ func (uc *AccountUsecase) SeedDefaultAccounts(outletID uint) (int, error) {
 		{Code: "5203", Name: "Beban Sewa", Type: "expense", IsActive: true, OutletID: outletID},
 		{Code: "5204", Name: "Beban Listrik & Air", Type: "expense", IsActive: true, OutletID: outletID},
 		{Code: "5205", Name: "Beban Depresiasi", Type: "expense", IsActive: true, OutletID: outletID},
+		{Code: "5206", Name: "Beban Peralatan", Type: "expense", IsActive: true, OutletID: outletID},
 	}
 
 	var created int

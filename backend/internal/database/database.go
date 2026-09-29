@@ -236,5 +236,51 @@ func Connect(cfg config.Config) *gorm.DB {
 		db.Create(&models.Setting{Key: "self_order_enabled", Value: "true", SettingGroup: "general"})
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Rekonsiliasi Akun PSAK (Self-Healing Migration):
+	// Pastikan akun Bank/QRIS (1104), Utang Jangka Panjang (2201), dan Beban Peralatan (5206) tersedia.
+	requiredPSAKAccounts := []models.PSAKAccount{
+		{Code: "1104", Name: "Bank / QRIS", Type: "asset", IsActive: true, OutletID: 1},
+		{Code: "2201", Name: "Utang Jangka Panjang", Type: "liability", IsActive: true, OutletID: 1},
+		{Code: "5206", Name: "Beban Peralatan", Type: "expense", IsActive: true, OutletID: 1},
+	}
+	for _, acc := range requiredPSAKAccounts {
+		var cnt int64
+		db.Model(&models.PSAKAccount{}).Where("code = ? AND outlet_id = ?", acc.Code, acc.OutletID).Count(&cnt)
+		if cnt == 0 {
+			db.Create(&acc)
+			log.Printf("Seeded missing PSAK Account: %s (%s)", acc.Code, acc.Name)
+		}
+	}
+
+	var bankAcc models.PSAKAccount
+	if err := db.Where("code = '1104' AND outlet_id = 1").First(&bankAcc).Error; err == nil && bankAcc.ID > 0 {
+		// 1. Relokasi entri jurnal Penjualan (Order) QRIS/Transfer yang sebelumnya salah tercatat ke 1102 (Piutang) menjadi 1104 (Bank / QRIS)
+		_ = db.Exec(`
+			UPDATE psak_journal_entry_items jitem
+			JOIN psak_journal_entries je ON je.id = jitem.journal_entry_id
+			JOIN orders o ON o.id = je.source_id AND je.source_type = 'order'
+			SET jitem.account_id = ?, jitem.account_code = '1104', jitem.account_name = 'Bank / QRIS'
+			WHERE jitem.account_code = '1102' AND o.payment_method IN ('QRIS', 'Transfer') AND (o.payment_status = 'Paid' OR o.status = 'Completed')
+		`, bankAcc.ID)
+
+		// 2. Relokasi entri jurnal Pengeluaran (Expense) yang sebelumnya salah dikreditkan ke 1102 (Piutang) menjadi 1104 (Bank / QRIS)
+		_ = db.Exec(`
+			UPDATE psak_journal_entry_items jitem
+			JOIN psak_journal_entries je ON je.id = jitem.journal_entry_id
+			JOIN expenses e ON e.id = je.source_id AND je.source_type = 'expense'
+			SET jitem.account_id = ?, jitem.account_code = '1104', jitem.account_name = 'Bank / QRIS'
+			WHERE jitem.account_code = '1102'
+		`, bankAcc.ID)
+
+		// 3. Relokasi entri jurnal reversal atau sisa expense/investor yang tercatat di 1102
+		_ = db.Exec(`
+			UPDATE psak_journal_entry_items jitem
+			JOIN psak_journal_entries je ON je.id = jitem.journal_entry_id
+			SET jitem.account_id = ?, jitem.account_code = '1104', jitem.account_name = 'Bank / QRIS'
+			WHERE jitem.account_code = '1102' AND je.source_type IN ('expense', 'investor')
+		`, bankAcc.ID)
+	}
+
 	return db
 }

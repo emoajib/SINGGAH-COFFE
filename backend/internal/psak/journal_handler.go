@@ -130,9 +130,12 @@ func (h *JournalEventHandler) handleOrderCompleted(event *entity.EventOutbox) er
 		netRevenue = 0
 	}
 
-	// Determine cash vs receivable account
+	// Determine cash vs bank vs receivable account
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	cashAccountCode := "1101" // Kas
 	if payload.PaymentMethod == "QRIS" || payload.PaymentMethod == "Transfer" {
+		cashAccountCode = "1104" // Bank / QRIS
+	} else if payload.PaymentMethod == "Unpaid" || payload.PaymentMethod == "Belum Bayar" {
 		cashAccountCode = "1102" // Piutang Usaha
 	}
 
@@ -279,10 +282,13 @@ func (h *JournalEventHandler) handleExpenseCreated(event *entity.EventOutbox) er
 		expenseCode = "5201" // default to Operational
 	}
 
-	// Determine credit account (cash vs non-cash)
-	creditCode := "1101" // Kas
-	if payload.PaymentMethod != "" && payload.PaymentMethod != "Cash" {
-		creditCode = "1102" // Piutang / Bank
+	// Determine credit account (cash vs bank vs accounts payable)
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	creditCode := "1101" // Kas Tunai
+	if payload.PaymentMethod == "QRIS" || payload.PaymentMethod == "Transfer" || payload.PaymentMethod == "Bank" {
+		creditCode = "1104" // Bank / QRIS
+	} else if payload.PaymentMethod == "Lainnya" || payload.PaymentMethod == "Bon" || payload.PaymentMethod == "Tempo" || payload.PaymentMethod == "Utang" {
+		creditCode = "2101" // Utang Usaha
 	}
 
 	accounts, err := h.lookupAccounts(payload.OutletID, expenseCode, creditCode)
@@ -368,6 +374,7 @@ func (h *JournalEventHandler) handleExpenseDeleted(event *entity.EventOutbox) er
 }
 
 // lookupAccounts fetches multiple accounts by code, returning a map keyed by code.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *JournalEventHandler) lookupAccounts(outletID uint, codes ...string) (map[string]*entity.Account, error) {
 	result := make(map[string]*entity.Account, len(codes))
 	for _, code := range codes {
@@ -376,6 +383,23 @@ func (h *JournalEventHandler) lookupAccounts(outletID uint, codes ...string) (ma
 		}
 		acc, err := h.accountRepo.FindByCode(code, outletID)
 		if err != nil {
+			// Graceful fallback for non-seeded auxiliary accounts in older databases
+			if code == "1104" { // Fallback Bank/QRIS to Kas
+				if fallback, fbErr := h.accountRepo.FindByCode("1101", outletID); fbErr == nil {
+					result[code] = fallback
+					continue
+				}
+			} else if code == "2201" { // Fallback Utang Jangka Panjang to Utang Usaha
+				if fallback, fbErr := h.accountRepo.FindByCode("2101", outletID); fbErr == nil {
+					result[code] = fallback
+					continue
+				}
+			} else if code == "5206" { // Fallback Beban Peralatan to Beban Operasional
+				if fallback, fbErr := h.accountRepo.FindByCode("5201", outletID); fbErr == nil {
+					result[code] = fallback
+					continue
+				}
+			}
 			return nil, fmt.Errorf("account code %s: %w", code, err)
 		}
 		result[code] = acc
@@ -464,7 +488,8 @@ type InvestorEventPayload struct {
 }
 
 // handleInvestorCapitalIn: Investor setor modal ekuitas.
-// DR 1101 Kas (atau 1102 jika Transfer) / CR 3101 Modal Disetor
+// DR 1101 Kas (atau 1104 Bank/QRIS jika Transfer) / CR 3101 Modal Disetor
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *JournalEventHandler) handleInvestorCapitalIn(event *entity.EventOutbox) error {
 	var p InvestorEventPayload
 	if err := json.Unmarshal(event.Payload, &p); err != nil {
@@ -472,7 +497,7 @@ func (h *JournalEventHandler) handleInvestorCapitalIn(event *entity.EventOutbox)
 	}
 	cashCode := "1101"
 	if p.Method == "Transfer" || p.Method == "QRIS" {
-		cashCode = "1102"
+		cashCode = "1104"
 	}
 	accounts, err := h.lookupAccounts(p.OutletID, cashCode, "3101")
 	if err != nil {
@@ -505,7 +530,8 @@ func (h *JournalEventHandler) handleInvestorCapitalIn(event *entity.EventOutbox)
 }
 
 // handleInvestorLoanIn: Investor pinjamkan dana (hutang).
-// DR 1101 Kas / CR 2201 Hutang Jangka Panjang
+// DR 1101 Kas (atau 1104 Bank/QRIS jika Transfer) / CR 2201 Hutang Jangka Panjang
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *JournalEventHandler) handleInvestorLoanIn(event *entity.EventOutbox) error {
 	var p InvestorEventPayload
 	if err := json.Unmarshal(event.Payload, &p); err != nil {
@@ -513,7 +539,7 @@ func (h *JournalEventHandler) handleInvestorLoanIn(event *entity.EventOutbox) er
 	}
 	cashCode := "1101"
 	if p.Method == "Transfer" || p.Method == "QRIS" {
-		cashCode = "1102"
+		cashCode = "1104"
 	}
 	accounts, err := h.lookupAccounts(p.OutletID, cashCode, "2201")
 	if err != nil {
@@ -546,13 +572,18 @@ func (h *JournalEventHandler) handleInvestorLoanIn(event *entity.EventOutbox) er
 }
 
 // handleInvestorLoanPayment: Bayar cicilan/angsuran hutang investor.
-// DR 2201 Hutang Jangka Panjang / CR 1101 Kas
+// DR 2201 Hutang Jangka Panjang / CR 1101 Kas (atau 1104 Bank/QRIS jika Transfer)
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (h *JournalEventHandler) handleInvestorLoanPayment(event *entity.EventOutbox) error {
 	var p InvestorEventPayload
 	if err := json.Unmarshal(event.Payload, &p); err != nil {
 		return fmt.Errorf("unmarshal investor loan payment payload: %w", err)
 	}
-	accounts, err := h.lookupAccounts(p.OutletID, "2201", "1101")
+	cashCode := "1101"
+	if p.Method == "Transfer" || p.Method == "QRIS" {
+		cashCode = "1104"
+	}
+	accounts, err := h.lookupAccounts(p.OutletID, "2201", cashCode)
 	if err != nil {
 		return fmt.Errorf("lookup accounts loan payment: %w", err)
 	}
@@ -568,7 +599,7 @@ func (h *JournalEventHandler) handleInvestorLoanPayment(event *entity.EventOutbo
 	items := []entity.JournalEntryItem{
 		{AccountID: accounts["2201"].ID, AccountCode: "2201", AccountName: accounts["2201"].Name,
 			Debit: toIDR(p.Amount), Credit: 0, Description: desc, OutletID: p.OutletID},
-		{AccountID: accounts["1101"].ID, AccountCode: "1101", AccountName: accounts["1101"].Name,
+		{AccountID: accounts[cashCode].ID, AccountCode: cashCode, AccountName: accounts[cashCode].Name,
 			Debit: 0, Credit: toIDR(p.Amount), Description: desc, OutletID: p.OutletID},
 	}
 	return h.journalRepo.Create(&entity.JournalEntry{
