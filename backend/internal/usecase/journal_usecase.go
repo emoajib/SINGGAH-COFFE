@@ -156,6 +156,7 @@ func (uc *JournalUsecase) GetTrialBalance(start, end string, outletID ...uint) (
 }
 
 // GetBalanceSheet returns Assets, Liabilities, and Equity as of a date
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *JournalUsecase) GetBalanceSheet(asOf string, outletID ...uint) ([]entity.BalanceSheetItem, error) {
 	// Get all posted entries up to asOf date
 	rows, err := uc.journalItemRepo.GetTrialBalance("", asOf, outletID...)
@@ -163,6 +164,8 @@ func (uc *JournalUsecase) GetBalanceSheet(asOf string, outletID ...uint) ([]enti
 		return nil, err
 	}
 	var items []entity.BalanceSheetItem
+	var totalRevenue, totalExpense int64
+
 	for _, row := range rows {
 		balance := row.Debit - row.Credit
 		if balance == 0 {
@@ -172,30 +175,62 @@ func (uc *JournalUsecase) GetBalanceSheet(asOf string, outletID ...uint) ([]enti
 		var level int
 		switch row.AccountType {
 		case "asset":
-			// Assets: debit balance is positive
+			// Assets: debit balance is normal. Saldo positif = debit > credit.
 			amount = balance
-			if balance < 0 {
-				amount = -balance
-			}
 			level = 1
-		case "liability", "equity":
-			// Liabilities & Equity: credit balance is positive
-			amount = -balance
-			if balance < 0 {
-				amount = balance
-			}
+			items = append(items, entity.BalanceSheetItem{
+				AccountCode: row.AccountCode,
+				AccountName: row.AccountName,
+				AccountType: row.AccountType,
+				Amount:      amount,
+				Level:       level,
+			})
+		case "liability":
+			// Liabilities: credit balance is normal.
+			amount = -balance // Credit - Debit
 			level = 2
+			items = append(items, entity.BalanceSheetItem{
+				AccountCode: row.AccountCode,
+				AccountName: row.AccountName,
+				AccountType: row.AccountType,
+				Amount:      amount,
+				Level:       level,
+			})
+		case "equity":
+			// Equity: credit balance is normal.
+			amount = -balance // Credit - Debit
+			level = 2
+			items = append(items, entity.BalanceSheetItem{
+				AccountCode: row.AccountCode,
+				AccountName: row.AccountName,
+				AccountType: row.AccountType,
+				Amount:      amount,
+				Level:       level,
+			})
+		case "revenue":
+			// Akun nominal pendapatan (kredit - debit)
+			totalRevenue += (row.Credit - row.Debit)
+		case "expense":
+			// Akun nominal beban (debit - kredit)
+			totalExpense += (row.Debit - row.Credit)
 		default:
 			continue
 		}
+	}
+
+	// SAK EMKM / PSAK 1: Neraca wajib memperhitungkan Laba / (Rugi) Periode Berjalan pada Ekuitas
+	// sehingga Persamaan Dasar Akuntansi (Aset = Liabilitas + Ekuitas) selalu seimbang (balance).
+	netIncome := totalRevenue - totalExpense
+	if netIncome != 0 {
 		items = append(items, entity.BalanceSheetItem{
-			AccountCode: row.AccountCode,
-			AccountName: row.AccountName,
-			AccountType: row.AccountType,
-			Amount:      amount,
-			Level:       level,
+			AccountCode: "3103",
+			AccountName: "Laba (Rugi) Periode Berjalan",
+			AccountType: "equity",
+			Amount:      netIncome,
+			Level:       2,
 		})
 	}
+
 	return items, nil
 }
 
@@ -255,45 +290,29 @@ func (uc *JournalUsecase) GetIncomeStatement(start, end string, outletID ...uint
 	return result, nil
 }
 
-// GetCashFlow returns cash flow statement using indirect method
+// GetCashFlow returns cash flow statement
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *JournalUsecase) GetCashFlow(start, end string, outletID ...uint) ([]entity.CashFlowItem, error) {
 	// Get all posted entries in period
 	rows, err := uc.journalItemRepo.GetTrialBalance(start, end, outletID...)
 	if err != nil {
 		return nil, err
 	}
-	// Identify cash-related accounts (asset accounts with "cash" or "bank" in name)
-	var cashAccounts []string
-	for _, row := range rows {
-		if row.AccountType == "asset" {
-			code := row.AccountCode
-			// Cash accounts typically start with 1101-1109
-			if len(code) >= 4 && code[:4] >= "1101" && code[:4] <= "1109" {
-				cashAccounts = append(cashAccounts, row.AccountCode)
-			}
-		}
-	}
-	// Build cash flow items from revenue and expense accounts
+
 	var items []entity.CashFlowItem
 	for _, row := range rows {
 		balance := row.Debit - row.Credit
 		if balance == 0 {
 			continue
 		}
-		// Skip cash accounts themselves
-		isCash := false
-		for _, ca := range cashAccounts {
-			if row.AccountCode == ca {
-				isCash = true
-				break
-			}
-		}
-		if isCash {
+
+		// Kas & Setara Kas (1101 Kas Tunai, 1104 Bank/QRIS)
+		if row.AccountCode == "1101" || row.AccountCode == "1104" {
 			continue
 		}
+
 		switch row.AccountType {
 		case "revenue":
-			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 			// Penerimaan kas dari penjualan (Kredit - Debit)
 			amount := row.Credit - row.Debit
 			items = append(items, entity.CashFlowItem{
@@ -302,7 +321,6 @@ func (uc *JournalUsecase) GetCashFlow(start, end string, outletID ...uint) ([]en
 				Amount:      amount,
 			})
 		case "expense":
-			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 			// Pengeluaran kas untuk beban (arus keluar bernilai negatif)
 			amount := row.Debit - row.Credit
 			items = append(items, entity.CashFlowItem{
@@ -311,15 +329,37 @@ func (uc *JournalUsecase) GetCashFlow(start, end string, outletID ...uint) ([]en
 				Amount:      -amount,
 			})
 		case "asset":
-			// Asset changes (non-cash) = investing activities
-			amount := balance
+			// Non-cash current assets (Persediaan, Piutang) masuk ke Operating (Modal Kerja)
+			if row.AccountCode == "1102" || row.AccountCode == "1103" {
+				amount := row.Debit - row.Credit
+				items = append(items, entity.CashFlowItem{
+					Category:    "Operating",
+					Description: row.AccountName,
+					Amount:      -amount, // Kenaikan aset lancar = arus keluar kas
+				})
+			} else {
+				// Fixed assets (Peralatan, dsb.) = Investing
+				amount := row.Debit - row.Credit
+				items = append(items, entity.CashFlowItem{
+					Category:    "Investing",
+					Description: row.AccountName,
+					Amount:      -amount, // Pembelian aset tetap = arus keluar kas
+				})
+			}
+		case "liability":
+			// Hutang lancar (Utang usaha, Utang Pajak) = Operating, Hutang Jangka Panjang = Financing
+			amount := row.Credit - row.Debit
+			category := "Operating"
+			if row.AccountCode == "2201" {
+				category = "Financing"
+			}
 			items = append(items, entity.CashFlowItem{
-				Category:    "Investing",
+				Category:    category,
 				Description: row.AccountName,
 				Amount:      amount,
 			})
-		case "liability", "equity":
-			// Liability/equity changes = financing activities
+		case "equity":
+			// Modal Usaha / Laba Ditahan = Financing
 			amount := row.Credit - row.Debit
 			items = append(items, entity.CashFlowItem{
 				Category:    "Financing",

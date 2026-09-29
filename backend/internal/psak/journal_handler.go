@@ -58,17 +58,21 @@ type ExpenseEventPayload struct {
 var expenseCategoryToAccount = map[string]string{
 	"Operational":           "5201",
 	"Operasional":           "5201",
-	"Bahan Baku (HPP)":      "5101",
-	"Bahan Baku":            "5101",
-	"Marketing":             "5202",
-	"Pemasaran / Marketing": "5202",
-	"Maintenance":           "5203",
-	"Pemeliharaan & Servis": "5203",
-	"Salary":                "5204",
-	"Gaji & Upah":           "5204",
-	"Utilities":             "5205",
+	"Bahan Baku (HPP)":      "1103", // Standar PSAK Perpetual: Pembelian bahan baku masuk ke Persediaan (Aset)
+	"Bahan Baku":            "1103",
+	"Marketing":             "5201", // Beban Operasional
+	"Pemasaran / Marketing": "5201",
+	"Maintenance":           "5201", // Beban Operasional
+	"Pemeliharaan & Servis": "5201",
+	"Salary":                "5202", // Beban Gaji
+	"Gaji & Upah":           "5202",
+	"Sewa":                  "5203", // Beban Sewa
+	"Beban Sewa":            "5203",
+	"Rent":                  "5203",
+	"Utilities":             "5204", // Beban Listrik & Air
+	"Listrik & Air":         "5204",
 	"Peralatan":             "5206", // Beban Peralatan (CapEx yang diexpensed)
-	"Equipment":             "5206", // alias English
+	"Equipment":             "5206",
 	"Lainnya":               "5201",
 	"Other":                 "5201",
 }

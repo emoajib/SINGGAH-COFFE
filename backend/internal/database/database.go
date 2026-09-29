@@ -282,5 +282,42 @@ func Connect(cfg config.Config) *gorm.DB {
 		`, bankAcc.ID)
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// 4. Rekonsiliasi Pembelian Bahan Baku ke 1103 (Persediaan) - Standar PSAK Sistem Perpetual
+	var invAcc models.PSAKAccount
+	if err := db.Where("code = '1103' AND outlet_id = 1").First(&invAcc).Error; err == nil && invAcc.ID > 0 {
+		_ = db.Exec(`
+			UPDATE psak_journal_entry_items jitem
+			JOIN psak_journal_entries je ON je.id = jitem.journal_entry_id
+			JOIN expenses e ON e.id = je.source_id AND je.source_type = 'expense'
+			SET jitem.account_id = ?, jitem.account_code = '1103', jitem.account_name = 'Persediaan'
+			WHERE jitem.account_code = '5101' AND (e.category = 'Bahan Baku (HPP)' OR e.category = 'Bahan Baku')
+		`, invAcc.ID)
+	}
+
+	// 5. Rekonsiliasi Kategori Beban ke Akun CoA yang Tepat
+	var opAcc, salaryAcc models.PSAKAccount
+	if err := db.Where("code = '5201' AND outlet_id = 1").First(&opAcc).Error; err == nil && opAcc.ID > 0 {
+		_ = db.Exec(`
+			UPDATE psak_journal_entry_items jitem
+			JOIN psak_journal_entries je ON je.id = jitem.journal_entry_id
+			JOIN expenses e ON e.id = je.source_id AND je.source_type = 'expense'
+			SET jitem.account_id = ?, jitem.account_code = '5201', jitem.account_name = 'Beban Operasional'
+			WHERE jitem.account_code IN ('5202', '5203') AND (
+				e.category LIKE '%Marketing%' OR e.category LIKE '%Pemasaran%' OR 
+				e.category LIKE '%Maintenance%' OR e.category LIKE '%Pemeliharaan%'
+			)
+		`, opAcc.ID)
+	}
+	if err := db.Where("code = '5202' AND outlet_id = 1").First(&salaryAcc).Error; err == nil && salaryAcc.ID > 0 {
+		_ = db.Exec(`
+			UPDATE psak_journal_entry_items jitem
+			JOIN psak_journal_entries je ON je.id = jitem.journal_entry_id
+			JOIN expenses e ON e.id = je.source_id AND je.source_type = 'expense'
+			SET jitem.account_id = ?, jitem.account_code = '5202', jitem.account_name = 'Beban Gaji'
+			WHERE jitem.account_code = '5204' AND (e.category LIKE '%Gaji%' OR e.category LIKE '%Salary%')
+		`, salaryAcc.ID)
+	}
+
 	return db
 }
