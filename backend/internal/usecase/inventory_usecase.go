@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -104,11 +105,14 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 			location = "kedai"
 		}
 
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		absQuantity := math.Abs(quantity)
+
 		mutation := &entity.StockMutation{
 			IngredientID: ingredientID,
 			Type:         mutationType,
 			Location:     location,
-			Quantity:     quantity,
+			Quantity:     absQuantity,
 			Notes:        notes,
 			Date:         time.Now(),
 			OutletID:     oid,
@@ -125,10 +129,10 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 		}
 
 		// Update current_stock (total) selalu, lalu update lokasi spesifik
-		if err := ingredientRepo.UpdateStockAtomic(ingredientID, quantity, operator); err != nil {
+		if err := ingredientRepo.UpdateStockAtomic(ingredientID, absQuantity, operator); err != nil {
 			return err
 		}
-		if err := ingredientRepo.UpdateStockAtomicByLocation(ingredientID, quantity, operator, location); err != nil {
+		if err := ingredientRepo.UpdateStockAtomicByLocation(ingredientID, absQuantity, operator, location); err != nil {
 			return err
 		}
 
@@ -151,7 +155,7 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 			// 3. P&L report memisahkan HPP dari biaya operasional lain
 			exp := &entity.Expense{
 				Title:       "Pembelian: " + ingredient.Name,
-				Amount:      quantity * costToUse,
+				Amount:      absQuantity * costToUse,
 				Category:    "Bahan Baku",
 				CostType:    "variable",
 				Date:        time.Now(),

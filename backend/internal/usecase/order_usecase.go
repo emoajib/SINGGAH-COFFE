@@ -164,12 +164,17 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(itemInput.Quantity)
+						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err
 						}
 						mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
 							Type:         string(entity.MutationOut),
+							Location:     "kedai",
 							Quantity:     deductionAmount,
 							ReferenceID:  req.OrderNumber,
 							Notes:        "Sales Deduction",
@@ -332,12 +337,17 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 						if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
 							return err
 						}
+						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
+							return err
+						}
+						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, restoreAmount, "add", "kedai"); err != nil {
 							return err
 						}
 						if err := mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
 							Type:         string(entity.MutationIn),
+							Location:     "kedai",
 							Quantity:     restoreAmount,
 							ReferenceID:  order.OrderNumber,
 							Notes:        "Void Return",
@@ -449,12 +459,17 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
+						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err
 						}
 						if err := mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
 							Type:         string(entity.MutationOut),
+							Location:     "kedai",
 							Quantity:     deductionAmount,
 							ReferenceID:  order.OrderNumber,
 							Notes:        "Payment method corrected to Cash - Sales Deduction",
@@ -482,9 +497,13 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
 							return err
 						}
+						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, restoreAmount, "add", "kedai"); err != nil {
+							return err
+						}
 						if err := mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
 							Type:         string(entity.MutationIn),
+							Location:     "kedai",
 							Quantity:     restoreAmount,
 							ReferenceID:  order.OrderNumber,
 							Notes:        "Payment method corrected to QRIS - Stock Restore",
@@ -606,12 +625,17 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
+						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err
 						}
 						if err := mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
 							Type:         string(entity.MutationOut),
+							Location:     "kedai",
 							Quantity:     deductionAmount,
 							ReferenceID:  order.OrderNumber,
 							Notes:        "Payment Confirmed - Sales Deduction",

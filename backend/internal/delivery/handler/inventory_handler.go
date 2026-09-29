@@ -148,12 +148,15 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 		return
 	}
 
-	quantity := req.Quantity
-	if req.Type == string(entity.MutationOut) || req.Type == string(entity.MutationSub) {
-		if quantity > 0 {
-			quantity = -quantity
-		}
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Zero Trust Input Validation: kuantitas mutasi harus berupa skalar positif (> 0).
+	// Arah pergerakan stok (inflow/outflow) sepenuhnya dikendalikan oleh req.Type.
+	if req.Quantity <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kuantitas mutasi harus lebih besar dari 0"})
+		return
 	}
+
+	quantity := req.Quantity
 
 	location := req.Location
 	if location == "" {

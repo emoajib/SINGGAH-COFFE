@@ -254,13 +254,15 @@ func (h *ReportHandler) ExportProfitLossPDF(c *gin.Context) {
 			pdf.SetFont("Helvetica", "", 8)
 		}
 
-		if bgType == "subtotal" {
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		switch bgType {
+		case "subtotal":
 			pdf.SetFillColor(248, 250, 252)
-		} else if bgType == "highlight" {
+		case "highlight":
 			pdf.SetFillColor(238, 242, 255)
-		} else if bgType == "total" {
+		case "total":
 			pdf.SetFillColor(236, 253, 245)
-		} else {
+		default:
 			pdf.SetFillColor(255, 255, 255)
 		}
 

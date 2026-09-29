@@ -223,7 +223,8 @@ func (uc *ProductionTargetUsecase) GetDailyTargetRealization(outletID uint, date
 	}, nil
 }
 
-func (uc *ProductionTargetUsecase) resolvePeriodDays(outletID uint) int {
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProductionTargetUsecase) resolvePeriodDays(_ uint) int {
 	periodDays := 10
 	if s, err := uc.settingRepo.FindByKey("stock_planning_period_days"); err == nil && s != nil {
 		if d, err := strconv.Atoi(s.Value); err == nil && d > 0 {

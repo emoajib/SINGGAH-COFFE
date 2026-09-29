@@ -111,13 +111,18 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 				}
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
+						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
 						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err
 						}
 						_ = mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
 							Type:         string(entity.MutationOut),
+							Location:     "kedai",
 							Quantity:     deductionAmount,
 							ReferenceID:  loadedOrder.OrderNumber,
 							Notes:        "QRIS Webhook Payment Confirmed - Sales Deduction",

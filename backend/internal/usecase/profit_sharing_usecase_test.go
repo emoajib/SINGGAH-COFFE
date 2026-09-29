@@ -96,13 +96,15 @@ func TestCalcFinancialsBasisTypeAndLeaveReduction(t *testing.T) {
 	// SALMAN final amount = 361000
 	// Owner final amount = 1083000 + 51500 = 1134500
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	var rio, salman, owner entity.ProfitSharingPerson
 	for _, p := range people {
-		if p.Name == "RIO" {
+		switch p.Name {
+		case "RIO":
 			rio = p
-		} else if p.Name == "SALMAN" {
+		case "SALMAN":
 			salman = p
-		} else if p.Name == "Owner" {
+		case "Owner":
 			owner = p
 		}
 	}
@@ -145,13 +147,15 @@ func TestCalcFinancialsWithCashbonReduction(t *testing.T) {
 
 	res := calcFinancials(basis, cogs, expenses, ratio, nil, ownerPct, people, 0, 0, "net", 7)
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	var baristaA, baristaB, owner entity.ProfitSharingPerson
 	for _, p := range people {
-		if p.Name == "Barista A" {
+		switch p.Name {
+		case "Barista A":
 			baristaA = p
-		} else if p.Name == "Barista B" {
+		case "Barista B":
 			baristaB = p
-		} else if p.Name == "Owner" {
+		case "Owner":
 			owner = p
 		}
 	}

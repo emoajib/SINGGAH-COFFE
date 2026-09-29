@@ -217,6 +217,11 @@ func Connect(cfg config.Config) *gorm.DB {
 	// Backfill: jika kedai_stock masih 0 dan current_stock > 0, set kedai_stock = current_stock (backward compatibility)
 	_ = db.Exec("UPDATE ingredients SET kedai_stock = current_stock WHERE (kedai_stock = 0 OR kedai_stock IS NULL) AND current_stock > 0")
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Rekonsiliasi data stok otomatis (Self-Healing Migration):
+	// Menyelaraskan kedai_stock yang tidak sinkron akibat transaksi POS versi terdahulu.
+	_ = db.Exec("UPDATE ingredients SET kedai_stock = CASE WHEN current_stock >= warehouse_stock THEN current_stock - warehouse_stock ELSE 0 END WHERE ((warehouse_stock + kedai_stock) - current_stock > 0.001 OR current_stock - (warehouse_stock + kedai_stock) > 0.001) AND (warehouse_stock > 0 OR kedai_stock > 0)")
+
 	// Ensure self_order setting exists
 	var soCount int64
 	db.Model(&models.Setting{}).Where("`key` = ?", "self_order_enabled").Count(&soCount)

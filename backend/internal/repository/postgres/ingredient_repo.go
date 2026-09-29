@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"math"
+
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 
@@ -72,9 +74,11 @@ func (r *ingredientRepository) UpdateStock(id uint, newStock float64) error {
 }
 
 func (r *ingredientRepository) UpdateStockAtomic(id uint, delta float64, operator string) error {
-	expr := gorm.Expr("current_stock + ?", delta)
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	absDelta := math.Abs(delta)
+	expr := gorm.Expr("current_stock + ?", absDelta)
 	if operator == "sub" {
-		expr = gorm.Expr("current_stock - ?", delta)
+		expr = gorm.Expr("current_stock - ?", absDelta)
 	}
 	return r.db.Model(&models.Ingredient{}).Where("id = ?", id).UpdateColumn("current_stock", expr).Error
 }
@@ -87,11 +91,12 @@ func (r *ingredientRepository) UpdateStockAtomicByLocation(id uint, delta float6
 	if location == "warehouse" {
 		col = "warehouse_stock"
 	}
+	absDelta := math.Abs(delta)
 	var expr interface{}
 	if operator == "sub" {
-		expr = gorm.Expr(col+" - ?", delta)
+		expr = gorm.Expr(col+" - ?", absDelta)
 	} else {
-		expr = gorm.Expr(col+" + ?", delta)
+		expr = gorm.Expr(col+" + ?", absDelta)
 	}
 	return r.db.Model(&models.Ingredient{}).Where("id = ?", id).UpdateColumn(col, expr).Error
 }
