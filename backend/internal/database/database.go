@@ -114,17 +114,21 @@ func Connect(cfg config.Config) *gorm.DB {
 		log.Println("Seeded default settings")
 	}
 
-	// Ensure PWA color settings exist for older databases
-	pwaKeys := []string{"pwa_background_color", "pwa_theme_color"}
-	pwaDefaults := map[string]string{
-		"pwa_background_color": "#4B3621",
-		"pwa_theme_color":      "#F5F0E6",
+	// Ensure PWA color settings and alert settings exist for older databases
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	requiredSettings := map[string]struct {
+		value string
+		group string
+	}{
+		"pwa_background_color": {"#4B3621", "appearance"},
+		"pwa_theme_color":      {"#F5F0E6", "appearance"},
+		"enable_stock_alerts":  {"true", "notifications"},
 	}
-	for _, key := range pwaKeys {
+	for key, meta := range requiredSettings {
 		var count int64
 		db.Model(&models.Setting{}).Where("`key` = ?", key).Count(&count)
 		if count == 0 {
-			db.Create(&models.Setting{Key: key, Value: pwaDefaults[key], SettingGroup: "appearance"})
+			db.Create(&models.Setting{Key: key, Value: meta.value, SettingGroup: meta.group})
 			log.Printf("Seeded missing setting: %s", key)
 		}
 	}
@@ -221,6 +225,9 @@ func Connect(cfg config.Config) *gorm.DB {
 	// Rekonsiliasi data stok otomatis (Self-Healing Migration):
 	// Menyelaraskan kedai_stock yang tidak sinkron akibat transaksi POS versi terdahulu.
 	_ = db.Exec("UPDATE ingredients SET kedai_stock = CASE WHEN current_stock >= warehouse_stock THEN current_stock - warehouse_stock ELSE 0 END WHERE ((warehouse_stock + kedai_stock) - current_stock > 0.001 OR current_stock - (warehouse_stock + kedai_stock) > 0.001) AND (warehouse_stock > 0 OR kedai_stock > 0)")
+	_ = db.Exec("UPDATE ingredients SET kedai_stock = 0 WHERE kedai_stock < 0")
+	_ = db.Exec("UPDATE ingredients SET warehouse_stock = 0 WHERE warehouse_stock < 0")
+	_ = db.Exec("UPDATE ingredients SET current_stock = 0 WHERE current_stock < 0")
 
 	// Ensure self_order setting exists
 	var soCount int64

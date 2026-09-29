@@ -60,6 +60,8 @@ export function TransferStockDialog({ ingredient, onClose, onSuccess }: Transfer
                 toLocation,
                 notes
             )
+            // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+            window.dispatchEvent(new CustomEvent('inventory-updated'))
             setSuccess(true)
             setTimeout(() => {
                 onSuccess()

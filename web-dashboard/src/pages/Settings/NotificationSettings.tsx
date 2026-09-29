@@ -34,8 +34,8 @@ export function NotificationSettings({
                         <div className="flex items-center space-x-2">
                             <input
                                 type="checkbox"
-                                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
-                                checked={settings.enable_stock_alerts === "true"}
+                                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                                checked={settings.enable_stock_alerts !== "false"}
                                 onChange={(e) => handleInputChange("enable_stock_alerts", e.target.checked ? "true" : "false")}
                             />
                         </div>

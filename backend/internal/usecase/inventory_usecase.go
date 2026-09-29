@@ -3,6 +3,7 @@ package usecase
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -122,10 +123,17 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 			return err
 		}
 
-		// Determine stock adjustment direction
-		operator := "add"
-		if mutationType == string(entity.MutationOut) || mutationType == string(entity.MutationSub) {
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		// Determine stock adjustment direction with strict validation
+		normalizedType := strings.ToUpper(strings.TrimSpace(mutationType))
+		var operator string
+		switch normalizedType {
+		case string(entity.MutationIn), string(entity.MutationAdd):
+			operator = "add"
+		case string(entity.MutationOut), string(entity.MutationSub):
 			operator = "sub"
+		default:
+			return fmt.Errorf("tipe mutasi tidak valid: %s", mutationType)
 		}
 
 		// Update current_stock (total) selalu, lalu update lokasi spesifik
@@ -318,8 +326,9 @@ func (uc *InventoryUsecase) UpdateIngredient(id uint, name, category, unit, purc
 	})
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *InventoryUsecase) GetLowStockAlerts(outletID ...uint) ([]entity.IngredientResponse, error) {
-	ingredients, err := uc.ingredientRepo.FindLowStock(10, outletID...)
+	ingredients, err := uc.ingredientRepo.FindLowStock(100, outletID...)
 	if err != nil {
 		return nil, err
 	}

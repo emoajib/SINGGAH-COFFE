@@ -37,6 +37,9 @@ func isNotFound(err error) bool {
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *CashRegisterUsecase) OpenCashRegister(userID uint, outletID uint, req *entity.CashRegister) (*entity.CashRegister, error) {
+	if req.OpeningAmount < 0 {
+		return nil, fmt.Errorf("nominal modal kas awal tidak boleh negatif")
+	}
 	// Auto-close any stale open register before opening a new one.
 	// This prevents a single stale register from blocking all new shifts.
 	existing, err := uc.cashRegisterRepo.FindOpenByUserID(userID)
@@ -132,7 +135,11 @@ func (uc *CashRegisterUsecase) DeleteCashRegister(id uint) error {
 	return uc.cashRegisterRepo.Delete(id)
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *CashRegisterUsecase) CloseCashRegister(userID uint, closingAmount float64) (*entity.CashRegister, error) {
+	if closingAmount < 0 {
+		return nil, fmt.Errorf("nominal uang kas tutup tidak boleh negatif")
+	}
 	reg, err := uc.cashRegisterRepo.FindOpenByUserID(userID)
 	if err != nil {
 		return nil, err

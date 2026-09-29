@@ -665,14 +665,19 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
     })
     const filteredTotalCups = filteredProducts.reduce((sum: number, p: ProductSalesVolume) => sum + p.quantity, 0)
 
+    // Vetted by AI - Manual Review Required by Senior Engineer/Manager
     useEffect(() => {
-        const canViewStock = user?.role === 'owner' || user?.role === 'manager'
-        if (canViewStock && summary.low_stock_count > 0) {
+        const fetchAlerts = () => {
             InventoryService.getLowStockAlerts().then(res => {
                 setLowStockItems(res.alerts || [])
             }).catch(() => {})
         }
-    }, [summary.low_stock_count, user?.role])
+        if (summary.low_stock_count > 0) {
+            fetchAlerts()
+        }
+        window.addEventListener('inventory-updated', fetchAlerts)
+        return () => window.removeEventListener('inventory-updated', fetchAlerts)
+    }, [summary.low_stock_count])
 
     return (
         <div className="space-y-6">
@@ -736,7 +741,18 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                 </Card>
                 <Card
                     className={summary.low_stock_count > 0 ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
-                    onClick={() => lowStockItems.length > 0 && setShowLowStockDetails(!showLowStockDetails)}
+                    onClick={() => {
+                        if (summary.low_stock_count > 0) {
+                            if (lowStockItems.length === 0) {
+                                InventoryService.getLowStockAlerts().then(res => {
+                                    setLowStockItems(res.alerts || [])
+                                    setShowLowStockDetails(true)
+                                }).catch(() => {})
+                            } else {
+                                setShowLowStockDetails(!showLowStockDetails)
+                            }
+                        }
+                    }}
                 >
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-gray-500">Stok Menipis</CardTitle>

@@ -113,7 +113,12 @@ function AppContent() {
         <div className="flex bg-gray-50 min-h-screen">
             <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-                <Header onMenuClick={() => setSidebarOpen(true)} onGuideClick={() => setActiveTab("guide")} />
+                {/* Vetted by AI - Manual Review Required by Senior Engineer/Manager */}
+                <Header
+                    onMenuClick={() => setSidebarOpen(true)}
+                    onGuideClick={() => setActiveTab("guide")}
+                    onNavigate={(tab) => setActiveTab(tab)}
+                />
                 <main className="p-4 md:p-6 flex-1 overflow-y-auto">
                     {ownerOnlyTabs.includes(activeTab) && !isOwner ? (
                         <div className="p-8 text-center text-gray-500">Akses ditolak: halaman ini hanya untuk pemilik.</div>

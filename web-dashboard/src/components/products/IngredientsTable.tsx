@@ -28,34 +28,52 @@ interface IngredientsTableProps {
     onHistory: (ing: Ingredient) => void;
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 /**
- * Normalisasi cerdas kemasan beli agar terhindar dari anomali data (misal: 1 ml = 1.000 ml atau 1 gram = 1.000 gram)
+ * Normalisasi cerdas kemasan beli agar terhindar dari anomali data
+ * Contoh: 1 kg = 1.000 gram, 1 sak/bal = 5.000+ gram, 1 pack = 300 gram, 1 liter = 1.000 ml
  */
 export function getDisplayPurchaseUnit(ing: Ingredient): string {
     const pUnit = (ing.purchase_unit || '').trim().toLowerCase();
     const uUnit = (ing.unit || '').trim().toLowerCase();
     const size = ing.purchase_unit_size > 0 ? ing.purchase_unit_size : (uUnit === 'gram' || uUnit === 'ml' ? 1000 : 1);
 
-    // Kasus anomali: purchase unit sama persis dengan unit dasar tapi size > 1
-    if (!pUnit || pUnit === uUnit) {
-        if (uUnit === 'gram') {
-            return size >= 5000 ? 'sak/bal' : 'kg';
-        }
-        if (uUnit === 'ml') {
-            return 'liter';
-        }
-        if (uUnit === 'pcs') {
-            return size > 1 ? 'pack' : 'pcs';
-        }
-        return pUnit || uUnit;
+    // Kasus anomali data: user input unit kemasan yang tidak sesuai ukuran metrik standar
+    // Misal: garam 300g tapi purchase_unit diisi 'kg', atau sirup 250ml tapi purchase_unit diisi 'liter'
+    if (pUnit === 'kg' && size !== 1000 && uUnit === 'gram') {
+        return size >= 5000 ? 'sak/bal' : 'pack';
+    }
+    if (pUnit === 'liter' && size !== 1000 && uUnit === 'ml') {
+        return size >= 5000 ? 'jeriken' : 'botol';
     }
 
-    // Kasus anomali: cup/sedotan unit pcs tapi purchase_unit diisi kg
-    if (uUnit === 'pcs' && (pUnit === 'kg' || pUnit === 'gram')) {
-        return size >= 500 ? 'dus' : 'pack';
+    // Jika user menentukan kemasan khusus (misal 'pack', 'botol', 'dus', 'sak/bal', 'jar', 'pouch', 'sachet')
+    if (pUnit && pUnit !== uUnit && pUnit !== 'custom') {
+        return pUnit;
     }
 
-    return pUnit;
+    // Kasus purchase unit kosong atau sama persis dengan satuan pakai (misal unit: gram, purchase_unit: gram)
+    if (uUnit === 'gram') {
+        if (size === 1000) return 'kg';
+        if (size >= 5000) return 'sak/bal';
+        if (size > 1) return 'pack';
+        return 'gram';
+    }
+
+    if (uUnit === 'ml') {
+        if (size === 1000) return 'liter';
+        if (size >= 5000) return 'jeriken';
+        if (size > 1) return 'botol';
+        return 'ml';
+    }
+
+    if (uUnit === 'pcs' || uUnit === 'lembar' || uUnit === 'sachet') {
+        if (size >= 500) return 'dus';
+        if (size > 1) return 'pack';
+        return uUnit;
+    }
+
+    return pUnit || uUnit;
 }
 
 export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onTransfer, onHistory }: IngredientsTableProps) {
@@ -66,7 +84,7 @@ export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onT
                     <tr>
                         <th className="px-6 py-4">Bahan Baku</th>
                         <th className="px-6 py-4">Kategori & Kemasan</th>
-                        <th className="px-6 py-4 text-center">Stok Saat Ini</th>
+                        <th className="px-6 py-4 text-center">Stok Saat Ini (Kedai & Gudang)</th>
                         <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4 text-right">Biaya Satuan</th>
                         <th className="px-6 py-4 text-center">Aksi Pengelolaan</th>
@@ -100,33 +118,53 @@ export function IngredientsTable({ ingredients, onEdit, onDelete, onRestock, onT
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                    <span className={`text-lg font-black ${ing.current_stock <= ing.min_stock ? 'text-red-600' : 'text-gray-900'}`}>
-                                        {formatNumber(ing.current_stock)}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400 ml-1 font-bold">{ing.unit}</span>
-                                    {unitSize > 1 && (
-                                        <div className="text-[10px] text-gray-400 font-medium">
-                                            ≈ {(ing.current_stock / unitSize).toFixed(1)} {purchaseUnit}
-                                        </div>
-                                    )}
-                                    {/* Dual-location stock breakdown */}
-                                    {(ing.warehouse_stock > 0 || ing.kedai_stock > 0) && (
-                                        <div className="flex items-center justify-center gap-2 mt-1.5">
-                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                                <Warehouse size={9} />
-                                                {formatNumber(ing.warehouse_stock)}
-                                            </span>
-                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                                <Coffee size={9} />
+                                    {/* Bar / Kedai Operational Stock (Primary Focus) */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex items-center gap-1.5">
+                                            <Coffee size={14} className="text-amber-600 shrink-0" />
+                                            <span className={`text-lg font-black tracking-tight ${ing.kedai_stock <= ing.min_stock ? 'text-amber-600' : 'text-gray-900'}`}>
                                                 {formatNumber(ing.kedai_stock)}
                                             </span>
+                                            <span className="text-xs text-gray-500 font-bold">{ing.unit}</span>
                                         </div>
-                                    )}
+                                        <div className="text-[10px] font-semibold text-amber-850 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/60 mt-0.5">
+                                            ☕ Stok Siap Pakai di Kedai
+                                        </div>
+                                    </div>
+
+                                    {/* Secondary breakdown: Warehouse & Total */}
+                                    <div className="flex items-center justify-center gap-3 mt-2 text-[11px] text-gray-500 border-t border-gray-100 pt-1.5">
+                                        <span className="inline-flex items-center gap-1 font-medium" title="Stok di Gudang Penyimpanan">
+                                            <Warehouse size={11} className="text-indigo-600" />
+                                            <span className="text-gray-400">Gudang:</span>
+                                            <strong className="text-indigo-900 font-bold">{formatNumber(ing.warehouse_stock)}</strong>
+                                        </span>
+                                        <span className="text-gray-300">|</span>
+                                        <span className="inline-flex items-center gap-1 font-medium" title="Total Seluruh Stok (Kedai + Gudang)">
+                                            <span className="text-gray-400">Total:</span>
+                                            <strong className="text-gray-800 font-bold">{formatNumber(ing.current_stock)}</strong>
+                                            {unitSize > 1 && (
+                                                <span className="text-[10px] text-gray-400 font-normal">
+                                                    (≈ {(ing.current_stock / unitSize).toFixed(1)} {purchaseUnit})
+                                                </span>
+                                            )}
+                                        </span>
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <Badge variant={ing.current_stock > ing.min_stock ? 'success' : 'destructive'} className="capitalize">
-                                        {ing.current_stock > ing.min_stock ? 'Stok Aman' : 'Stok Kritis'}
-                                    </Badge>
+                                    {ing.current_stock <= ing.min_stock ? (
+                                        <Badge variant="destructive" className="capitalize flex items-center gap-1 w-fit">
+                                            Stok Kritis
+                                        </Badge>
+                                    ) : ing.kedai_stock <= ing.min_stock ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                                            Perlu Transfer Bar
+                                        </span>
+                                    ) : (
+                                        <Badge variant="success" className="capitalize flex items-center gap-1 w-fit">
+                                            Stok Aman
+                                        </Badge>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="font-bold text-primary">

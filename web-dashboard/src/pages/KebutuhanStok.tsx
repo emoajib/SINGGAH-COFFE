@@ -9,6 +9,7 @@ import { Loader2, Save, ShoppingCart, Target, Info } from "lucide-react"
 import { RequirementService } from "../services/requirementService"
 import { useToast } from "../hooks/use-toast"
 import { formatCurrency, formatNumber } from "../lib/utils"
+import { getDisplayPurchaseUnit } from "../components/products/IngredientsTable"
 
 export default function KebutuhanStok() {
     const { user } = useSelector((state: RootState) => state.auth)
@@ -230,14 +231,21 @@ export default function KebutuhanStok() {
                                                         {formatNumber(i.total_needed)} {i.unit}
                                                     </td>
                                                     <td className="py-2 pr-3 text-right text-slate-700">
-                                                        <span className="font-bold text-slate-900">
-                                                            {formatNumber(i.rounded_purchase_unit || Math.ceil(i.need_in_purchase_unit || 0))} {i.purchase_unit || (i.unit === 'gram' ? 'kg' : i.unit === 'ml' ? 'liter' : i.unit)}
-                                                        </span>
-                                                        {i.need_in_purchase_unit > 0 && i.need_in_purchase_unit !== i.rounded_purchase_unit && i.purchase_unit && (
-                                                            <span className="text-gray-400 text-[11px] ml-1 block font-normal">
-                                                                ({i.need_in_purchase_unit.toFixed(2)} {i.purchase_unit})
-                                                            </span>
-                                                        )}
+                                                        {(() => {
+                                                            const pUnitDisplay = getDisplayPurchaseUnit(i as any);
+                                                            return (
+                                                                <>
+                                                                    <span className="font-bold text-slate-900">
+                                                                        {formatNumber(i.rounded_purchase_unit || Math.ceil(i.need_in_purchase_unit || 0))} {pUnitDisplay}
+                                                                    </span>
+                                                                    {i.need_in_purchase_unit > 0 && i.need_in_purchase_unit !== i.rounded_purchase_unit && (
+                                                                        <span className="text-gray-400 text-[11px] ml-1 block font-normal">
+                                                                            ({i.need_in_purchase_unit.toFixed(2)} {pUnitDisplay})
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="py-2 pr-3 text-right font-semibold text-slate-800">
                                                         {formatCurrency(i.estimated_cost)}

@@ -67,9 +67,15 @@ func (e *ForecastEngine) Forecast(nextPeriodDays int) *entity.BEPForecast {
 		}
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	predictedUnits := 0.0
+	if e.AvgSellingPrice > 0 {
+		predictedUnits = math.Ceil(predictedRevenue / e.AvgSellingPrice)
+	}
+
 	return &entity.BEPForecast{
 		PredictedRevenue:    math.Ceil(predictedRevenue),
-		PredictedUnits:      math.Ceil(predictedRevenue / e.AvgSellingPrice),
+		PredictedUnits:      predictedUnits,
 		ConfidenceLower:     math.Ceil(predictedRevenue - ci),
 		ConfidenceUpper:     math.Ceil(predictedRevenue + ci),
 		ProbabilityAboveBEP: math.Round(probAboveBEP*100) / 100,

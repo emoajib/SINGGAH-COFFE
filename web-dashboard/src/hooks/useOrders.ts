@@ -30,6 +30,8 @@ export function useCreateOrder() {
       qc.invalidateQueries({ queryKey: ['bep'] })
       // BUG FIX: order baru harus langsung sync ke Buku Kas
       qc.invalidateQueries({ queryKey: ['cashBooks'] })
+      // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+      window.dispatchEvent(new CustomEvent('inventory-updated'))
     },
   })
 }
@@ -45,6 +47,8 @@ export function useVoidOrder() {
       qc.invalidateQueries({ queryKey: ['bep'] })
       // BUG FIX: void order harus update Buku Kas
       qc.invalidateQueries({ queryKey: ['cashBooks'] })
+      // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+      window.dispatchEvent(new CustomEvent('inventory-updated'))
     },
   })
 }
@@ -66,6 +70,8 @@ export function useCompleteOrder() {
       qc.invalidateQueries({ queryKey: ['bep'] })
       // BUG FIX: complete order (Cash/QRIS paid) harus sync ke Buku Kas
       qc.invalidateQueries({ queryKey: ['cashBooks'] })
+      // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+      window.dispatchEvent(new CustomEvent('inventory-updated'))
     },
   })
 }

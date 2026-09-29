@@ -143,8 +143,9 @@ type UpdateSettingsRequest struct {
 	Value string `json:"value"`
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type OpenCashRegisterRequest struct {
-	OpeningAmount float64 `json:"opening_amount" binding:"required,gt=0"`
+	OpeningAmount float64 `json:"opening_amount" binding:"gte=0"`
 	Notes         string  `json:"notes"`
 }
 
@@ -153,7 +154,7 @@ type UpdateCashRegisterRequest struct {
 }
 
 type CloseCashRegisterRequest struct {
-	ClosingAmount float64 `json:"closing_amount" binding:"required,gt=0"`
+	ClosingAmount float64 `json:"closing_amount" binding:"gte=0"`
 }
 
 // Buku Kas (owner-only)

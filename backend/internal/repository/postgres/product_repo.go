@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"math"
+
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 
@@ -40,10 +42,12 @@ func (r *productRepository) FindByIDWithRecipeForUpdate(id uint) (*entity.Produc
 	return toDomainProduct(&m), nil
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *productRepository) UpdateStockAtomic(id uint, delta float64, operator string) error {
-	expr := gorm.Expr("stock + ?", int(delta))
+	absDelta := int(math.Abs(delta))
+	expr := gorm.Expr("stock + ?", absDelta)
 	if operator == "sub" {
-		expr = gorm.Expr("stock - ?", int(delta))
+		expr = gorm.Expr("stock - ?", absDelta)
 	}
 	return r.db.Model(&models.Product{}).Where("id = ?", id).UpdateColumn("stock", expr).Error
 }

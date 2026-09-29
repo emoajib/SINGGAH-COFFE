@@ -162,6 +162,8 @@ export default function Settings() {
                     updateSetting.mutateAsync({ key, value: value || "" })
                 )
             )
+            // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+            window.dispatchEvent(new CustomEvent("settings-updated"))
             alert("Outlet settings saved successfully!")
         } catch (error) {
             void error

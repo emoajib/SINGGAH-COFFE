@@ -143,7 +143,7 @@ func (h *CashRegisterHandler) DeleteCashRegister(c *gin.Context) {
 func (h *CashRegisterHandler) CloseCashRegister(c *gin.Context) {
 	var req request.CloseCashRegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "closing_amount harus lebih dari 0"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "closing_amount harus berupa angka valid (minimal 0)"})
 		return
 	}
 

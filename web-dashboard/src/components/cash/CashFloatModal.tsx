@@ -43,10 +43,15 @@ export default function CashFloatModal({ open, onSuccess, onClose }: CashFloatMo
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
-        setError("")
-        const num = parseFloat(amount.replace(/\./g, ''))
-        if (!num || num <= 0) {
-            setError("Nominal harus diisi dan lebih dari 0")
+        // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+        const raw = amount.replace(/\./g, '').trim()
+        if (raw === '') {
+            setError("Nominal modal kas awal wajib diisi (masukkan 0 jika tanpa kas awal)")
+            return
+        }
+        const num = parseFloat(raw)
+        if (isNaN(num) || num < 0) {
+            setError("Nominal tidak valid atau tidak boleh negatif")
             return
         }
         setLoading(true)

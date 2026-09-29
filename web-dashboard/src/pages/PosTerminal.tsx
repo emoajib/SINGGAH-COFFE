@@ -183,11 +183,17 @@ const PosTerminal: React.FC = () => {
       const logoUrl = settings?.outlet_logo_url || ""
       const outletName = settings?.outlet_name || "Singgah Coffee"
 
+      // Vetted by AI - Manual Review Required by Senior Engineer/Manager
       const handleCloseCashRegister = async () => {
           setCloseError("")
-          const num = parseFloat(closingAmount.replace(/\./g, ''))
-          if (!num || num <= 0) {
-              setCloseError("Nominal harus diisi dan lebih dari 0")
+          const raw = closingAmount.replace(/\./g, '').trim()
+          if (raw === '') {
+              setCloseError("Nominal kas tutup wajib diisi (masukkan 0 jika laci kasir kosong)")
+              return
+          }
+          const num = parseFloat(raw)
+          if (isNaN(num) || num < 0) {
+              setCloseError("Nominal tidak valid atau tidak boleh negatif")
               return
           }
            setCloseLoading(true)

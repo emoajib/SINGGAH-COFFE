@@ -39,7 +39,7 @@ const CATEGORY_OPTIONS = [
 ];
 
 const UNIT_OPTIONS = ['gram', 'ml', 'pcs', 'lembar', 'sachet'];
-const PURCHASE_UNIT_OPTIONS = ['kg', 'liter', 'pcs', 'gram', 'ml', 'pack', 'kardus', 'sachet'];
+const PURCHASE_UNIT_OPTIONS = ['kg', 'liter', 'pack', 'botol', 'dus', 'sak/bal', 'sachet', 'pcs', 'gram', 'ml'];
 
 export function IngredientFormModal({ isOpen, onClose, editingIngredient, onSaved }: IngredientFormModalProps) {
     const [loading, setLoading] = useState(false);
@@ -91,6 +91,8 @@ export function IngredientFormModal({ isOpen, onClose, editingIngredient, onSave
             } else {
                 await InventoryService.create(payload as any);
             }
+            // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+            window.dispatchEvent(new CustomEvent('inventory-updated'));
             onSaved();
             onClose();
         } catch (error) {
@@ -193,7 +195,14 @@ export function IngredientFormModal({ isOpen, onClose, editingIngredient, onSave
                             placeholder="Contoh: 1000"
                         />
                         <p className="text-[10px] text-gray-500">
-                            Misal: 1 kg = <strong>1000</strong> gram
+                            {formData.purchase_unit === 'kg' && formData.unit === 'gram'
+                                ? <>Misal: 1 kg = <strong>1.000</strong> gram</>
+                                : formData.purchase_unit === 'liter' && formData.unit === 'ml'
+                                ? <>Misal: 1 liter = <strong>1.000</strong> ml</>
+                                : formData.purchase_unit === 'dus'
+                                ? <>Misal: 1 dus = <strong>{formData.purchase_unit_size || 1000}</strong> {formData.unit}</>
+                                : <>Misal: 1 {formData.purchase_unit || 'kemasan'} = <strong>{formData.purchase_unit_size || 0}</strong> {formData.unit} (Contoh: garam 1 pack = 300 gram)</>
+                            }
                         </p>
                     </div>
                 </div>

@@ -157,10 +157,11 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 				Cost:      product.Cost,
 			})
 
-			// Cash & Unpaid (Barista Quick Order): deduct stock immediately.
-			// QRIS: defer deduction until CompletePayment to avoid
-			// permanent stock loss on abandoned/unpaid orders.
-			if req.PaymentMethod != "QRIS" {
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			// Cash & immediate paid orders: deduct stock immediately.
+			// QRIS & Unpaid (open bill / waiting payment): defer deduction until CompletePayment.
+			isDeferredPayment := req.PaymentMethod == "QRIS" || req.PaymentMethod == "Unpaid" || req.PaymentMethod == "Belum Bayar"
+			if !isDeferredPayment {
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(itemInput.Quantity)
@@ -318,11 +319,10 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 			oid = outletID[0]
 		}
 
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 		// Only restore stock if it was actually deducted.
-		// Cash orders: stock always deducted at creation.
-		// QRIS Completed: stock deducted at CompletePayment.
-		// QRIS Pending: stock NEVER deducted → skip restoration.
-		needsStockRestore := order.PaymentMethod == "Cash" || order.Status == "Completed"
+		// Stock was deducted if order was completed or payment was already received (non-deferred).
+		needsStockRestore := order.PaymentStatus == "Paid" || order.Status == "Completed"
 
 		if needsStockRestore {
 			for _, item := range order.OrderItems {
@@ -449,8 +449,12 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 		ingredientRepo := postgres.NewIngredientRepository(tx)
 		mutationRepo := postgres.NewStockMutationRepository(tx)
 
-		if oldMethod == "QRIS" && newMethod == "Cash" {
-			// QRIS (Pending, stock NOT deducted) → Cash: deduct stock now
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		wasStockDeductedOld := oldMethod != "QRIS" && oldMethod != "Unpaid" && oldMethod != "Belum Bayar"
+		shouldDeductStockNew := newMethod != "QRIS" && newMethod != "Unpaid" && newMethod != "Belum Bayar"
+
+		if !wasStockDeductedOld && shouldDeductStockNew {
+			// Previously deferred (stock NOT deducted) → Now immediate: deduct stock now
 			for _, item := range order.OrderItems {
 				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
 				if err != nil {
@@ -459,7 +463,6 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
-						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
 							return err
 						}
@@ -472,7 +475,7 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 							Location:     "kedai",
 							Quantity:     deductionAmount,
 							ReferenceID:  order.OrderNumber,
-							Notes:        "Payment method corrected to Cash - Sales Deduction",
+							Notes:        fmt.Sprintf("Payment method corrected to %s - Sales Deduction", newMethod),
 							OutletID:     order.OutletID,
 						}); err != nil {
 							return err
@@ -484,8 +487,8 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 					}
 				}
 			}
-		} else if oldMethod == "Cash" && newMethod == "QRIS" {
-			// Cash (Completed, stock deducted) → QRIS: restore stock
+		} else if wasStockDeductedOld && !shouldDeductStockNew {
+			// Previously immediate (stock WAS deducted) → Now deferred: restore stock
 			for _, item := range order.OrderItems {
 				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
 				if err != nil {
@@ -506,7 +509,7 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 							Location:     "kedai",
 							Quantity:     restoreAmount,
 							ReferenceID:  order.OrderNumber,
-							Notes:        "Payment method corrected to QRIS - Stock Restore",
+							Notes:        fmt.Sprintf("Payment method corrected to %s - Stock Restore", newMethod),
 							OutletID:     order.OutletID,
 						}); err != nil {
 							return err

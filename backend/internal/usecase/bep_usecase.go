@@ -164,7 +164,8 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 			days := int((payback - float64(months)) * 30)
 			report.PaybackLabel = fmt.Sprintf("%d bulan %d hari", months, days)
 
-			annualProfit := netProfit * 12 / float64(daysInPeriod)
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			annualProfit := monthlyNetProfit * 12
 			report.ROIAnnual = math.Round((annualProfit/initialCapital)*10000) / 100
 		} else {
 			report.PaybackLabel = "Belum balik modal"
