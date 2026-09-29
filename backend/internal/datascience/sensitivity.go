@@ -29,6 +29,11 @@ func (a *SensitivityAnalyzer) Analyze() *entity.SensitivityMatrix {
 		return nil
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	if a.CurrentBEPRevenue <= 0 && a.CurrentBEPUnits > 0 && a.CurrentAvgPrice > 0 {
+		a.CurrentBEPRevenue = math.Ceil(a.CurrentBEPUnits * a.CurrentAvgPrice)
+	}
+
 	scenarios := a.generateScenarios()
 
 	bestCase := entity.BEPExtreme{Scenario: "No change", BEPUnits: a.CurrentBEPUnits, BEPRevenue: a.CurrentBEPRevenue}

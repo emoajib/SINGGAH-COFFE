@@ -87,7 +87,15 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 		return nil, err
 	}
 
-	vc, err := uc.expenseRepo.GetTotalByCostType("variable", startStr, endStr, outletID...)
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Standar Akuntansi Biaya: Jika COGS resep menu terjual aktif (cogs > 0),
+	// maka pembelian stok bahan baku di modul Pengeluaran tidak boleh digandakan lagi sebagai biaya variabel.
+	var vc float64
+	if cogs > 0 {
+		vc, err = uc.expenseRepo.GetTotalVariableExcludingCategories(startStr, endStr, []string{"Bahan Baku", "Bahan Baku (HPP)"}, outletID...)
+	} else {
+		vc, err = uc.expenseRepo.GetTotalByCostType("variable", startStr, endStr, outletID...)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -154,6 +162,8 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 		}
 		if report.CMRatio > 0 {
 			report.BEPWithCapitalRevenue = math.Ceil((totalFixedCost + amortizedMonthly) / report.CMRatio)
+		} else if report.BEPWithCapitalUnits > 0 && avgPrice > 0 {
+			report.BEPWithCapitalRevenue = math.Ceil(report.BEPWithCapitalUnits * avgPrice)
 		}
 
 		monthlyNetProfit := netProfit / float64(daysInPeriod) * 30

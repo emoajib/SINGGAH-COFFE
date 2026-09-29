@@ -41,7 +41,10 @@ func (c *BEPCalculator) Calculate(products []entity.ProductSalesVolume) *entity.
 	}
 
 	contributionMargin := c.TotalRevenue - c.TotalVariableCost
-	cmRatio := contributionMargin / c.TotalRevenue
+	cmRatio := 0.0
+	if c.TotalRevenue > 0 {
+		cmRatio = contributionMargin / c.TotalRevenue
+	}
 
 	var bepUnits, bepRevenue float64
 	if cmRatio > 0 && c.TotalFixedCost > 0 {
@@ -50,6 +53,16 @@ func (c *BEPCalculator) Calculate(products []entity.ProductSalesVolume) *entity.
 	cmPerUnit := c.AvgSellingPrice - c.AvgVariableCost
 	if cmPerUnit > 0 && c.TotalFixedCost > 0 {
 		bepUnits = c.TotalFixedCost / cmPerUnit
+	}
+
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Sinkronisasi BEP Revenue & BEP Units:
+	// Jika bepUnits terhitung dari unit margin tetapi bepRevenue 0 (atau sebaliknya),
+	// gunakan konversi matematis: BEP Revenue = BEP Units * AvgSellingPrice.
+	if bepRevenue <= 0 && bepUnits > 0 && c.AvgSellingPrice > 0 {
+		bepRevenue = bepUnits * c.AvgSellingPrice
+	} else if bepUnits <= 0 && bepRevenue > 0 && c.AvgSellingPrice > 0 {
+		bepUnits = bepRevenue / c.AvgSellingPrice
 	}
 
 	days := c.DaysInPeriod
@@ -66,9 +79,16 @@ func (c *BEPCalculator) Calculate(products []entity.ProductSalesVolume) *entity.
 		dailyAvg = c.TotalRevenue / float64(days)
 	}
 
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Margin of Safety: persentase penurunan penjualan yang dapat ditoleransi sebelum menderita kerugian.
+	// MoS = (Actual Revenue - BEP Revenue) / Actual Revenue.
+	// Jika Actual Revenue < BEP Revenue atau margin kontribusi <= 0, MoS bernilai negatif (defisit).
 	marginOfSafety := 0.0
-	if c.TotalRevenue > 0 {
+	if c.TotalRevenue > 0 && bepRevenue > 0 {
 		marginOfSafety = ((c.TotalRevenue - bepRevenue) / c.TotalRevenue) * 100
+	} else if c.TotalRevenue > 0 && bepRevenue <= 0 && cmRatio <= 0 {
+		// Ketika margin kontribusi negatif (variable cost > revenue), bisnis berada di zona bahaya kritis.
+		marginOfSafety = -100.0
 	}
 
 	status := c.determineStatus(marginOfSafety, dailyAvg, bepDailyUnits)

@@ -110,6 +110,7 @@ type ExpenseRepository interface {
 	GetBreakdownRange(start, end string, outletID ...uint) ([]entity.ExpenseDetail, error)
 	// BEP
 	GetTotalByCostType(costType, start, end string, outletID ...uint) (float64, error)
+	GetTotalVariableExcludingCategories(start, end string, excludeCategories []string, outletID ...uint) (float64, error)
 	GetFixedCostBreakdown(start, end string, outletID ...uint) ([]entity.FixedCostItem, error)
 }
 
