@@ -26,8 +26,11 @@ var wib = time.FixedZone("WIB", 7*60*60)
 
 // alwaysExcludedFromSharing menentukan kategori pengeluaran yang SELALU
 // dikecualikan dari perhitungan bagi hasil. Kategori ini mewakili biaya
-// operasional inti yang menjadi tanggung jawab operasional outlet.
+// operasional inti yang menjadi tanggung jawab operasional outlet, serta
+// pembelian stok bahan baku yang sudah tercermin di dalam COGS (HPP resep).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 var alwaysExcludedFromSharing = []string{
+	"Bahan Baku", "Bahan Baku (HPP)", "Persediaan", // Sudah dipotong di baris COGS via resep
 	"Operasional", "Operational",
 	"Marketing", "Pemasaran", "Pemasaran / Marketing",
 	"Maintenance", "Pemeliharaan", "Pemeliharaan & Servis",

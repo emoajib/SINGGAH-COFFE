@@ -315,11 +315,20 @@ func (uc *ProductionTargetUsecase) finalizeRequirements(menus []entity.Requireme
 	var ingResults []entity.RequirementIngredient
 	var totalEstCost float64
 	for _, agg := range ingredientAgg {
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		// Prinsip MRP (Material Requirements Planning):
+		// Belanja bahan baku hanya diperlukan untuk menutupi defisit (kekurangan) stok saat ini.
+		// Jika stok saat ini sudah mencukupi total kebutuhan, maka kebutuhan belanja = 0.
+		deficit := agg.TotalNeeded - agg.CurrentStock
+		if deficit < 0 {
+			deficit = 0
+		}
+
 		if agg.PurchaseUnitSize > 0 {
-			agg.NeedInPurchaseUnit = agg.TotalNeeded / agg.PurchaseUnitSize
+			agg.NeedInPurchaseUnit = deficit / agg.PurchaseUnitSize
 			agg.RoundedPurchaseUnit = math.Ceil(agg.NeedInPurchaseUnit)
 		}
-		agg.EstimatedCost = agg.TotalNeeded * ingMap[agg.IngredientID].CostPerUnit
+		agg.EstimatedCost = deficit * ingMap[agg.IngredientID].CostPerUnit
 		totalEstCost += agg.EstimatedCost
 		ingResults = append(ingResults, *agg)
 	}
