@@ -106,8 +106,9 @@ func (r *orderRepository) Update(order *entity.Order) error {
 	return r.db.Model(&models.Order{}).Where("id = ?", order.ID).Updates(updates).Error
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) GetTotalSalesSince(since string, outletID ...uint) (float64, error) {
-	tx := r.db.Model(&models.Order{}).Where("created_at >= ? AND status = ?", since, "Completed")
+	tx := r.db.Model(&models.Order{}).Where("COALESCE(order_time, created_at) >= ? AND status = ?", since, "Completed")
 	tx = scopeOutlet(tx, "orders", outletID...)
 	var total float64
 	err := tx.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&total)
@@ -115,7 +116,7 @@ func (r *orderRepository) GetTotalSalesSince(since string, outletID ...uint) (fl
 }
 
 func (r *orderRepository) GetTotalSalesRange(start, end string, outletID ...uint) (float64, error) {
-	tx := r.db.Model(&models.Order{}).Where("DATE(created_at) BETWEEN DATE(?) AND DATE(?) AND status = ?", start, end, "Completed")
+	tx := r.db.Model(&models.Order{}).Where("DATE(COALESCE(order_time, created_at)) BETWEEN DATE(?) AND DATE(?) AND status = ?", start, end, "Completed")
 	tx = scopeOutlet(tx, "orders", outletID...)
 	var total float64
 	err := tx.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&total)
@@ -124,7 +125,7 @@ func (r *orderRepository) GetTotalSalesRange(start, end string, outletID ...uint
 
 // GetSalesByPaymentMethod splits Completed-order revenue per payment_method in a date range.
 func (r *orderRepository) GetSalesByPaymentMethod(start, end string, outletID ...uint) ([]entity.PaymentBreakdown, error) {
-	tx := r.db.Model(&models.Order{}).Where("DATE(created_at) BETWEEN DATE(?) AND DATE(?) AND status = ?", start, end, "Completed")
+	tx := r.db.Model(&models.Order{}).Where("DATE(COALESCE(order_time, created_at)) BETWEEN DATE(?) AND DATE(?) AND status = ?", start, end, "Completed")
 	tx = scopeOutlet(tx, "orders", outletID...)
 	var results []entity.PaymentBreakdown
 	err := tx.Select("payment_method, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count").
@@ -134,7 +135,7 @@ func (r *orderRepository) GetSalesByPaymentMethod(start, end string, outletID ..
 }
 
 func (r *orderRepository) CountSince(since string, outletID ...uint) (int64, error) {
-	tx := r.db.Model(&models.Order{}).Where("created_at >= ?", since)
+	tx := r.db.Model(&models.Order{}).Where("COALESCE(order_time, created_at) >= ? AND status = 'Completed'", since)
 	tx = scopeOutlet(tx, "orders", outletID...)
 	var count int64
 	err := tx.Count(&count).Error
@@ -158,11 +159,11 @@ func (r *orderRepository) GetSumByStatusSince(status, start, end, timeFormat str
 
 	var results []entity.TrendPoint
 	err := r.db.Raw(`
-		SELECT DATE_FORMAT(created_at, ?) as name, SUM(total_amount) as total
+		SELECT DATE_FORMAT(COALESCE(order_time, created_at), ?) as name, SUM(total_amount) as total
 		FROM orders
-		WHERE created_at >= ? AND created_at <= ? AND status = ?`+ow+`
-		GROUP BY DATE_FORMAT(created_at, ?), DATE(created_at)
-		ORDER BY DATE(created_at) ASC
+		WHERE COALESCE(order_time, created_at) >= ? AND COALESCE(order_time, created_at) <= ? AND status = ?`+ow+`
+		GROUP BY DATE_FORMAT(COALESCE(order_time, created_at), ?), DATE(COALESCE(order_time, created_at))
+		ORDER BY DATE(COALESCE(order_time, created_at)) ASC
 	`, args...).Scan(&results).Error
 	return results, err
 }
@@ -174,10 +175,10 @@ func (r *orderRepository) GetDailySalesRange(start, end string, outletID ...uint
 	args = append(args, oArgs...)
 	var results []entity.DailySales
 	err := r.db.Raw(`
-		SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as date, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count
+		SELECT DATE_FORMAT(COALESCE(order_time, created_at), '%Y-%m-%d') as date, COALESCE(SUM(total_amount), 0) as total, COUNT(*) as count
 		FROM orders
-		WHERE DATE(created_at) BETWEEN DATE(?) AND DATE(?) AND status = 'Completed'`+ow+`
-		GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+		WHERE DATE(COALESCE(order_time, created_at)) BETWEEN DATE(?) AND DATE(?) AND status = 'Completed'`+ow+`
+		GROUP BY DATE_FORMAT(COALESCE(order_time, created_at), '%Y-%m-%d')
 		ORDER BY date ASC
 	`, args...).Scan(&results).Error
 	return results, err
@@ -185,7 +186,7 @@ func (r *orderRepository) GetDailySalesRange(start, end string, outletID ...uint
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) GetAverageOrderValue(start, end string, outletID ...uint) (float64, error) {
-	tx := r.db.Model(&models.Order{}).Where("DATE(created_at) BETWEEN DATE(?) AND DATE(?) AND status = ?", start, end, "Completed")
+	tx := r.db.Model(&models.Order{}).Where("DATE(COALESCE(order_time, created_at)) BETWEEN DATE(?) AND DATE(?) AND status = ?", start, end, "Completed")
 	tx = scopeOutlet(tx, "orders", outletID...)
 	var avg float64
 	err := tx.Select("COALESCE(AVG(total_amount), 0)").Row().Scan(&avg)
