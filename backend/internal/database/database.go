@@ -237,12 +237,31 @@ func Connect(cfg config.Config) *gorm.DB {
 	}
 
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Ensure psak_accounts has hierarchy and contra columns (idempotent / non-blocking)
+	_ = db.Exec("ALTER TABLE psak_accounts ADD COLUMN IF NOT EXISTS level INT NOT NULL DEFAULT 3")
+	_ = db.Exec("ALTER TABLE psak_accounts ADD COLUMN IF NOT EXISTS is_header BOOLEAN NOT NULL DEFAULT FALSE")
+	_ = db.Exec("ALTER TABLE psak_accounts ADD COLUMN IF NOT EXISTS is_contra BOOLEAN NOT NULL DEFAULT FALSE")
+	_ = db.Exec("ALTER TABLE psak_accounts ADD COLUMN IF NOT EXISTS normal_balance VARCHAR(10) NOT NULL DEFAULT 'debit'")
+
+	// Ensure manager_accounting_access setting exists (default false)
+	var accSettingCount int64
+	db.Model(&models.Setting{}).Where("`key` = ?", "manager_accounting_access").Count(&accSettingCount)
+	if accSettingCount == 0 {
+		db.Create(&models.Setting{Key: "manager_accounting_access", Value: "false", SettingGroup: "security", OutletID: 1})
+	}
+
+	// Update existing account classifications for contra accounts and naming
+	_ = db.Exec("UPDATE psak_accounts SET is_contra = TRUE, normal_balance = 'credit' WHERE code = '1202'")
+	_ = db.Exec("UPDATE psak_accounts SET type = 'asset', normal_balance = 'debit' WHERE code = '1104'")
+	_ = db.Exec("UPDATE psak_accounts SET name = 'Beban Pemeliharaan Peralatan' WHERE code = '5206' AND (name = 'Beban Peralatan' OR name = '')")
+
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	// Rekonsiliasi Akun PSAK (Self-Healing Migration):
-	// Pastikan akun Bank/QRIS (1104), Utang Jangka Panjang (2201), dan Beban Peralatan (5206) tersedia.
+	// Pastikan akun Bank/QRIS (1104), Utang Jangka Panjang (2201), dan Beban Pemeliharaan Peralatan (5206) tersedia.
 	requiredPSAKAccounts := []models.PSAKAccount{
-		{Code: "1104", Name: "Bank / QRIS", Type: "asset", IsActive: true, OutletID: 1},
-		{Code: "2201", Name: "Utang Jangka Panjang", Type: "liability", IsActive: true, OutletID: 1},
-		{Code: "5206", Name: "Beban Peralatan", Type: "expense", IsActive: true, OutletID: 1},
+		{Code: "1104", Name: "Bank / QRIS", Type: "asset", NormalBalance: "debit", Level: 3, IsActive: true, OutletID: 1},
+		{Code: "2201", Name: "Utang Jangka Panjang", Type: "liability", NormalBalance: "credit", Level: 3, IsActive: true, OutletID: 1},
+		{Code: "5206", Name: "Beban Pemeliharaan Peralatan", Type: "expense", NormalBalance: "debit", Level: 3, IsActive: true, OutletID: 1},
 	}
 	for _, acc := range requiredPSAKAccounts {
 		var cnt int64

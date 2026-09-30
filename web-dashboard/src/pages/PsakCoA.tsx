@@ -46,11 +46,26 @@ interface AccountForm {
     name: string
     type: string
     parent_id: number | null
+    level: number
+    is_header: boolean
+    is_contra: boolean
+    normal_balance: string
     description: string
     is_active: boolean
 }
 
-const EMPTY_FORM: AccountForm = { code: "", name: "", type: "asset", parent_id: null, description: "", is_active: true }
+const EMPTY_FORM: AccountForm = {
+    code: "",
+    name: "",
+    type: "asset",
+    parent_id: null,
+    level: 3,
+    is_header: false,
+    is_contra: false,
+    normal_balance: "debit",
+    description: "",
+    is_active: true
+}
 
 const PsakCoA: React.FC = () => {
     const { toast } = useToast()
@@ -102,6 +117,10 @@ const PsakCoA: React.FC = () => {
             name: account.name,
             type: account.type.toLowerCase(),
             parent_id: account.parent_id,
+            level: account.level ?? 3,
+            is_header: account.is_header ?? false,
+            is_contra: account.is_contra ?? false,
+            normal_balance: account.normal_balance ?? (account.type.toLowerCase() === "asset" || account.type.toLowerCase() === "expense" ? "debit" : "credit"),
             description: account.description || "",
             is_active: account.is_active ?? true,
         })
@@ -276,10 +295,10 @@ const PsakCoA: React.FC = () => {
                                             Kode
                                         </th>
                                         <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-                                            Nama Akun
+                                            Nama Akun & Hierarki
                                         </th>
                                         <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-                                            Tipe
+                                            Tipe / Saldo Normal
                                         </th>
                                         <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
                                             Status
@@ -290,65 +309,86 @@ const PsakCoA: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/10">
-                                    {filteredAccounts.map((account) => (
-                                        <tr
-                                            key={account.id}
-                                            className="hover:bg-white/30 transition-colors"
-                                        >
-                                            <td className="px-4 py-3">
-                                                <span className="font-mono text-sm font-bold text-gray-900">
-                                                    {account.code}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-sm font-semibold text-gray-700">
-                                                    {account.name}
-                                                </span>
-                                                {account.description && (
-                                                    <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">
-                                                        {account.description}
-                                                    </p>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span
-                                                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TYPE_BADGE_CLASSES[account.type.toLowerCase()] || TYPE_BADGE_CLASSES[account.type] || "bg-gray-100 text-gray-600 border-gray-200"}`}
-                                                >
-                                                    {account.type}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span
-                                                    className={`inline-flex items-center gap-1.5 text-xs font-bold ${account.is_active ? "text-green-600" : "text-gray-400"}`}
-                                                >
+                                    {filteredAccounts.map((account) => {
+                                        const lvl = account.level ?? 3
+                                        const indentClass = lvl === 1 ? "pl-0 font-black text-gray-900" : lvl === 2 ? "pl-5 font-bold text-gray-800" : "pl-10 font-medium text-gray-700"
+                                        const rowBg = account.is_header ? (lvl === 1 ? "bg-amber-50/50" : "bg-gray-50/40") : ""
+
+                                        return (
+                                            <tr
+                                                key={account.id}
+                                                className={`hover:bg-amber-50/30 transition-colors ${rowBg}`}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <span className={`font-mono text-sm ${account.is_header ? "font-black text-primary" : "font-bold text-gray-800"}`}>
+                                                        {account.code}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className={`flex items-center flex-wrap gap-1.5 ${indentClass}`}>
+                                                        <span>{account.name}</span>
+                                                        {account.is_header && (
+                                                            <span className="inline-flex items-center rounded-md bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider">
+                                                                Induk
+                                                            </span>
+                                                        )}
+                                                        {account.is_contra && (
+                                                            <span className="inline-flex items-center rounded-md bg-purple-100 text-purple-900 border border-purple-300 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider">
+                                                                Kontra
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {account.description && (
+                                                        <p className={`text-xs text-gray-400 mt-0.5 truncate max-w-xs ${indentClass}`}>
+                                                            {account.description}
+                                                        </p>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span
+                                                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TYPE_BADGE_CLASSES[account.type.toLowerCase()] || TYPE_BADGE_CLASSES[account.type] || "bg-gray-100 text-gray-600 border-gray-200"}`}
+                                                        >
+                                                            {account.type}
+                                                        </span>
+                                                        <span className="text-[11px] font-mono text-gray-500 uppercase font-bold">
+                                                            [{account.normal_balance ? account.normal_balance.toUpperCase() : (account.type.toLowerCase() === 'asset' || account.type.toLowerCase() === 'expense' ? 'DEBIT' : 'KREDIT')}]
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
                                                     <span
-                                                        className={`w-1.5 h-1.5 rounded-full ${account.is_active ? "bg-green-500" : "bg-gray-300"}`}
-                                                    />
-                                                    {account.is_active ? "Aktif" : "Nonaktif"}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-gray-400 hover:text-blue-600"
-                                                        onClick={() => openEditDialog(account)}
+                                                        className={`inline-flex items-center gap-1.5 text-xs font-bold ${account.is_active ? "text-green-600" : "text-gray-400"}`}
                                                     >
-                                                        <Pencil className="w-4 h-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-gray-400 hover:text-red-600"
-                                                        onClick={() => openDeleteDialog(account)}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                        <span
+                                                            className={`w-1.5 h-1.5 rounded-full ${account.is_active ? "bg-green-500" : "bg-gray-300"}`}
+                                                        />
+                                                        {account.is_active ? "Aktif" : "Nonaktif"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-gray-400 hover:text-blue-600"
+                                                            onClick={() => openEditDialog(account)}
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-gray-400 hover:text-red-600"
+                                                            onClick={() => openDeleteDialog(account)}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -410,8 +450,40 @@ const PsakCoA: React.FC = () => {
                             className="h-10"
                         />
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-700">Tingkat Hierarki (Level)</label>
+                            <div className="relative">
+                                <select
+                                    value={form.level}
+                                    onChange={(e) => setForm((f) => ({ ...f, level: Number(e.target.value) }))}
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                    <option value={1}>Level 1 — Induk Utama (e.g. 1000 ASET)</option>
+                                    <option value={2}>Level 2 — Sub-Induk / Akun Kelompok (e.g. 1100)</option>
+                                    <option value={3}>Level 3 — Akun Transaksi / Posting (e.g. 1101)</option>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-700">Saldo Normal</label>
+                            <div className="relative">
+                                <select
+                                    value={form.normal_balance}
+                                    onChange={(e) => setForm((f) => ({ ...f, normal_balance: e.target.value }))}
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                    <option value="debit">Debit (Aset & Beban)</option>
+                                    <option value="credit">Kredit (Kewajiban, Ekuitas, Pendapatan)</option>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">Induk Akun</label>
+                        <label className="text-sm font-bold text-gray-700">Induk Akun (Parent)</label>
                         <div className="relative">
                             <select
                                 value={form.parent_id ?? ""}
@@ -423,18 +495,44 @@ const PsakCoA: React.FC = () => {
                                 }
                                 className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
                             >
-                                <option value="">— Tidak ada induk —</option>
+                                <option value="">— Tidak ada induk (Top Level) —</option>
                                 {accounts
                                     .filter((a) => a.id !== editingAccount?.id)
                                     .map((a) => (
                                         <option key={a.id} value={a.id}>
-                                            {a.code} — {a.name}
+                                            {a.code} — {a.name} {a.is_header ? "(Induk)" : ""}
                                         </option>
                                     ))}
                             </select>
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         </div>
                     </div>
+
+                    <div className="p-3 bg-amber-50/60 rounded-lg border border-amber-200/80 space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={form.is_header}
+                                onChange={(e) => setForm((f) => ({ ...f, is_header: e.target.checked }))}
+                                className="rounded text-primary focus:ring-primary w-4 h-4"
+                            />
+                            <span className="text-xs font-bold text-gray-800">
+                                Akun Induk / Header (Pengelompok, tidak bisa diposting transaksi)
+                            </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={form.is_contra}
+                                onChange={(e) => setForm((f) => ({ ...f, is_contra: e.target.checked }))}
+                                className="rounded text-primary focus:ring-primary w-4 h-4"
+                            />
+                            <span className="text-xs font-bold text-gray-800">
+                                Akun Kontra (Pengurang aset/ekuitas, misal: Akumulasi Depresiasi / Prive)
+                            </span>
+                        </label>
+                    </div>
+
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-gray-700">Deskripsi</label>
                         <Input

@@ -112,13 +112,18 @@ func (uc *JournalUsecase) CreateManualEntry(entry *entity.JournalEntry, items []
 	if totalDebit != totalCredit {
 		return nil, domainErrors.NewInvalidInputError("total debit must equal total credit")
 	}
-	// Validate all account codes exist
+	// Validate all account codes exist and are not header accounts
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	for _, item := range items {
 		if item.AccountID == 0 {
 			return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("account ID is required for item with code %s", item.AccountCode))
 		}
-		if _, err := uc.accountRepo.FindByID(item.AccountID); err != nil {
+		acc, err := uc.accountRepo.FindByID(item.AccountID)
+		if err != nil {
 			return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("account with ID %d not found", item.AccountID))
+		}
+		if acc.IsHeader {
+			return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("akun '%s - %s' adalah akun induk dan tidak dapat diposting transaksi", acc.Code, acc.Name))
 		}
 	}
 	// Auto-generate entry number
@@ -220,10 +225,12 @@ func (uc *JournalUsecase) GetBalanceSheet(asOf string, outletID ...uint) ([]enti
 
 	// SAK EMKM / PSAK 1: Neraca wajib memperhitungkan Laba / (Rugi) Periode Berjalan pada Ekuitas
 	// sehingga Persamaan Dasar Akuntansi (Aset = Liabilitas + Ekuitas) selalu seimbang (balance).
+	// Menggunakan kode virtual 3999 agar tidak bentrok dengan akun posting fisik (misal: 3103 Prive).
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	netIncome := totalRevenue - totalExpense
 	if netIncome != 0 {
 		items = append(items, entity.BalanceSheetItem{
-			AccountCode: "3103",
+			AccountCode: "3999",
 			AccountName: "Laba (Rugi) Periode Berjalan",
 			AccountType: "equity",
 			Amount:      netIncome,

@@ -66,7 +66,17 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         { id: "settings", label: "Pengaturan", icon: Settings, roles: ["owner", "manager", "cashier"] },
     ]
 
-    const filteredMenu = menuItems.filter(item => item.roles.includes(role))
+    const managerCanAccessAccounting = settings?.manager_accounting_access === "true" || (settings as any)?.manager_accounting_access === true
+
+    const filteredMenu = menuItems.filter(item => {
+        // PSAK Accounting items: strictly Owner, or Manager with Owner permission
+        if (item.id === "psak-coa" || item.id === "psak-journal" || item.id === "psak-reports") {
+            if (role === "owner") return true
+            if (role === "manager" && managerCanAccessAccounting) return true
+            return false
+        }
+        return item.roles.includes(role)
+    })
 
     const getInitials = (name: string) => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)

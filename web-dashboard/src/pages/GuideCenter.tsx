@@ -188,8 +188,66 @@ export default function GuideCenter({ setActiveTab }: GuideCenterProps) {
         }
       ]
     },
+    {
+      id: "owner-prive-otorisasi-akuntansi",
+      title: "SOP Penarikan Prive Pemilik & Delegasi Izin Akuntansi Manajer",
+      category: "owner",
+      badge: "Ekuitas & Keamanan",
+      readTime: "4 menit baca",
+      summary: "Tata cara mencatat penarikan pribadi (Prive 3103) tanpa merusak laba operasional, serta cara memberikan/mencabut izin akses akuntansi untuk Manajer.",
+      steps: [
+        {
+          title: "Langkah 1: Jangan Catat Penarikan Pemilik sebagai Beban Toko",
+          description: "Jika Owner mengambil uang kas toko untuk keperluan pribadi, jangan mencatatnya sebagai 'Beban Operasional Lainnya' di pengeluaran kasir. Mencatatnya sebagai beban akan mendistorsi laba bersih dan merugikan perhitungan bagi hasil barista.",
+          tip: "Gunakan akun Prive (3103) di Buku Kas atau Jurnal Manual. Prive memotong Ekuitas pemilik, bukan memotong laba toko."
+        },
+        {
+          title: "Langkah 2: Otorisasi Akses Akuntansi untuk Manajer",
+          description: "Secara default sistem Zero Trust, Manajer diblokir dari Buku Besar, Jurnal, dan Laporan PSAK. Jika Anda menugaskan Manajer mengelola pembukuan, buka menu 'Pengaturan' > tab 'Staff', lalu aktifkan saklar 'Izinkan Manajer Mengakses Akun Akuntansi & Jurnal'.",
+          actionTab: "settings",
+          actionLabel: "Buka Pengaturan Staff",
+          tip: "Anda dapat mencabut izin akses Manajer kapan saja dengan mematikan toggle tersebut."
+        },
+        {
+          title: "Langkah 3: Kasir Dilindungi Secara Permanen (Hard Block)",
+          description: "Sistem secara permanen memblokir kasir/barista dari modul akuntansi. Seluruh transaksi kasir tetap otomatis dijurnal oleh sistem di balik layar tanpa perlu kasir menyentuh kode akun.",
+          warning: "Jangan pernah membagikan kredensial akun Owner kepada kasir demi menjaga integritas data keuangan."
+        },
+        {
+          title: "Langkah 4: Membaca Akun Induk & Akumulasi Depresiasi di Neraca",
+          description: "Pada Buku Besar (CoA), akun berlabel '[Induk]' (seperti 1000, 1100, 1200) berfungsi sebagai pengelompok hirarkis. Akun '1202 Akumulasi Depresiasi' berlabel '[Kontra]' dan otomatis mengurangi nilai aset peralatan kedai.",
+          actionTab: "psak-coa",
+          actionLabel: "Buka Buku Besar (CoA)"
+        }
+      ]
+    },
 
     // ================= PANDUAN MANAJER =================
+    {
+      id: "manager-coa-jurnal-psak",
+      title: "SOP Bagan Akun (CoA) Induk & Larangan Posting Header",
+      category: "manager",
+      badge: "Akuntansi & CoA",
+      readTime: "3 menit baca",
+      summary: "Pedoman bagi Manajer yang telah diberi izin oleh Owner dalam membaca struktur hierarki akun dan membuat jurnal harian yang valid.",
+      steps: [
+        {
+          title: "Langkah 1: Konfirmasi Izin Akses dari Owner",
+          description: "Menu 'Buku Besar (CoA)', 'Jurnal Umum', dan 'Laporan PSAK' hanya muncul di sidebar Manajer jika Owner telah memberikan izin otorisasi di menu Pengaturan Toko.",
+          tip: "Jika menu belum muncul di sidebar Anda, koordinasikan dengan Owner untuk mengaktifkan izin akses akuntansi."
+        },
+        {
+          title: "Langkah 2: Pahami Aturan Akun Induk (Header)",
+          description: "Akun berlabel '[Induk]' (kode 1000, 1100, 1200, 2000, 5000, dst) adalah akun pengelompok folder. Sistem menolak dan memblokir pencatatan jurnal pada akun induk.",
+          warning: "Selalu pilih akun level anak/posting (seperti 1101, 1104, 5201, 5206) saat membuat jurnal umum manual!"
+        },
+        {
+          title: "Langkah 3: Pembedaan Beban Pemeliharaan (5206) vs Pembelian Aset (1201)",
+          description: "Servis mesin kopi, kalibrasi grinder, ganti seal/burr wajib dicatat ke '5206 Beban Pemeliharaan Peralatan'. Pembelian mesin baru bernilai besar dicatat ke '1201 Peralatan (Aset Tetap)'.",
+          tip: "Biaya operasional harian umum tetap menggunakan akun 5201 Beban Operasional."
+        }
+      ]
+    },
     {
       id: "manager-menu-resep",
       title: "Panduan Manajemen Menu, Bahan Baku & Resep HPP",

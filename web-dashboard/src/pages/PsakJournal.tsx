@@ -389,7 +389,14 @@ export default function PsakJournal() {
                                                 >
                                                     <option value="">Pilih Akun</option>
                                                     {accounts.map((a) => (
-                                                        <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                                                        <option
+                                                            key={a.id}
+                                                            value={a.id}
+                                                            disabled={a.is_header}
+                                                            className={a.is_header ? "font-bold text-gray-400 bg-gray-100" : ""}
+                                                        >
+                                                            {a.is_header ? `📁 ${a.code} — ${a.name} (Induk - Dilarang Posting)` : `${a.code} — ${a.name}`}
+                                                        </option>
                                                     ))}
                                                 </select>
                                             </td>

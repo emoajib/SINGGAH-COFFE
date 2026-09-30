@@ -2,44 +2,57 @@ package entity
 
 import "time"
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type Account struct {
-	ID          uint
-	Code        string
-	Name        string
-	Type        string
-	ParentID    *uint
-	IsActive    bool
-	Description string
-	OutletID    uint
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID            uint      `json:"id"`
+	Code          string    `json:"code"`
+	Name          string    `json:"name"`
+	Type          string    `json:"type"`
+	ParentID      *uint     `json:"parent_id"`
+	Level         int       `json:"level"`
+	IsHeader      bool      `json:"is_header"`
+	IsContra      bool      `json:"is_contra"`
+	NormalBalance string    `json:"normal_balance"`
+	IsActive      bool      `json:"is_active"`
+	Description   string    `json:"description"`
+	OutletID      uint      `json:"outlet_id"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type AccountResponse struct {
-	ID          uint      `json:"id"`
-	Code        string    `json:"code"`
-	Name        string    `json:"name"`
-	Type        string    `json:"type"`
-	ParentID    *uint     `json:"parent_id"`
-	IsActive    bool      `json:"is_active"`
-	Description string    `json:"description"`
-	OutletID    uint      `json:"outlet_id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            uint      `json:"id"`
+	Code          string    `json:"code"`
+	Name          string    `json:"name"`
+	Type          string    `json:"type"`
+	ParentID      *uint     `json:"parent_id"`
+	Level         int       `json:"level"`
+	IsHeader      bool      `json:"is_header"`
+	IsContra      bool      `json:"is_contra"`
+	NormalBalance string    `json:"normal_balance"`
+	IsActive      bool      `json:"is_active"`
+	Description   string    `json:"description"`
+	OutletID      uint      `json:"outlet_id"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 func (a *Account) ToResponse() AccountResponse {
 	return AccountResponse{
-		ID:          a.ID,
-		Code:        a.Code,
-		Name:        a.Name,
-		Type:        a.Type,
-		ParentID:    a.ParentID,
-		IsActive:    a.IsActive,
-		Description: a.Description,
-		OutletID:    a.OutletID,
-		CreatedAt:   a.CreatedAt,
-		UpdatedAt:   a.UpdatedAt,
+		ID:            a.ID,
+		Code:          a.Code,
+		Name:          a.Name,
+		Type:          a.Type,
+		ParentID:      a.ParentID,
+		Level:         a.Level,
+		IsHeader:      a.IsHeader,
+		IsContra:      a.IsContra,
+		NormalBalance: a.NormalBalance,
+		IsActive:      a.IsActive,
+		Description:   a.Description,
+		OutletID:      a.OutletID,
+		CreatedAt:     a.CreatedAt,
+		UpdatedAt:     a.UpdatedAt,
 	}
 }
 

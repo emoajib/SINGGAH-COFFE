@@ -6,6 +6,10 @@ export interface PSAKAccount {
     name: string
     type: string
     parent_id: number | null
+    level?: number
+    is_header?: boolean
+    is_contra?: boolean
+    normal_balance?: string
     is_active: boolean
     description: string
     created_at: string

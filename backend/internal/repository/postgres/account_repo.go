@@ -58,15 +58,20 @@ func (r *accountRepository) Create(account *entity.Account) error {
 	account.UpdatedAt = m.UpdatedAt
 	return nil
 }
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *accountRepository) Update(account *entity.Account) error {
 	return r.db.Model(&models.PSAKAccount{}).Where("id = ?", account.ID).Updates(map[string]interface{}{
-		"code":        account.Code,
-		"name":        account.Name,
-		"type":        account.Type,
-		"parent_id":   account.ParentID,
-		"is_active":   account.IsActive,
-		"description": account.Description,
-		"outlet_id":   account.OutletID,
+		"code":           account.Code,
+		"name":           account.Name,
+		"type":           account.Type,
+		"parent_id":      account.ParentID,
+		"level":          account.Level,
+		"is_header":      account.IsHeader,
+		"is_contra":      account.IsContra,
+		"normal_balance": account.NormalBalance,
+		"is_active":      account.IsActive,
+		"description":    account.Description,
+		"outlet_id":      account.OutletID,
 	}).Error
 }
 func (r *accountRepository) Delete(id uint) error {
@@ -86,27 +91,35 @@ func (r *accountRepository) CountByCode(code string, outletID ...uint) (int64, e
 
 func toDomainAccount(m *models.PSAKAccount) *entity.Account {
 	return &entity.Account{
-		ID:          m.ID,
-		Code:        m.Code,
-		Name:        m.Name,
-		Type:        m.Type,
-		ParentID:    m.ParentID,
-		IsActive:    m.IsActive,
-		Description: m.Description,
-		OutletID:    m.OutletID,
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   m.UpdatedAt,
+		ID:            m.ID,
+		Code:          m.Code,
+		Name:          m.Name,
+		Type:          m.Type,
+		ParentID:      m.ParentID,
+		Level:         m.Level,
+		IsHeader:      m.IsHeader,
+		IsContra:      m.IsContra,
+		NormalBalance: m.NormalBalance,
+		IsActive:      m.IsActive,
+		Description:   m.Description,
+		OutletID:      m.OutletID,
+		CreatedAt:     m.CreatedAt,
+		UpdatedAt:     m.UpdatedAt,
 	}
 }
 
 func toModelAccount(e *entity.Account) *models.PSAKAccount {
 	return &models.PSAKAccount{
-		Code:        e.Code,
-		Name:        e.Name,
-		Type:        e.Type,
-		ParentID:    e.ParentID,
-		IsActive:    e.IsActive,
-		Description: e.Description,
-		OutletID:    e.OutletID,
+		Code:          e.Code,
+		Name:          e.Name,
+		Type:          e.Type,
+		ParentID:      e.ParentID,
+		Level:         e.Level,
+		IsHeader:      e.IsHeader,
+		IsContra:      e.IsContra,
+		NormalBalance: e.NormalBalance,
+		IsActive:      e.IsActive,
+		Description:   e.Description,
+		OutletID:      e.OutletID,
 	}
 }

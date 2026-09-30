@@ -54,7 +54,8 @@ export default function Settings() {
         xendit_callback_token: "",
         initial_capital: "0",
         initial_capital_amortization_months: "12",
-        self_order_enabled: "true"
+        self_order_enabled: "true",
+        manager_accounting_access: "false"
     })
 
     // User profile state
@@ -379,6 +380,18 @@ export default function Settings() {
                         <StaffSettings
                             staffList={staffList}
                             currentUser={user}
+                            managerAccountingAccess={settings.manager_accounting_access === "true"}
+                            onToggleManagerAccountingAccess={async (enabled) => {
+                                const val = enabled ? "true" : "false"
+                                setSettings(prev => ({ ...prev, manager_accounting_access: val }))
+                                try {
+                                    await updateSetting.mutateAsync({ key: "manager_accounting_access", value: val })
+                                    window.dispatchEvent(new CustomEvent("settings-updated"))
+                                } catch (err) {
+                                    void err
+                                    alert("Gagal mengubah izin akuntansi manajer")
+                                }
+                            }}
                             onAddStaff={() => { setEditingStaff(null); setStaffForm({ name: "", email: "", password: "", role: "cashier" }); setShowStaffModal(true); }}
                             onEditStaff={(staff) => {
                                 setEditingStaff(staff);

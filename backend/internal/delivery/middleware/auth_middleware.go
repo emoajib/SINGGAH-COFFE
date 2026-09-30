@@ -102,3 +102,65 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 		c.Abort()
 	}
 }
+
+// AccountingAccessMiddleware enforces strict RBAC for PSAK Accounting modules:
+// - Cashier: Denied immediately (Hard Block)
+// - Owner: Always Allowed (Full Access)
+// - Manager: Conditional Access requiring Owner approval via 'manager_accounting_access' setting
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func AccountingAccessMiddleware(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("user_role")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.Abort()
+			return
+		}
+
+		roleStr, ok := userRole.(string)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid role type"})
+			c.Abort()
+			return
+		}
+
+		role := strings.ToLower(strings.TrimSpace(roleStr))
+
+		// 1. Kasir / Barista: Blokir mutlak
+		if role == "cashier" || role == "barista" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Akses ditolak: Kasir tidak memiliki wewenang mengakses pembukuan akuntansi",
+			})
+			c.Abort()
+			return
+		}
+
+		// 2. Owner: Izin penuh
+		if role == "owner" {
+			c.Next()
+			return
+		}
+
+		// 3. Manager: Hanya jika diizinkan oleh Owner via setting
+		if role == "manager" {
+			outletID, _ := c.Get("outlet_id")
+			var setting models.Setting
+			err := db.Where("`key` = ? AND (outlet_id = ? OR outlet_id = 0)", "manager_accounting_access", outletID).
+				Order("outlet_id DESC").First(&setting).Error
+
+			if err == nil && strings.ToLower(strings.TrimSpace(setting.Value)) == "true" {
+				c.Next()
+				return
+			}
+
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Akses ditolak: Akses akuntansi untuk Manajer memerlukan persetujuan dari Owner",
+			})
+			c.Abort()
+			return
+		}
+
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: Insufficient permissions"})
+		c.Abort()
+	}
+}

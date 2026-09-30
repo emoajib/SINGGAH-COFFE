@@ -3,15 +3,20 @@ package models
 import "time"
 
 // PSAKAccount represents a chart of accounts per PSAK standards.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type PSAKAccount struct {
 	BaseModel
-	Code        string `gorm:"uniqueIndex:idx_account_code_outlet" json:"code"`
-	Name        string `json:"name"`
-	Type        string `json:"type"` // asset, liability, equity, revenue, expense
-	ParentID    *uint  `json:"parent_id"`
-	IsActive    bool   `gorm:"default:true" json:"is_active"`
-	Description string `json:"description"`
-	OutletID    uint   `gorm:"uniqueIndex:idx_account_code_outlet" json:"outlet_id"`
+	Code          string `gorm:"uniqueIndex:idx_account_code_outlet" json:"code"`
+	Name          string `json:"name"`
+	Type          string `json:"type"` // asset, liability, equity, revenue, expense
+	ParentID      *uint  `gorm:"index" json:"parent_id"`
+	Level         int    `gorm:"default:3" json:"level"`                 // 1: Induk Utama, 2: Sub-Induk, 3: Akun Posting
+	IsHeader      bool   `gorm:"default:false" json:"is_header"`         // true = Header/Akun Pengelompok (tidak bisa dijurnal)
+	IsContra      bool   `gorm:"default:false" json:"is_contra"`         // true = Akun Pengurang (misal: 1202, 3103)
+	NormalBalance string `gorm:"default:'debit'" json:"normal_balance"` // debit, credit
+	IsActive      bool   `gorm:"default:true" json:"is_active"`
+	Description   string `json:"description"`
+	OutletID      uint   `gorm:"uniqueIndex:idx_account_code_outlet" json:"outlet_id"`
 }
 // PSAKJournalEntry represents a double-entry journal header.
 type PSAKJournalEntry struct {

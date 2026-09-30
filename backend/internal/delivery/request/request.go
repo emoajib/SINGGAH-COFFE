@@ -201,21 +201,30 @@ type SaveProductionTargetsRequest struct {
 }
 
 // PSAK — Chart of Accounts
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type CreateAccountRequest struct {
-	Code        string `json:"code" binding:"required"`
-	Name        string `json:"name" binding:"required"`
-	Type        string `json:"type" binding:"required"`
-	ParentID    *uint  `json:"parent_id"`
-	Description string `json:"description"`
+	Code          string `json:"code" binding:"required"`
+	Name          string `json:"name" binding:"required"`
+	Type          string `json:"type" binding:"required"`
+	ParentID      *uint  `json:"parent_id"`
+	Level         int    `json:"level"`
+	IsHeader      bool   `json:"is_header"`
+	IsContra      bool   `json:"is_contra"`
+	NormalBalance string `json:"normal_balance"`
+	Description   string `json:"description"`
 }
 
 type UpdateAccountRequest struct {
-	Code        string `json:"code"`
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	ParentID    *uint  `json:"parent_id"`
-	IsActive    *bool  `json:"is_active"`
-	Description string `json:"description"`
+	Code          string `json:"code"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	ParentID      *uint  `json:"parent_id"`
+	Level         *int   `json:"level"`
+	IsHeader      *bool  `json:"is_header"`
+	IsContra      *bool  `json:"is_contra"`
+	NormalBalance string `json:"normal_balance"`
+	IsActive      *bool  `json:"is_active"`
+	Description   string `json:"description"`
 }
 
 // PSAK Journal Entry requests

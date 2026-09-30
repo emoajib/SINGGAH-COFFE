@@ -56,25 +56,26 @@ type ExpenseEventPayload struct {
 // expenseCategoryToAccount maps expense categories to PSAK account codes.
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 var expenseCategoryToAccount = map[string]string{
-	"Operational":           "5201",
-	"Operasional":           "5201",
-	"Bahan Baku (HPP)":      "1103", // Standar PSAK Perpetual: Pembelian bahan baku masuk ke Persediaan (Aset)
-	"Bahan Baku":            "1103",
-	"Marketing":             "5201", // Beban Operasional
-	"Pemasaran / Marketing": "5201",
-	"Maintenance":           "5201", // Beban Operasional
-	"Pemeliharaan & Servis": "5201",
-	"Salary":                "5202", // Beban Gaji
-	"Gaji & Upah":           "5202",
-	"Sewa":                  "5203", // Beban Sewa
-	"Beban Sewa":            "5203",
-	"Rent":                  "5203",
-	"Utilities":             "5204", // Beban Listrik & Air
-	"Listrik & Air":         "5204",
-	"Peralatan":             "5206", // Beban Peralatan (CapEx yang diexpensed)
-	"Equipment":             "5206",
-	"Lainnya":               "5201",
-	"Other":                 "5201",
+	"Operational":            "5201",
+	"Operasional":            "5201",
+	"Bahan Baku (HPP)":       "1103", // Standar PSAK Perpetual: Pembelian bahan baku masuk ke Persediaan (Aset)
+	"Bahan Baku":             "1103",
+	"Marketing":              "5201", // Beban Operasional
+	"Pemasaran / Marketing":  "5201",
+	"Maintenance":            "5206", // Beban Pemeliharaan Peralatan
+	"Pemeliharaan & Servis":  "5206",
+	"Pemeliharaan Peralatan": "5206",
+	"Salary":                 "5202", // Beban Gaji
+	"Gaji & Upah":            "5202",
+	"Sewa":                   "5203", // Beban Sewa
+	"Beban Sewa":             "5203",
+	"Rent":                   "5203",
+	"Utilities":              "5204", // Beban Listrik & Air
+	"Listrik & Air":          "5204",
+	"Peralatan":              "5206", // Beban Pemeliharaan Peralatan (CapEx kecil yang diexpensed)
+	"Equipment":              "5206",
+	"Lainnya":                "5302", // Beban Lain-lain
+	"Other":                  "5302",
 }
 
 // NewJournalEventHandler creates a handler with repos wired from db.
@@ -388,6 +389,7 @@ func (h *JournalEventHandler) lookupAccounts(outletID uint, codes ...string) (ma
 		acc, err := h.accountRepo.FindByCode(code, outletID)
 		if err != nil {
 			// Graceful fallback for non-seeded auxiliary accounts in older databases
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 			if code == "1104" { // Fallback Bank/QRIS to Kas
 				if fallback, fbErr := h.accountRepo.FindByCode("1101", outletID); fbErr == nil {
 					result[code] = fallback
@@ -398,8 +400,18 @@ func (h *JournalEventHandler) lookupAccounts(outletID uint, codes ...string) (ma
 					result[code] = fallback
 					continue
 				}
-			} else if code == "5206" { // Fallback Beban Peralatan to Beban Operasional
+			} else if code == "5206" || code == "5302" || code == "5301" { // Fallback to Beban Operasional
 				if fallback, fbErr := h.accountRepo.FindByCode("5201", outletID); fbErr == nil {
+					result[code] = fallback
+					continue
+				}
+			} else if code == "4103" { // Fallback to Pendapatan Penjualan
+				if fallback, fbErr := h.accountRepo.FindByCode("4101", outletID); fbErr == nil {
+					result[code] = fallback
+					continue
+				}
+			} else if code == "3103" { // Fallback to Modal Usaha
+				if fallback, fbErr := h.accountRepo.FindByCode("3101", outletID); fbErr == nil {
 					result[code] = fallback
 					continue
 				}
