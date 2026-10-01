@@ -141,7 +141,13 @@ export default function ProfitSharing() {
 
   // Close shift dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = () => setShiftDropdownIndex(null)
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (target.closest('[data-shift-dropdown]')) {
+        return
+      }
+      setShiftDropdownIndex(null)
+    }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
@@ -1291,7 +1297,7 @@ export default function ProfitSharing() {
 
                         {!isOwner && shiftConfigs.length > 0 && (
                           <div className="flex items-center gap-1.5">
-                            <div className="relative">
+<div className="relative" data-shift-dropdown>
                               <button
                                 type="button"
                                 className="w-40 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-left"
