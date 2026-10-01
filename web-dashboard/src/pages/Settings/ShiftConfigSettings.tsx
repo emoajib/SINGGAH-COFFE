@@ -94,8 +94,8 @@ export function ShiftConfigSettings({ saving }: ShiftConfigSettingsProps) {
             const payload = {
                 outlet_id: outletId,
                 name: formName.trim(),
-                start_time: formStartTime + ":00",
-                end_time: formEndTime + ":00",
+                start_time: formStartTime,
+                end_time: formEndTime,
                 owner_pct: formOwnerPct,
                 barista_pool_pct: formBaristaPoolPct,
                 is_active: formIsActive,
