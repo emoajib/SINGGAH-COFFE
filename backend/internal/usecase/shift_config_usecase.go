@@ -35,7 +35,6 @@ func NewShiftConfigUsecase(db *gorm.DB) ShiftConfigUsecase {
 }
 
 // validate checks business rules for a shift config.
-// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *shiftConfigUsecase) validate(shift *entity.ShiftConfig) error {
 	if shift.Name == "" {
 		return domainErrors.NewInvalidInputError("nama shift wajib diisi")
@@ -46,8 +45,10 @@ func (uc *shiftConfigUsecase) validate(shift *entity.ShiftConfig) error {
 	if !isValidTimeFormat(shift.EndTime) {
 		return domainErrors.NewInvalidInputError("format end_time tidak valid, gunakan HH:MM (contoh: 14:00)")
 	}
+	// Allow overnight shifts (end_time < start_time means crosses midnight)
+	// Only reject if exactly equal (zero duration)
 	if shift.StartTime == shift.EndTime {
-		return domainErrors.NewInvalidInputError("start_time dan end_time tidak boleh sama")
+		return domainErrors.NewInvalidInputError("start_time dan end_time tidak boleh sama (durasi nol)")
 	}
 	if shift.OwnerPct < 0 || shift.OwnerPct > 100 {
 		return domainErrors.NewInvalidInputError("owner_pct harus antara 0-100")

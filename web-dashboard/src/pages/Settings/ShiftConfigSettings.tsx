@@ -84,8 +84,10 @@ export function ShiftConfigSettings({ saving }: ShiftConfigSettingsProps) {
             toast({ title: "Error", description: "Owner % + Barista Pool % harus total 100%", variant: "error" })
             return
         }
-        if (formStartTime >= formEndTime) {
-            toast({ title: "Error", description: "Jam mulai harus sebelum jam selesai", variant: "error" })
+        // Allow overnight shifts (end_time < start_time means crosses midnight)
+        // Only reject if exactly equal (zero duration)
+        if (formStartTime === formEndTime) {
+            toast({ title: "Error", description: "Jam mulai dan jam selesai tidak boleh sama (durasi nol)", variant: "error" })
             return
         }
 
