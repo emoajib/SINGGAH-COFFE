@@ -15,7 +15,7 @@ import { useBaristas, useCreateBarista, useUpdateBarista, useDeleteBarista } fro
 import { ProfitSharingService } from "../services/profitSharingService"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber, formatDateTime } from "../lib/utils"
-import type { ProfitSharingPreview, ProfitSharingPeriod, ProfitSharingPerson, BaristaCashbon, Barista } from "../types"
+import type { ProfitSharingPreview, ProfitSharingPeriod, ProfitSharingPerson, BaristaCashbon, Barista, ShiftConfig, ShiftBreakdown } from "../types"
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -42,7 +42,7 @@ export default function ProfitSharing() {
   const { toast } = useToast()
   const {
     periods, isLoading,
-    previewMutation, finalizeMutation, markPaidMutation, recalculateMutation, deleteMutation,
+    previewMutation, saveDraftMutation, finalizeMutation, markPaidMutation, recalculateMutation, deleteMutation,
   } = useProfitSharing()
 
   // Cashbon data & mutations
@@ -89,6 +89,7 @@ export default function ProfitSharing() {
   const [detailPeriod, setDetailPeriod] = useState<ProfitSharingPeriod | null>(null)
   const [detailPeople, setDetailPeople] = useState<ProfitSharingPerson[]>([])
   const [loadingDetailPeople, setLoadingDetailPeople] = useState(false)
+  const [shiftConfigs, setShiftConfigs] = useState<ShiftConfig[]>([])
 
   // Cashbon Modal state
   const [showCashbonModal, setShowCashbonModal] = useState(false)
@@ -123,6 +124,19 @@ export default function ProfitSharing() {
       }
     }
   }, [masterBaristas])
+
+  // Fetch shift configs on mount
+  useEffect(() => {
+    const fetchShiftConfigs = async () => {
+      try {
+        const configs = await ProfitSharingService.getShiftConfigs()
+        setShiftConfigs(configs)
+      } catch (e) {
+        console.error('Failed to fetch shift configs:', e)
+      }
+    }
+    fetchShiftConfigs()
+  }, [])
 
   // Sync people with active master baristas
   const syncWithMasterBaristas = () => {
@@ -775,13 +789,80 @@ export default function ProfitSharing() {
     }
   }
 
-  const handleSaveDraft = () => {
-    setShowPreview(false)
-    toast({
-      title: "Draft Tersimpan",
-      description: "Data draft bagi hasil tersimpan di Daftar Periode. Anda dapat memperbarui data atau memprosesnya kapan saja.",
-      variant: "success",
-    })
+  const handleLoadDraftToForm = (period: ProfitSharingPeriod) => {
+    try {
+      const pStart = new Date(period.period_start)
+      const pEnd = new Date(period.period_end)
+      const pad = (n: number) => n.toString().padStart(2, '0')
+      const startStr = `${pStart.getFullYear()}-${pad(pStart.getMonth() + 1)}-${pad(pStart.getDate())}`
+      const endStr = `${pEnd.getFullYear()}-${pad(pEnd.getMonth() + 1)}-${pad(pEnd.getDate())}`
+      const startTimeStr = `${pad(pStart.getHours())}:${pad(pStart.getMinutes())}`
+      const endTimeStr = `${pad(pEnd.getHours())}:${pad(pEnd.getMinutes())}`
+
+      setStartDate(startStr)
+      setEndDate(endStr)
+      setStartTime(startTimeStr)
+      setEndTime(endTimeStr)
+      setBasisType((period.basis_type as 'gross' | 'net') || 'net')
+      setOwnerPct(period.owner_pct || 60)
+      setRatio(period.ratio || 40)
+
+      if (period.people && period.people.length > 0) {
+        setPeople(period.people.map(p => ({
+          ...p,
+          leave_dates: p.leave_dates || '',
+          leave_days: p.leave_days || (p.leave_dates ? p.leave_dates.split(',').filter(Boolean).length : 0),
+        })))
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      toast({
+        title: "Draft Berhasil Dimuat ke Form",
+        description: `Periode ${formatDateShort(startStr)} — ${formatDateShort(endStr)} siap diedit. Data kehadiran/libur barista telah dipulihkan.`,
+        variant: "success",
+      })
+    } catch {
+      toast({ title: "Error", description: "Gagal memuat draft ke form", variant: "error" })
+    }
+  }
+
+  const handleSaveDraftDirectly = async () => {
+    if (!startDate || !endDate) {
+      toast({ title: "Error", description: "Pilih tanggal mulai dan akhir periode", variant: "error" })
+      return
+    }
+    const startDT = `${startDate}T${startTime}:00+07:00`
+    const endDT = `${endDate}T${endTime}:00+07:00`
+    try {
+      await saveDraftMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people })
+      toast({
+        title: "Draft Berhasil Disimpan",
+        description: "Draft bagi hasil dan rincian tanggal libur barista tersimpan aman di Daftar Periode.",
+        variant: "success",
+      })
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.response?.data?.error || "Gagal menyimpan draft", variant: "error" })
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    if (!startDate || !endDate) {
+      toast({ title: "Error", description: "Pilih tanggal mulai dan akhir periode", variant: "error" })
+      return
+    }
+    const startDT = `${startDate}T${startTime}:00+07:00`
+    const endDT = `${endDate}T${endTime}:00+07:00`
+    try {
+      await saveDraftMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people })
+      setShowPreview(false)
+      toast({
+        title: "Draft Berhasil Disimpan",
+        description: "Draft bagi hasil dan rincian tanggal libur barista tersimpan aman di Daftar Periode.",
+        variant: "success",
+      })
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.response?.data?.error || "Gagal menyimpan draft", variant: "error" })
+    }
   }
 
   const handleFinalize = async (id: number) => {
@@ -1177,6 +1258,35 @@ export default function ProfitSharing() {
                           <span className="text-sm font-medium text-slate-500">%</span>
                         </div>
 
+                        {!isOwner && shiftConfigs.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={person.shift_id?.toString() || ""}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                const updated = [...people]
+                                const shiftId = value ? Number(value) : null
+                                const shift = shiftConfigs.find(s => s.id === shiftId)
+                                updated[index] = {
+                                  ...updated[index],
+                                  shift_id: shiftId,
+                                  shift_name: shift?.name,
+                                  shift_pool_pct: shift?.barista_pool_pct
+                                }
+                                setPeople(updated)
+                              }}
+                              className="w-40 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                              <option value="">Tanpa Shift (All-Day)</option>
+                              {shiftConfigs.map(s => (
+                                <option key={s.id} value={s.id.toString()}>
+                                  {s.name} ({s.start_time.slice(0,5)}-{s.end_time.slice(0,5)}) - Pool {s.barista_pool_pct}%
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
                         {!isOwner && (
                           <div className="flex items-center gap-2">
                             <button
@@ -1250,9 +1360,20 @@ export default function ProfitSharing() {
                 )}
               </div>
 
-              <div className="mt-4 flex justify-end">
-                <Button onClick={handlePreview} disabled={previewMutation.isPending} className="w-full md:w-auto font-bold">
-                  {previewMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Calculator className="w-4 h-4 mr-2" />}
+              <div className="mt-4 flex flex-col sm:flex-row justify-end gap-2.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSaveDraftDirectly}
+                  disabled={saveDraftMutation.isPending || previewMutation.isPending}
+                  className="w-full sm:w-auto font-semibold border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 shadow-xs gap-1.5"
+                  title="Simpan langsung ke daftar draft tanpa membuka preview modal"
+                >
+                  {saveDraftMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin text-amber-700" /> : <Save className="w-4 h-4 text-amber-700" />}
+                  Simpan Draft
+                </Button>
+                <Button onClick={handlePreview} disabled={previewMutation.isPending} className="w-full sm:w-auto font-bold gap-1.5">
+                  {previewMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
                   Hitung Preview Bagi Hasil
                 </Button>
               </div>
@@ -1322,6 +1443,16 @@ export default function ProfitSharing() {
 
                               {p.status === "draft" && (
                                 <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleLoadDraftToForm(p)}
+                                    className="h-7 px-2 text-[11px] font-bold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 gap-1 shadow-xs"
+                                    title="Muat & Edit Draft di Form (atur libur barista, persentase, tanggal)"
+                                  >
+                                    <Edit className="w-3 h-3 text-amber-700" />
+                                    Edit Draft
+                                  </Button>
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -2087,6 +2218,20 @@ export default function ProfitSharing() {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => {
+                            const pToLoad = detailPeriod
+                            setDetailPeriod(null)
+                            handleLoadDraftToForm(pToLoad)
+                          }}
+                          className="border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 text-xs font-bold gap-1.5 shadow-xs"
+                          title="Muat draft ini kembali ke form editor untuk mengubah libur atau persentase"
+                        >
+                          <Edit className="w-3.5 h-3.5 text-amber-700" />
+                          Edit di Form
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => handleRecalculate(detailPeriod.id, detailPeriod.ratio)}
                           disabled={recalculateMutation.isPending}
                           className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-xs font-semibold gap-1.5"
@@ -2184,6 +2329,64 @@ export default function ProfitSharing() {
                         Kasbon barista otomatis dipotongkan dari jatah barista terkait dan dikembalikan ke bagian Owner untuk memulihkan kas toko.
                       </p>
                     </div>
+                  </div>
+                )}
+
+                {/* Multi-Shift Breakdown (Two-Tier per Shift) */}
+                {preview.calculation.shifts && preview.calculation.shifts.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-indigo-600" />
+                      Rincian Per Shift (Two-Tier + Redistribusi Opsi B)
+                    </h3>
+                    {preview.calculation.shifts.map((shift: ShiftBreakdown, si: number) => (
+                      <div key={si} className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-indigo-900">{shift.shift_name}</p>
+                            <p className="text-xs text-indigo-700">
+                              {shift.start_time.slice(0,5)} - {shift.end_time.slice(0,5)} | Owner {shift.owner_pct}% / Barista Pool {100 - shift.owner_pct}%
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-slate-900">Rp {formatNumber(shift.net_profit)}</p>
+                            <p className="text-xs text-slate-500">Laba Bersih Shift</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                          <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                            <span className="text-indigo-600 font-medium">Pendapatan</span>
+                            <p className="font-bold text-slate-900">Rp {formatNumber(shift.revenue)}</p>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                            <span className="text-rose-600 font-medium">COGS</span>
+                            <p className="font-bold text-rose-600">-Rp {formatNumber(shift.cogs)}</p>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                            <span className="text-amber-600 font-medium">Biaya</span>
+                            <p className="font-bold text-amber-600">-Rp {formatNumber(shift.expenses)}</p>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                            <span className="text-emerald-600 font-medium">Laba Kotor</span>
+                            <p className="font-bold text-emerald-600">Rp {formatNumber(shift.gross_margin)}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                          <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                            <span className="text-blue-600 font-medium">Owner ({shift.owner_pct}%)</span>
+                            <p className="font-bold text-blue-700">Rp {formatNumber(shift.owner_share)}</p>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                            <span className="text-emerald-600 font-medium">Pool Barista</span>
+                            <p className="font-bold text-emerald-700">Rp {formatNumber(shift.barista_pool)}</p>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                            <span className="text-slate-600 font-medium">Dasar Bagi</span>
+                            <p className="font-bold text-slate-900">Rp {formatNumber(shift.sharing_basis)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -2558,6 +2761,31 @@ export default function ProfitSharing() {
                       )
                     })}
                   </div>
+                  {people[leaveModalIndex].leave_dates && (
+                    <div className="mt-2.5 p-2.5 bg-amber-50 rounded-xl border border-amber-200">
+                      <span className="text-[11px] font-bold text-amber-900 block mb-1.5">
+                        Tanggal Libur Terpilih ({people[leaveModalIndex].leave_days || 0} hari):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {people[leaveModalIndex].leave_dates.split(',').filter(Boolean).map((dt) => (
+                          <span
+                            key={dt}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-200/90 text-amber-900 shadow-2xs"
+                          >
+                            {formatDateShort(dt)}
+                            <button
+                              type="button"
+                              onClick={() => toggleDateLeave(leaveModalIndex, dt)}
+                              className="ml-0.5 text-amber-800 hover:text-rose-700 font-extrabold"
+                              title="Hapus tanggal libur ini"
+                            >
+                              &times;
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2596,7 +2824,35 @@ export default function ProfitSharing() {
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  if (!startDate || !endDate) {
+                    toast({ title: "Error", description: "Pilih tanggal mulai dan akhir periode", variant: "error" })
+                    return
+                  }
+                  const startDT = `${startDate}T${startTime}:00+07:00`
+                  const endDT = `${endDate}T${endTime}:00+07:00`
+                  try {
+                    await saveDraftMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people })
+                    toast({
+                      title: "Draft Berhasil Disimpan",
+                      description: "Draft bagi hasil dan rincian tanggal libur barista tersimpan aman di Daftar Periode.",
+                      variant: "success",
+                    })
+                    setLeaveModalIndex(null)
+                  } catch (e: any) {
+                    toast({ title: "Error", description: e?.response?.data?.error || "Gagal menyimpan draft", variant: "error" })
+                  }
+                }}
+                disabled={saveDraftMutation.isPending}
+                className="font-semibold border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100"
+              >
+                {saveDraftMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+                Simpan ke Draft
+              </Button>
               <Button size="sm" onClick={() => setLeaveModalIndex(null)} className="font-semibold">
                 Simpan & Selesai
               </Button>

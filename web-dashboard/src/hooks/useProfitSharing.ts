@@ -65,8 +65,16 @@ export function useProfitSharing() {
   })
 
   const setLeaveMutation = useMutation({
-    mutationFn: ({ periodId, personId, isOnLeave, reduction }: { periodId: number; personId: number; isOnLeave: boolean; reduction: number }) =>
-      ProfitSharingService.setLeave(periodId, personId, isOnLeave, reduction),
+    mutationFn: ({ periodId, personId, isOnLeave, reduction, leaveDays, leaveDates }: {
+      periodId: number; personId: number; isOnLeave: boolean; reduction: number; leaveDays?: number; leaveDates?: string
+    }) => ProfitSharingService.setLeave(periodId, personId, isOnLeave, reduction, leaveDays, leaveDates),
+    onSuccess: invalidate,
+  })
+
+  const saveDraftMutation = useMutation({
+    mutationFn: ({ start, end, ratio, basisType, ownerPct, people }: {
+      start: string; end: string; ratio: number; basisType?: string; ownerPct?: number; people?: ProfitSharingPerson[]
+    }) => ProfitSharingService.saveDraft(start, end, ratio, basisType, ownerPct, people),
     onSuccess: invalidate,
   })
 
@@ -75,6 +83,7 @@ export function useProfitSharing() {
     isLoading: periodsQuery.isLoading,
     refetch: periodsQuery.refetch,
     previewMutation,
+    saveDraftMutation,
     finalizeMutation,
     markPaidMutation,
     recalculateMutation,

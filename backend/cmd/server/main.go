@@ -62,6 +62,7 @@ func main() {
 	loyaltyUsecase := usecase.NewLoyaltyUsecase(db)
 	cashbonUsecase := usecase.NewCashbonUsecase(db)
 	baristaUsecase := usecase.NewBaristaUsecase(db)
+		shiftConfigUsecase := usecase.NewShiftConfigUsecase(db)
 
 	// Context for graceful background worker shutdowns
 	bgCtx, bgCancel := context.WithCancel(context.Background())
@@ -119,6 +120,7 @@ func main() {
 		Cashbon:          handler.NewCashbonHandler(cashbonUsecase),
 		Barista:          handler.NewBaristaHandler(baristaUsecase),
 		PublicOrder:      handler.NewPublicOrderHandler(productUsecase, orderUsecase),
+		ShiftConfig:      handler.NewShiftConfigHandler(shiftConfigUsecase),
 	}
 
 	r := gin.New()

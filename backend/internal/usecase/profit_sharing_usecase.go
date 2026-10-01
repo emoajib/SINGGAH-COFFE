@@ -47,6 +47,7 @@ type ProfitSharingUsecase struct {
 	profitSharingPersonRepo repository.ProfitSharingPersonRepository
 	settingRepo             repository.SettingRepository
 	cashbonRepo             repository.BaristaCashbonRepository
+	shiftConfigRepo         repository.ShiftConfigRepository
 }
 
 func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
@@ -59,6 +60,7 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 		profitSharingPersonRepo: postgres.NewProfitSharingPeopleRepository(db),
 		settingRepo:             postgres.NewSettingRepository(db),
 		cashbonRepo:             postgres.NewBaristaCashbonRepository(db),
+		shiftConfigRepo:         postgres.NewShiftConfigRepository(db),
 	}
 }
 
@@ -232,6 +234,251 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 	return result
 }
 
+// hasShiftAssignedBarista returns true if at least one barista has an explicit
+// shift assignment (ShiftID != nil).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func hasShiftAssignedBarista(people []entity.ProfitSharingPerson) bool {
+	for _, p := range people {
+		if p.Role != "owner" && p.ShiftID != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveMultiShift returns the active shift configs when multi-shift mode
+// applies (>= 2 active shifts AND at least one barista assigned to a shift).
+// Returns nil for legacy single-period mode (backward compatible: all people
+// with shift_id = NULL use the standard 100% single-pool calculation).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProfitSharingUsecase) resolveMultiShift(outletID uint, people []entity.ProfitSharingPerson) []entity.ShiftConfig {
+	shifts, err := uc.shiftConfigRepo.FindByOutletID(outletID, true)
+	if err != nil || len(shifts) < 2 {
+		return nil
+	}
+	if !hasShiftAssignedBarista(people) {
+		return nil
+	}
+	return shifts
+}
+
+// calcSharing computes the overall financials and the per-person distribution.
+// In multi-shift mode it uses the per-shift Two-Tier calculation with Opsi B
+// redistribution (see calcMultiShift); otherwise it falls back to the standard
+// single-pool calculation (calcFinancials).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProfitSharingUsecase) calcSharing(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson, taxPct, servicePct float64, basisType string, totalPeriodDays int, startNorm, endNorm string, outletID uint) (calcResult, []entity.ShiftBreakdown, error) {
+	shifts := uc.resolveMultiShift(outletID, people)
+	if len(shifts) > 0 {
+		ownerAmount, breakdown, err := uc.calcMultiShift(shifts, startNorm, endNorm, outletID, basisType, taxPct, servicePct, totalPeriodDays, expenses, basis, people)
+		if err != nil {
+			return calcResult{}, nil, err
+		}
+		// Overall financials without per-person split (people amounts are set
+		// by calcMultiShift to avoid double-assignment).
+		result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, nil, taxPct, servicePct, basisType, totalPeriodDays)
+		result.OwnerAmount = ownerAmount
+		result.KeeperAmount = 0
+		return result, breakdown, nil
+	}
+	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays)
+	return result, nil, nil
+}
+
+// calcMultiShift computes profit sharing in multi-shift mode: Two-Tier split
+// per shift (Owner % vs Barista Pool %) followed by Opsi B redistribution —
+// a barista's leave reduction is redistributed to the other baristas present
+// in the SAME shift; if no one else is present, it goes to the owner.
+//
+// Rules:
+//   - Per-shift revenue/COGS come from GetShiftRevenue/GetShiftProductSales
+//     (segmented by shift start/end time, supports overnight shifts).
+//   - Expenses are not time-segmented in the DB, so total expenses are
+//     allocated to each shift proportionally to its revenue share.
+//   - A barista assigned to a shift participates only in that shift's pool.
+//     A barista WITHOUT a shift assignment is treated as all-day staff and
+//     participates in every shift's pool.
+//   - All amounts are rounded to the nearest Rp 250 (C1).
+//
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, startNorm, endNorm string, outletID uint, basisType string, taxPct, servicePct float64, totalPeriodDays int, totalExpenses, totalRevenue float64, people []entity.ProfitSharingPerson) (float64, []entity.ShiftBreakdown, error) {
+	if totalPeriodDays < 1 {
+		totalPeriodDays = 1
+	}
+	taxRate := taxPct / 100.0
+	serviceRate := servicePct / 100.0
+
+	type shiftFigures struct {
+		revenue, cogs, expenses, grossMargin, netProfit, sharingBasis, ownerShare, pool float64
+	}
+	figures := make([]shiftFigures, len(shifts))
+	totalShiftRevenue := 0.0
+	for i, s := range shifts {
+		rev, err := uc.periodRepo.GetShiftRevenue(startNorm, endNorm, s.StartTime, s.EndTime, outletID)
+		if err != nil {
+			return 0, nil, err
+		}
+		prods, err := uc.periodRepo.GetShiftProductSales(startNorm, endNorm, s.StartTime, s.EndTime, outletID)
+		if err != nil {
+			prods = nil
+		}
+		var cogs float64
+		for _, p := range prods {
+			cogs += p.TotalCogs
+		}
+		figures[i].revenue = rev
+		figures[i].cogs = cogs
+		totalShiftRevenue += rev
+	}
+
+	// Allocate total expenses to each shift proportionally to its revenue share
+	// (keeps the sum of per-shift expenses equal to the total).
+	for i := range figures {
+		if totalShiftRevenue > 0 {
+			figures[i].expenses = totalExpenses * figures[i].revenue / totalShiftRevenue
+		}
+		netRev := figures[i].revenue * (1 - taxRate - serviceRate)
+		figures[i].grossMargin = netRev - figures[i].cogs
+		figures[i].netProfit = figures[i].grossMargin - figures[i].expenses
+		var basis float64
+		if basisType == "gross" {
+			basis = figures[i].grossMargin
+		} else {
+			basis = figures[i].netProfit
+			if basis < 0 {
+				basis = figures[i].grossMargin
+			}
+		}
+		if basis < 0 {
+			basis = 0
+		}
+		figures[i].sharingBasis = basis
+		ownerPct := shifts[i].OwnerPct
+		if ownerPct <= 0 {
+			ownerPct = 60
+		}
+		figures[i].ownerShare = math.Round(basis*ownerPct/100/250) * 250
+		figures[i].pool = basis - figures[i].ownerShare
+	}
+
+	totalOwnerShare := 0.0
+	for i, s := range shifts {
+		// Baristas in this shift: assigned to this shift, or unassigned (all-day).
+		var inShift []int
+		var totalPct float64
+		for j := range people {
+			if people[j].Role == "owner" {
+				continue
+			}
+			assigned := people[j].ShiftID != nil && *people[j].ShiftID == s.ID
+			if assigned || people[j].ShiftID == nil {
+				inShift = append(inShift, j)
+				totalPct += people[j].SharePct
+			}
+		}
+		if totalPct == 0 {
+			totalPct = 100
+		}
+
+		rawShares := make([]float64, len(inShift))
+		for k, j := range inShift {
+			rawShares[k] = math.Round(figures[i].pool*people[j].SharePct/totalPct/250) * 250
+		}
+
+		// Leave reduction per barista (full leave = 100%, partial = proportional
+		// to leave days vs total period days).
+		reductions := make([]float64, len(inShift))
+		for k, j := range inShift {
+			if people[j].IsOnLeave {
+				reductions[k] = rawShares[k]
+			} else if people[j].LeaveDays > 0 {
+				leaveDays := people[j].LeaveDays
+				if leaveDays > totalPeriodDays {
+					leaveDays = totalPeriodDays
+				}
+				reductions[k] = math.Round(rawShares[k]*float64(leaveDays)/float64(totalPeriodDays)/250) * 250
+				if reductions[k] > rawShares[k] {
+					reductions[k] = rawShares[k]
+				}
+			}
+		}
+
+		// Opsi B: redistribute each leave reduction to the other baristas present
+		// in the same shift (proportional to their raw share). Rounding remainder
+		// and reductions with no present colleague go to the owner.
+		bonus := make([]float64, len(inShift))
+		for k := range inShift {
+			if reductions[k] <= 0 {
+				continue
+			}
+			var othersRaw float64
+			for m, jm := range inShift {
+				if m != k && !people[jm].IsOnLeave {
+					othersRaw += rawShares[m]
+				}
+			}
+			if othersRaw > 0 {
+				distributed := 0.0
+				for m, jm := range inShift {
+					if m == k || people[jm].IsOnLeave {
+						continue
+					}
+					b := math.Round(reductions[k]*rawShares[m]/othersRaw/250) * 250
+					bonus[m] += b
+					distributed += b
+				}
+				totalOwnerShare += reductions[k] - distributed
+			} else {
+				totalOwnerShare += reductions[k]
+			}
+		}
+
+		for k, j := range inShift {
+			people[j].GrossAmount = rawShares[k]
+			people[j].LeaveReduction = reductions[k]
+			subtotal := rawShares[k] - reductions[k] + bonus[k]
+			// Clamping Guard: cashbon deduction is capped at the net share after
+			// leave reduction; the remainder stays pending for the next period.
+			cashbon := people[j].CashbonReduction
+			if cashbon > subtotal {
+				cashbon = subtotal
+			}
+			people[j].CashbonReduction = cashbon
+			people[j].Amount = subtotal - cashbon
+		}
+		totalOwnerShare += figures[i].ownerShare
+	}
+
+	for i := range people {
+		if people[i].Role == "owner" {
+			people[i].GrossAmount = totalOwnerShare
+			people[i].Amount = totalOwnerShare
+			people[i].LeaveReduction = 0
+			people[i].CashbonReduction = 0
+		}
+	}
+
+	breakdown := make([]entity.ShiftBreakdown, len(shifts))
+	for i, s := range shifts {
+		breakdown[i] = entity.ShiftBreakdown{
+			ShiftID:      s.ID,
+			ShiftName:    s.Name,
+			StartTime:    s.StartTime,
+			EndTime:      s.EndTime,
+			Revenue:      figures[i].revenue,
+			Cogs:         figures[i].cogs,
+			Expenses:     figures[i].expenses,
+			GrossMargin:  figures[i].grossMargin,
+			NetProfit:    figures[i].netProfit,
+			SharingBasis: figures[i].sharingBasis,
+			OwnerPct:     s.OwnerPct,
+			OwnerShare:   figures[i].ownerShare,
+			BaristaPool:  figures[i].pool,
+		}
+	}
+	return totalOwnerShare, breakdown, nil
+}
+
 // matchesBarista mencocokkan catatan kasbon dengan barista terkait secara aman.
 // Menghindari bug 0 == 0 saat person ID masih 0 (preview/draft), serta mendukung
 // pencocokan nama secara case-insensitive dan whitespace-trimmed.
@@ -248,17 +495,19 @@ func matchesBarista(cb entity.BaristaCashbon, person entity.ProfitSharingPerson)
 	return false
 }
 
-// Preview calculates profit sharing for a period and persists a draft record.
-// NOTE: This method writes to the database to create/update a draft period
-// that can later be finalized or recalculated. The draft is overwritten on
-// each call (idempotent per overlapping period). If a read-only calculation
-// is needed, use the calculation logic inline without the DB write.
+// computeAndPersistDraft calculates profit sharing for a period and persists
+// a draft record. NOTE: This method writes to the database to create/update a
+// draft period that can later be finalized or recalculated. The draft is
+// overwritten on each call (idempotent per overlapping period). It never
+// touches the cash book or PSAK journals — those are only recorded when the
+// period is finalized/paid.
 // ownerPct defaults to 60 if <= 0. people slice can be nil for legacy 2-person mode.
-func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*entity.ProfitSharingPreview, error) {
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*entity.ProfitSharingPeriod, *calcResult, []entity.ExpenseBreakdown, []entity.ShiftBreakdown, error) {
 	startDate := parseDatePS(start)
 	endDate := parseDatePS(end)
 	if startDate.IsZero() || endDate.IsZero() {
-		return nil, domainErrors.NewInvalidInputError("format tanggal mulai atau akhir tidak valid")
+		return nil, nil, nil, nil, domainErrors.NewInvalidInputError("format tanggal mulai atau akhir tidak valid")
 	}
 
 	// Normalisasi datetime string dari frontend ke format DB yang konsisten.
@@ -269,15 +518,15 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 
 	basis, err := uc.periodRepo.GetTotalRevenue(startNorm, endNorm, outletID)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 	cogs, err := uc.orderItemRepo.GetTotalCogsRange(startNorm, endNorm, outletID)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 	expenses, err := uc.periodRepo.GetTotalExpensesExcluding(startNorm, endNorm, alwaysExcludedFromSharing, outletID)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// M2: Handle error dari GetProductSalesVolume
@@ -341,7 +590,10 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 		}
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays)
+	result, shiftBreakdown, err := uc.calcSharing(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays, startNorm, endNorm, outletID)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 
 	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
 
@@ -369,35 +621,81 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 	overlapping, err := uc.periodRepo.FindOverlappingPeriod(outletID, startDate, endDate, 0)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		// DB error — bukan "record not found", return error
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	if overlapping != nil {
 		period.ID = overlapping.ID
 		if err := uc.periodRepo.Update(&period); err != nil {
-			return nil, err
+			return nil, nil, nil, nil, err
 		}
 	} else {
 		if err := uc.periodRepo.Create(&period); err != nil {
-			return nil, err
+			return nil, nil, nil, nil, err
 		}
 	}
 
-	// Save people
+	// Save people — wrapped in transaction to prevent race conditions
+	// when multiple Preview calls target the same period.
 	if len(people) > 0 {
 		for i := range people {
 			people[i].PeriodID = period.ID
 		}
-		if err := uc.profitSharingPersonRepo.DeleteByPeriodID(period.ID); err != nil {
-			return nil, err
+		tx := uc.db.Begin()
+		if tx.Error != nil {
+			return nil, nil, nil, nil, tx.Error
 		}
-		if err := uc.profitSharingPersonRepo.BulkUpsert(people); err != nil {
-			return nil, err
+		// Lock the period row to serialize concurrent previews
+		var lockedPeriod entity.ProfitSharingPeriod
+		if err := tx.First(&lockedPeriod, period.ID).Error; err != nil {
+			tx.Rollback()
+			return nil, nil, nil, nil, err
+		}
+		// Delete existing people and upsert new ones atomically
+		if err := tx.Where("period_id = ?", period.ID).Delete(&models.ProfitSharingPerson{}).Error; err != nil {
+			tx.Rollback()
+			return nil, nil, nil, nil, err
+		}
+		for i := range people {
+			m := models.ProfitSharingPerson{
+				PeriodID:       people[i].PeriodID,
+				Name:           people[i].Name,
+				Role:           people[i].Role,
+				SharePct:       people[i].SharePct,
+				GrossAmount:    people[i].GrossAmount,
+				LeaveReduction: people[i].LeaveReduction,
+				CashbonReduction: people[i].CashbonReduction,
+				Amount:         people[i].Amount,
+				IsOnLeave:      people[i].IsOnLeave,
+				LeaveDays:      people[i].LeaveDays,
+				LeaveDates:     people[i].LeaveDates,
+				ShiftID:        people[i].ShiftID,
+				ShiftName:      people[i].ShiftName,
+				ShiftPoolPct:   people[i].ShiftPoolPct,
+			}
+			if err := tx.Create(&m).Error; err != nil {
+				tx.Rollback()
+				return nil, nil, nil, nil, err
+			}
+		}
+		if err := tx.Commit().Error; err != nil {
+			return nil, nil, nil, nil, err
 		}
 	}
 
+	return &period, &result, expenseList, shiftBreakdown, nil
+}
+
+// Preview calculates profit sharing for a period and persists a draft record.
+// It is a thin wrapper over computeAndPersistDraft that returns the full
+// calculation payload for the UI.
+func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*entity.ProfitSharingPreview, error) {
+	period, result, expenseList, shiftBreakdown, err := uc.computeAndPersistDraft(start, end, outletID, ratio, basisType, ownerPct, people)
+	if err != nil {
+		return nil, err
+	}
 	return &entity.ProfitSharingPreview{
-		Period: period,
+		Period: *period,
 		Calculation: entity.Calculation{
 			BasisAmount:   result.Basis,
 			Tax:           result.Tax,
@@ -413,12 +711,27 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			Breakdown:     expenseList,
 			PerProduct:    result.PerProduct,
 			Status:        "draft",
-			Note:          taxNote,
-			BasisType:     basisType,
-			OwnerPct:      ownerPct,
+			Note:          period.TaxNote,
+			BasisType:     period.BasisType,
+			OwnerPct:      period.OwnerPct,
 			People:        people,
+			Shifts:        shiftBreakdown,
 		},
 	}, nil
+}
+
+// SaveDraft persists a profit sharing draft explicitly (idempotent, tanpa
+// harus finalize). Perhitungan keuangan dihitung ulang dari transaksi terbaru
+// lalu di-upsert (update jika periode overlapping sudah ada, create jika belum)
+// sehingga tidak ada duplikasi data draft. Draft tidak pernah menyentuh Buku
+// Kas atau Jurnal PSAK.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProfitSharingUsecase) SaveDraft(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*entity.ProfitSharingPeriod, error) {
+	period, _, _, _, err := uc.computeAndPersistDraft(start, end, outletID, ratio, basisType, ownerPct, people)
+	if err != nil {
+		return nil, err
+	}
+	return period, nil
 }
 
 // M1: fetchFinancialsWithTx runs the 3 financial queries inside a transaction for read consistency.
@@ -506,7 +819,10 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		totalPeriodDays = 1
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, period.BasisType, totalPeriodDays)
+	result, _, err := uc.calcSharing(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, period.BasisType, totalPeriodDays, start, end, outletID[0])
+	if err != nil {
+		return err
+	}
 	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
 
 	// Tandai semua kasbon yang terpotong menjadi settled / lunas
@@ -780,7 +1096,10 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		}
 	}
 
-	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, existing.BasisType, totalPeriodDays)
+	result, _, err := uc.calcSharing(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, existing.BasisType, totalPeriodDays, start, end, outletID[0])
+	if err != nil {
+		return err
+	}
 
 	// Update people amounts in DB
 	if len(people) > 0 {
@@ -874,9 +1193,17 @@ func (uc *ProfitSharingUsecase) GetPeople(periodID uint) ([]entity.ProfitSharing
 	return uc.profitSharingPersonRepo.GetByPeriodID(periodID)
 }
 
-// SetLeave marks a person as on leave and sets their reduction amount.
-// The reduction amount is the share that goes back to the owner.
-func (uc *ProfitSharingUsecase) SetLeave(periodID uint, personID uint, isOnLeave bool, reduction float64) error {
+// SetLeave marks a person as on leave and sets their reduction amount, leave days, and leave dates.
+// The reduction amount is the share that goes back to the owner (or redistributed).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProfitSharingUsecase) SetLeave(periodID uint, personID uint, isOnLeave bool, leaveDays int, leaveDates string, reduction float64) error {
+	period, err := uc.periodRepo.FindByID(periodID)
+	if err != nil {
+		return domainErrors.NewNotFoundError("periode")
+	}
+	if period.Status != "draft" {
+		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa diatur cutinya")
+	}
 	person, err := uc.profitSharingPersonRepo.GetByID(personID)
 	if err != nil {
 		return domainErrors.NewNotFoundError("orang")
@@ -887,7 +1214,49 @@ func (uc *ProfitSharingUsecase) SetLeave(periodID uint, personID uint, isOnLeave
 	if person.Role == "owner" {
 		return domainErrors.NewInvalidInputError("pemilik tidak bisa ditandai cuti")
 	}
-	return uc.profitSharingPersonRepo.UpdateLeaveStatus(personID, isOnLeave, reduction)
+
+	startCal := time.Date(period.PeriodStart.Year(), period.PeriodStart.Month(), period.PeriodStart.Day(), 0, 0, 0, 0, period.PeriodStart.Location())
+	endCal := time.Date(period.PeriodEnd.Year(), period.PeriodEnd.Month(), period.PeriodEnd.Day(), 0, 0, 0, 0, period.PeriodEnd.Location())
+	totalPeriodDays := int(math.Round(endCal.Sub(startCal).Hours()/24)) + 1
+	if totalPeriodDays < 1 {
+		totalPeriodDays = 1
+	}
+
+	// Validate and normalize leaveDates: parse, filter invalid/out-of-range,
+	// deduplicate, sort, and re-serialize as canonical JSON array.
+	if leaveDates != "" {
+		normalizedDates, err := normalizeLeaveDates(leaveDates, startCal, endCal)
+		if err != nil {
+			return domainErrors.NewInvalidInputError("format leave_dates tidak valid: " + err.Error())
+		}
+		leaveDates = normalizedDates
+		// Recompute leaveDays from normalized dates if leaveDays is inconsistent
+		if leaveDays <= 0 || leaveDays != len(normalizedDates) {
+			leaveDays = len(normalizedDates)
+		}
+	} else if isOnLeave && leaveDays <= 0 {
+		// Full leave without explicit dates: generate all dates in period
+		allDates := generateDateRange(startCal, endCal)
+		leaveDates = datesToJSON(allDates)
+		leaveDays = len(allDates)
+	}
+
+	// Calculate reduction if not provided or 0
+	if reduction <= 0 && person.GrossAmount > 0 {
+		if isOnLeave {
+			reduction = person.GrossAmount
+		} else if leaveDays > 0 {
+			if leaveDays > totalPeriodDays {
+				leaveDays = totalPeriodDays
+			}
+			reduction = math.Round(person.GrossAmount*float64(leaveDays)/float64(totalPeriodDays)/250) * 250
+			if reduction > person.GrossAmount {
+				reduction = person.GrossAmount
+			}
+		}
+	}
+
+	return uc.profitSharingPersonRepo.UpdateLeaveStatus(personID, isOnLeave, leaveDays, leaveDates, reduction)
 }
 
 // AddPerson adds a new person to a period.
@@ -983,5 +1352,123 @@ func parseDatePS(s string) time.Time {
 // harus menggunakan UTC — bukan waktu lokal server.
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func formatForDB(t time.Time) string {
-	return t.Format("2006-01-02")
+	return t.UTC().Format("2006-01-02 15:04:05")
+}
+
+// normalizeLeaveDates parses, validates, deduplicates, and sorts leave dates.
+// Returns canonical JSON array string of dates within [start, end] range.
+func normalizeLeaveDates(raw string, start, end time.Time) (string, error) {
+	dates := parseLeaveDates(raw)
+	if len(dates) == 0 {
+		return "[]", nil
+	}
+
+	seen := make(map[string]bool)
+	var result []string
+	for _, d := range dates {
+		// Normalize to date-only for comparison
+		dDate := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
+		sDate := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
+		eDate := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, time.UTC)
+
+		if dDate.Before(sDate) || dDate.After(eDate) {
+			continue // skip out-of-range dates
+		}
+
+		key := dDate.Format("2006-01-02")
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, key)
+		}
+	}
+
+	// Sort ascending
+	for i := 0; i < len(result)-1; i++ {
+		for j := i + 1; j < len(result); j++ {
+			if result[i] > result[j] {
+				result[i], result[j] = result[j], result[i]
+			}
+		}
+	}
+
+	// Serialize as JSON array
+	if len(result) == 0 {
+		return "[]", nil
+	}
+	out := "["
+	for i, d := range result {
+		if i > 0 {
+			out += ","
+		}
+		out += `"` + d + `"`
+	}
+	out += "]"
+	return out, nil
+}
+
+// parseLeaveDates parses a comma-separated or JSON array string of dates.
+func parseLeaveDates(raw string) []time.Time {
+	var dates []time.Time
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return dates
+	}
+
+	// Try JSON array first
+	if strings.HasPrefix(raw, "[") {
+		// Simple JSON array parsing: strip brackets and split by comma
+		inner := strings.TrimPrefix(raw, "[")
+		inner = strings.TrimSuffix(inner, "]")
+		for _, p := range strings.Split(inner, ",") {
+			p = strings.TrimSpace(p)
+			p = strings.Trim(p, `"`)
+			if p == "" {
+				continue
+			}
+			if t, err := time.Parse("2006-01-02", p); err == nil {
+				dates = append(dates, t)
+			}
+		}
+		return dates
+	}
+
+	// Comma-separated
+	for _, p := range strings.Split(raw, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if t, err := time.Parse("2006-01-02", p); err == nil {
+			dates = append(dates, t)
+		}
+	}
+	return dates
+}
+
+// generateDateRange returns all dates from start to end inclusive.
+func generateDateRange(start, end time.Time) []time.Time {
+	var dates []time.Time
+	s := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
+	e := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, time.UTC)
+	for !s.After(e) {
+		dates = append(dates, s)
+		s = s.AddDate(0, 0, 1)
+	}
+	return dates
+}
+
+// datesToJSON serializes a slice of dates as a JSON array string.
+func datesToJSON(dates []time.Time) string {
+	if len(dates) == 0 {
+		return "[]"
+	}
+	out := "["
+	for i, d := range dates {
+		if i > 0 {
+			out += ","
+		}
+		out += `"` + d.Format("2006-01-02") + `"`
+	}
+	out += "]"
+	return out
 }

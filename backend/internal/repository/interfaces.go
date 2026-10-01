@@ -178,9 +178,11 @@ type ProfitSharingPeriodRepository interface {
 	Update(period *entity.ProfitSharingPeriod) error
 	Delete(id uint) error
 	GetTotalRevenue(start, end string, outletID ...uint) (float64, error)
+	GetShiftRevenue(start, end, startTime, endTime string, outletID ...uint) (float64, error)
 	GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error)
 	GetExpensesList(start, end string, excluded []string, outletID ...uint) ([]entity.ExpenseBreakdown, error)
 	GetProductSales(start, end string, outletID ...uint) ([]entity.ProductSalesVolume, error)
+	GetShiftProductSales(start, end, startTime, endTime string, outletID ...uint) ([]entity.ProductSalesVolume, error)
 }
 
 // CashBookRepository defines data access for the owner-only Buku Kas
@@ -208,7 +210,8 @@ type ProfitSharingPersonRepository interface {
 	BulkUpsert(people []entity.ProfitSharingPerson) error
 	DeleteByPeriodID(periodID uint) error
 	DeleteByID(id uint) error
-	UpdateLeaveStatus(id uint, isOnLeave bool, reduction float64) error
+	UpdateLeaveStatus(id uint, isOnLeave bool, leaveDays int, leaveDates string, reduction float64) error
+	WithTx(tx *gorm.DB) ProfitSharingPersonRepository
 }
 
 // BaristaCashbonRepository defines data access for barista cashbons
@@ -314,5 +317,15 @@ type FeedbackRepository interface {
 	FindByToken(token string, limit int) ([]entity.CustomerFeedback, error)
 	Reply(id uint, reply string, repliedBy uint) error
 	GetAverageRating(outletID ...uint) (float64, int64, error)
+}
+
+// ShiftConfigRepository defines data access for multi-shift profit sharing configurations
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type ShiftConfigRepository interface {
+	FindByID(id uint) (*entity.ShiftConfig, error)
+	FindByOutletID(outletID uint, activeOnly bool) ([]entity.ShiftConfig, error)
+	Create(shift *entity.ShiftConfig) error
+	Update(shift *entity.ShiftConfig) error
+	Delete(id uint) error
 }
 

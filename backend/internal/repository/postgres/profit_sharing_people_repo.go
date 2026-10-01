@@ -59,15 +59,23 @@ func (r *profitSharingPeopleRepository) DeleteByPeriodID(periodID uint) error {
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *profitSharingPeopleRepository) WithTx(tx *gorm.DB) repository.ProfitSharingPersonRepository {
+	return &profitSharingPeopleRepository{db: tx}
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *profitSharingPeopleRepository) DeleteByID(id uint) error {
 	return r.db.Delete(&models.ProfitSharingPerson{}, id).Error
 }
 
-func (r *profitSharingPeopleRepository) UpdateLeaveStatus(id uint, isOnLeave bool, reduction float64) error {
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *profitSharingPeopleRepository) UpdateLeaveStatus(id uint, isOnLeave bool, leaveDays int, leaveDates string, reduction float64) error {
 	return r.db.Model(&models.ProfitSharingPerson{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"is_on_leave":       isOnLeave,
+			"leave_days":        leaveDays,
+			"leave_dates":       leaveDates,
 			"leave_reduction":   reduction,
 			"updated_at":        time.Now(),
 		}).Error
@@ -88,6 +96,9 @@ func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
 		IsOnLeave:        m.IsOnLeave,
 		LeaveDays:        m.LeaveDays,
 		LeaveDates:       m.LeaveDates,
+		ShiftID:          m.ShiftID,
+		ShiftName:        m.ShiftName,
+		ShiftPoolPct:     m.ShiftPoolPct,
 		CreatedAt:        m.CreatedAt,
 		UpdatedAt:        m.UpdatedAt,
 	}
@@ -108,6 +119,9 @@ func toModelPerson(p entity.ProfitSharingPerson) *models.ProfitSharingPerson {
 		IsOnLeave:        p.IsOnLeave,
 		LeaveDays:        p.LeaveDays,
 		LeaveDates:       p.LeaveDates,
+		ShiftID:          p.ShiftID,
+		ShiftName:        p.ShiftName,
+		ShiftPoolPct:     p.ShiftPoolPct,
 		CreatedAt:        p.CreatedAt,
 		UpdatedAt:        p.UpdatedAt,
 	}

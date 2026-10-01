@@ -127,6 +127,33 @@ func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outle
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *profitSharingPeriodRepository) GetShiftRevenue(start, end, startTime, endTime string, outletID ...uint) (float64, error) {
+	ow, args := outletWhere("orders", outletID...)
+	var timeClause string
+	var timeArgs []interface{}
+	if startTime <= endTime {
+		timeClause = " AND TIME(COALESCE(NULLIF(orders.order_time, '0001-01-01 00:00:00'), orders.created_at)) >= ? AND TIME(COALESCE(NULLIF(orders.order_time, '0001-01-01 00:00:00'), orders.created_at)) < ?"
+		timeArgs = []interface{}{startTime, endTime}
+	} else {
+		// Overnight shift (e.g. 21:00 to 03:00)
+		timeClause = " AND (TIME(COALESCE(NULLIF(orders.order_time, '0001-01-01 00:00:00'), orders.created_at)) >= ? OR TIME(COALESCE(NULLIF(orders.order_time, '0001-01-01 00:00:00'), orders.created_at)) < ?)"
+		timeArgs = []interface{}{startTime, endTime}
+	}
+
+	whereQuery := "DATE(orders.created_at) BETWEEN DATE(?) AND DATE(?) AND orders.status = ?" + timeClause + ow
+	allArgs := []interface{}{start, end, "Completed"}
+	allArgs = append(allArgs, timeArgs...)
+	allArgs = append(allArgs, args...)
+
+	var total float64
+	err := r.db.Model(&models.Order{}).
+		Where(whereQuery, allArgs...).
+		Select("COALESCE(SUM(orders.total_amount), 0)").
+		Row().Scan(&total)
+	return total, err
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *profitSharingPeriodRepository) GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error) {
 	ow, args := outletWhere("expenses", outletID...)
 	query := "DATE(date) BETWEEN DATE(?) AND DATE(?)" + ow
@@ -197,6 +224,45 @@ func (r *profitSharingPeriodRepository) GetProductSales(start, end string, outle
 	return results, err
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *profitSharingPeriodRepository) GetShiftProductSales(start, end, startTime, endTime string, outletID ...uint) ([]entity.ProductSalesVolume, error) {
+	ow, args := outletWhere("o", outletID...)
+	var timeClause string
+	var timeArgs []interface{}
+	if startTime <= endTime {
+		timeClause = " AND TIME(COALESCE(NULLIF(o.order_time, '0001-01-01 00:00:00'), o.created_at)) >= ? AND TIME(COALESCE(NULLIF(o.order_time, '0001-01-01 00:00:00'), o.created_at)) < ?"
+		timeArgs = []interface{}{startTime, endTime}
+	} else {
+		// Overnight shift
+		timeClause = " AND (TIME(COALESCE(NULLIF(o.order_time, '0001-01-01 00:00:00'), o.created_at)) >= ? OR TIME(COALESCE(NULLIF(o.order_time, '0001-01-01 00:00:00'), o.created_at)) < ?)"
+		timeArgs = []interface{}{startTime, endTime}
+	}
+
+	baseArgs := []interface{}{start, end}
+	baseArgs = append(baseArgs, timeArgs...)
+	allArgs := append(baseArgs, args...)
+
+	var results []entity.ProductSalesVolume
+	err := r.db.Raw(`
+		SELECT
+			p.id as product_id,
+			p.name,
+			p.category,
+			SUM(oi.quantity) as quantity,
+			AVG(oi.price) as avg_price,
+			AVG(oi.cost) as avg_cost,
+			SUM(oi.price * oi.quantity) as revenue,
+			SUM(oi.cost * oi.quantity) as total_cogs
+		FROM order_items oi
+		JOIN products p ON p.id = oi.product_id
+		JOIN orders o ON o.id = oi.order_id
+		WHERE DATE(o.created_at) BETWEEN DATE(?) AND DATE(?) AND o.status = 'Completed'`+timeClause+ow+`
+		GROUP BY p.id, p.name, p.category
+		ORDER BY revenue DESC
+	`, allArgs...).Scan(&results).Error
+	return results, err
+}
+
 func toDomainProfitSharing(m *models.ProfitSharingPeriod) *entity.ProfitSharingPeriod {
 	var people []entity.ProfitSharingPerson
 	for _, p := range m.People {
@@ -206,13 +272,16 @@ func toDomainProfitSharing(m *models.ProfitSharingPeriod) *entity.ProfitSharingP
 			Name:           p.Name,
 			Role:           p.Role,
 			SharePct:       p.SharePct,
-			Amount:         p.Amount,
+			Amount:           p.Amount,
 			GrossAmount:      p.GrossAmount,
 			LeaveReduction:   p.LeaveReduction,
 			CashbonReduction: p.CashbonReduction,
 			IsOnLeave:        p.IsOnLeave,
 			LeaveDays:        p.LeaveDays,
 			LeaveDates:       p.LeaveDates,
+			ShiftID:          p.ShiftID,
+			ShiftName:        p.ShiftName,
+			ShiftPoolPct:     p.ShiftPoolPct,
 			CreatedAt:        p.CreatedAt,
 			UpdatedAt:        p.UpdatedAt,
 		})

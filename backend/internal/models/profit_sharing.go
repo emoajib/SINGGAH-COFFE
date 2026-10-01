@@ -36,6 +36,26 @@ func (ProfitSharingPeriod) TableName() string {
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type ShiftConfig struct {
+	ID             uint           `gorm:"primaryKey" json:"id"`
+	CreatedAt      time.Time      `gorm:"index" json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+	OutletID       uint           `json:"outlet_id" gorm:"index:idx_shift_outlet"`
+	Name           string         `json:"name" gorm:"size:50;not null"`
+	StartTime      string         `json:"start_time" gorm:"size:5;not null"` // "07:00" WIB
+	EndTime        string         `json:"end_time" gorm:"size:5;not null"`   // "14:00" WIB
+	OwnerPct       float64        `json:"owner_pct" gorm:"default:60"`       // default 60%
+	BaristaPoolPct float64        `json:"barista_pool_pct" gorm:"default:40"`// default 40% (OwnerPct + BaristaPoolPct = 100)
+	IsActive       bool           `json:"is_active" gorm:"default:true"`
+	SortOrder      int            `json:"sort_order" gorm:"default:0"`
+}
+
+func (ShiftConfig) TableName() string {
+	return "shift_configs"
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ProfitSharingPerson struct {
 	ID               uint           `gorm:"primaryKey" json:"id"`
 	CreatedAt        time.Time      `gorm:"index" json:"created_at"`
@@ -52,6 +72,10 @@ type ProfitSharingPerson struct {
 	IsOnLeave        bool           `json:"is_on_leave"`
 	LeaveDays        int            `json:"leave_days" gorm:"default:0"`
 	LeaveDates       string         `json:"leave_dates" gorm:"type:text"`
+	ShiftID          *uint          `json:"shift_id" gorm:"index;constraint:OnDelete:SET_NULL"`
+	ShiftName        string         `json:"shift_name" gorm:"size:50;default:''"`
+	ShiftPoolPct     float64        `json:"shift_pool_pct" gorm:"default:0"` // Persentase dari pool barista per shift (misal 50% atau 100%)
+	Cashbons        []BaristaCashbon `json:"cashbons" gorm:"-"`
 }
 
 func (ProfitSharingPerson) TableName() string {

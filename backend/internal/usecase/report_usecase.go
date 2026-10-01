@@ -48,21 +48,23 @@ func startDashboardCacheCleanup() {
 }
 
 type ReportUsecase struct {
-	orderRepo     repository.OrderRepository
-	orderItemRepo repository.OrderItemRepository
-	expenseRepo   repository.ExpenseRepository
+	orderRepo      repository.OrderRepository
+	orderItemRepo  repository.OrderItemRepository
+	expenseRepo    repository.ExpenseRepository
 	ingredientRepo repository.IngredientRepository
-	cashBookRepo  repository.CashBookRepository
+	cashBookRepo   repository.CashBookRepository
+	settingRepo    repository.SettingRepository
 }
 
 func NewReportUsecase(db *gorm.DB) *ReportUsecase {
 	startDashboardCacheCleanup()
 	return &ReportUsecase{
-		orderRepo:     postgres.NewOrderRepository(db),
-		orderItemRepo: postgres.NewOrderItemRepository(db),
-		expenseRepo:   postgres.NewExpenseRepository(db),
+		orderRepo:      postgres.NewOrderRepository(db),
+		orderItemRepo:  postgres.NewOrderItemRepository(db),
+		expenseRepo:    postgres.NewExpenseRepository(db),
 		ingredientRepo: postgres.NewIngredientRepository(db),
-		cashBookRepo:  postgres.NewCashBookRepository(db),
+		cashBookRepo:   postgres.NewCashBookRepository(db),
+		settingRepo:    postgres.NewSettingRepository(db),
 	}
 }
 
@@ -111,7 +113,13 @@ func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint
 	}
 	transactionsToday, _ := uc.orderRepo.CountSince(since, outletID...)
 	activeOrders, _ := uc.orderRepo.CountByStatus("Pending", outletID...)
-	lowStockCount, _ := uc.ingredientRepo.CountLowStock(outletID...)
+
+	// Check if stock alerts are enabled
+	lowStockCount := int64(0)
+	setting, err := uc.settingRepo.FindByKey("enable_stock_alerts")
+	if err == nil && setting != nil && setting.Value == "true" {
+		lowStockCount, _ = uc.ingredientRepo.CountLowStock(outletID...)
+	}
 
 	totalCogs, err := uc.orderItemRepo.GetTotalCogsSince("Completed", since, outletID...)
 	if err != nil {

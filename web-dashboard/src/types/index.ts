@@ -653,6 +653,11 @@ export interface ProfitSharingPerson {
   is_on_leave: boolean
   leave_days?: number
   leave_dates?: string
+  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+  // Multi-shift fields
+  shift_id?: number | null
+  shift_name?: string
+  shift_pool_pct?: number
   cashbons?: BaristaCashbon[]
 }
 
@@ -699,11 +704,46 @@ export interface ProfitSharingCalculation {
   basis_type: string
   owner_pct: number
   people: ProfitSharingPerson[]
+  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+  // Multi-shift breakdown (Two-Tier per shift)
+  shifts?: ShiftBreakdown[]
 }
 
 export interface ProfitSharingPreview {
   period: ProfitSharingPeriod
   calculation: ProfitSharingCalculation
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface ShiftConfig {
+  id: number
+  outlet_id: number
+  name: string
+  start_time: string
+  end_time: string
+  owner_pct: number
+  barista_pool_pct: number
+  is_active: boolean
+  sort_order: number
+  created_at?: string
+  updated_at?: string
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+export interface ShiftBreakdown {
+  shift_id: number
+  shift_name: string
+  start_time: string
+  end_time: string
+  revenue: number
+  cogs: number
+  expenses: number
+  gross_margin: number
+  net_profit: number
+  sharing_basis: number
+  owner_pct: number
+  owner_share: number
+  barista_pool: number
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager

@@ -25,6 +25,7 @@ type Handlers struct {
 	ProductionTarget *handler.ProductionTargetHandler
 	CashBook         *handler.CashBookHandler
 	ProfitSharing    *handler.ProfitSharingHandler
+	ShiftConfig      *handler.ShiftConfigHandler
 	Account          *handler.AccountHandler
 	Journal          *handler.JournalHandler
 	Loyalty          *handler.LoyaltyHandler
@@ -214,6 +215,9 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			// Profit Sharing — Owner Only
 			protected.GET("/profit-sharing", middleware.RoleMiddleware("owner"), h.ProfitSharing.GetAll)
 			protected.GET("/profit-sharing/preview", middleware.RoleMiddleware("owner"), h.ProfitSharing.Preview)
+			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+			// Simpan draft eksplisit (idempotent, tanpa harus finalize)
+			protected.POST("/profit-sharing/draft", middleware.RoleMiddleware("owner"), h.ProfitSharing.SaveDraft)
 			protected.POST("/profit-sharing/:id/finalize", middleware.RoleMiddleware("owner"), h.ProfitSharing.Finalize)
 			protected.POST("/profit-sharing/:id/mark-paid", middleware.RoleMiddleware("owner"), h.ProfitSharing.MarkAsPaid)
 			protected.POST("/profit-sharing/:id/recalculate", middleware.RoleMiddleware("owner"), h.ProfitSharing.Recalculate)
@@ -222,6 +226,13 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/profit-sharing/:id/people", middleware.RoleMiddleware("owner"), h.ProfitSharing.AddPerson)
 			protected.DELETE("/profit-sharing/:id/people/:personId", middleware.RoleMiddleware("owner"), h.ProfitSharing.RemovePerson)
 			protected.PUT("/profit-sharing/:id/leave", middleware.RoleMiddleware("owner"), h.ProfitSharing.SetLeave)
+
+			// Shift Config Management — Owner Only
+			protected.GET("/profit-sharing/shift-configs", middleware.RoleMiddleware("owner"), h.ShiftConfig.GetShifts)
+			protected.POST("/profit-sharing/shift-configs", middleware.RoleMiddleware("owner"), h.ShiftConfig.CreateShift)
+			protected.GET("/profit-sharing/shift-configs/:id", middleware.RoleMiddleware("owner"), h.ShiftConfig.GetShiftByID)
+			protected.PUT("/profit-sharing/shift-configs/:id", middleware.RoleMiddleware("owner"), h.ShiftConfig.UpdateShift)
+			protected.DELETE("/profit-sharing/shift-configs/:id", middleware.RoleMiddleware("owner"), h.ShiftConfig.DeleteShift)
 
 			// PSAK — Chart of Accounts
 			// Vetted by AI - Manual Review Required by Senior Engineer/Manager

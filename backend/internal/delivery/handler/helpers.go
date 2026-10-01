@@ -5,6 +5,9 @@ import (
 )
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// getOutletID mengembalikan outlet_id dari context yang diatur oleh AuthMiddleware.
+// Mengembalikan 0 jika tidak ditemukan — panggilan harus selalu berasal dari route
+// yang已经 melalui AuthMiddleware (yang menyetel outlet_id selalu ada).
 func getOutletID(c *gin.Context) uint {
 	if id, exists := c.Get("outlet_id"); exists {
 		if outletID, ok := id.(uint); ok {

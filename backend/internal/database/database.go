@@ -58,6 +58,7 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.PSAKSchemaVersion{},
 		&models.ProfitSharingPerson{},
 		&models.BaristaCashbon{},
+		&models.ShiftConfig{}, // Multi-shift bagi hasil - Vetted by AI
 		// Loyalty & Customer Feedback - Vetted by AI
 		&models.Customer{},
 		&models.LoyaltyProgram{},
@@ -201,22 +202,23 @@ func Connect(cfg config.Config) *gorm.DB {
 	db.Exec("UPDATE expenses SET category = 'Lainnya' WHERE LOWER(TRIM(category)) IN ('other', 'misc') OR category = '' OR category IS NULL")
 
 	// Ensure cash_books has sub_type and investor_name (idempotent / non-blocking)
-	_ = db.Exec("ALTER TABLE cash_books ADD COLUMN IF NOT EXISTS sub_type VARCHAR(30) NOT NULL DEFAULT ''")
-	_ = db.Exec("ALTER TABLE cash_books ADD COLUMN IF NOT EXISTS investor_name VARCHAR(100) NOT NULL DEFAULT ''")
+	// Uses ensureColumn helper for MySQL version compatibility (< 8.0.29 doesn't support IF NOT EXISTS)
+	ensureColumn(db, "cash_books", "sub_type", "VARCHAR(30) NOT NULL DEFAULT ''")
+	ensureColumn(db, "cash_books", "investor_name", "VARCHAR(100) NOT NULL DEFAULT ''")
 
 	// Ensure orders has self-order tracking columns (idempotent / non-blocking)
-	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_source VARCHAR(20) NOT NULL DEFAULT 'cashier'")
-	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(30) NOT NULL DEFAULT ''")
-	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_token VARCHAR(64) NOT NULL DEFAULT ''")
-	_ = db.Exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_code VARCHAR(10) NOT NULL DEFAULT ''")
-	_ = db.Exec("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS notes VARCHAR(100) NOT NULL DEFAULT ''")
+	ensureColumn(db, "orders", "order_source", "VARCHAR(20) NOT NULL DEFAULT 'cashier'")
+	ensureColumn(db, "orders", "customer_phone", "VARCHAR(30) NOT NULL DEFAULT ''")
+	ensureColumn(db, "orders", "tracking_token", "VARCHAR(64) NOT NULL DEFAULT ''")
+	ensureColumn(db, "orders", "pickup_code", "VARCHAR(10) NOT NULL DEFAULT ''")
+	ensureColumn(db, "order_items", "notes", "VARCHAR(100) NOT NULL DEFAULT ''")
 
 	// Ensure ingredients has warehouse_stock & kedai_stock for dual-location stock (idempotent / non-blocking)
-	_ = db.Exec("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS warehouse_stock DECIMAL(10,3) NOT NULL DEFAULT 0")
-	_ = db.Exec("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS kedai_stock DECIMAL(10,3) NOT NULL DEFAULT 0")
-	_ = db.Exec("ALTER TABLE stock_mutations ADD COLUMN IF NOT EXISTS location VARCHAR(20) NOT NULL DEFAULT 'kedai'")
-	_ = db.Exec("ALTER TABLE stock_mutations ADD COLUMN IF NOT EXISTS from_location VARCHAR(20) NOT NULL DEFAULT ''")
-	_ = db.Exec("ALTER TABLE stock_mutations ADD COLUMN IF NOT EXISTS to_location VARCHAR(20) NOT NULL DEFAULT ''")
+	ensureColumn(db, "ingredients", "warehouse_stock", "DECIMAL(10,3) NOT NULL DEFAULT 0")
+	ensureColumn(db, "ingredients", "kedai_stock", "DECIMAL(10,3) NOT NULL DEFAULT 0")
+	ensureColumn(db, "stock_mutations", "location", "VARCHAR(20) NOT NULL DEFAULT 'kedai'")
+	ensureColumn(db, "stock_mutations", "from_location", "VARCHAR(20) NOT NULL DEFAULT ''")
+	ensureColumn(db, "stock_mutations", "to_location", "VARCHAR(20) NOT NULL DEFAULT ''")
 
 	// Backfill: jika kedai_stock masih 0 dan current_stock > 0, set kedai_stock = current_stock (backward compatibility)
 	_ = db.Exec("UPDATE ingredients SET kedai_stock = current_stock WHERE (kedai_stock = 0 OR kedai_stock IS NULL) AND current_stock > 0")
@@ -339,4 +341,18 @@ func Connect(cfg config.Config) *gorm.DB {
 	}
 
 	return db
+}
+
+// ensureColumn adds a column to a table if it doesn't exist.
+// Uses information_schema to check first — compatible with all MySQL versions,
+// including < 8.0.29 which doesn't support ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func ensureColumn(db *gorm.DB, table, column, definition string) {
+	var count int64
+	db.Raw(`SELECT COUNT(*) FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+		table, column).Scan(&count)
+	if count == 0 {
+		_ = db.Exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition)
+	}
 }

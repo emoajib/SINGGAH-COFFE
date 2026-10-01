@@ -744,6 +744,7 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                         <p className="text-xs text-gray-500 mt-1">Pembayaran tertunda</p>
                     </CardContent>
                 </Card>
+                {settings?.enable_stock_alerts !== "false" && (
                 <Card
                     className={summary.low_stock_count > 0 ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
                     onClick={() => {
@@ -792,6 +793,7 @@ export default function DashboardHome({ setActiveTab }: DashboardHomeProps) {
                         )}
                     </CardContent>
                 </Card>
+                )}
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-gray-500">

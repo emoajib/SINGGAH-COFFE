@@ -16,7 +16,7 @@ func setupReportTestDB() *gorm.DB {
 	if err != nil {
 		panic("Failed to connect to database: " + err.Error())
 	}
-	db.AutoMigrate(&models.Order{}, &models.OrderItem{}, &models.Expense{}, &models.Ingredient{}, &models.Product{}, &models.CashBook{}, &models.PSAKEventOutbox{})
+	db.AutoMigrate(&models.Order{}, &models.OrderItem{}, &models.Expense{}, &models.Ingredient{}, &models.Product{}, &models.CashBook{}, &models.PSAKEventOutbox{}, &models.Setting{})
 	return db
 }
 
@@ -98,6 +98,13 @@ func TestReportUsecase_GetDashboardSummary(t *testing.T) {
 	db := setupReportTestDB()
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createReportUsecase(db)
+
+	// Seed the enable_stock_alerts setting
+	db.Create(&models.Setting{
+		Key:           "enable_stock_alerts",
+		Value:         "true",
+		SettingGroup:  "notifications",
+	})
 
 	order := &models.Order{
 		OrderNumber:   "ORD-DASH-001",

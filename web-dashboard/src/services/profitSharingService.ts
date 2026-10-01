@@ -1,5 +1,5 @@
 import api from '../lib/api'
-import type { ProfitSharingPeriod, ProfitSharingPreview, ProfitSharingPerson } from '../types'
+import type { ProfitSharingPeriod, ProfitSharingPreview, ProfitSharingPerson, ShiftConfig } from '../types'
 
 export const ProfitSharingService = {
   getAll: async (): Promise<ProfitSharingPeriod[]> => {
@@ -13,6 +13,18 @@ export const ProfitSharingService = {
       params.people = JSON.stringify(people)
     }
     const response = await api.get<ProfitSharingPreview>('/profit-sharing/preview', { params })
+    return response.data
+  },
+
+  saveDraft: async (start: string, end: string, ratio: number, basisType: string = 'net', ownerPct: number = 60, people?: ProfitSharingPerson[]): Promise<ProfitSharingPeriod> => {
+    const response = await api.post<ProfitSharingPeriod>('/profit-sharing/draft', {
+      start,
+      end,
+      ratio,
+      basis_type: basisType,
+      owner_pct: ownerPct,
+      people,
+    })
     return response.data
   },
 
@@ -55,12 +67,37 @@ export const ProfitSharingService = {
     return response.data
   },
 
-  setLeave: async (periodId: number, personId: number, isOnLeave: boolean, reduction: number): Promise<{ message: string }> => {
+  setLeave: async (
+    periodId: number,
+    personId: number,
+    isOnLeave: boolean,
+    reduction: number,
+    leaveDays?: number,
+    leaveDates?: string
+  ): Promise<{ message: string }> => {
     const response = await api.put(`/profit-sharing/${periodId}/leave`, {
       person_id: personId,
       is_on_leave: isOnLeave,
+      leave_days: leaveDays || 0,
+      leave_dates: leaveDates || '',
       reduction,
     })
+    return response.data
+  },
+
+  updateLeave: async (
+    periodId: number,
+    personId: number,
+    isOnLeave: boolean,
+    reduction: number,
+    leaveDays?: number,
+    leaveDates?: string
+  ): Promise<{ message: string }> => {
+    return ProfitSharingService.setLeave(periodId, personId, isOnLeave, reduction, leaveDays, leaveDates)
+  },
+
+  getShiftConfigs: async (): Promise<ShiftConfig[]> => {
+    const response = await api.get<ShiftConfig[]>('/profit-sharing/shift-configs')
     return response.data
   },
 }

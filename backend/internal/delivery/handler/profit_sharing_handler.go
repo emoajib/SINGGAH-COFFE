@@ -56,6 +56,47 @@ func (h *ProfitSharingHandler) Preview(c *gin.Context) {
 	c.JSON(http.StatusOK, preview)
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// saveDraftRequest is the request body for POST /profit-sharing/draft.
+type saveDraftRequest struct {
+	Start     string                      `json:"start" binding:"required"`
+	End       string                      `json:"end" binding:"required"`
+	Ratio     float64                     `json:"ratio"`
+	BasisType string                      `json:"basis_type"`
+	OwnerPct  float64                     `json:"owner_pct"`
+	People    []entity.ProfitSharingPerson `json:"people"`
+}
+
+// SaveDraft explicitly persists a profit sharing draft (idempotent, tanpa
+// harus finalize). Draft tidak pernah menyentuh Buku Kas / Jurnal PSAK.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (h *ProfitSharingHandler) SaveDraft(c *gin.Context) {
+	var req saveDraftRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "data tidak valid: " + err.Error()})
+		return
+	}
+	if req.Ratio < 0 || req.Ratio > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ratio harus antara 0 sampai 100"})
+		return
+	}
+	if req.OwnerPct < 0 || req.OwnerPct > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "owner_pct harus antara 0 sampai 100"})
+		return
+	}
+	outletID := getOutletID(c)
+
+	period, err := h.usecase.SaveDraft(req.Start, req.End, outletID, req.Ratio, req.BasisType, req.OwnerPct, req.People)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "draft berhasil disimpan",
+		"period":  period,
+	})
+}
+
 func (h *ProfitSharingHandler) Finalize(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -152,9 +193,12 @@ func (h *ProfitSharingHandler) GetPeople(c *gin.Context) {
 	c.JSON(http.StatusOK, people)
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type setLeaveRequest struct {
 	PersonID   uint    `json:"person_id" binding:"required"`
 	IsOnLeave  bool    `json:"is_on_leave"`
+	LeaveDays  int     `json:"leave_days"`
+	LeaveDates string  `json:"leave_dates"`
 	Reduction  float64 `json:"reduction"`
 }
 
@@ -171,7 +215,7 @@ func (h *ProfitSharingHandler) SetLeave(c *gin.Context) {
 		return
 	}
 
-	if err := h.usecase.SetLeave(uint(id), req.PersonID, req.IsOnLeave, req.Reduction); err != nil {
+	if err := h.usecase.SetLeave(uint(id), req.PersonID, req.IsOnLeave, req.LeaveDays, req.LeaveDates, req.Reduction); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
