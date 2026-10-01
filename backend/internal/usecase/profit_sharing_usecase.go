@@ -652,7 +652,7 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 			return nil, nil, nil, nil, tx.Error
 		}
 		// Lock the period row to serialize concurrent previews
-		var lockedPeriod entity.ProfitSharingPeriod
+		var lockedPeriod models.ProfitSharingPeriod
 		if err := tx.First(&lockedPeriod, period.ID).Error; err != nil {
 			tx.Rollback()
 			return nil, nil, nil, nil, err
