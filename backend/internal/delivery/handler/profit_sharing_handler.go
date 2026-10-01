@@ -64,41 +64,41 @@ func (h *ProfitSharingHandler) Preview(c *gin.Context) {
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 // profitSharingPersonRequest is the request representation of a person (excludes Cashbons which causes JSON parse issues).
 type profitSharingPersonRequest struct {
-	ID               uint    `json:"id"`
-	PeriodID         uint    `json:"period_id"`
-	Name             string  `json:"name"`
-	Role             string  `json:"role"`
-	SharePct         float64 `json:"share_pct"`
-	GrossAmount      float64 `json:"gross_amount"`
-	LeaveReduction   float64 `json:"leave_reduction"`
-	CashbonReduction float64 `json:"cashbon_reduction"`
-	Amount           float64 `json:"amount"`
-	IsOnLeave        bool    `json:"is_on_leave"`
-	LeaveDays        int     `json:"leave_days"`
-	LeaveDates       string  `json:"leave_dates"`
-	ShiftID          *uint   `json:"shift_id,omitempty"`
-	ShiftName        string  `json:"shift_name,omitempty"`
-	ShiftPoolPct     float64 `json:"shift_pool_pct"`
+	ID                uint     `json:"id"`
+	PeriodID          uint     `json:"period_id"`
+	Name              string   `json:"name"`
+	Role              string   `json:"role"`
+	SharePct          float64  `json:"share_pct"`
+	GrossAmount       float64  `json:"gross_amount"`
+	LeaveReduction    float64  `json:"leave_reduction"`
+	CashbonReduction  float64  `json:"cashbon_reduction"`
+	Amount            float64  `json:"amount"`
+	IsOnLeave         bool     `json:"is_on_leave"`
+	LeaveDays         int      `json:"leave_days"`
+	LeaveDates        string   `json:"leave_dates"`
+	ShiftIDs          []uint   `json:"shift_ids,omitempty"`
+	ShiftNames        []string `json:"shift_names,omitempty"`
+	ShiftPoolPcts     []float64 `json:"shift_pool_pcts,omitempty"`
 }
 
 // toEntity converts request to domain entity.
 func (r *profitSharingPersonRequest) toEntity() entity.ProfitSharingPerson {
 	return entity.ProfitSharingPerson{
-		ID:               r.ID,
-		PeriodID:         r.PeriodID,
-		Name:             r.Name,
-		Role:             r.Role,
-		SharePct:         r.SharePct,
-		GrossAmount:      r.GrossAmount,
-		LeaveReduction:   r.LeaveReduction,
-		CashbonReduction: r.CashbonReduction,
-		Amount:           r.Amount,
-		IsOnLeave:        r.IsOnLeave,
-		LeaveDays:        r.LeaveDays,
-		LeaveDates:       r.LeaveDates,
-		ShiftID:          r.ShiftID,
-		ShiftName:        r.ShiftName,
-		ShiftPoolPct:     r.ShiftPoolPct,
+		ID:                r.ID,
+		PeriodID:          r.PeriodID,
+		Name:              r.Name,
+		Role:              r.Role,
+		SharePct:          r.SharePct,
+		GrossAmount:       r.GrossAmount,
+		LeaveReduction:    r.LeaveReduction,
+		CashbonReduction:  r.CashbonReduction,
+		Amount:            r.Amount,
+		IsOnLeave:         r.IsOnLeave,
+		LeaveDays:         r.LeaveDays,
+		LeaveDates:        r.LeaveDates,
+		ShiftIDs:          r.ShiftIDs,
+		ShiftNames:        r.ShiftNames,
+		ShiftPoolPcts:     r.ShiftPoolPcts,
 	}
 }
 

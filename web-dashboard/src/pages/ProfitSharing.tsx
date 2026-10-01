@@ -84,6 +84,7 @@ export default function ProfitSharing() {
   const [newPersonName, setNewPersonName] = useState("")
   const [newPersonPct, setNewPersonPct] = useState(10)
   const [leaveModalIndex, setLeaveModalIndex] = useState<number | null>(null)
+  const [shiftDropdownIndex, setShiftDropdownIndex] = useState<number | null>(null)
   const [preview, setPreview] = useState<ProfitSharingPreview | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [detailPeriod, setDetailPeriod] = useState<ProfitSharingPeriod | null>(null)
@@ -136,6 +137,13 @@ export default function ProfitSharing() {
       }
     }
     fetchShiftConfigs()
+  }, [])
+
+  // Close shift dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = () => setShiftDropdownIndex(null)
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   // Sync people with active master baristas
@@ -1260,30 +1268,108 @@ export default function ProfitSharing() {
 
                         {!isOwner && shiftConfigs.length > 0 && (
                           <div className="flex items-center gap-1.5">
-                            <select
-                              value={person.shift_id?.toString() || ""}
-                              onChange={(e) => {
-                                const value = e.target.value
-                                const updated = [...people]
-                                const shiftId = value ? Number(value) : null
-                                const shift = shiftConfigs.find(s => s.id === shiftId)
-                                updated[index] = {
-                                  ...updated[index],
-                                  shift_id: shiftId,
-                                  shift_name: shift?.name,
-                                  shift_pool_pct: shift?.barista_pool_pct
-                                }
-                                setPeople(updated)
-                              }}
-                              className="w-40 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                            >
-                              <option value="">Tanpa Shift (All-Day)</option>
-                              {shiftConfigs.map(s => (
-                                <option key={s.id} value={s.id.toString()}>
-                                  {s.name} ({s.start_time.slice(0,5)}-{s.end_time.slice(0,5)}) - Pool {s.barista_pool_pct}%
-                                </option>
-                              ))}
-                            </select>
+                            {(() => {
+                              const ids = person.shift_ids || []
+                              if (ids.length === 0) {
+                                return <span className="text-xs text-slate-500 italic">Tanpa Shift (All-Day)</span>
+                              }
+                              return (
+                                <span className="flex flex-wrap gap-1">
+                                  {ids.map((id, i) => {
+                                    const s = shiftConfigs.find(c => c.id === id)
+                                    return s ? (
+                                      <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-700 rounded border border-indigo-200">
+                                        {s.name} ({s.start_time.slice(0,5)}-{s.end_time.slice(0,5)}) - Pool {s.barista_pool_pct}%
+                                      </span>
+                                    ) : null
+                                  })}
+                                </span>
+                              )
+                            })()}
+                          </div>
+                        )}
+
+                        {!isOwner && shiftConfigs.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="relative">
+                              <button
+                                type="button"
+                                className="w-40 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-left"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  setShiftDropdownIndex(index)
+                                }}
+                              >
+                                {(() => {
+                                  const ids = person.shift_ids || []
+                                  if (ids.length === 0) return "Tanpa Shift (All-Day)"
+                                  if (ids.length === 1) {
+                                    const s = shiftConfigs.find(c => c.id === ids[0])
+                                    return s ? `${s.name} (${s.start_time.slice(0,5)}-${s.end_time.slice(0,5)})` : "Shift"
+                                  }
+                                  return `${ids.length} Shift dipilih`
+                                })()}
+                              </button>
+                              {shiftDropdownIndex === index && (
+                                <div className="absolute z-10 mt-1 w-56 bg-white border border-slate-300 rounded-lg shadow-lg py-1">
+                                  <label className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={(person.shift_ids || []).length === 0}
+                                      onChange={(_) => {
+                                        const updated = [...people]
+                                        updated[index] = {
+                                          ...updated[index],
+                                          shift_ids: [],
+                                          shift_names: [],
+                                          shift_pool_pcts: []
+                                        }
+                                        setPeople(updated)
+                                        setShiftDropdownIndex(null)
+                                      }}
+                                    />
+                                    <span className="text-slate-700">Tanpa Shift (All-Day)</span>
+                                  </label>
+                                  <hr className="my-1 border-slate-200" />
+                                  {shiftConfigs.map(s => (
+                                    <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={(person.shift_ids || []).includes(s.id)}
+                                        onChange={(e) => {
+                                          const updated = [...people]
+                                          const currentIds = updated[index].shift_ids || []
+                                          const currentNames = updated[index].shift_names || []
+                                          const currentPcts = updated[index].shift_pool_pcts || []
+                                          let newIds, newNames, newPcts
+                                          if (e.target.checked) {
+                                            newIds = [...currentIds, s.id]
+                                            newNames = [...currentNames, s.name]
+                                            newPcts = [...currentPcts, s.barista_pool_pct]
+                                          } else {
+                                            const idx = currentIds.indexOf(s.id)
+                                            newIds = currentIds.filter((_, i) => i !== idx)
+                                            newNames = currentNames.filter((_, i) => i !== idx)
+                                            newPcts = currentPcts.filter((_, i) => i !== idx)
+                                          }
+                                          updated[index] = {
+                                            ...updated[index],
+                                            shift_ids: newIds,
+                                            shift_names: newNames,
+                                            shift_pool_pcts: newPcts
+                                          }
+                                          setPeople(updated)
+                                        }}
+                                      />
+                                      <span className="text-slate-700">
+                                        {s.name} ({s.start_time.slice(0,5)}-{s.end_time.slice(0,5)}) - Pool {s.barista_pool_pct}%
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
 

@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"encoding/json"
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/repository"
@@ -83,6 +84,20 @@ func (r *profitSharingPeopleRepository) UpdateLeaveStatus(id uint, isOnLeave boo
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
+	var shiftIDs []uint
+	var shiftNames []string
+	var shiftPoolPcts []float64
+
+	if m.ShiftIDs != "" {
+		_ = json.Unmarshal([]byte(m.ShiftIDs), &shiftIDs)
+	}
+	if m.ShiftNames != "" {
+		_ = json.Unmarshal([]byte(m.ShiftNames), &shiftNames)
+	}
+	if m.ShiftPoolPcts != "" {
+		_ = json.Unmarshal([]byte(m.ShiftPoolPcts), &shiftPoolPcts)
+	}
+
 	return entity.ProfitSharingPerson{
 		ID:               m.ID,
 		PeriodID:         m.PeriodID,
@@ -96,9 +111,9 @@ func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
 		IsOnLeave:        m.IsOnLeave,
 		LeaveDays:        m.LeaveDays,
 		LeaveDates:       m.LeaveDates,
-		ShiftID:          m.ShiftID,
-		ShiftName:        m.ShiftName,
-		ShiftPoolPct:     m.ShiftPoolPct,
+		ShiftIDs:         shiftIDs,
+		ShiftNames:       shiftNames,
+		ShiftPoolPcts:    shiftPoolPcts,
 		CreatedAt:        m.CreatedAt,
 		UpdatedAt:        m.UpdatedAt,
 	}
@@ -106,6 +121,10 @@ func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func toModelPerson(p entity.ProfitSharingPerson) *models.ProfitSharingPerson {
+	shiftIDsJSON, _ := json.Marshal(p.ShiftIDs)
+	shiftNamesJSON, _ := json.Marshal(p.ShiftNames)
+	shiftPoolPctsJSON, _ := json.Marshal(p.ShiftPoolPcts)
+
 	return &models.ProfitSharingPerson{
 		ID:               p.ID,
 		PeriodID:         p.PeriodID,
@@ -119,9 +138,9 @@ func toModelPerson(p entity.ProfitSharingPerson) *models.ProfitSharingPerson {
 		IsOnLeave:        p.IsOnLeave,
 		LeaveDays:        p.LeaveDays,
 		LeaveDates:       p.LeaveDates,
-		ShiftID:          p.ShiftID,
-		ShiftName:        p.ShiftName,
-		ShiftPoolPct:     p.ShiftPoolPct,
+		ShiftIDs:         string(shiftIDsJSON),
+		ShiftNames:       string(shiftNamesJSON),
+		ShiftPoolPcts:    string(shiftPoolPctsJSON),
 		CreatedAt:        p.CreatedAt,
 		UpdatedAt:        p.UpdatedAt,
 	}

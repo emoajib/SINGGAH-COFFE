@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"encoding/json"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -266,6 +267,20 @@ func (r *profitSharingPeriodRepository) GetShiftProductSales(start, end, startTi
 func toDomainProfitSharing(m *models.ProfitSharingPeriod) *entity.ProfitSharingPeriod {
 	var people []entity.ProfitSharingPerson
 	for _, p := range m.People {
+		var shiftIDs []uint
+		var shiftNames []string
+		var shiftPoolPcts []float64
+
+		if p.ShiftIDs != "" {
+			_ = json.Unmarshal([]byte(p.ShiftIDs), &shiftIDs)
+		}
+		if p.ShiftNames != "" {
+			_ = json.Unmarshal([]byte(p.ShiftNames), &shiftNames)
+		}
+		if p.ShiftPoolPcts != "" {
+			_ = json.Unmarshal([]byte(p.ShiftPoolPcts), &shiftPoolPcts)
+		}
+
 		people = append(people, entity.ProfitSharingPerson{
 			ID:             p.ID,
 			PeriodID:       p.PeriodID,
@@ -279,9 +294,9 @@ func toDomainProfitSharing(m *models.ProfitSharingPeriod) *entity.ProfitSharingP
 			IsOnLeave:        p.IsOnLeave,
 			LeaveDays:        p.LeaveDays,
 			LeaveDates:       p.LeaveDates,
-			ShiftID:          p.ShiftID,
-			ShiftName:        p.ShiftName,
-			ShiftPoolPct:     p.ShiftPoolPct,
+			ShiftIDs:         shiftIDs,
+			ShiftNames:       shiftNames,
+			ShiftPoolPcts:    shiftPoolPcts,
 			CreatedAt:        p.CreatedAt,
 			UpdatedAt:        p.UpdatedAt,
 		})

@@ -72,10 +72,10 @@ type ProfitSharingPerson struct {
 	IsOnLeave        bool           `json:"is_on_leave"`
 	LeaveDays        int            `json:"leave_days" gorm:"default:0"`
 	LeaveDates       string         `json:"leave_dates" gorm:"type:text"`
-	ShiftID          *uint          `json:"shift_id" gorm:"index;constraint:OnDelete:SET_NULL"`
-	ShiftName        string         `json:"shift_name" gorm:"size:50;default:''"`
-	ShiftPoolPct     float64        `json:"shift_pool_pct" gorm:"default:0"` // Persentase dari pool barista per shift (misal 50% atau 100%)
-	Cashbons        []BaristaCashbon `json:"cashbons" gorm:"-"`
+	ShiftIDs         string         `json:"shift_ids" gorm:"type:text;default:'[]'"`       // JSON array of shift IDs
+	ShiftNames       string         `json:"shift_names" gorm:"type:text;default:'[]'"`     // JSON array of shift names
+	ShiftPoolPcts    string         `json:"shift_pool_pcts" gorm:"type:text;default:'[]'"` // JSON array of shift pool percentages
+	Cashbons         []BaristaCashbon `json:"cashbons" gorm:"-"`
 }
 
 func (ProfitSharingPerson) TableName() string {

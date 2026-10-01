@@ -71,9 +71,9 @@ type ProfitSharingPerson struct {
 	IsOnLeave        bool             `json:"is_on_leave"`
 	LeaveDays        int              `json:"leave_days"`
 	LeaveDates       string           `json:"leave_dates"`
-	ShiftID          *uint            `json:"shift_id,omitempty"`
-	ShiftName        string           `json:"shift_name,omitempty"`
-	ShiftPoolPct     float64          `json:"shift_pool_pct"`
+	ShiftIDs         []uint           `json:"shift_ids,omitempty"` // Multiple shifts per barista
+	ShiftNames       []string         `json:"shift_names,omitempty"`
+	ShiftPoolPcts    []float64        `json:"shift_pool_pcts,omitempty"`
 	Cashbons         []BaristaCashbon `json:"cashbons,omitempty"`
 	CreatedAt        time.Time        `json:"created_at"`
 	UpdatedAt        time.Time        `json:"updated_at"`

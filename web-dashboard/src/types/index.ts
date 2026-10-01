@@ -654,10 +654,10 @@ export interface ProfitSharingPerson {
   leave_days?: number
   leave_dates?: string
   // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-  // Multi-shift fields
-  shift_id?: number | null
-  shift_name?: string
-  shift_pool_pct?: number
+  // Multi-shift fields (barista can work multiple shifts)
+  shift_ids?: number[]
+  shift_names?: string[]
+  shift_pool_pcts?: number[]
   cashbons?: BaristaCashbon[]
 }
 

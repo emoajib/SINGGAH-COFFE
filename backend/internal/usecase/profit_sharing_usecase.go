@@ -235,11 +235,11 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 }
 
 // hasShiftAssignedBarista returns true if at least one barista has an explicit
-// shift assignment (ShiftID != nil).
+// shift assignment (ShiftIDs not empty).
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func hasShiftAssignedBarista(people []entity.ProfitSharingPerson) bool {
 	for _, p := range people {
-		if p.Role != "owner" && p.ShiftID != nil {
+		if p.Role != "owner" && len(p.ShiftIDs) > 0 {
 			return true
 		}
 	}
@@ -370,8 +370,14 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 			if people[j].Role == "owner" {
 				continue
 			}
-			assigned := people[j].ShiftID != nil && *people[j].ShiftID == s.ID
-			if assigned || people[j].ShiftID == nil {
+			assigned := len(people[j].ShiftIDs) > 0
+			for _, sid := range people[j].ShiftIDs {
+				if sid == s.ID {
+					assigned = true
+					break
+				}
+			}
+			if assigned || len(people[j].ShiftIDs) == 0 {
 				inShift = append(inShift, j)
 				totalPct += people[j].SharePct
 			}
@@ -657,6 +663,10 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 			return nil, nil, nil, nil, err
 		}
 		for i := range people {
+			shiftIDsJSON, _ := json.Marshal(people[i].ShiftIDs)
+			shiftNamesJSON, _ := json.Marshal(people[i].ShiftNames)
+			shiftPoolPctsJSON, _ := json.Marshal(people[i].ShiftPoolPcts)
+
 			m := models.ProfitSharingPerson{
 				PeriodID:       people[i].PeriodID,
 				Name:           people[i].Name,
@@ -669,9 +679,9 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 				IsOnLeave:      people[i].IsOnLeave,
 				LeaveDays:      people[i].LeaveDays,
 				LeaveDates:     people[i].LeaveDates,
-				ShiftID:        people[i].ShiftID,
-				ShiftName:      people[i].ShiftName,
-				ShiftPoolPct:   people[i].ShiftPoolPct,
+				ShiftIDs:       string(shiftIDsJSON),
+				ShiftNames:     string(shiftNamesJSON),
+				ShiftPoolPcts:  string(shiftPoolPctsJSON),
 			}
 			if err := tx.Create(&m).Error; err != nil {
 				tx.Rollback()
