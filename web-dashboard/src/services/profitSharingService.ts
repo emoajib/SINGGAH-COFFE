@@ -100,4 +100,19 @@ export const ProfitSharingService = {
     const response = await api.get<ShiftConfig[]>('/profit-sharing/shift-configs')
     return response.data
   },
+
+  createShiftConfig: async (shift: Omit<ShiftConfig, 'id' | 'created_at' | 'updated_at'>): Promise<ShiftConfig> => {
+    const response = await api.post<ShiftConfig>('/profit-sharing/shift-configs', shift)
+    return response.data
+  },
+
+  updateShiftConfig: async (id: number, shift: Partial<ShiftConfig>): Promise<ShiftConfig> => {
+    const response = await api.put<ShiftConfig>(`/profit-sharing/shift-configs/${id}`, shift)
+    return response.data
+  },
+
+  deleteShiftConfig: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/profit-sharing/shift-configs/${id}`)
+    return response.data
+  },
 }

@@ -19,6 +19,7 @@ import { PrinterSettings } from "./Settings/PrinterSettings"
 import { NotificationSettings } from "./Settings/NotificationSettings"
 import { IntegrationSettings } from "./Settings/IntegrationSettings"
 import { SelfOrderSettings } from "./Settings/SelfOrderSettings"
+import { ShiftConfigSettings } from "./Settings/ShiftConfigSettings"
 
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager
@@ -291,6 +292,15 @@ export default function Settings() {
                     )}
                     {user?.role === 'owner' && (
                         <Button
+                            variant={activeSection === "shift" ? "secondary" : "ghost"}
+                            className="w-full justify-start gap-3"
+                            onClick={() => setActiveSection("shift")}
+                        >
+                            <Users className="w-4 h-4" /> Shift Bagi Hasil
+                        </Button>
+                    )}
+                    {user?.role === 'owner' && (
+                        <Button
                             variant={activeSection === "tax" ? "secondary" : "ghost"}
                             className="w-full justify-start gap-3"
                             onClick={() => setActiveSection("tax")}
@@ -467,6 +477,10 @@ export default function Settings() {
                                 </CardFooter>
                             </Card>
                         </div>
+                    )}
+
+                    {activeSection === "shift" && user?.role === 'owner' && (
+                        <ShiftConfigSettings saving={saving} />
                     )}
 
                     {activeSection === "sop" && user?.role === 'owner' && (
