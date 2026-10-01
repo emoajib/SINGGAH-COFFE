@@ -42,9 +42,14 @@ func (h *ProfitSharingHandler) Preview(c *gin.Context) {
 	var people []entity.ProfitSharingPerson
 	peopleJSON := c.Query("people")
 	if peopleJSON != "" {
-		if err := json.Unmarshal([]byte(peopleJSON), &people); err != nil {
+		var reqPeople []profitSharingPersonRequest
+		if err := json.Unmarshal([]byte(peopleJSON), &reqPeople); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "format people tidak valid"})
 			return
+		}
+		people = make([]entity.ProfitSharingPerson, len(reqPeople))
+		for i, p := range reqPeople {
+			people[i] = p.toEntity()
 		}
 	}
 
@@ -57,14 +62,54 @@ func (h *ProfitSharingHandler) Preview(c *gin.Context) {
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// profitSharingPersonRequest is the request representation of a person (excludes Cashbons which causes JSON parse issues).
+type profitSharingPersonRequest struct {
+	ID               uint    `json:"id"`
+	PeriodID         uint    `json:"period_id"`
+	Name             string  `json:"name"`
+	Role             string  `json:"role"`
+	SharePct         float64 `json:"share_pct"`
+	GrossAmount      float64 `json:"gross_amount"`
+	LeaveReduction   float64 `json:"leave_reduction"`
+	CashbonReduction float64 `json:"cashbon_reduction"`
+	Amount           float64 `json:"amount"`
+	IsOnLeave        bool    `json:"is_on_leave"`
+	LeaveDays        int     `json:"leave_days"`
+	LeaveDates       string  `json:"leave_dates"`
+	ShiftID          *uint   `json:"shift_id,omitempty"`
+	ShiftName        string  `json:"shift_name,omitempty"`
+	ShiftPoolPct     float64 `json:"shift_pool_pct"`
+}
+
+// toEntity converts request to domain entity.
+func (r *profitSharingPersonRequest) toEntity() entity.ProfitSharingPerson {
+	return entity.ProfitSharingPerson{
+		ID:               r.ID,
+		PeriodID:         r.PeriodID,
+		Name:             r.Name,
+		Role:             r.Role,
+		SharePct:         r.SharePct,
+		GrossAmount:      r.GrossAmount,
+		LeaveReduction:   r.LeaveReduction,
+		CashbonReduction: r.CashbonReduction,
+		Amount:           r.Amount,
+		IsOnLeave:        r.IsOnLeave,
+		LeaveDays:        r.LeaveDays,
+		LeaveDates:       r.LeaveDates,
+		ShiftID:          r.ShiftID,
+		ShiftName:        r.ShiftName,
+		ShiftPoolPct:     r.ShiftPoolPct,
+	}
+}
+
 // saveDraftRequest is the request body for POST /profit-sharing/draft.
 type saveDraftRequest struct {
-	Start     string                      `json:"start" binding:"required"`
-	End       string                      `json:"end" binding:"required"`
-	Ratio     float64                     `json:"ratio"`
-	BasisType string                      `json:"basis_type"`
-	OwnerPct  float64                     `json:"owner_pct"`
-	People    []entity.ProfitSharingPerson `json:"people"`
+	Start     string                       `json:"start" binding:"required"`
+	End       string                       `json:"end" binding:"required"`
+	Ratio     float64                      `json:"ratio"`
+	BasisType string                       `json:"basis_type"`
+	OwnerPct  float64                      `json:"owner_pct"`
+	People    []profitSharingPersonRequest `json:"people"`
 }
 
 // SaveDraft explicitly persists a profit sharing draft (idempotent, tanpa
@@ -86,7 +131,13 @@ func (h *ProfitSharingHandler) SaveDraft(c *gin.Context) {
 	}
 	outletID := getOutletID(c)
 
-	period, err := h.usecase.SaveDraft(req.Start, req.End, outletID, req.Ratio, req.BasisType, req.OwnerPct, req.People)
+	// Convert request people to entity people
+	people := make([]entity.ProfitSharingPerson, len(req.People))
+	for i, p := range req.People {
+		people[i] = p.toEntity()
+	}
+
+	period, err := h.usecase.SaveDraft(req.Start, req.End, outletID, req.Ratio, req.BasisType, req.OwnerPct, people)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
