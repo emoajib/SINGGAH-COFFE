@@ -74,7 +74,7 @@ type ProfitSharingPerson struct {
 	ShiftIDs         []uint           `json:"shift_ids,omitempty"` // Multiple shifts per barista
 	ShiftNames       []string         `json:"shift_names,omitempty"`
 	ShiftPoolPcts    []float64        `json:"shift_pool_pcts,omitempty"`
-	Cashbons         []BaristaCashbon `json:"cashbons,omitempty"`
+	Cashbons         []BaristaCashbon `json:"cashbons,omitempty" gorm:"-"`
 	CreatedAt        time.Time        `json:"created_at"`
 	UpdatedAt        time.Time        `json:"updated_at"`
 }
