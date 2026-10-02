@@ -362,6 +362,50 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 	}
 
 	totalOwnerShare := 0.0
+
+	// Parse leave dates for each person once
+	personLeaveDates := make(map[int][]string)
+	for idx, p := range people {
+		if p.LeaveDates != "" {
+			dates := strings.Split(p.LeaveDates, ",")
+			filtered := make([]string, 0, len(dates))
+			for _, d := range dates {
+				d = strings.TrimSpace(d)
+				if d != "" {
+					filtered = append(filtered, d)
+				}
+			}
+			personLeaveDates[idx] = filtered
+		}
+	}
+
+	// Parse period start/end for date comparison
+	startDate := parseDatePS(startNorm)
+	endDate := parseDatePS(endNorm)
+
+	// Helper: count leave dates for a person in a shift
+	// A shift runs once per day in the period. A leave date matches if it falls
+	// on a day when the shift operates within the period.
+	countLeaveDatesForShift := func(personIdx int) int {
+		dates := personLeaveDates[personIdx]
+		if len(dates) == 0 {
+			return 0
+		}
+		count := 0
+		for _, dStr := range dates {
+			leaveDate, err := time.Parse("2006-01-02", dStr)
+			if err != nil {
+				continue
+			}
+			// Check if leave date is within period
+			if leaveDate.Before(startDate) || leaveDate.After(endDate) {
+				continue
+			}
+			count++
+		}
+		return count
+	}
+
 	for i, s := range shifts {
 		// Baristas in this shift: assigned to this shift, or unassigned (all-day).
 		var inShift []int
@@ -391,20 +435,21 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 			rawShares[k] = math.Round(figures[i].pool*people[j].SharePct/totalPct/250) * 250
 		}
 
-		// Leave reduction per barista (full leave = 100%, partial = proportional
-		// to leave days vs total period days).
+		// Leave reduction per barista PER SHIFT based on leave dates in this shift
 		reductions := make([]float64, len(inShift))
 		for k, j := range inShift {
 			if people[j].IsOnLeave {
+				// Full leave = 100% reduction for this shift
 				reductions[k] = rawShares[k]
-			} else if people[j].LeaveDays > 0 {
-				leaveDays := people[j].LeaveDays
-				if leaveDays > totalPeriodDays {
-					leaveDays = totalPeriodDays
-				}
-				reductions[k] = math.Round(rawShares[k]*float64(leaveDays)/float64(totalPeriodDays)/250) * 250
-				if reductions[k] > rawShares[k] {
-					reductions[k] = rawShares[k]
+			} else {
+				// Count leave dates that fall in this shift's operating days within period
+				leaveDatesInShift := countLeaveDatesForShift(j)
+				if leaveDatesInShift > 0 {
+					// Proportional reduction: leaveDatesInShift / totalPeriodDays
+					reductions[k] = math.Round(rawShares[k]*float64(leaveDatesInShift)/float64(totalPeriodDays)/250) * 250
+					if reductions[k] > rawShares[k] {
+						reductions[k] = rawShares[k]
+					}
 				}
 			}
 		}
