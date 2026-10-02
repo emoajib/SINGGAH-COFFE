@@ -414,11 +414,13 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 			if people[j].Role == "owner" {
 				continue
 			}
-			assigned := len(people[j].ShiftIDs) > 0
-			for _, sid := range people[j].ShiftIDs {
-				if sid == s.ID {
-					assigned = true
-					break
+			assigned := false
+			if len(people[j].ShiftIDs) > 0 {
+				for _, sid := range people[j].ShiftIDs {
+					if sid == s.ID {
+						assigned = true
+						break
+					}
 				}
 			}
 			if assigned || len(people[j].ShiftIDs) == 0 {
