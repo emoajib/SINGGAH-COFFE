@@ -18,12 +18,16 @@ func (uc *ShiftInstanceUsecase) Close(id, outletID uint, basisType string, owner
 	if basisType == "" {
 		basisType = "net"
 	}
-	if ownerPct <= 0 {
-		ownerPct = 60
-	}
 	cfg, err := uc.configs.FindByID(s.ShiftConfigID)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("konfigurasi shift")
+	}
+	// OwnerPct default mengikuti template shift; handler boleh override eksplisit.
+	if ownerPct <= 0 {
+		ownerPct = cfg.OwnerPct
+	}
+	if ownerPct <= 0 {
+		ownerPct = 60
 	}
 	tgl := s.Tanggal.Format("2006-01-02")
 	rev, _ := uc.period.GetShiftRevenue(tgl, tgl, cfg.StartTime, cfg.EndTime, outletID)

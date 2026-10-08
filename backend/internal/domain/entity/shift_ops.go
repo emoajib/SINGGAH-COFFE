@@ -57,8 +57,12 @@ type Attendance struct {
 	DicatatOleh     uint       `json:"dicatat_oleh"`
 	DisetujuiOleh   *uint      `json:"disetujui_oleh"`
 	DisetujuiPada   *time.Time `json:"disetujui_pada"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	// Transien untuk tampilan: diisi usecase dari shift instance + config.
+	Tanggal       string `json:"tanggal"`
+	ShiftName     string `json:"shift_name"`
+	ShiftConfigID uint   `json:"shift_config_id"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 // AuditLog adalah baris jejak audit yang append-only.

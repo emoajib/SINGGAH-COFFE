@@ -12,6 +12,7 @@ export function ShiftPanel({ tanggal, configs }: { tanggal: string; configs: Shi
   const [cfg, setCfg] = useState("")
   const [warn, setWarn] = useState<string[]>([])
   const rows = list.data || []
+  const namaShift = (id: number, fallback?: string) => fallback || configs.find((c) => c.id === id)?.name || `#${id}`
   return (
     <div className="bg-white rounded-lg border p-4 space-y-3">
       <div className="flex gap-2 items-end">
@@ -33,7 +34,7 @@ export function ShiftPanel({ tanggal, configs }: { tanggal: string; configs: Shi
         <tbody>
           {rows.map((s) => (
             <tr key={s.id} className="border-t">
-              <td className="py-1.5">{s.shift_name || `#${s.shift_config_id}`}</td>
+              <td className="py-1.5">{namaShift(s.shift_config_id, s.shift_name)}</td>
               <td><span className="text-xs px-2 py-0.5 rounded bg-slate-100">{s.status}</span></td>
               <td>{rupiah(s.revenue)}</td><td>{rupiah(s.dasar_bagi_hasil)}</td>
               <td>{rupiah(s.owner_share)}</td><td>{rupiah(s.pool_barista)}</td><td>{rupiah(s.sisa_kas)}</td>

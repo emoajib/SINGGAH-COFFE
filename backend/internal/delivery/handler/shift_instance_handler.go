@@ -63,7 +63,7 @@ func (h *ShiftInstanceHandler) Close(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
 	uid, _ := getUserID(c)
 	warnings, err := h.usecase.Close(uint(id), getOutletID(c),
-		c.DefaultQuery("basis_type", "net"), 60, uid, getUserName(c))
+		c.DefaultQuery("basis_type", "net"), 0, uid, getUserName(c))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

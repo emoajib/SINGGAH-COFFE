@@ -13,7 +13,7 @@ export function AttendancePanel() {
       {rows.length === 0 && <div className="text-sm text-gray-500">Tidak ada kehadiran menunggu.</div>}
       {rows.map((a) => (
         <div key={a.id} className="border rounded p-2 text-sm space-y-1">
-          <div><b>{a.barista_name}</b> — shift #{a.shift_instance_id} — <span className="text-xs px-2 py-0.5 rounded bg-amber-100">{a.status}</span></div>
+          <div><b>{a.barista_name}</b> — {a.tanggal || ""} {a.shift_name || `shift #${a.shift_instance_id}`} — <span className="text-xs px-2 py-0.5 rounded bg-amber-100">{a.status}</span></div>
           {a.alasan && <div className="text-xs text-gray-600">Alasan: {a.alasan}</div>}
           <div className="flex gap-2 items-center">
             <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(a.id)}>Setujui</Button>

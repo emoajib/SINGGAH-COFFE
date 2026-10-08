@@ -11,16 +11,18 @@ import (
 
 // AttendanceUsecase: catat & sahkan kehadiran (owner & manajer). C2.
 type AttendanceUsecase struct {
-	db     *gorm.DB
-	repo   repository.AttendanceRepository
-	shifts repository.ShiftInstanceRepository
-	audit  *AuditWriter
+	db      *gorm.DB
+	repo    repository.AttendanceRepository
+	shifts  repository.ShiftInstanceRepository
+	configs repository.ShiftConfigRepository
+	audit   *AuditWriter
 }
 
 func NewAttendanceUsecase(db *gorm.DB) *AttendanceUsecase {
 	return &AttendanceUsecase{
 		db: db, repo: postgres.NewAttendanceRepository(db),
 		shifts: postgres.NewShiftInstanceRepository(db),
+		configs: postgres.NewShiftConfigRepository(db),
 		audit:  NewAuditWriter(db),
 	}
 }
@@ -67,9 +69,51 @@ func (uc *AttendanceUsecase) Record(a *entity.Attendance, userID uint, userName 
 }
 
 func (uc *AttendanceUsecase) ListByShift(shiftInstanceID, outletID uint) ([]entity.Attendance, error) {
-	return uc.repo.FindByShiftInstance(shiftInstanceID, outletID)
+	list, err := uc.repo.FindByShiftInstance(shiftInstanceID, outletID)
+	if err != nil {
+		return nil, err
+	}
+	uc.enrich(list, outletID)
+	return list, nil
 }
 
 func (uc *AttendanceUsecase) ListPending(outletID uint) ([]entity.Attendance, error) {
-	return uc.repo.FindPending(outletID)
+	list, err := uc.repo.FindPending(outletID)
+	if err != nil {
+		return nil, err
+	}
+	uc.enrich(list, outletID)
+	return list, nil
+}
+
+// enrich mengisi Tanggal/ShiftName/ShiftConfigID transien untuk tampilan.
+// Daftar kehadiran kecil (tugas harian), jadi cache per panggil cukup.
+func (uc *AttendanceUsecase) enrich(list []entity.Attendance, outletID uint) {
+	instCache := map[uint]*entity.ShiftInstance{}
+	cfgCache := map[uint]*entity.ShiftConfig{}
+	for i := range list {
+		a := &list[i]
+		si, ok := instCache[a.ShiftInstanceID]
+		if !ok {
+			if found, err := uc.shifts.FindByID(a.ShiftInstanceID, outletID); err == nil {
+				si = found
+			}
+			instCache[a.ShiftInstanceID] = si
+		}
+		if si == nil {
+			continue
+		}
+		a.Tanggal = si.Tanggal.Format("2006-01-02")
+		a.ShiftConfigID = si.ShiftConfigID
+		cfg, ok := cfgCache[si.ShiftConfigID]
+		if !ok {
+			if found, err := uc.configs.FindByID(si.ShiftConfigID); err == nil {
+				cfg = found
+			}
+			cfgCache[si.ShiftConfigID] = cfg
+		}
+		if cfg != nil {
+			a.ShiftName = cfg.Name
+		}
+	}
 }

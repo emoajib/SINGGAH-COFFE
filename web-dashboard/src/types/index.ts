@@ -784,6 +784,9 @@ export interface Attendance {
   status: string
   alasan?: string
   disahkan: boolean
+  tanggal?: string
+  shift_name?: string
+  shift_config_id?: number
 }
 
 export interface ShiftInstance {

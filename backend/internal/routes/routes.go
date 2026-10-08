@@ -252,8 +252,9 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/shift-instances/:id/close", middleware.RoleMiddleware("owner", "manager"), h.ShiftInstance.Close)
 			protected.GET("/ops/tasks", middleware.RoleMiddleware("owner", "manager"), h.ShiftInstance.GetTasks)
 
-			// Shift Config Management — Owner Only
-			protected.GET("/profit-sharing/shift-configs", middleware.RoleMiddleware("owner"), h.ShiftConfig.GetShifts)
+			// Shift Config Management — baca: owner+manajer (template untuk operasional);
+			// tulis (buat/ubah/hapus): owner only.
+			protected.GET("/profit-sharing/shift-configs", middleware.RoleMiddleware("owner", "manager"), h.ShiftConfig.GetShifts)
 			protected.POST("/profit-sharing/shift-configs", middleware.RoleMiddleware("owner"), h.ShiftConfig.CreateShift)
 			protected.GET("/profit-sharing/shift-configs/:id", middleware.RoleMiddleware("owner"), h.ShiftConfig.GetShiftByID)
 			protected.PUT("/profit-sharing/shift-configs/:id", middleware.RoleMiddleware("owner"), h.ShiftConfig.UpdateShift)
