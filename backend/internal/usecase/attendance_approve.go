@@ -44,6 +44,10 @@ func (uc *AttendanceUsecase) Approve(id, outletID, approverID uint, approverName
 	}
 	committed = true
 	_ = uc.audit.Write(outletID, approverID, approverName, "approve", "attendance", id, "menunggu_verifikasi", "hadir", a.Alasan, "disetujui")
+	// Bridge: kehadiran yang disahkan ikut hitungan pool draft periode.
+	if si, err := uc.shifts.FindByID(a.ShiftInstanceID, outletID); err == nil {
+		uc.syncPersonAttendance(outletID, a.BaristaName, si.Tanggal, si.ShiftConfigID, true)
+	}
 	return nil
 }
 
@@ -65,5 +69,9 @@ func (uc *AttendanceUsecase) Reject(id, outletID, approverID uint, approverName,
 		return err
 	}
 	_ = uc.audit.Write(outletID, approverID, approverName, "reject", "attendance", id, "menunggu_verifikasi", "ditolak", alasan, "disetujui")
+	// Bridge: kehadiran yang ditolak keluar dari hitungan pool draft periode.
+	if si, err := uc.shifts.FindByID(a.ShiftInstanceID, outletID); err == nil {
+		uc.syncPersonAttendance(outletID, a.BaristaName, si.Tanggal, si.ShiftConfigID, false)
+	}
 	return nil
 }

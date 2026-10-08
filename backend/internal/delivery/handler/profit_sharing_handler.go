@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -92,24 +93,41 @@ func (h *ProfitSharingHandler) PreviewReadOnly(c *gin.Context) {
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 // profitSharingPersonRequest is the request representation of a person (excludes Cashbons which causes JSON parse issues).
+// Attendance diterima dalam dua bentuk (toleran): string JSON ("{\"2026-10-01\":[1]}")
+// dari endpoint lama, atau objek JSON ({"2026-10-01":[1]}) dari AttendanceModal
+// frontend. Keduanya dinormalisasi ke string di toEntity.
 type profitSharingPersonRequest struct {
-	ID                uint     `json:"id"`
-	PeriodID          uint     `json:"period_id"`
-	Name              string   `json:"name"`
-	Role              string   `json:"role"`
-	SharePct          float64  `json:"share_pct"`
-	GrossAmount       float64  `json:"gross_amount"`
-	LeaveReduction    float64  `json:"leave_reduction"`
-	CashbonReduction  float64  `json:"cashbon_reduction"`
-	Amount            float64  `json:"amount"`
-	IsOnLeave         bool     `json:"is_on_leave"`
-	LeaveDays         int      `json:"leave_days"`
-	LeaveDates        string   `json:"leave_dates"`
-	RemainingBalance  float64  `json:"remaining_balance"`
-	Attendance        string   `json:"attendance,omitempty"`
-	ShiftIDs          []uint   `json:"shift_ids,omitempty"`
-	ShiftNames        []string `json:"shift_names,omitempty"`
-	ShiftPoolPcts     []float64 `json:"shift_pool_pcts,omitempty"`
+	ID                uint            `json:"id"`
+	PeriodID          uint            `json:"period_id"`
+	Name              string          `json:"name"`
+	Role              string          `json:"role"`
+	SharePct          float64         `json:"share_pct"`
+	GrossAmount       float64         `json:"gross_amount"`
+	LeaveReduction    float64         `json:"leave_reduction"`
+	CashbonReduction  float64         `json:"cashbon_reduction"`
+	Amount            float64         `json:"amount"`
+	IsOnLeave         bool            `json:"is_on_leave"`
+	LeaveDays         int             `json:"leave_days"`
+	LeaveDates        string          `json:"leave_dates"`
+	RemainingBalance  float64         `json:"remaining_balance"`
+	Attendance        json.RawMessage `json:"attendance,omitempty"`
+	ShiftIDs          []uint          `json:"shift_ids,omitempty"`
+	ShiftNames        []string        `json:"shift_names,omitempty"`
+	ShiftPoolPcts     []float64       `json:"shift_pool_pcts,omitempty"`
+}
+
+// normalizeAttendance mengubah RawMessage attendance menjadi string JSON
+// map[tanggal][]shiftID. Menerima string, objek, null, atau kosong.
+func normalizeAttendance(raw json.RawMessage) string {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(trimmed, &s); err == nil {
+		return s
+	}
+	return string(trimmed)
 }
 
 // toEntity converts request to domain entity.
@@ -128,7 +146,7 @@ func (r *profitSharingPersonRequest) toEntity() entity.ProfitSharingPerson {
 		LeaveDays:         r.LeaveDays,
 		LeaveDates:        r.LeaveDates,
 		RemainingBalance:  r.RemainingBalance,
-		Attendance:        r.Attendance,
+		Attendance:        normalizeAttendance(r.Attendance),
 		ShiftIDs:          r.ShiftIDs,
 		ShiftNames:        r.ShiftNames,
 		ShiftPoolPcts:     r.ShiftPoolPcts,
