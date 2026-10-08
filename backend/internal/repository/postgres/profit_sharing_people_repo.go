@@ -83,6 +83,16 @@ func (r *profitSharingPeopleRepository) UpdateLeaveStatus(id uint, isOnLeave boo
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *profitSharingPeopleRepository) UpdateAttendance(id uint, attendance string) error {
+	return r.db.Model(&models.ProfitSharingPerson{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"attendance": attendance,
+			"updated_at": time.Now(),
+		}).Error
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
 	var shiftIDs []uint
 	var shiftNames []string
@@ -111,6 +121,7 @@ func toDomainPerson(m *models.ProfitSharingPerson) entity.ProfitSharingPerson {
 		IsOnLeave:        m.IsOnLeave,
 		LeaveDays:        m.LeaveDays,
 		LeaveDates:       m.LeaveDates,
+		Attendance:       m.Attendance,
 		ShiftIDs:         shiftIDs,
 		ShiftNames:       shiftNames,
 		ShiftPoolPcts:    shiftPoolPcts,
@@ -138,6 +149,7 @@ func toModelPerson(p entity.ProfitSharingPerson) *models.ProfitSharingPerson {
 		IsOnLeave:        p.IsOnLeave,
 		LeaveDays:        p.LeaveDays,
 		LeaveDates:       p.LeaveDates,
+		Attendance:       p.Attendance,
 		ShiftIDs:         string(shiftIDsJSON),
 		ShiftNames:       string(shiftNamesJSON),
 		ShiftPoolPcts:    string(shiftPoolPctsJSON),

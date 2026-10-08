@@ -96,6 +96,18 @@ export const ProfitSharingService = {
     return ProfitSharingService.setLeave(periodId, personId, isOnLeave, reduction, leaveDays, leaveDates)
   },
 
+  setAttendance: async (
+    periodId: number,
+    personId: number,
+    attendance: Record<string, number[]>
+  ): Promise<{ message: string }> => {
+    const response = await api.put(`/profit-sharing/${periodId}/attendance`, {
+      person_id: personId,
+      attendance: JSON.stringify(attendance),
+    })
+    return response.data
+  },
+
   getShiftConfigs: async (): Promise<ShiftConfig[]> => {
     const response = await api.get<ShiftConfig[]>('/profit-sharing/shift-configs')
     return response.data
