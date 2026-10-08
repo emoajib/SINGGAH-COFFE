@@ -16,6 +16,7 @@ import { ProfitSharingService } from "../services/profitSharingService"
 import { useToast } from "../hooks/use-toast"
 import { formatNumber, formatDateTime } from "../lib/utils"
 import type { ProfitSharingPreview, ProfitSharingPeriod, ProfitSharingPerson, BaristaCashbon, Barista, ShiftConfig, ShiftBreakdown } from "../types"
+import { AttendanceModal } from "../components/profit-sharing/AttendanceModal"
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -36,6 +37,22 @@ const formatDateShort = (dateStr: string): string => {
   } catch {
     return dateStr
   }
+}
+
+// D5: ekspor CSV rekap periode (client-side, tanpa endpoint baru).
+const exportPreviewCSV = (preview: ProfitSharingPreview) => {
+  const c = preview.calculation
+  const lines = ["nama,role,bruto,potong_kasbon,sisa_kasbon,bersih"]
+  for (const p of c.people || []) {
+    lines.push([p.name, p.role, p.gross_amount ?? 0, p.cashbon_reduction ?? 0, p.remaining_balance ?? 0, p.amount].join(","))
+  }
+  lines.push(`sisa_kas_periode,,,${c.sisa_kas ?? 0},,`)
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" })
+  const a = document.createElement("a")
+  a.href = URL.createObjectURL(blob)
+  a.download = `bagi-hasil-${preview.period.period_start}-${preview.period.period_end}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
 }
 
 export default function ProfitSharing() {
@@ -84,6 +101,7 @@ export default function ProfitSharing() {
   const [newPersonName, setNewPersonName] = useState("")
   const [newPersonPct, setNewPersonPct] = useState(10)
   const [leaveModalIndex, setLeaveModalIndex] = useState<number | null>(null)
+  const [attendanceModalIndex, setAttendanceModalIndex] = useState<number | null>(null)
   const [shiftDropdownIndex, setShiftDropdownIndex] = useState<number | null>(null)
   const [preview, setPreview] = useState<ProfitSharingPreview | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -1232,8 +1250,6 @@ export default function ProfitSharing() {
                 <div className="space-y-2.5">
                   {people.map((person, index) => {
                     const isOwner = person.role === 'owner'
-                    const leaveDays = person.leave_days || 0
-                    const isFullLeave = person.is_on_leave
 
                     // Check if this barista has active pending cashbon
                     const baristaPendingCashbon = !isOwner
@@ -1388,26 +1404,26 @@ export default function ProfitSharing() {
                                   toast({ title: "Perhatian", description: "Tentukan Tanggal Mulai dan Akhir periode terlebih dahulu", variant: "error" })
                                   return
                                 }
-                                setLeaveModalIndex(index)
+                                setAttendanceModalIndex(index)
                               }}
                               className={`text-xs px-3 py-1.5 rounded-lg border font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
-                                isFullLeave
-                                  ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                                  : leaveDays > 0
-                                  ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                                person.leave_days && person.leave_days > 0
+                                  ? person.is_on_leave
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                    : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                                   : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                               }`}
-                              title="Klik untuk memilih tanggal libur barista"
+                              title="Klik untuk mengatur kehadiran per tanggal & shift"
                             >
-                              {isFullLeave ? (
+                              {person.is_on_leave ? (
                                 <>
                                   <CalendarOff className="w-3.5 h-3.5 text-rose-500" />
                                   <span>Cuti Penuh</span>
                                 </>
-                              ) : leaveDays > 0 ? (
+                              ) : person.leave_days && person.leave_days > 0 ? (
                                 <>
                                   <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>Libur {leaveDays} Hari ({totalPeriodDays - leaveDays}/{totalPeriodDays} hr)</span>
+                                  <span>Libur {person.leave_days} Hari ({totalPeriodDays - person.leave_days}/{totalPeriodDays} hr)</span>
                                 </>
                               ) : (
                                 <>
@@ -2214,6 +2230,9 @@ export default function ProfitSharing() {
                                   ) : (
                                     <span className="text-slate-400">0</span>
                                   )}
+                                  {!isOwner && (person.remaining_balance || 0) > 0 && (
+                                    <span className="block text-[10px] text-amber-600 font-semibold">sisa kasbon {formatNumber(person.remaining_balance || 0)}</span>
+                                  )}
                                 </td>
                                 <td className={`text-right py-2.5 px-3 font-extrabold ${isOwner ? 'text-blue-700' : 'text-emerald-700'}`}>
                                   Rp {formatNumber(person.amount)}
@@ -2398,6 +2417,12 @@ export default function ProfitSharing() {
                   </div>
                 </div>
 
+                {(preview.calculation.sisa_kas || 0) > 0 && (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700">
+                    Sisa rupiah yang tak habis dibagi: <b>Rp {formatNumber(preview.calculation.sisa_kas || 0)}</b> kembali ke kas toko.
+                  </div>
+                )}
+
                 {/* Highlight Basis Card */}
                 <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-center justify-between">
                   <div>
@@ -2429,7 +2454,7 @@ export default function ProfitSharing() {
                   <div className="space-y-3">
                     <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                       <Users className="w-4 h-4 text-indigo-600" />
-                      Rincian Per Shift (Two-Tier + Redistribusi Opsi B)
+                      Rincian Per Shift (Equal-Split)
                     </h3>
                     {preview.calculation.shifts.map((shift: ShiftBreakdown, si: number) => (
                       <div key={si} className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4 space-y-3">
@@ -2476,7 +2501,19 @@ export default function ProfitSharing() {
                             <span className="text-slate-600 font-medium">Dasar Bagi</span>
                             <p className="font-bold text-slate-900">Rp {formatNumber(shift.sharing_basis)}</p>
                           </div>
+                          <div className="bg-white p-2 rounded-lg border border-indigo-100">
+                            <span className="text-slate-600 font-medium">Sisa Kas</span>
+                            <p className="font-bold text-slate-900">Rp {formatNumber(shift.sisa_kas || 0)}</p>
+                          </div>
                         </div>
+                        {(shift.daftar_pembagi?.length || shift.jumlah_pembagi) ? (
+                          <p className="text-xs text-indigo-800">
+                            Dibagi rata ke {shift.jumlah_pembagi ?? shift.daftar_pembagi?.length ?? 0} barista hadir
+                            {shift.daftar_pembagi?.length ? `: ${shift.daftar_pembagi.join(", ")}` : ""}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-amber-700">Belum ada barista hadir yang disahkan pada shift ini.</p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2552,6 +2589,9 @@ export default function ProfitSharing() {
                                   ) : (
                                     <span className="text-slate-400">0</span>
                                   )}
+                                  {!isOwner && (person.remaining_balance || 0) > 0 && (
+                                    <span className="block text-[10px] text-amber-600 font-semibold">sisa kasbon {formatNumber(person.remaining_balance || 0)}</span>
+                                  )}
                                 </td>
                                 <td className={`text-right py-2.5 px-3 font-extrabold ${isOwner ? 'text-blue-700' : 'text-emerald-700'}`}>
                                   Rp {formatNumber(person.amount)}
@@ -2593,6 +2633,15 @@ export default function ProfitSharing() {
                   >
                     <Printer className="w-4 h-4 text-amber-700" />
                     Cetak Bukti Preview (TTD)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => preview && exportPreviewCSV(preview)}
+                    className="border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold gap-1.5"
+                    title="Unduh rekap periode sebagai CSV"
+                  >
+                    Ekspor CSV
                   </Button>
 
                   <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
@@ -2951,6 +3000,35 @@ export default function ProfitSharing() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ================= MODAL: KEHADIRAN PER TANGGAL & SHIFT ================= */}
+      {attendanceModalIndex !== null && (
+        <AttendanceModal
+          isOpen={true}
+          onClose={() => setAttendanceModalIndex(null)}
+          person={people[attendanceModalIndex]}
+          shiftConfigs={shiftConfigs}
+          startDate={startDate}
+          endDate={endDate}
+          onSave={async (attendance) => {
+            const updated = [...people]
+            updated[attendanceModalIndex] = {
+              ...updated[attendanceModalIndex],
+              attendance,
+              leave_dates: "", // Will be computed by backend
+              leave_days: 0, // Will be computed by backend
+              is_on_leave: false // Will be computed by backend
+            }
+            setPeople(updated)
+            // Also save to backend via API
+            try {
+              await ProfitSharingService.setAttendance(0, updated[attendanceModalIndex].id || 0, attendance)
+            } catch (e) {
+              console.error("Failed to save attendance:", e)
+            }
+          }}
+        />
       )}
 
       {/* ================= MODAL: KELOLA MASTER BARISTA ================= */}

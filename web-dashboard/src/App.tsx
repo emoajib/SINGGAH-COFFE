@@ -19,6 +19,7 @@ import KebutuhanStok from "./pages/KebutuhanStok"
 import CashRegister from "./pages/CashRegister"
 import CashBookPage from "./pages/CashBook"
 import ProfitSharing from "./pages/ProfitSharing"
+import JadwalShift from "./pages/JadwalShift"
 import PsakCoA from "./pages/PsakCoA"
 import PsakJournal from "./pages/PsakJournal"
 import PsakReports from "./pages/PsakReports"
@@ -71,7 +72,7 @@ function AppContent() {
     // Tab eksklusif owner saja
     const ownerOnlyTabs = ["reports", "bep", "kebutuhan-stok", "integration", "backup", "profit-sharing", "psak-coa", "psak-journal", "psak-reports"]
     // Tab yang boleh diakses manager & owner (bukan cashier)
-    const managerOnlyTabs: string[] = ["loyalty-feedback"]
+    const managerOnlyTabs: string[] = ["loyalty-feedback", "jadwal-shift"]
 
     if (!isAuthenticated) {
         return <Login />
@@ -140,6 +141,7 @@ function AppContent() {
                             {activeTab === "settings" && <Settings />}
                             {activeTab === "backup" && <BackupManagement />}
                             {activeTab === "profit-sharing" && <ProfitSharing />}
+                            {activeTab === "jadwal-shift" && <JadwalShift />}
                             {activeTab === "psak-coa" && <PsakCoA />}
                             {activeTab === "psak-journal" && <PsakJournal />}
                             {activeTab === "psak-reports" && <PsakReports />}

@@ -635,6 +635,9 @@ export interface BaristaCashbon {
   reason?: string
   status: 'pending' | 'deducted' | 'settled'
   period_id?: number
+  remaining_balance?: number
+  recorded_by?: number
+  approved_by?: number
   created_at?: string
   updated_at?: string
 }
@@ -653,11 +656,13 @@ export interface ProfitSharingPerson {
   is_on_leave: boolean
   leave_days?: number
   leave_dates?: string
-  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
   // Multi-shift fields (barista can work multiple shifts)
   shift_ids?: number[]
   shift_names?: string[]
   shift_pool_pcts?: number[]
+  // Per-date per-shift attendance: map[date]shiftIDs - e.g., {"2026-10-01":[1,2],"2026-10-02":[1]}
+  attendance?: Record<string, number[]>
+  remaining_balance?: number
   cashbons?: BaristaCashbon[]
 }
 
@@ -680,6 +685,10 @@ export interface ProfitSharingPeriod {
   tax_note: string
   basis_type: string
   owner_pct: number
+  pool_pct?: number
+  ratio_effective_date?: string
+  ratio_locked_at?: string
+  rounding_remainder?: number
   people: ProfitSharingPerson[]
   created_at: string
   updated_at: string
@@ -701,6 +710,7 @@ export interface ProfitSharingCalculation {
   per_product: ProductSharingDetail[]
   status: string
   note: string
+  sisa_kas?: number
   basis_type: string
   owner_pct: number
   people: ProfitSharingPerson[]
@@ -744,6 +754,61 @@ export interface ShiftBreakdown {
   owner_pct: number
   owner_share: number
   barista_pool: number
+  jumlah_pembagi?: number
+  daftar_pembagi?: string[]
+  sisa_kas?: number
+  jumlah_dibagikan?: number
+}
+
+// Fase C/D: jadwal, kehadiran, shift operasional, daftar tugas.
+export interface Schedule {
+  id: number
+  outlet_id: number
+  barista_id: number
+  barista_name: string
+  tanggal: string
+  shift_config_id: number
+  shift_name?: string
+  status: string
+  jam_kerja?: string
+  catatan?: string
+}
+
+export interface Attendance {
+  id: number
+  outlet_id: number
+  schedule_id?: number
+  shift_instance_id: number
+  barista_id: number
+  barista_name: string
+  status: string
+  alasan?: string
+  disahkan: boolean
+}
+
+export interface ShiftInstance {
+  id: number
+  outlet_id: number
+  shift_config_id: number
+  shift_name?: string
+  tanggal: string
+  status: string
+  revenue: number
+  hpp: number
+  biaya_langsung: number
+  dasar_bagi_hasil: number
+  owner_share: number
+  pool_barista: number
+  sisa_kas: number
+  catatan?: string
+}
+
+export interface OpsTasks {
+  shift_belum_tutup: number
+  kehadiran_pending: number
+  kasbon_pending: number
+  biaya_belum_klasifikasi: number
+  periode_siap_review: number
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
