@@ -109,13 +109,14 @@ func (uc *shiftConfigUsecase) GetByID(id uint) (*entity.ShiftConfig, error) {
 	return uc.shiftConfigRepo.FindByID(id)
 }
 
-// Delete removes a shift config. Refuses if any ProfitSharingPerson references it.
-// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// Delete removes a shift config. Refuses if any ProfitSharingPerson references it
+// in their shift_ids JSON array.
+// A0 FIX: guard lama query kolom "shift_id" yang TIDAK ADA di tabel
+// profit_sharing_people (yang ada: shift_ids JSON "[1,2]") sehingga hapus
+// shift selalu error. Sekarang memakai CountPeopleByShiftID yang aman-substring.
 func (uc *shiftConfigUsecase) Delete(id uint, outletID uint) error {
-	// Check for referenced people via direct GORM query
-	var count int64
-	if err := uc.db.Model(&entity.ShiftConfig{}).Table("profit_sharing_people").
-		Where("shift_id = ?", id).Count(&count).Error; err != nil {
+	count, err := uc.shiftConfigRepo.CountPeopleByShiftID(id)
+	if err != nil {
 		return err
 	}
 	if count > 0 {

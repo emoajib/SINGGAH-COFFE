@@ -30,6 +30,7 @@ type Order struct {
 	PreparingAt      *time.Time
 	ReadyAt          *time.Time
 	ServedAt         *time.Time
+	ShiftInstanceID *uint
 }
 
 type OrderItem struct {

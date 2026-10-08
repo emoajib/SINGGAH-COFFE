@@ -211,6 +211,7 @@ type ProfitSharingPersonRepository interface {
 	DeleteByPeriodID(periodID uint) error
 	DeleteByID(id uint) error
 	UpdateLeaveStatus(id uint, isOnLeave bool, leaveDays int, leaveDates string, reduction float64) error
+	UpdateAttendance(id uint, attendance string) error
 	WithTx(tx *gorm.DB) ProfitSharingPersonRepository
 }
 
@@ -327,5 +328,8 @@ type ShiftConfigRepository interface {
 	Create(shift *entity.ShiftConfig) error
 	Update(shift *entity.ShiftConfig) error
 	Delete(id uint) error
+	// CountPeopleByShiftID menghitung barista yang mereferensikan shift ini
+	// di kolom JSON shift_ids (format "[1,2]"). Dipakai sebagai guard hapus.
+	CountPeopleByShiftID(shiftID uint) (int64, error)
 }
 

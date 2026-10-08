@@ -15,6 +15,9 @@ type Expense struct {
 	Notes         string
 	CreatedAt     time.Time
 	OutletID      uint
+	// ShiftInstanceID menandai biaya langsung; NULL + IsShared = biaya bersama.
+	ShiftInstanceID *uint
+	IsShared        bool
 }
 
 // ⚠️ Vetted by SOSIOMEN - Manual Review Required by Senior Engineer/Manager

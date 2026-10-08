@@ -76,6 +76,8 @@ type profitSharingPersonRequest struct {
 	IsOnLeave         bool     `json:"is_on_leave"`
 	LeaveDays         int      `json:"leave_days"`
 	LeaveDates        string   `json:"leave_dates"`
+	RemainingBalance  float64  `json:"remaining_balance"`
+	Attendance        string   `json:"attendance,omitempty"`
 	ShiftIDs          []uint   `json:"shift_ids,omitempty"`
 	ShiftNames        []string `json:"shift_names,omitempty"`
 	ShiftPoolPcts     []float64 `json:"shift_pool_pcts,omitempty"`
@@ -96,6 +98,8 @@ func (r *profitSharingPersonRequest) toEntity() entity.ProfitSharingPerson {
 		IsOnLeave:         r.IsOnLeave,
 		LeaveDays:         r.LeaveDays,
 		LeaveDates:        r.LeaveDates,
+		RemainingBalance:  r.RemainingBalance,
+		Attendance:        r.Attendance,
 		ShiftIDs:          r.ShiftIDs,
 		ShiftNames:        r.ShiftNames,
 		ShiftPoolPcts:     r.ShiftPoolPcts,
@@ -253,6 +257,12 @@ type setLeaveRequest struct {
 	Reduction  float64 `json:"reduction"`
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+type setAttendanceRequest struct {
+	PersonID    uint   `json:"person_id" binding:"required"`
+	Attendance  string `json:"attendance" binding:"required"` // JSON: map[date][]shiftID
+}
+
 func (h *ProfitSharingHandler) SetLeave(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -271,6 +281,28 @@ func (h *ProfitSharingHandler) SetLeave(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "status cuti berhasil diupdate"})
+}
+
+// SetAttendance updates a barista's per-date per-shift attendance.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (h *ProfitSharingHandler) SetAttendance(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid period ID"})
+		return
+	}
+
+	var req setAttendanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "data tidak valid"})
+		return
+	}
+
+	if err := h.usecase.SetAttendance(uint(id), req.PersonID, req.Attendance); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "kehadiran berhasil diupdate"})
 }
 
 type addPersonRequest struct {

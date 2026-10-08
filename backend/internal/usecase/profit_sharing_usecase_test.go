@@ -88,13 +88,14 @@ func TestCalcFinancialsBasisTypeAndLeaveReduction(t *testing.T) {
 
 	resMulti := calcFinancials(basis, cogs, expenses, ratio, nil, ownerPct, people, 0, 0, "net", 14)
 
-	// Owner base = math.Round(1804911 * 0.60 / 250) * 250 = 1083000
-	// Barista pool = 1804911 - 1083000 = 721911
-	// Normal share per barista (20% out of 40% = 50% of barista pool) = math.Round(721911 * 0.5 / 250) * 250 = 361000
-	// RIO leave reduction (2 / 14) = math.Round(361000 * 2 / 14 / 250) * 250 = 51500
-	// RIO final amount = 361000 - 51500 = 309500
-	// SALMAN final amount = 361000
-	// Owner final amount = 1083000 + 51500 = 1134500
+	// B7: angka rupiah-penuh (roundIDR, tanpa /250).
+	// Owner base = Round(1804911 * 0.60) = 1082947
+	// Barista pool = 1804911 - 1082947 = 721964
+	// Normal share per barista (20% dari 40% = 50% pool) = Round(721964 * 0.5) = 360982
+	// RIO leave reduction (2 / 14) = Round(360982 * 2 / 14) = 51569
+	// RIO final amount = 360982 - 51569 = 309413
+	// SALMAN final amount = 360982
+	// Owner final amount = 1082947 + 51569 = 1134516
 
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	var rio, salman, owner entity.ProfitSharingPerson
@@ -109,20 +110,20 @@ func TestCalcFinancialsBasisTypeAndLeaveReduction(t *testing.T) {
 		}
 	}
 
-	if rio.LeaveReduction != 51500 {
-		t.Errorf("expected RIO LeaveReduction to be 51500, got %v", rio.LeaveReduction)
+	if rio.LeaveReduction != 51569 {
+		t.Errorf("expected RIO LeaveReduction to be 51569, got %v", rio.LeaveReduction)
 	}
-	if rio.Amount != 309500 {
-		t.Errorf("expected RIO Amount to be 309500, got %v", rio.Amount)
+	if rio.Amount != 309413 {
+		t.Errorf("expected RIO Amount to be 309413, got %v", rio.Amount)
 	}
-	if salman.Amount != 361000 {
-		t.Errorf("expected SALMAN Amount to be 361000, got %v", salman.Amount)
+	if salman.Amount != 360982 {
+		t.Errorf("expected SALMAN Amount to be 360982, got %v", salman.Amount)
 	}
-	if owner.Amount != 1134500 {
-		t.Errorf("expected Owner Amount to be 1134500, got %v", owner.Amount)
+	if owner.Amount != 1134516 {
+		t.Errorf("expected Owner Amount to be 1134516, got %v", owner.Amount)
 	}
-	if resMulti.OwnerAmount != 1134500 {
-		t.Errorf("expected resMulti.OwnerAmount to be 1134500, got %v", resMulti.OwnerAmount)
+	if resMulti.OwnerAmount != 1134516 {
+		t.Errorf("expected resMulti.OwnerAmount to be 1134516, got %v", resMulti.OwnerAmount)
 	}
 }
 

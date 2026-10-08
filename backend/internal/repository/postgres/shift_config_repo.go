@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"strconv"
+
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/repository"
@@ -73,6 +75,23 @@ func (r *shiftConfigRepository) Update(s *entity.ShiftConfig) error {
 
 func (r *shiftConfigRepository) Delete(id uint) error {
 	return r.db.Delete(&models.ShiftConfig{}, id).Error
+}
+
+// CountPeopleByShiftID menghitung ProfitSharingPerson yang mencantumkan
+// shiftID di kolom JSON shift_ids (format kompak "[1,2]" tanpa spasi).
+// Empat pola LIKE memakai delimiter kurung/koma sehingga aman dari
+// substring (id 1 tidak cocok dengan "[11]"). Berlaku di MySQL/MariaDB/SQLite.
+func (r *shiftConfigRepository) CountPeopleByShiftID(shiftID uint) (int64, error) {
+	id := strconv.FormatUint(uint64(shiftID), 10)
+	var count int64
+	err := r.db.Model(&models.ProfitSharingPerson{}).
+		Where("shift_ids = ? OR shift_ids LIKE ? OR shift_ids LIKE ? OR shift_ids LIKE ?",
+			"["+id+"]",
+			"["+id+",%",
+			"%,"+id+"]",
+			"%,"+id+",%",
+		).Count(&count).Error
+	return count, err
 }
 
 func toDomainShiftConfig(m *models.ShiftConfig) entity.ShiftConfig {

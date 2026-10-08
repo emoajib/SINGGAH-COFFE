@@ -148,6 +148,9 @@ func toDomainCashbon(m *models.BaristaCashbon) entity.BaristaCashbon {
 		Reason:        m.Reason,
 		Status:        m.Status,
 		PeriodID:      m.PeriodID,
+		RemainingBalance: m.RemainingBalance,
+		RecordedBy:    m.RecordedBy,
+		ApprovedBy:    m.ApprovedBy,
 		CreatedAt:     m.CreatedAt,
 		UpdatedAt:     m.UpdatedAt,
 	}
@@ -165,6 +168,9 @@ func toModelCashbon(e *entity.BaristaCashbon) *models.BaristaCashbon {
 		Reason:        e.Reason,
 		Status:        e.Status,
 		PeriodID:      e.PeriodID,
+		RemainingBalance: e.RemainingBalance,
+		RecordedBy:    e.RecordedBy,
+		ApprovedBy:    e.ApprovedBy,
 		CreatedAt:     e.CreatedAt,
 		UpdatedAt:     e.UpdatedAt,
 	}

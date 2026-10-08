@@ -21,6 +21,10 @@ type ProfitSharingPeriod struct {
 	TaxNote           string                `json:"tax_note"`
 	BasisType         string                `json:"basis_type"`
 	OwnerPct          float64               `json:"owner_pct"`
+	PoolPct           float64               `json:"pool_pct"`
+	RatioEffectiveDate *time.Time           `json:"ratio_effective_date"`
+	RatioLockedAt     *time.Time            `json:"ratio_locked_at"`
+	RoundingRemainder float64               `json:"rounding_remainder"`
 	People            []ProfitSharingPerson `json:"people"`
 	CreatedAt         time.Time             `json:"created_at"`
 	UpdatedAt         time.Time             `json:"updated_at"`
@@ -38,6 +42,9 @@ type BaristaCashbon struct {
 	Reason        string    `json:"reason"`
 	Status        string    `json:"status"` // pending, deducted, settled
 	PeriodID      uint      `json:"period_id"`
+	RemainingBalance float64 `json:"remaining_balance"`
+	RecordedBy    uint      `json:"recorded_by"`
+	ApprovedBy    *uint     `json:"approved_by"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
@@ -70,8 +77,10 @@ type ProfitSharingPerson struct {
 	Amount           float64          `json:"amount"` // Jatah bersih diterima
 	IsOnLeave        bool             `json:"is_on_leave"`
 	LeaveDays        int              `json:"leave_days"`
-	LeaveDates       string           `json:"leave_dates"`
-	ShiftIDs         []uint           `json:"shift_ids,omitempty"` // Multiple shifts per barista
+	LeaveDates       string           `json:"leave_dates"`            // Legacy: comma-separated leave dates (for backward compatibility)
+	RemainingBalance float64          `json:"remaining_balance"`      // B6: sisa kasbon dibawa ke periode berikut
+	Attendance       string           `json:"attendance,omitempty"`   // JSON: map[date][]shiftID - e.g., {"2026-10-01":[1,2],"2026-10-02":[1]}
+	ShiftIDs         []uint           `json:"shift_ids,omitempty"`    // Default shifts assigned to this barista (for multi-shift periods)
 	ShiftNames       []string         `json:"shift_names,omitempty"`
 	ShiftPoolPcts    []float64        `json:"shift_pool_pcts,omitempty"`
 	Cashbons         []BaristaCashbon `json:"cashbons,omitempty" gorm:"-"`
@@ -115,6 +124,11 @@ type ShiftBreakdown struct {
 	OwnerPct     float64 `json:"owner_pct"`
 	OwnerShare   float64 `json:"owner_share"`
 	BaristaPool  float64 `json:"barista_pool"`
+	// B2/B3: equal-split — pembagi = barista hadir-disahkan; sisa rupiah ke kas.
+	JumlahPembagi  int      `json:"jumlah_pembagi"`
+	DaftarPembagi  []string `json:"daftar_pembagi"`
+	SisaKas        float64  `json:"sisa_kas"`
+	JumlahDibagikan float64 `json:"jumlah_dibagikan"`
 }
 
 type Calculation struct {
@@ -133,6 +147,7 @@ type Calculation struct {
 	PerProduct    []ProductSharingDetail `json:"per_product"`
 	Status        string                `json:"status"`
 	Note          string                `json:"note"`
+	SisaKas       float64               `json:"sisa_kas"`
 	BasisType     string                `json:"basis_type"`
 	OwnerPct      float64               `json:"owner_pct"`
 	People        []ProfitSharingPerson `json:"people"`

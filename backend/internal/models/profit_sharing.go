@@ -28,6 +28,11 @@ type ProfitSharingPeriod struct {
 	TaxNote       string         `json:"tax_note"`
 	BasisType     string         `json:"basis_type" gorm:"default:net"`  // net, gross
 	OwnerPct      float64        `json:"owner_pct" gorm:"default:60"`    // owner percentage
+	// Snapshot rasio per periode (total OwnerPct+PoolPct wajib 100, dikunci saat finalize).
+	PoolPct             float64    `json:"pool_pct" gorm:"default:40"`
+	RatioEffectiveDate  *time.Time `json:"ratio_effective_date"`
+	RatioLockedAt       *time.Time `json:"ratio_locked_at"`
+	RoundingRemainder   float64    `json:"rounding_remainder" gorm:"default:0"` // total sisa rupiah ke kas
 	People        []ProfitSharingPerson `json:"people" gorm:"foreignKey:PeriodID"`
 }
 
@@ -71,7 +76,8 @@ type ProfitSharingPerson struct {
 	Amount           float64        `json:"amount"` // Jatah bersih diterima
 	IsOnLeave        bool           `json:"is_on_leave"`
 	LeaveDays        int            `json:"leave_days" gorm:"default:0"`
-	LeaveDates       string         `json:"leave_dates" gorm:"type:text"`
+	LeaveDates       string         `json:"leave_dates" gorm:"type:text"`                // Legacy: comma-separated leave dates (for backward compatibility)
+	Attendance       string         `json:"attendance" gorm:"type:text;default:'{}'"`    // JSON: map[date][]shiftID - e.g., {"2026-10-01":[1,2],"2026-10-02":[1]}
 	ShiftIDs         string         `json:"shift_ids" gorm:"type:text;default:'[]'"`       // JSON array of shift IDs
 	ShiftNames       string         `json:"shift_names" gorm:"type:text;default:'[]'"`     // JSON array of shift names
 	ShiftPoolPcts    string         `json:"shift_pool_pcts" gorm:"type:text;default:'[]'"` // JSON array of shift pool percentages
@@ -97,6 +103,10 @@ type BaristaCashbon struct {
 	Reason        string         `json:"reason"`
 	Status        string         `json:"status" gorm:"default:pending;index;index:idx_cashbons_outlet_status"`
 	PeriodID      uint           `json:"period_id" gorm:"index"`
+	// Kasbon cap + carry-over: sisa yang belum tertutup dibawa ke periode berikut.
+	RemainingBalance float64 `json:"remaining_balance" gorm:"default:0"`
+	RecordedBy       uint    `json:"recorded_by" gorm:"index"`
+	ApprovedBy       *uint   `json:"approved_by" gorm:"index"`
 }
 
 func (BaristaCashbon) TableName() string {

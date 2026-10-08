@@ -24,11 +24,11 @@ import (
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 var wib = time.FixedZone("WIB", 7*60*60)
 
-// alwaysExcludedFromSharing menentukan kategori pengeluaran yang SELALU
-// dikecualikan dari perhitungan bagi hasil. Kategori ini mewakili biaya
-// operasional inti yang menjadi tanggung jawab operasional outlet, serta
-// pembelian stok bahan baku yang sudah tercermin di dalam COGS (HPP resep).
-// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// alwaysExcludedFromSharing adalah DEFAULT kategori yang tidak memotong bagi
+// hasil. Owner dapat menimpanya via setting "sharing_excluded_categories"
+// (JSON array) — lihat sharingExcluded. Perubahan setting tercatat di audit
+// oleh settings usecase dan hanya berlaku untuk perhitungan BERIKUTNYA
+// (periode terkunci memakai snapshot-nya sendiri dan tidak berubah).
 var alwaysExcludedFromSharing = []string{
 	"Bahan Baku", "Bahan Baku (HPP)", "Persediaan", // Sudah dipotong di baris COGS via resep
 	"Operasional", "Operational",
@@ -64,6 +64,52 @@ func NewProfitSharingUsecase(db *gorm.DB) *ProfitSharingUsecase {
 	}
 }
 
+// sharingExcluded mengembalikan daftar kategori biaya yang dikecualikan dari
+// dasar bagi hasil. Prioritas: setting owner "sharing_excluded_categories"
+// (JSON array, diatur di Settings oleh owner); fallback ke default bawaan.
+// B5: kategori biaya dapat diatur owner tanpa ubah kode.
+func (uc *ProfitSharingUsecase) sharingExcluded() []string {
+	if s, err := uc.settingRepo.FindByKey("sharing_excluded_categories"); err == nil && s.Value != "" {
+		var cats []string
+		if err := json.Unmarshal([]byte(s.Value), &cats); err == nil && len(cats) > 0 {
+			return cats
+		}
+	}
+	return alwaysExcludedFromSharing
+}
+
+// validateRatio menegakkan keputusan #4: porsi Owner + pool barista wajib 100%.
+// Pool diturunkan sebagai 100-ownerPct; ownerPct di luar (0,100] ditolak.
+func validateRatio(ownerPct float64) (float64, error) {
+	if ownerPct <= 0 {
+		ownerPct = 60
+	}
+	if ownerPct <= 0 || ownerPct > 100 {
+		return 0, domainErrors.NewInvalidInputError("porsi owner harus antara 0 sampai 100")
+	}
+	poolPct := 100 - ownerPct
+	if poolPct < 0 || poolPct > 100 {
+		return 0, domainErrors.NewInvalidInputError("total rasio owner + pool barista harus tepat 100%")
+	}
+	return poolPct, nil
+}
+
+// roundIDR membulatkan ke rupiah penuh (keputusan terkunci #2).
+// Aturan lama Rp250 dihapus: sisa yang tak habis dibagi dicatat sebagai
+// sisa kas, bukan dibulatkan ke barista/owner tertentu.
+func roundIDR(x float64) float64 { return math.Round(x) }
+
+// splitEqualShare membagi pool sama rata ke n pembagi dalam rupiah penuh.
+// Mengembalikan bagian per orang dan sisa yang kembali ke kas toko.
+// n <= 0 → share 0 dan seluruh pool menjadi sisa (plus warning di caller).
+func splitEqualShare(pool float64, n int) (share, remainder float64) {
+	if n <= 0 || pool <= 0 {
+		return 0, pool
+	}
+	share = math.Floor(pool / float64(n))
+	return share, pool - share*float64(n)
+}
+
 // calcResult holds the result of a shared calculation used by Preview, Finalize, and Recalculate.
 type calcResult struct {
 	Basis          float64
@@ -77,6 +123,7 @@ type calcResult struct {
 	SharingBasis   float64
 	KeeperAmount   float64
 	OwnerAmount    float64
+	SisaKas        float64 // B3: total sisa rupiah yang kembali ke kas
 	Products       []entity.ProductSalesVolume
 	PerProduct     []entity.ProductSharingDetail
 	PerProductJSON string
@@ -97,11 +144,13 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 	// Potong pajak dan biaya layanan dari pendapatan kotor sesuai pengaturan owner
 	taxRate := taxPct / 100.0
 	serviceRate := servicePct / 100.0
-	tax := math.Round(basis*taxRate/250) * 250
-	serviceFee := math.Round(basis*serviceRate/250) * 250
+	tax := roundIDR(basis * taxRate)
+	serviceFee := roundIDR(basis * serviceRate)
+	// B1: pajak & service hanya INFO — tidak memotong dasar bagi hasil.
+	// Laba kotor = revenue murni menu - COGS.
 	netRevenue := basis - tax - serviceFee
 
-	grossMargin := netRevenue - cogs
+	grossMargin := basis - cogs
 	netProfit := grossMargin - expenses
 
 	if totalPeriodDays < 1 {
@@ -124,8 +173,8 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 		sharingBasis = 0
 	}
 
-	// C1: Bulatkan ke 250 terdekat (Rupiah tidak punya pecahan kecil)
-	keeperAmount := math.Round(sharingBasis*ratio/100/250) * 250
+	// C1: Bulatkan ke rupiah penuh (keputusan #2).
+	keeperAmount := roundIDR(sharingBasis * ratio / 100)
 	ownerAmount := sharingBasis - keeperAmount
 
 	perProduct := make([]entity.ProductSharingDetail, len(products))
@@ -159,7 +208,7 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 
 	// Multi-person split: owner gets ownerPct% of sharingBasis, baristas split remaining pool
 	if ownerPct > 0 && len(people) > 0 {
-		multiOwnerShare := math.Round(sharingBasis*ownerPct/100/250) * 250
+		multiOwnerShare := roundIDR(sharingBasis * ownerPct / 100)
 		baristaPool := sharingBasis - multiOwnerShare
 		result.OwnerAmount = multiOwnerShare
 		result.KeeperAmount = 0 // overridden per-person below
@@ -181,7 +230,7 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 				people[i].LeaveReduction = 0
 				people[i].CashbonReduction = 0
 			} else {
-				share := math.Round(baristaPool*people[i].SharePct/totalBaristaPct/250) * 250
+				share := roundIDR(baristaPool * people[i].SharePct / totalBaristaPct)
 				people[i].GrossAmount = share
 				var reduction float64
 				if people[i].IsOnLeave {
@@ -194,7 +243,7 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 					if leaveDays > totalPeriodDays {
 						leaveDays = totalPeriodDays
 					}
-					reduction = math.Round(share*float64(leaveDays)/float64(totalPeriodDays)/250) * 250
+					reduction = roundIDR(share * float64(leaveDays) / float64(totalPeriodDays))
 					if reduction > share {
 						reduction = share
 					}
@@ -263,14 +312,13 @@ func (uc *ProfitSharingUsecase) resolveMultiShift(outletID uint, people []entity
 }
 
 // calcSharing computes the overall financials and the per-person distribution.
-// In multi-shift mode it uses the per-shift Two-Tier calculation with Opsi B
-// redistribution (see calcMultiShift); otherwise it falls back to the standard
+// In multi-shift mode it uses the per-shift equal-split calculation
+// (see calcMultiShift); otherwise it falls back to the standard
 // single-pool calculation (calcFinancials).
-// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *ProfitSharingUsecase) calcSharing(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson, taxPct, servicePct float64, basisType string, totalPeriodDays int, startNorm, endNorm string, outletID uint) (calcResult, []entity.ShiftBreakdown, error) {
 	shifts := uc.resolveMultiShift(outletID, people)
 	if len(shifts) > 0 {
-		ownerAmount, breakdown, err := uc.calcMultiShift(shifts, startNorm, endNorm, outletID, basisType, taxPct, servicePct, totalPeriodDays, expenses, basis, people)
+		ownerAmount, sisaKas, breakdown, err := uc.calcMultiShift(shifts, startNorm, endNorm, outletID, basisType, taxPct, servicePct, totalPeriodDays, expenses, basis, people)
 		if err != nil {
 			return calcResult{}, nil, err
 		}
@@ -279,6 +327,7 @@ func (uc *ProfitSharingUsecase) calcSharing(basis, cogs, expenses, ratio float64
 		result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, nil, taxPct, servicePct, basisType, totalPeriodDays)
 		result.OwnerAmount = ownerAmount
 		result.KeeperAmount = 0
+		result.SisaKas = sisaKas
 		return result, breakdown, nil
 	}
 	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays)
@@ -286,27 +335,30 @@ func (uc *ProfitSharingUsecase) calcSharing(basis, cogs, expenses, ratio float64
 }
 
 // calcMultiShift computes profit sharing in multi-shift mode: Two-Tier split
-// per shift (Owner % vs Barista Pool %) followed by Opsi B redistribution —
-// a barista's leave reduction is redistributed to the other baristas present
-// in the SAME shift; if no one else is present, it goes to the owner.
+// per shift (Owner % vs Barista Pool %) lalu pool dibagi SAMA RATA ke barista
+// yang HADIR pada shift itu. Sisa rupiah yang tak habis dibagi kembali ke kas.
 //
 // Rules:
 //   - Per-shift revenue/COGS come from GetShiftRevenue/GetShiftProductSales
 //     (segmented by shift start/end time, supports overnight shifts).
+//     Revenue = SUM(order_items.price * qty), pre-tax/service (B1).
 //   - Expenses are not time-segmented in the DB, so total expenses are
 //     allocated to each shift proportionally to its revenue share.
-//   - A barista assigned to a shift participates only in that shift's pool.
-//     A barista WITHOUT a shift assignment is treated as all-day staff and
-//     participates in every shift's pool.
-//   - All amounts are rounded to the nearest Rp 250 (C1).
+//   - Pembagi pool = barista dengan kehadiran tercatat pada shift itu dalam
+//     periode berjalan dan tidak cuti penuh. Absen/libur = tidak masuk pembagi.
+//   - Attendance is tracked per-date per-shift: each barista can work different
+//     shifts on different dates; hak diakumulasi lintas shift yang diikuti.
+//   - All amounts are rounded to rupiah penuh; remainder goes to kas (B2/B3).
 //
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, startNorm, endNorm string, outletID uint, basisType string, taxPct, servicePct float64, totalPeriodDays int, totalExpenses, totalRevenue float64, people []entity.ProfitSharingPerson) (float64, []entity.ShiftBreakdown, error) {
+// calcMultiShift membagi pool tiap shift SAMA RATA ke barista yang hadir
+// (equal-split, B2). Sisa rupiah yang tak habis dibagi kembali ke kas (B3).
+// Mengembalikan: total bagian owner, total sisa kas, rincian per shift.
+func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, startNorm, endNorm string, outletID uint, basisType string, taxPct, servicePct float64, totalPeriodDays int, totalExpenses, totalRevenue float64, people []entity.ProfitSharingPerson) (float64, float64, []entity.ShiftBreakdown, error) {
 	if totalPeriodDays < 1 {
 		totalPeriodDays = 1
 	}
-	taxRate := taxPct / 100.0
-	serviceRate := servicePct / 100.0
+	// B1: taxPct/servicePct hanya info tampilan, tidak memotong angka shift.
 
 	type shiftFigures struct {
 		revenue, cogs, expenses, grossMargin, netProfit, sharingBasis, ownerShare, pool float64
@@ -316,7 +368,7 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 	for i, s := range shifts {
 		rev, err := uc.periodRepo.GetShiftRevenue(startNorm, endNorm, s.StartTime, s.EndTime, outletID)
 		if err != nil {
-			return 0, nil, err
+			return 0, 0, nil, err
 		}
 		prods, err := uc.periodRepo.GetShiftProductSales(startNorm, endNorm, s.StartTime, s.EndTime, outletID)
 		if err != nil {
@@ -337,8 +389,8 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 		if totalShiftRevenue > 0 {
 			figures[i].expenses = totalExpenses * figures[i].revenue / totalShiftRevenue
 		}
-		netRev := figures[i].revenue * (1 - taxRate - serviceRate)
-		figures[i].grossMargin = netRev - figures[i].cogs
+		// B1: laba kotor = revenue murni - COGS (tanpa potongan pajak/service).
+		figures[i].grossMargin = figures[i].revenue - figures[i].cogs
 		figures[i].netProfit = figures[i].grossMargin - figures[i].expenses
 		var basis float64
 		if basisType == "gross" {
@@ -357,25 +409,22 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 		if ownerPct <= 0 {
 			ownerPct = 60
 		}
-		figures[i].ownerShare = math.Round(basis*ownerPct/100/250) * 250
+		figures[i].ownerShare = roundIDR(basis * ownerPct / 100)
 		figures[i].pool = basis - figures[i].ownerShare
 	}
 
 	totalOwnerShare := 0.0
+	totalSisaKas := 0.0
 
-	// Parse leave dates for each person once
-	personLeaveDates := make(map[int][]string)
+	// Parse attendance data for each person: map[date][]shiftID
+	// Attendance JSON format: {"2026-10-01":[1,2],"2026-10-02":[1]}
+	personAttendance := make(map[int]map[string][]uint)
 	for idx, p := range people {
-		if p.LeaveDates != "" {
-			dates := strings.Split(p.LeaveDates, ",")
-			filtered := make([]string, 0, len(dates))
-			for _, d := range dates {
-				d = strings.TrimSpace(d)
-				if d != "" {
-					filtered = append(filtered, d)
-				}
+		if p.Attendance != "" && p.Attendance != "{}" {
+			var attendanceMap map[string][]uint
+			if err := json.Unmarshal([]byte(p.Attendance), &attendanceMap); err == nil {
+				personAttendance[idx] = attendanceMap
 			}
-			personLeaveDates[idx] = filtered
 		}
 	}
 
@@ -383,123 +432,81 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 	startDate := parseDatePS(startNorm)
 	endDate := parseDatePS(endNorm)
 
-	// Helper: count leave dates for a person in a shift
-	// A shift runs once per day in the period. A leave date matches if it falls
-	// on a day when the shift operates within the period.
-	countLeaveDatesForShift := func(personIdx int) int {
-		dates := personLeaveDates[personIdx]
-		if len(dates) == 0 {
+	// Helper: count attended days for a person in a specific shift
+	countAttendedDaysForShift := func(personIdx int, shiftID uint) int {
+		attendanceMap := personAttendance[personIdx]
+		if attendanceMap == nil {
 			return 0
 		}
 		count := 0
-		for _, dStr := range dates {
-			leaveDate, err := time.Parse("2006-01-02", dStr)
+		for dateStr, shiftIDs := range attendanceMap {
+			// Check if date is within period
+			attendedDate, err := time.Parse("2006-01-02", dateStr)
 			if err != nil {
 				continue
 			}
-			// Check if leave date is within period
-			if leaveDate.Before(startDate) || leaveDate.After(endDate) {
+			if attendedDate.Before(startDate) || attendedDate.After(endDate) {
 				continue
 			}
-			count++
+			// Check if this shift is in the attended shifts for this date
+			for _, sid := range shiftIDs {
+				if sid == shiftID {
+					count++
+					break
+				}
+			}
 		}
 		return count
 	}
 
+	// B2 EQUAL-SPLIT: pembagi pool shift = barista yang HADIR pada shift itu
+	// (tercatat di attendance untuk tanggal dalam periode + shift ini) dan
+	// tidak cuti penuh. Contoh spesifikasi: pool 400rb, 2 hadir -> @200rb;
+	// 1 hadir -> 400rb penuh. Absen/libur = tidak masuk pembagi (tanpa
+	// potongan proporsional ganda). Sisa rupiah -> kas toko (B3).
+	// Akumulasi bruto dilakukan lintas shift; clamp kasbon diterapkan
+	// setelah loop agar potongan tepat dari total hak (B6).
+	presentNames := make([][]string, len(shifts))
+	grossAccum := make(map[int]float64)
 	for i, s := range shifts {
-		// Baristas in this shift: assigned to this shift, or unassigned (all-day).
-		var inShift []int
-		var totalPct float64
+		var present []int
 		for j := range people {
-			if people[j].Role == "owner" {
+			if people[j].Role == "owner" || people[j].IsOnLeave {
 				continue
 			}
-			assigned := false
-			if len(people[j].ShiftIDs) > 0 {
-				for _, sid := range people[j].ShiftIDs {
-					if sid == s.ID {
-						assigned = true
-						break
-					}
-				}
-			}
-			if assigned || len(people[j].ShiftIDs) == 0 {
-				inShift = append(inShift, j)
-				totalPct += people[j].SharePct
-			}
-		}
-		if totalPct == 0 {
-			totalPct = 100
-		}
-
-		rawShares := make([]float64, len(inShift))
-		for k, j := range inShift {
-			rawShares[k] = math.Round(figures[i].pool*people[j].SharePct/totalPct/250) * 250
-		}
-
-		// Leave reduction per barista PER SHIFT based on leave dates in this shift
-		reductions := make([]float64, len(inShift))
-		for k, j := range inShift {
-			if people[j].IsOnLeave {
-				// Full leave = 100% reduction for this shift
-				reductions[k] = rawShares[k]
-			} else {
-				// Count leave dates that fall in this shift's operating days within period
-				leaveDatesInShift := countLeaveDatesForShift(j)
-				if leaveDatesInShift > 0 {
-					// Proportional reduction: leaveDatesInShift / totalPeriodDays
-					reductions[k] = math.Round(rawShares[k]*float64(leaveDatesInShift)/float64(totalPeriodDays)/250) * 250
-					if reductions[k] > rawShares[k] {
-						reductions[k] = rawShares[k]
-					}
-				}
+			if countAttendedDaysForShift(j, s.ID) > 0 {
+				present = append(present, j)
 			}
 		}
 
-		// Opsi B: redistribute each leave reduction to the other baristas present
-		// in the same shift (proportional to their raw share). Rounding remainder
-		// and reductions with no present colleague go to the owner.
-		bonus := make([]float64, len(inShift))
-		for k := range inShift {
-			if reductions[k] <= 0 {
-				continue
-			}
-			var othersRaw float64
-			for m, jm := range inShift {
-				if m != k && !people[jm].IsOnLeave {
-					othersRaw += rawShares[m]
-				}
-			}
-			if othersRaw > 0 {
-				distributed := 0.0
-				for m, jm := range inShift {
-					if m == k || people[jm].IsOnLeave {
-						continue
-					}
-					b := math.Round(reductions[k]*rawShares[m]/othersRaw/250) * 250
-					bonus[m] += b
-					distributed += b
-				}
-				totalOwnerShare += reductions[k] - distributed
-			} else {
-				totalOwnerShare += reductions[k]
-			}
-		}
-
-		for k, j := range inShift {
-			people[j].GrossAmount = rawShares[k]
-			people[j].LeaveReduction = reductions[k]
-			subtotal := rawShares[k] - reductions[k] + bonus[k]
-			// Clamping Guard: cashbon deduction is capped at the net share after
-			// leave reduction; the remainder stays pending for the next period.
-			cashbon := people[j].CashbonReduction
-			if cashbon > subtotal {
-				cashbon = subtotal
-			}
-			people[j].CashbonReduction = cashbon
-			people[j].Amount = subtotal - cashbon
+		share, remainder := splitEqualShare(figures[i].pool, len(present))
+		totalSisaKas += remainder
+		for _, j := range present {
+			grossAccum[j] += share
+			presentNames[i] = append(presentNames[i], people[j].Name)
 		}
 		totalOwnerShare += figures[i].ownerShare
+	}
+
+	for j := range people {
+		if people[j].Role == "owner" {
+			continue
+		}
+		people[j].GrossAmount = grossAccum[j]
+		people[j].LeaveReduction = 0
+		// B6: potongan kasbon dibatasi pada hak yang tersedia; sisa saldo
+		// dibawa ke periode berikut (RemainingBalance diisi caller).
+		subtotal := grossAccum[j]
+		cashbon := people[j].CashbonReduction
+		if cashbon > subtotal {
+			cashbon = subtotal
+		}
+		if subtotal <= 0 {
+			cashbon = 0
+		}
+		people[j].CashbonReduction = cashbon
+		people[j].Amount = subtotal - cashbon
+		people[j].RemainingBalance = 0 // dihitung caller dari total kasbon vs dipotong
 	}
 
 	for i := range people {
@@ -529,7 +536,18 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 			BaristaPool:  figures[i].pool,
 		}
 	}
-	return totalOwnerShare, breakdown, nil
+	// Isi rincian pembagi + sisa kas per shift dari perhitungan di atas.
+	for i := range breakdown {
+		share, remainder := splitEqualShare(figures[i].pool, len(presentNames[i]))
+		breakdown[i].JumlahPembagi = len(presentNames[i])
+		breakdown[i].DaftarPembagi = presentNames[i]
+		if breakdown[i].DaftarPembagi == nil {
+			breakdown[i].DaftarPembagi = []string{}
+		}
+		breakdown[i].JumlahDibagikan = share * float64(len(presentNames[i]))
+		breakdown[i].SisaKas = remainder
+	}
+	return totalOwnerShare, totalSisaKas, breakdown, nil
 }
 
 // matchesBarista mencocokkan catatan kasbon dengan barista terkait secara aman.
@@ -577,7 +595,7 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	expenses, err := uc.periodRepo.GetTotalExpensesExcluding(startNorm, endNorm, alwaysExcludedFromSharing, outletID)
+	expenses, err := uc.periodRepo.GetTotalExpensesExcluding(startNorm, endNorm, uc.sharingExcluded(), outletID)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -592,13 +610,18 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 	if basisType == "" {
 		basisType = "net"
 	}
+	// B4: validasi rasio total 100% sebelum menghitung apa pun.
+	poolPct, err := validateRatio(ownerPct)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	if ownerPct <= 0 {
 		ownerPct = 60
 	}
 
 	// Ambil rincian pengeluaran itemized untuk transparansi nota beban (misal 150 Cup, Susu UHT, dll.)
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-	expenseList, _ := uc.periodRepo.GetExpensesList(startNorm, endNorm, alwaysExcludedFromSharing, outletID)
+	expenseList, _ := uc.periodRepo.GetExpensesList(startNorm, endNorm, uc.sharingExcluded(), outletID)
 	isDeducted := (basisType != "gross")
 	for i := range expenseList {
 		expenseList[i].IsDeducted = isDeducted
@@ -623,6 +646,7 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 	}
 
 	// Cari kasbon pending barista pada rentang periode ini untuk dikaitkan ke draft
+	cashbonTotals := make(map[int]float64)
 	if len(people) > 0 {
 		pendingCashbons, _ := uc.cashbonRepo.FindPendingByDateRange(startNorm, endNorm, outletID)
 		for i := range people {
@@ -639,6 +663,9 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 					people[i].CashbonReduction = totalCashbon
 					people[i].Cashbons = personCashbons
 				}
+				if people[i].CashbonReduction > 0 {
+					cashbonTotals[i] = people[i].CashbonReduction
+				}
 			}
 		}
 	}
@@ -648,7 +675,16 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 		return nil, nil, nil, nil, err
 	}
 
-	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
+	// B6: sisa kasbon yang tak tertutup hak periode dibawa ke periode berikut.
+	for i, total := range cashbonTotals {
+		rest := total - people[i].CashbonReduction
+		if rest < 0 {
+			rest = 0
+		}
+		people[i].RemainingBalance = rest
+	}
+
+	taxNote := fmt.Sprintf("Pajak (%.0f%%) & biaya layanan (%.0f%%) hanya info, tidak memotong dasar bagi hasil", taxPct, servicePct)
 
 	period := entity.ProfitSharingPeriod{
 		OutletID:          outletID,
@@ -667,6 +703,9 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 		TaxNote:           taxNote,
 		BasisType:         basisType,
 		OwnerPct:          ownerPct,
+		PoolPct:           poolPct,
+		RatioEffectiveDate: &startDate,
+		RoundingRemainder: result.SisaKas,
 		People:            people,
 	}
 
@@ -769,6 +808,7 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			PerProduct:    result.PerProduct,
 			Status:        "draft",
 			Note:          period.TaxNote,
+			SisaKas:       result.SisaKas,
 			BasisType:     period.BasisType,
 			OwnerPct:      period.OwnerPct,
 			People:        people,
@@ -804,7 +844,7 @@ func (uc *ProfitSharingUsecase) fetchFinancialsWithTx(tx *gorm.DB, start, end st
 	if err != nil {
 		return
 	}
-	expenses, err = txPeriodRepo.GetTotalExpensesExcluding(start, end, alwaysExcludedFromSharing, outletID)
+	expenses, err = txPeriodRepo.GetTotalExpensesExcluding(start, end, uc.sharingExcluded(), outletID)
 	return
 }
 
@@ -858,6 +898,10 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	if ownerPct <= 0 {
 		ownerPct = 60
 	}
+	// B4: rasio snapshot periode terkunci; tolak nilai korup yang totalnya != 100%.
+	if _, err := validateRatio(ownerPct); err != nil {
+		return err
+	}
 
 	// Read tax & service fee from owner settings
 	taxPct := 0.0
@@ -880,7 +924,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	if err != nil {
 		return err
 	}
-	taxNote := fmt.Sprintf("Pendapatan kotor dikurangi pajak (%.0f%%) & biaya layanan (%.0f%%)", taxPct, servicePct)
+	taxNote := fmt.Sprintf("Pajak (%.0f%%) & biaya layanan (%.0f%%) hanya info, tidak memotong dasar bagi hasil", taxPct, servicePct)
 
 	// Tandai semua kasbon yang terpotong menjadi settled / lunas
 	pendingCashbons, _ := uc.cashbonRepo.FindPendingByDateRange(start, end, outletID[0])
@@ -932,6 +976,9 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		"tax_note":           taxNote,
 		"basis_type":         period.BasisType,
 		"owner_pct":          ownerPct,
+		"pool_pct":           100 - ownerPct,
+		"ratio_locked_at":    time.Now(),
+		"rounding_remainder": result.SisaKas,
 	}).Error; err != nil {
 		return err
 	}
@@ -1119,6 +1166,9 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	if ownerPct <= 0 {
 		ownerPct = 60
 	}
+	if _, err := validateRatio(ownerPct); err != nil {
+		return err
+	}
 
 	// Read tax & service fee from owner settings
 	taxPct := 0.0
@@ -1177,6 +1227,8 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		"per_product":    result.PerProductJSON,
 		"basis_type":     existing.BasisType,
 		"owner_pct":      ownerPct,
+		"pool_pct":       100 - ownerPct,
+		"rounding_remainder": result.SisaKas,
 	}).Error; err != nil {
 		return err
 	}
@@ -1313,7 +1365,119 @@ func (uc *ProfitSharingUsecase) SetLeave(periodID uint, personID uint, isOnLeave
 		}
 	}
 
+	// Also compute attendance from leave dates for backward compatibility
+	// Leave dates = dates NOT attended; attendance = all other dates in period with default shifts
+	if leaveDates != "" {
+		var leaveDateList []string
+		_ = json.Unmarshal([]byte(leaveDates), &leaveDateList)
+		leaveDateSet := make(map[string]bool)
+		for _, d := range leaveDateList {
+			leaveDateSet[d] = true
+		}
+
+		// Build attendance map: for each date in period not in leave dates, assign default shifts
+		attendanceMap := make(map[string][]uint)
+		curr := startCal
+		for !curr.After(endCal) {
+			dateStr := curr.Format("2006-01-02")
+			if !leaveDateSet[dateStr] {
+				// Attend default shifts (person.ShiftIDs)
+				if len(person.ShiftIDs) > 0 {
+					attendanceMap[dateStr] = person.ShiftIDs
+				}
+			}
+			curr = curr.AddDate(0, 0, 1)
+		}
+
+		attendanceJSON, _ := json.Marshal(attendanceMap)
+		person.Attendance = string(attendanceJSON)
+		_ = uc.profitSharingPersonRepo.UpdateAttendance(personID, string(attendanceJSON))
+	}
+
 	return uc.profitSharingPersonRepo.UpdateLeaveStatus(personID, isOnLeave, leaveDays, leaveDates, reduction)
+}
+
+// SetAttendance updates a barista's per-date per-shift attendance.
+// attendanceJSON: JSON map of date -> shift IDs, e.g., {"2026-10-01":[1,2],"2026-10-02":[1]}
+// This is the new preferred way to track attendance, replacing leave_dates.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProfitSharingUsecase) SetAttendance(periodID uint, personID uint, attendanceJSON string) error {
+	period, err := uc.periodRepo.FindByID(periodID)
+	if err != nil {
+		return domainErrors.NewNotFoundError("periode")
+	}
+	if period.Status != "draft" {
+		return domainErrors.NewInvalidInputError("hanya periode draft yang bisa diatur kehadirannya")
+	}
+	person, err := uc.profitSharingPersonRepo.GetByID(personID)
+	if err != nil {
+		return domainErrors.NewNotFoundError("orang")
+	}
+	if person.PeriodID != periodID {
+		return domainErrors.NewInvalidInputError("orang tidak termasuk dalam periode ini")
+	}
+	if person.Role == "owner" {
+		return domainErrors.NewInvalidInputError("pemilik tidak bisa diatur kehadirannya")
+	}
+
+	// Validate attendance JSON
+	var attendanceMap map[string][]uint
+	if attendanceJSON != "" && attendanceJSON != "{}" {
+		if err := json.Unmarshal([]byte(attendanceJSON), &attendanceMap); err != nil {
+			return domainErrors.NewInvalidInputError("format attendance tidak valid: " + err.Error())
+		}
+	}
+
+	// Also compute leave dates from attendance for backward compatibility
+	// Leave dates = dates in period NOT in attendance
+	startCal := time.Date(period.PeriodStart.Year(), period.PeriodStart.Month(), period.PeriodStart.Day(), 0, 0, 0, 0, period.PeriodStart.Location())
+	endCal := time.Date(period.PeriodEnd.Year(), period.PeriodEnd.Month(), period.PeriodEnd.Day(), 0, 0, 0, 0, period.PeriodEnd.Location())
+	totalPeriodDays := int(math.Round(endCal.Sub(startCal).Hours()/24)) + 1
+	if totalPeriodDays < 1 {
+		totalPeriodDays = 1
+	}
+
+	var leaveDates []string
+	curr := startCal
+	for !curr.After(endCal) {
+		dateStr := curr.Format("2006-01-02")
+		if _, attended := attendanceMap[dateStr]; !attended {
+			leaveDates = append(leaveDates, dateStr)
+		}
+		curr = curr.AddDate(0, 0, 1)
+	}
+
+	leaveDatesJSON, _ := json.Marshal(leaveDates)
+	isOnLeave := len(leaveDates) == totalPeriodDays
+	leaveDays := len(leaveDates)
+
+	// Calculate reduction based on missed days
+	reduction := 0.0
+	if person.GrossAmount > 0 && leaveDays > 0 {
+		reduction = math.Round(person.GrossAmount*float64(leaveDays)/float64(totalPeriodDays)/250) * 250
+		if reduction > person.GrossAmount {
+			reduction = person.GrossAmount
+		}
+	}
+
+	// Update both attendance and leave fields
+	person.Attendance = attendanceJSON
+	person.LeaveDates = string(leaveDatesJSON)
+	person.LeaveDays = leaveDays
+	person.IsOnLeave = isOnLeave
+	person.LeaveReduction = reduction
+	person.Amount = person.GrossAmount - reduction - person.CashbonReduction
+	if person.Amount < 0 {
+		person.Amount = 0
+	}
+
+	// Save attendance
+	if err := uc.profitSharingPersonRepo.UpdateAttendance(personID, attendanceJSON); err != nil {
+		return err
+	}
+
+	// Also update leave fields for backward compatibility
+	return uc.profitSharingPersonRepo.UpdateLeaveStatus(personID, isOnLeave, leaveDays, string(leaveDatesJSON), reduction)
 }
 
 // AddPerson adds a new person to a period.

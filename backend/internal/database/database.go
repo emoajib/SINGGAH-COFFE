@@ -59,6 +59,11 @@ func Connect(cfg config.Config) *gorm.DB {
 		&models.ProfitSharingPerson{},
 		&models.BaristaCashbon{},
 		&models.ShiftConfig{}, // Multi-shift bagi hasil - Vetted by AI
+		// Bagi hasil per-shift: jadwal, kehadiran, instance shift, audit (tanpa soft-delete, K1)
+		&models.ShiftInstance{},
+		&models.Schedule{},
+		&models.Attendance{},
+		&models.AuditLog{},
 		// Loyalty & Customer Feedback - Vetted by AI
 		&models.Customer{},
 		&models.LoyaltyProgram{},
@@ -219,6 +224,18 @@ func Connect(cfg config.Config) *gorm.DB {
 	ensureColumn(db, "stock_mutations", "location", "VARCHAR(20) NOT NULL DEFAULT 'kedai'")
 	ensureColumn(db, "stock_mutations", "from_location", "VARCHAR(20) NOT NULL DEFAULT ''")
 	ensureColumn(db, "stock_mutations", "to_location", "VARCHAR(20) NOT NULL DEFAULT ''")
+
+	// Bagi hasil per-shift: kolom baru idempoten untuk database lama.
+	ensureColumn(db, "orders", "shift_instance_id", "BIGINT UNSIGNED NULL")
+	ensureColumn(db, "expenses", "shift_instance_id", "BIGINT UNSIGNED NULL")
+	ensureColumn(db, "expenses", "is_shared", "BOOLEAN NOT NULL DEFAULT FALSE")
+	ensureColumn(db, "profit_sharing_periods", "pool_pct", "DOUBLE NOT NULL DEFAULT 40")
+	ensureColumn(db, "profit_sharing_periods", "ratio_effective_date", "DATETIME NULL")
+	ensureColumn(db, "profit_sharing_periods", "ratio_locked_at", "DATETIME NULL")
+	ensureColumn(db, "profit_sharing_periods", "rounding_remainder", "DOUBLE NOT NULL DEFAULT 0")
+	ensureColumn(db, "barista_cashbons", "remaining_balance", "DOUBLE NOT NULL DEFAULT 0")
+	ensureColumn(db, "barista_cashbons", "recorded_by", "BIGINT UNSIGNED NOT NULL DEFAULT 0")
+	ensureColumn(db, "barista_cashbons", "approved_by", "BIGINT UNSIGNED NULL")
 
 	// Backfill: jika kedai_stock masih 0 dan current_stock > 0, set kedai_stock = current_stock (backward compatibility)
 	_ = db.Exec("UPDATE ingredients SET kedai_stock = current_stock WHERE (kedai_stock = 0 OR kedai_stock IS NULL) AND current_stock > 0")

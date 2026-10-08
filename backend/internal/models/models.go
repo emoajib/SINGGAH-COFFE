@@ -116,6 +116,9 @@ type Order struct {
 	PreparingAt      *time.Time  `json:"preparing_at"`
 	ReadyAt          *time.Time  `json:"ready_at"`
 	ServedAt         *time.Time  `json:"served_at"`
+	// ShiftInstanceID mengikat order ke shift operasional (nullable untuk
+	// kompatibilitas historis; order lama dihitung via segmentasi jam).
+	ShiftInstanceID *uint `json:"shift_instance_id" gorm:"index"`
 }
 
 type OrderItem struct {
@@ -147,6 +150,10 @@ type Expense struct {
 	Description   string    `json:"description"`
 	Notes         string    `json:"notes"`
 	OutletID      uint      `json:"outlet_id" gorm:"index;index:idx_expenses_outlet_date"`
+	// ShiftInstanceID menandai biaya LANGSUNG shift; NULL + IsShared=true
+	// berarti biaya BERSAMA periode yang dialokasikan proporsional.
+	ShiftInstanceID *uint `json:"shift_instance_id" gorm:"index"`
+	IsShared        bool  `json:"is_shared" gorm:"default:false;index"`
 }
 
 type Setting struct {

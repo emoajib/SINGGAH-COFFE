@@ -83,6 +83,10 @@ func (r *profitSharingPeriodRepository) Create(period *entity.ProfitSharingPerio
 		TaxNote:           period.TaxNote,
 		BasisType:         period.BasisType,
 		OwnerPct:          period.OwnerPct,
+		PoolPct:           period.PoolPct,
+		RatioEffectiveDate: period.RatioEffectiveDate,
+		RatioLockedAt:     period.RatioLockedAt,
+		RoundingRemainder: period.RoundingRemainder,
 	}
 	if err := r.db.Create(m).Error; err != nil {
 		return err
@@ -109,6 +113,10 @@ func (r *profitSharingPeriodRepository) Update(period *entity.ProfitSharingPerio
 		"tax_note":           period.TaxNote,
 		"basis_type":         period.BasisType,
 		"owner_pct":          period.OwnerPct,
+		"pool_pct":           period.PoolPct,
+		"ratio_effective_date": period.RatioEffectiveDate,
+		"ratio_locked_at":    period.RatioLockedAt,
+		"rounding_remainder": period.RoundingRemainder,
 	}).Error
 }
 
@@ -116,18 +124,24 @@ func (r *profitSharingPeriodRepository) Delete(id uint) error {
 	return r.db.Delete(&models.ProfitSharingPeriod{}, id).Error
 }
 
+// GetTotalRevenue menghitung pendapatan murni menu: SUM(order_items.price * qty)
+// untuk order Completed. BUKAN SUM(orders.total_amount) yang sudah mencakup
+// service charge + pajak (order_usecase.go:203-205). B1: revenue pre-tax/service.
 func (r *profitSharingPeriodRepository) GetTotalRevenue(start, end string, outletID ...uint) (float64, error) {
 	ow, args := outletWhere("orders", outletID...)
 	baseArgs := []interface{}{start, end, "Completed"}
 	var total float64
-	err := r.db.Model(&models.Order{}).
-		Where("DATE(orders.created_at) BETWEEN DATE(?) AND DATE(?) AND orders.status = ?"+ow, append(baseArgs, args...)...).
-		Select("COALESCE(SUM(orders.total_amount), 0)").
+	err := r.db.Model(&models.OrderItem{}).
+		Joins("JOIN orders ON orders.id = order_items.order_id").
+		Where("DATE(COALESCE(orders.order_time, orders.created_at)) BETWEEN DATE(?) AND DATE(?) AND orders.status = ?"+ow, append(baseArgs, args...)...).
+		Select("COALESCE(SUM(order_items.price * order_items.quantity), 0)").
 		Row().Scan(&total)
 	return total, err
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// GetShiftRevenue seperti GetTotalRevenue tetapi dibatasi jam shift
+// (mendukung shift overnight). B1: revenue pre-tax/service per shift.
 func (r *profitSharingPeriodRepository) GetShiftRevenue(start, end, startTime, endTime string, outletID ...uint) (float64, error) {
 	ow, args := outletWhere("orders", outletID...)
 	var timeClause string
@@ -141,15 +155,16 @@ func (r *profitSharingPeriodRepository) GetShiftRevenue(start, end, startTime, e
 		timeArgs = []interface{}{startTime, endTime}
 	}
 
-	whereQuery := "DATE(orders.created_at) BETWEEN DATE(?) AND DATE(?) AND orders.status = ?" + timeClause + ow
+	whereQuery := "DATE(COALESCE(orders.order_time, orders.created_at)) BETWEEN DATE(?) AND DATE(?) AND orders.status = ?" + timeClause + ow
 	allArgs := []interface{}{start, end, "Completed"}
 	allArgs = append(allArgs, timeArgs...)
 	allArgs = append(allArgs, args...)
 
 	var total float64
-	err := r.db.Model(&models.Order{}).
+	err := r.db.Model(&models.OrderItem{}).
+		Joins("JOIN orders ON orders.id = order_items.order_id").
 		Where(whereQuery, allArgs...).
-		Select("COALESCE(SUM(orders.total_amount), 0)").
+		Select("COALESCE(SUM(order_items.price * order_items.quantity), 0)").
 		Row().Scan(&total)
 	return total, err
 }
@@ -321,6 +336,10 @@ func toDomainProfitSharing(m *models.ProfitSharingPeriod) *entity.ProfitSharingP
 		TaxNote:           m.TaxNote,
 		BasisType:         m.BasisType,
 		OwnerPct:          m.OwnerPct,
+		PoolPct:           m.PoolPct,
+		RatioEffectiveDate: m.RatioEffectiveDate,
+		RatioLockedAt:     m.RatioLockedAt,
+		RoundingRemainder: m.RoundingRemainder,
 		People:            people,
 		CreatedAt:         m.CreatedAt,
 		UpdatedAt:         m.UpdatedAt,
