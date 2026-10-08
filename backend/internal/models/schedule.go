@@ -12,10 +12,10 @@ type Schedule struct {
 	CreatedAt     time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	OutletID      uint      `json:"outlet_id" gorm:"index;not null"`
-	BaristaID     uint      `json:"barista_id" gorm:"index;not null"`
+	BaristaID     uint      `json:"barista_id" gorm:"index;uniqueIndex:uq_schedule;not null"`
 	BaristaName   string    `json:"barista_name" gorm:"size:100;index"`
-	Tanggal       time.Time `json:"tanggal" gorm:"type:date;index;not null"`
-	ShiftConfigID uint      `json:"shift_config_id" gorm:"index;not null"`
+	Tanggal       time.Time `json:"tanggal" gorm:"type:date;index;uniqueIndex:uq_schedule;not null"`
+	ShiftConfigID uint      `json:"shift_config_id" gorm:"index;uniqueIndex:uq_schedule;not null"`
 	Status        string    `json:"status" gorm:"size:20;default:belum_ditentukan;index"`
 	JamKerja      string    `json:"jam_kerja" gorm:"size:50"`
 	Catatan       string    `json:"catatan" gorm:"type:text"`

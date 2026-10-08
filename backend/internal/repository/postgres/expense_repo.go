@@ -92,6 +92,8 @@ func (r *expenseRepository) Create(expense *entity.Expense) error {
 		Description:   expense.Description,
 		Notes:         expense.Notes,
 		OutletID:      expense.OutletID,
+		ShiftInstanceID: expense.ShiftInstanceID,
+		IsShared:      expense.IsShared,
 	}
 	if err := r.db.Create(m).Error; err != nil {
 		return err
@@ -115,6 +117,8 @@ func (r *expenseRepository) Update(expense *entity.Expense) error {
 		"date":           expense.Date,
 		"description":    expense.Description,
 		"notes":          expense.Notes,
+		"shift_instance_id": expense.ShiftInstanceID,
+		"is_shared":      expense.IsShared,
 	}).Error
 }
 
@@ -128,6 +132,28 @@ func (r *expenseRepository) GetTotal(outletID ...uint) (float64, error) {
 	var total float64
 	err := tx.Row().Scan(&total)
 	return total, err
+}
+
+// SumByShiftInstance menjumlahkan biaya LANGSUNG satu shift (Fase C).
+func (r *expenseRepository) SumByShiftInstance(shiftInstanceID uint, outletID uint) (float64, error) {
+	tx := r.db.Model(&models.Expense{}).
+		Where("shift_instance_id = ?", shiftInstanceID).
+		Select("COALESCE(SUM(amount), 0)")
+	tx = scopeOutlet(tx, "expenses", outletID)
+	var total float64
+	err := tx.Row().Scan(&total)
+	return total, err
+}
+
+// CountUnclassified menghitung biaya yang belum diklasifikasi ke shift
+// langsung mana pun dan bukan biaya bersama (daftar tugas, Fase C).
+func (r *expenseRepository) CountUnclassified(outletID uint) (int64, error) {
+	tx := r.db.Model(&models.Expense{}).
+		Where("shift_instance_id IS NULL AND is_shared = ?", false)
+	tx = scopeOutlet(tx, "expenses", outletID)
+	var count int64
+	err := tx.Count(&count).Error
+	return count, err
 }
 
 func (r *expenseRepository) GetTotalSince(since string, outletID ...uint) (float64, error) {
@@ -201,6 +227,8 @@ func toDomainExpense(m *models.Expense) *entity.Expense {
 		Description:   m.Description,
 		Notes:         m.Notes,
 		OutletID:      m.OutletID,
+		ShiftInstanceID: m.ShiftInstanceID,
+		IsShared:      m.IsShared,
 		CreatedAt:     m.CreatedAt,
 	}
 }

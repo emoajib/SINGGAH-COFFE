@@ -112,6 +112,11 @@ type ExpenseRepository interface {
 	GetTotalByCostType(costType, start, end string, outletID ...uint) (float64, error)
 	GetTotalVariableExcludingCategories(start, end string, excludeCategories []string, outletID ...uint) (float64, error)
 	GetFixedCostBreakdown(start, end string, outletID ...uint) ([]entity.FixedCostItem, error)
+	// SumByShiftInstance menjumlahkan biaya LANGSUNG satu shift (Fase C).
+	SumByShiftInstance(shiftInstanceID uint, outletID uint) (float64, error)
+	// CountUnclassified menghitung biaya yang belum diklasifikasi
+	// (bukan langsung shift mana pun dan bukan biaya bersama) — daftar tugas.
+	CountUnclassified(outletID uint) (int64, error)
 }
 
 // SettingRepository defines data access for settings
@@ -331,5 +336,43 @@ type ShiftConfigRepository interface {
 	// CountPeopleByShiftID menghitung barista yang mereferensikan shift ini
 	// di kolom JSON shift_ids (format "[1,2]"). Dipakai sebagai guard hapus.
 	CountPeopleByShiftID(shiftID uint) (int64, error)
+}
+
+// ScheduleRepository: jadwal barista per tanggal+shift (Fase C).
+type ScheduleRepository interface {
+	Create(s *entity.Schedule) error
+	Update(s *entity.Schedule) error
+	Delete(id uint, outletID uint) error
+	FindByID(id uint, outletID uint) (*entity.Schedule, error)
+	FindByDate(tanggal string, outletID uint) ([]entity.Schedule, error)
+	FindByBaristaDate(baristaID uint, tanggal string, outletID uint) ([]entity.Schedule, error)
+	Exists(baristaID uint, tanggal string, shiftConfigID uint, outletID uint) (bool, error)
+}
+
+// AttendanceRepository: kehadiran per shift, terpisah dari jadwal (Fase C).
+type AttendanceRepository interface {
+	Create(a *entity.Attendance) error
+	Update(a *entity.Attendance) error
+	FindByID(id uint, outletID uint) (*entity.Attendance, error)
+	FindByIDForUpdate(id uint, tx *gorm.DB) (*entity.Attendance, error)
+	FindByShiftInstance(shiftInstanceID uint, outletID uint) ([]entity.Attendance, error)
+	FindPending(outletID uint) ([]entity.Attendance, error)
+	CountPending(outletID uint) (int64, error)
+}
+
+// ShiftInstanceRepository: catatan operasional per tanggal+shift (Fase C).
+type ShiftInstanceRepository interface {
+	Create(s *entity.ShiftInstance) error
+	Update(s *entity.ShiftInstance) error
+	FindByID(id uint, outletID uint) (*entity.ShiftInstance, error)
+	FindByOutletDate(outletID uint, tanggal string) ([]entity.ShiftInstance, error)
+	FindOpen(outletID uint) ([]entity.ShiftInstance, error)
+	CountByStatus(outletID uint, statuses ...string) (int64, error)
+}
+
+// AuditLogRepository: jejak audit append-only (Fase C).
+type AuditLogRepository interface {
+	Create(l *entity.AuditLog) error
+	FindByEntity(entitas string, entitasID uint, outletID uint) ([]entity.AuditLog, error)
 }
 

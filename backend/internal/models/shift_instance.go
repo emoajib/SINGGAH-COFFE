@@ -10,9 +10,9 @@ type ShiftInstance struct {
 	ID              uint      `gorm:"primaryKey" json:"id"`
 	CreatedAt       time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
-	OutletID        uint      `json:"outlet_id" gorm:"index;not null"`
-	ShiftConfigID   uint      `json:"shift_config_id" gorm:"index;not null"`
-	Tanggal         time.Time `json:"tanggal" gorm:"type:date;index;not null"`
+	OutletID        uint      `json:"outlet_id" gorm:"index;uniqueIndex:uq_shift_instance;not null"`
+	ShiftConfigID   uint      `json:"shift_config_id" gorm:"index;uniqueIndex:uq_shift_instance;not null"`
+	Tanggal         time.Time `json:"tanggal" gorm:"type:date;index;uniqueIndex:uq_shift_instance;not null"`
 	JamMulaiAktual  string    `json:"jam_mulai_aktual" gorm:"size:5"`
 	JamSelesaiAktual string   `json:"jam_selesai_aktual" gorm:"size:5"`
 	Status          string    `json:"status" gorm:"size:30;default:terjadwal;index"`

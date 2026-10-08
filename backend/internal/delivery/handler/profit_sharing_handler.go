@@ -61,6 +61,35 @@ func (h *ProfitSharingHandler) Preview(c *gin.Context) {
 	c.JSON(http.StatusOK, preview)
 }
 
+// PreviewReadOnly pratinjau tanpa simpan draft — untuk manajer (K4).
+func (h *ProfitSharingHandler) PreviewReadOnly(c *gin.Context) {
+	start := c.Query("start")
+	end := c.Query("end")
+	outletID := getOutletID(c)
+	ratioStr := c.DefaultQuery("ratio", "50")
+	ratio, err := strconv.ParseFloat(ratioStr, 64)
+	if err != nil || ratio < 0 || ratio > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ratio harus antara 0 sampai 100"})
+		return
+	}
+
+	basisType := c.DefaultQuery("basis_type", "net")
+
+	ownerPctStr := c.DefaultQuery("owner_pct", "60")
+	ownerPct, err := strconv.ParseFloat(ownerPctStr, 64)
+	if err != nil || ownerPct < 0 || ownerPct > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "owner_pct harus antara 0 sampai 100"})
+		return
+	}
+
+	preview, err := h.usecase.PreviewReadOnly(start, end, outletID, ratio, basisType, ownerPct, nil)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, preview)
+}
+
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 // profitSharingPersonRequest is the request representation of a person (excludes Cashbons which causes JSON parse issues).
 type profitSharingPersonRequest struct {

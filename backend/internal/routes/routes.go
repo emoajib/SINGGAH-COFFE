@@ -26,6 +26,9 @@ type Handlers struct {
 	CashBook         *handler.CashBookHandler
 	ProfitSharing    *handler.ProfitSharingHandler
 	ShiftConfig      *handler.ShiftConfigHandler
+	Schedule         *handler.ScheduleHandler
+	Attendance       *handler.AttendanceHandler
+	ShiftInstance    *handler.ShiftInstanceHandler
 	Account          *handler.AccountHandler
 	Journal          *handler.JournalHandler
 	Loyalty          *handler.LoyaltyHandler
@@ -215,6 +218,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			// Profit Sharing — Owner Only
 			protected.GET("/profit-sharing", middleware.RoleMiddleware("owner"), h.ProfitSharing.GetAll)
 			protected.GET("/profit-sharing/preview", middleware.RoleMiddleware("owner"), h.ProfitSharing.Preview)
+			// Pratinjau read-only untuk manajer (K4: tanpa simpan draft)
+			protected.GET("/profit-sharing/preview-readonly", middleware.RoleMiddleware("owner", "manager"), h.ProfitSharing.PreviewReadOnly)
 			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 			// Simpan draft eksplisit (idempotent, tanpa harus finalize)
 			protected.POST("/profit-sharing/draft", middleware.RoleMiddleware("owner"), h.ProfitSharing.SaveDraft)
@@ -226,6 +231,26 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/profit-sharing/:id/people", middleware.RoleMiddleware("owner"), h.ProfitSharing.AddPerson)
 			protected.DELETE("/profit-sharing/:id/people/:personId", middleware.RoleMiddleware("owner"), h.ProfitSharing.RemovePerson)
 			protected.PUT("/profit-sharing/:id/leave", middleware.RoleMiddleware("owner"), h.ProfitSharing.SetLeave)
+			protected.PUT("/profit-sharing/:id/attendance", middleware.RoleMiddleware("owner"), h.ProfitSharing.SetAttendance)
+
+			// Jadwal barista — Owner & Manajer (C1)
+			protected.GET("/schedules", middleware.RoleMiddleware("owner", "manager"), h.Schedule.GetByDate)
+			protected.POST("/schedules", middleware.RoleMiddleware("owner", "manager"), h.Schedule.Create)
+			protected.DELETE("/schedules/:id", middleware.RoleMiddleware("owner", "manager"), h.Schedule.Delete)
+			protected.POST("/schedules/copy-week", middleware.RoleMiddleware("owner", "manager"), h.Schedule.CopyWeek)
+
+			// Kehadiran — Owner & Manajer (C2). Kasir diblokir total.
+			protected.POST("/attendances", middleware.RoleMiddleware("owner", "manager"), h.Attendance.Record)
+			protected.GET("/attendances/pending", middleware.RoleMiddleware("owner", "manager"), h.Attendance.ListPending)
+			protected.POST("/attendances/:id/approve", middleware.RoleMiddleware("owner", "manager"), h.Attendance.Approve)
+			protected.POST("/attendances/:id/reject", middleware.RoleMiddleware("owner", "manager"), h.Attendance.Reject)
+
+			// Shift operasional + daftar tugas — Owner & Manajer (C3/C7)
+			protected.GET("/shift-instances", middleware.RoleMiddleware("owner", "manager"), h.ShiftInstance.GetByDate)
+			protected.POST("/shift-instances", middleware.RoleMiddleware("owner", "manager"), h.ShiftInstance.Create)
+			protected.PUT("/shift-instances/:id/status", middleware.RoleMiddleware("owner", "manager"), h.ShiftInstance.SetStatus)
+			protected.POST("/shift-instances/:id/close", middleware.RoleMiddleware("owner", "manager"), h.ShiftInstance.Close)
+			protected.GET("/ops/tasks", middleware.RoleMiddleware("owner", "manager"), h.ShiftInstance.GetTasks)
 
 			// Shift Config Management — Owner Only
 			protected.GET("/profit-sharing/shift-configs", middleware.RoleMiddleware("owner"), h.ShiftConfig.GetShifts)

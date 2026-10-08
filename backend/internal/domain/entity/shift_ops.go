@@ -76,3 +76,12 @@ type AuditLog struct {
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 }
+
+// OpsTasks adalah daftar tugas operasional untuk notifikasi (Fase C7).
+type OpsTasks struct {
+	ShiftBelumTutup    int64 `json:"shift_belum_tutup"`
+	KehadiranPending   int64 `json:"kehadiran_pending"`
+	KasbonPending      int64 `json:"kasbon_pending"`
+	BiayaBelumKlasif   int64 `json:"biaya_belum_klasifikasi"`
+	PeriodeSiapReview  int64 `json:"periode_siap_review"`
+}

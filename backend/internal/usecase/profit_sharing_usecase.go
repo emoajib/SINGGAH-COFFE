@@ -566,19 +566,31 @@ func matchesBarista(cb entity.BaristaCashbon, person entity.ProfitSharingPerson)
 	return false
 }
 
-// computeAndPersistDraft calculates profit sharing for a period and persists
-// a draft record. NOTE: This method writes to the database to create/update a
-// draft period that can later be finalized or recalculated. The draft is
-// overwritten on each call (idempotent per overlapping period). It never
-// touches the cash book or PSAK journals — those are only recorded when the
-// period is finalized/paid.
-// ownerPct defaults to 60 if <= 0. people slice can be nil for legacy 2-person mode.
-// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*entity.ProfitSharingPeriod, *calcResult, []entity.ExpenseBreakdown, []entity.ShiftBreakdown, error) {
+// periodCalc adalah hasil kalkulasi murni TANPA tulis DB (K4).
+// Dipakai bersama oleh computeAndPersistDraft (owner, persist) dan
+// CalculateOnly (manajer, read-only) agar manajer bisa meninjau pratinjau
+// tanpa menimpa draft owner.
+type periodCalc struct {
+	startDate       time.Time
+	endDate         time.Time
+	result          calcResult
+	expenseList     []entity.ExpenseBreakdown
+	expenseListJSON string
+	shiftBreakdown  []entity.ShiftBreakdown
+	taxNote         string
+	poolPct         float64
+	basisType       string
+	ownerPct        float64
+	ratio           float64
+}
+
+// calculatePeriod menghitung bagi hasil periode tanpa menyentuh database.
+// K4: satu-satunya jalur kalkulasi; persist dipisah di computeAndPersistDraft.
+func (uc *ProfitSharingUsecase) calculatePeriod(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*periodCalc, error) {
 	startDate := parseDatePS(start)
 	endDate := parseDatePS(end)
 	if startDate.IsZero() || endDate.IsZero() {
-		return nil, nil, nil, nil, domainErrors.NewInvalidInputError("format tanggal mulai atau akhir tidak valid")
+		return nil, domainErrors.NewInvalidInputError("format tanggal mulai atau akhir tidak valid")
 	}
 
 	// Normalisasi datetime string dari frontend ke format DB yang konsisten.
@@ -589,15 +601,15 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 
 	basis, err := uc.periodRepo.GetTotalRevenue(startNorm, endNorm, outletID)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	cogs, err := uc.orderItemRepo.GetTotalCogsRange(startNorm, endNorm, outletID)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	expenses, err := uc.periodRepo.GetTotalExpensesExcluding(startNorm, endNorm, uc.sharingExcluded(), outletID)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 
 	// M2: Handle error dari GetProductSalesVolume
@@ -613,7 +625,7 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 	// B4: validasi rasio total 100% sebelum menghitung apa pun.
 	poolPct, err := validateRatio(ownerPct)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	if ownerPct <= 0 {
 		ownerPct = 60
@@ -672,7 +684,7 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 
 	result, shiftBreakdown, err := uc.calcSharing(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays, startNorm, endNorm, outletID)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 
 	// B6: sisa kasbon yang tak tertutup hak periode dibawa ke periode berikut.
@@ -685,6 +697,39 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 	}
 
 	taxNote := fmt.Sprintf("Pajak (%.0f%%) & biaya layanan (%.0f%%) hanya info, tidak memotong dasar bagi hasil", taxPct, servicePct)
+
+	return &periodCalc{
+		startDate: startDate, endDate: endDate,
+		result: result, expenseList: expenseList, expenseListJSON: string(expenseListJSON),
+		shiftBreakdown: shiftBreakdown, taxNote: taxNote,
+		poolPct: poolPct, basisType: basisType, ownerPct: ownerPct, ratio: ratio,
+	}, nil
+}
+
+// computeAndPersistDraft calculates profit sharing for a period and persists
+// a draft record. NOTE: This method writes to the database to create/update a
+// draft period that can later be finalized or recalculated. The draft is
+// overwritten on each call (idempotent per overlapping period). It never
+// touches the cash book or PSAK journals — those are only recorded when the
+// period is finalized/paid.
+// ownerPct defaults to 60 if <= 0. people slice can be nil for legacy 2-person mode.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*entity.ProfitSharingPeriod, *calcResult, []entity.ExpenseBreakdown, []entity.ShiftBreakdown, error) {
+	pc, err := uc.calculatePeriod(start, end, outletID, ratio, basisType, ownerPct, people)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	result := pc.result
+	shiftBreakdown := pc.shiftBreakdown
+	expenseList := pc.expenseList
+	expenseListJSON := pc.expenseListJSON
+	startDate := pc.startDate
+	endDate := pc.endDate
+	taxNote := pc.taxNote
+	poolPct := pc.poolPct
+	basisType = pc.basisType
+	ownerPct = pc.ownerPct
+	ratio = pc.ratio
 
 	period := entity.ProfitSharingPeriod{
 		OutletID:          outletID,
@@ -813,6 +858,38 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			OwnerPct:      period.OwnerPct,
 			People:        people,
 			Shifts:        shiftBreakdown,
+		},
+	}, nil
+}
+
+// PreviewReadOnly menghitung pratinjau TANPA menyimpan draft (K4).
+// Untuk role manajer: meninjau angka tanpa menimpa draft owner.
+func (uc *ProfitSharingUsecase) PreviewReadOnly(start, end string, outletID uint, ratio float64, basisType string, ownerPct float64, people []entity.ProfitSharingPerson) (*entity.ProfitSharingPreview, error) {
+	pc, err := uc.calculatePeriod(start, end, outletID, ratio, basisType, ownerPct, people)
+	if err != nil {
+		return nil, err
+	}
+	result := pc.result
+	return &entity.ProfitSharingPreview{
+		Period: entity.ProfitSharingPeriod{
+			OutletID: outletID, PeriodStart: pc.startDate, PeriodEnd: pc.endDate,
+			BasisAmount: result.Basis, TotalCogs: result.Cogs, TotalExpenses: result.Expenses,
+			NetProfit: result.NetProfit, Ratio: pc.ratio,
+			KeeperAmount: result.KeeperAmount, OwnerAmount: result.OwnerAmount,
+			Status: "draft", PerProduct: result.PerProductJSON,
+			ExpensesBreakdown: pc.expenseListJSON, TaxNote: pc.taxNote,
+			BasisType: pc.basisType, OwnerPct: pc.ownerPct, PoolPct: pc.poolPct,
+			RoundingRemainder: result.SisaKas, People: people,
+		},
+		Calculation: entity.Calculation{
+			BasisAmount: result.Basis, Tax: result.Tax, ServiceFee: result.ServiceFee,
+			NetRevenue: result.NetRevenue, TotalCogs: result.Cogs, GrossProfit: result.GrossMargin,
+			TotalExpenses: result.Expenses, NetProfit: result.NetProfit, Ratio: pc.ratio,
+			KeeperShare: result.KeeperAmount, OwnerShare: result.OwnerAmount,
+			Breakdown: pc.expenseList, PerProduct: result.PerProduct,
+			Status: "draft", Note: pc.taxNote, SisaKas: result.SisaKas,
+			BasisType: pc.basisType, OwnerPct: pc.ownerPct,
+			People: people, Shifts: pc.shiftBreakdown,
 		},
 	}, nil
 }

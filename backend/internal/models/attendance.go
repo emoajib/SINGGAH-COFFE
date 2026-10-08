@@ -12,9 +12,9 @@ type Attendance struct {
 	CreatedAt       time.Time  `gorm:"index" json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 	OutletID        uint       `json:"outlet_id" gorm:"index;not null"`
-	ScheduleID      *uint      `json:"schedule_id" gorm:"index"`
-	ShiftInstanceID uint       `json:"shift_instance_id" gorm:"index;not null"`
-	BaristaID       uint       `json:"barista_id" gorm:"index;not null"`
+	ScheduleID      *uint      `json:"schedule_id" gorm:"uniqueIndex:uq_att_schedule"`
+	ShiftInstanceID uint       `json:"shift_instance_id" gorm:"index;uniqueIndex:uq_att_shift_barista;not null"`
+	BaristaID       uint       `json:"barista_id" gorm:"index;uniqueIndex:uq_att_shift_barista;not null"`
 	BaristaName     string     `json:"barista_name" gorm:"size:100;index"`
 	Status          string     `json:"status" gorm:"size:30;default:menunggu_verifikasi;index"`
 	Alasan          string     `json:"alasan" gorm:"type:text"`
