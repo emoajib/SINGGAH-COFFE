@@ -3021,12 +3021,10 @@ export default function ProfitSharing() {
               is_on_leave: false // Will be computed by backend
             }
             setPeople(updated)
-            // Also save to backend via API
-            try {
-              await ProfitSharingService.setAttendance(0, updated[attendanceModalIndex].id || 0, attendance)
-            } catch (e) {
-              console.error("Failed to save attendance:", e)
-            }
+            // Kehadiran tersimpan di form dan ikut terkirim saat Preview /
+            // Simpan Draft (tidak ada panggilan API langsung karena orang
+            // ini belum terikat pada periode draft yang tersimpan).
+            toast({ title: "Tersimpan di form", description: "Klik Update Data untuk menghitung dengan kehadiran ini.", variant: "success" })
           }}
         />
       )}

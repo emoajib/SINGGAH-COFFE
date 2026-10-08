@@ -810,6 +810,7 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 				IsOnLeave:      people[i].IsOnLeave,
 				LeaveDays:      people[i].LeaveDays,
 				LeaveDates:     people[i].LeaveDates,
+				Attendance:     people[i].Attendance,
 				ShiftIDs:       string(shiftIDsJSON),
 				ShiftNames:     string(shiftNamesJSON),
 				ShiftPoolPcts:  string(shiftPoolPctsJSON),

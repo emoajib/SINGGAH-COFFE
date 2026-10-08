@@ -309,6 +309,7 @@ func toDomainProfitSharing(m *models.ProfitSharingPeriod) *entity.ProfitSharingP
 			IsOnLeave:        p.IsOnLeave,
 			LeaveDays:        p.LeaveDays,
 			LeaveDates:       p.LeaveDates,
+			Attendance:       p.Attendance,
 			ShiftIDs:         shiftIDs,
 			ShiftNames:       shiftNames,
 			ShiftPoolPcts:    shiftPoolPcts,

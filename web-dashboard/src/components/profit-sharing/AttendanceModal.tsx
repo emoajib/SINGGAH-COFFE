@@ -55,11 +55,21 @@ export function AttendanceModal({
     return dates
   }, [startDate, endDate])
 
-  // Parse existing attendance
-  const [attendance, setAttendance] = useState<Record<string, number[]>>(() => {
-    if (person.attendance) {
-      return person.attendance
+  // Parse existing attendance (terima objek maupun string JSON dari draft tersimpan)
+  const parseAttendance = (v: unknown): Record<string, number[]> => {
+    if (!v) return {}
+    if (typeof v === "object") return v as Record<string, number[]>
+    if (typeof v === "string") {
+      try {
+        const parsed = JSON.parse(v)
+        if (parsed && typeof parsed === "object") return parsed
+      } catch { /* abaikan */ }
     }
+    return {}
+  }
+  const [attendance, setAttendance] = useState<Record<string, number[]>>(() => {
+    const existing = parseAttendance(person.attendance)
+    if (Object.keys(existing).length > 0) return existing
     // Fallback: derive from leave_dates if no attendance
     if (person.leave_dates) {
       try {
