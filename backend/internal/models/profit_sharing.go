@@ -48,6 +48,7 @@ type ShiftConfig struct {
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 	OutletID       uint           `json:"outlet_id" gorm:"index:idx_shift_outlet"`
 	Name           string         `json:"name" gorm:"size:50;not null"`
+	Kode           string         `json:"kode" gorm:"size:3;default:''"` // singkatan roster/WA, unik per outlet
 	StartTime      string         `json:"start_time" gorm:"size:5;not null"` // "07:00" WIB
 	EndTime        string         `json:"end_time" gorm:"size:5;not null"`   // "14:00" WIB
 	OwnerPct       float64        `json:"owner_pct" gorm:"default:60"`       // default 60%

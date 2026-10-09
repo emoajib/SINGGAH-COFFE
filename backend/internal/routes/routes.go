@@ -237,6 +237,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			// Jadwal barista — Owner & Manajer (C1)
 			protected.GET("/schedules", middleware.RoleMiddleware("owner", "manager"), h.Schedule.GetByDate)
 			protected.POST("/schedules", middleware.RoleMiddleware("owner", "manager"), h.Schedule.Create)
+			protected.PUT("/schedules/:id", middleware.RoleMiddleware("owner", "manager"), h.Schedule.Update)
 			protected.DELETE("/schedules/:id", middleware.RoleMiddleware("owner", "manager"), h.Schedule.Delete)
 			protected.POST("/schedules/copy-week", middleware.RoleMiddleware("owner", "manager"), h.Schedule.CopyWeek)
 			protected.POST("/schedules/generate", middleware.RoleMiddleware("owner", "manager"), h.Schedule.GenerateMonth)

@@ -732,6 +732,7 @@ export interface ShiftConfig {
   id: number
   outlet_id: number
   name: string
+  kode?: string
   start_time: string
   end_time: string
   owner_pct: number

@@ -237,6 +237,7 @@ func Connect(cfg config.Config) *gorm.DB {
 	ensureColumn(db, "barista_cashbons", "remaining_balance", "DOUBLE NOT NULL DEFAULT 0")
 	ensureColumn(db, "barista_cashbons", "recorded_by", "BIGINT UNSIGNED NOT NULL DEFAULT 0")
 	ensureColumn(db, "barista_cashbons", "approved_by", "BIGINT UNSIGNED NULL")
+	ensureColumn(db, "shift_configs", "kode", "VARCHAR(3) NOT NULL DEFAULT ''")
 
 	// Backfill: jika kedai_stock masih 0 dan current_stock > 0, set kedai_stock = current_stock (backward compatibility)
 	_ = db.Exec("UPDATE ingredients SET kedai_stock = current_stock WHERE (kedai_stock = 0 OR kedai_stock IS NULL) AND current_stock > 0")

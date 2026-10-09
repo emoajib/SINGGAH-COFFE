@@ -1,6 +1,9 @@
 package usecase
 
 import (
+	"strings"
+	"unicode/utf8"
+
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/repository"
@@ -76,10 +79,50 @@ func isValidTimeFormat(s string) bool {
 	return h >= 0 && h <= 23 && m >= 0 && m <= 59
 }
 
+// normalizeKode merapikan kode shift: uppercase, tanpa spasi, maks 3 karakter.
+// Kosong berarti "ikut default": diturunkan dari nama (huruf pertama tiap kata).
+func normalizeKode(kode, name string) string {
+	k := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(kode), " ", ""))
+	if k == "" {
+		var inits []rune
+		for _, w := range strings.Fields(name) {
+			if r := []rune(w); len(r) > 0 {
+				inits = append(inits, []rune(strings.ToUpper(w))[0])
+			}
+		}
+		k = string(inits)
+	}
+	if utf8.RuneCountInString(k) > 3 {
+		k = string([]rune(k)[:3])
+	}
+	return k
+}
+
+// ensureKodeUnique menolak kode duplikat dalam satu outlet (kecuali dirinya sendiri).
+func (uc *shiftConfigUsecase) ensureKodeUnique(shift *entity.ShiftConfig) error {
+	if shift.Kode == "" {
+		return domainErrors.NewInvalidInputError("kode shift wajib diisi (maks 3 karakter)")
+	}
+	existing, err := uc.shiftConfigRepo.FindByOutletID(shift.OutletID, false)
+	if err != nil {
+		return err
+	}
+	for _, e := range existing {
+		if e.ID != shift.ID && strings.EqualFold(e.Kode, shift.Kode) && shift.Kode != "" {
+			return domainErrors.NewInvalidInputError("kode shift \"" + shift.Kode + "\" sudah dipakai shift \"" + e.Name + "\"")
+		}
+	}
+	return nil
+}
+
 // Create adds a new shift config.
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *shiftConfigUsecase) Create(shift *entity.ShiftConfig) error {
 	if err := uc.validate(shift); err != nil {
+		return err
+	}
+	shift.Kode = normalizeKode(shift.Kode, shift.Name)
+	if err := uc.ensureKodeUnique(shift); err != nil {
 		return err
 	}
 	shift.CreatedAt = time.Now()
@@ -91,6 +134,10 @@ func (uc *shiftConfigUsecase) Create(shift *entity.ShiftConfig) error {
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *shiftConfigUsecase) Update(shift *entity.ShiftConfig) error {
 	if err := uc.validate(shift); err != nil {
+		return err
+	}
+	shift.Kode = normalizeKode(shift.Kode, shift.Name)
+	if err := uc.ensureKodeUnique(shift); err != nil {
 		return err
 	}
 	shift.UpdatedAt = time.Now()

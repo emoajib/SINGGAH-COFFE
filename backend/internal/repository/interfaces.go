@@ -352,6 +352,7 @@ type ScheduleRepository interface {
 	Delete(id uint, outletID uint) error
 	FindByID(id uint, outletID uint) (*entity.Schedule, error)
 	FindByDate(tanggal string, outletID uint) ([]entity.Schedule, error)
+	FindByRange(start, end string, outletID uint) ([]entity.Schedule, error)
 	FindByBaristaDate(baristaID uint, tanggal string, outletID uint) ([]entity.Schedule, error)
 	Exists(baristaID uint, tanggal string, shiftConfigID uint, outletID uint) (bool, error)
 }

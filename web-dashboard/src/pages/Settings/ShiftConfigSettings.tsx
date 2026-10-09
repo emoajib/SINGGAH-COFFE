@@ -22,6 +22,7 @@ export function ShiftConfigSettings({ saving }: ShiftConfigSettingsProps) {
     const [showModal, setShowModal] = useState(false)
     const [editingShift, setEditingShift] = useState<ShiftConfig | null>(null)
     const [formName, setFormName] = useState("")
+    const [formKode, setFormKode] = useState("")
     const [formStartTime, setFormStartTime] = useState("07:00")
     const [formEndTime, setFormEndTime] = useState("15:00")
     const [formOwnerPct, setFormOwnerPct] = useState(60)
@@ -48,6 +49,7 @@ export function ShiftConfigSettings({ saving }: ShiftConfigSettingsProps) {
     const openCreateModal = () => {
         setEditingShift(null)
         setFormName("")
+        setFormKode("")
         setFormStartTime("07:00")
         setFormEndTime("15:00")
         setFormOwnerPct(60)
@@ -60,6 +62,7 @@ export function ShiftConfigSettings({ saving }: ShiftConfigSettingsProps) {
     const openEditModal = (shift: ShiftConfig) => {
         setEditingShift(shift)
         setFormName(shift.name)
+        setFormKode(shift.kode || "")
         setFormStartTime(shift.start_time.slice(0, 5))
         setFormEndTime(shift.end_time.slice(0, 5))
         setFormOwnerPct(shift.owner_pct)
@@ -96,6 +99,7 @@ export function ShiftConfigSettings({ saving }: ShiftConfigSettingsProps) {
             const payload = {
                 outlet_id: outletId,
                 name: formName.trim(),
+                kode: formKode.trim(),
                 start_time: formStartTime,
                 end_time: formEndTime,
                 owner_pct: formOwnerPct,
@@ -280,6 +284,18 @@ export function ShiftConfigSettings({ saving }: ShiftConfigSettingsProps) {
                                     required
                                     className="font-semibold"
                                     autoFocus
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                    Kode Singkat (maks 3 huruf, unik)
+                                </label>
+                                <Input
+                                    placeholder="Otomatis dari nama bila kosong (cth: P, M)"
+                                    value={formKode}
+                                    onChange={e => setFormKode(e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 3))}
+                                    className="font-semibold uppercase"
                                 />
                             </div>
 

@@ -1,7 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { OpsService } from "../services/opsService"
 
-// Fase C/D: hooks jadwal, kehadiran, shift, tugas.
+// Fase roster: 1 request untuk sebulan penuh.
+export function useScheduleMonth(bulan: string) {
+  return useQuery({
+    queryKey: ["schedulesMonth", bulan],
+    queryFn: () => {
+      const [y, m] = bulan.split("-").map(Number)
+      const last = new Date(y, m, 0).getDate()
+      const pad = (n: number) => String(n).padStart(2, "0")
+      return OpsService.getSchedulesRange(`${bulan}-01`, `${bulan}-${pad(last)}`)
+    },
+    enabled: /^\d{4}-\d{2}$/.test(bulan),
+  })
+}
+
 export function useOpsTasks() {
   return useQuery({
     queryKey: ["opsTasks"],

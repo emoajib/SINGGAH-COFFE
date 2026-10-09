@@ -7,12 +7,20 @@ export const OpsService = {
     const { data } = await api.get<Schedule[]>('/schedules', { params: { tanggal } })
     return Array.isArray(data) ? data : []
   },
+  getSchedulesRange: async (dari: string, sampai: string): Promise<Schedule[]> => {
+    const { data } = await api.get<Schedule[]>('/schedules', { params: { dari, sampai } })
+    return Array.isArray(data) ? data : []
+  },
   createSchedule: async (body: { barista_id: number; tanggal: string; shift_config_id: number; status?: string; catatan?: string }): Promise<Schedule> => {
     const { data } = await api.post<Schedule>('/schedules', body)
     return data
   },
   deleteSchedule: async (id: number): Promise<void> => {
     await api.delete(`/schedules/${id}`)
+  },
+  updateSchedule: async (id: number, body: { barista_id: number; tanggal: string; shift_config_id: number; status?: string; catatan?: string }): Promise<Schedule> => {
+    const { data } = await api.put<Schedule>(`/schedules/${id}`, body)
+    return data
   },
   copyWeek: async (dari: string, ke: string): Promise<{ disalin: number; dilewati: number }> => {
     const { data } = await api.post('/schedules/copy-week', null, { params: { dari, ke } })

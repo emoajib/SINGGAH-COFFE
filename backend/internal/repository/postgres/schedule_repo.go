@@ -90,6 +90,21 @@ func (r *scheduleRepository) Exists(baristaID uint, tanggal string, shiftConfigI
 	return count > 0, nil
 }
 
+// FindByRange mengambil jadwal satu rentang tanggal dalam 1 query.
+// Dipakai matriks roster bulanan (ganti 28-31 request per-tanggal).
+func (r *scheduleRepository) FindByRange(start, end string, outletID uint) ([]entity.Schedule, error) {
+	var list []models.Schedule
+	q := r.db.Where("DATE(tanggal) BETWEEN DATE(?) AND DATE(?)", start, end).
+		Order("tanggal ASC, shift_config_id ASC, barista_name ASC")
+	if outletID > 0 {
+		q = q.Where("outlet_id = ?", outletID)
+	}
+	if err := q.Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return toDomainSchedules(list), nil
+}
+
 func toDomainSchedule(m *models.Schedule) entity.Schedule {
 	return entity.Schedule{
 		ID: m.ID, OutletID: m.OutletID, BaristaID: m.BaristaID, BaristaName: m.BaristaName,

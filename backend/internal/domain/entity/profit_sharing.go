@@ -54,6 +54,7 @@ type ShiftConfig struct {
 	ID             uint      `json:"id"`
 	OutletID       uint      `json:"outlet_id"`
 	Name           string    `json:"name"`
+	Kode           string    `json:"kode"`
 	StartTime      string    `json:"start_time"` // "07:00" WIB
 	EndTime        string    `json:"end_time"`   // "14:00" WIB
 	OwnerPct       float64   `json:"owner_pct"`

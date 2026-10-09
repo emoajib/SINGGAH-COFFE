@@ -51,12 +51,51 @@ func (h *ScheduleHandler) Create(c *gin.Context) {
 }
 
 func (h *ScheduleHandler) GetByDate(c *gin.Context) {
+	// Mode rentang untuk matriks bulanan: ?dari=YYYY-MM-DD&sampai=YYYY-MM-DD.
+	// Tanpa keduanya: perilaku lama per tanggal (kompatibel mundur).
+	if dari, sampai := c.Query("dari"), c.Query("sampai"); dari != "" && sampai != "" {
+		list, err := h.usecase.GetByRange(dari, sampai, getOutletID(c))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if list == nil {
+			list = []entity.Schedule{}
+		}
+		c.JSON(http.StatusOK, list)
+		return
+	}
 	list, err := h.usecase.GetByDate(c.Query("tanggal"), getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, list)
+}
+
+func (h *ScheduleHandler) Update(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	var req scheduleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	tgl, err := time.Parse("2006-01-02", req.Tanggal)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "format tanggal harus YYYY-MM-DD"})
+		return
+	}
+	uid, _ := getUserID(c)
+	s := &entity.Schedule{
+		ID: uint(id), OutletID: getOutletID(c), BaristaID: req.BaristaID, Tanggal: tgl,
+		ShiftConfigID: req.ShiftConfigID, Status: req.Status,
+		JamKerja: req.JamKerja, Catatan: req.Catatan, DibuatOleh: uid,
+	}
+	if err := h.usecase.Update(s, uid, getUserName(c)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, s)
 }
 
 func (h *ScheduleHandler) Delete(c *gin.Context) {

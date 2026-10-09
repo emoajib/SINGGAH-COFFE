@@ -36,6 +36,7 @@ func (h *ShiftConfigHandler) CreateShift(c *gin.Context) {
 	shift := &entity.ShiftConfig{
 		OutletID:       outletID,
 		Name:           req.Name,
+		Kode:           req.Kode,
 		StartTime:      req.StartTime,
 		EndTime:        req.EndTime,
 		OwnerPct:       req.OwnerPct,
@@ -72,6 +73,7 @@ func (h *ShiftConfigHandler) UpdateShift(c *gin.Context) {
 		ID:             uint(id),
 		OutletID:       outletID,
 		Name:           req.Name,
+		Kode:           req.Kode,
 		StartTime:      req.StartTime,
 		EndTime:        req.EndTime,
 		OwnerPct:       req.OwnerPct,
@@ -140,6 +142,7 @@ func (h *ShiftConfigHandler) DeleteShift(c *gin.Context) {
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type CreateShiftConfigRequest struct {
 	Name           string  `json:"name" binding:"required"`
+	Kode           string  `json:"kode"`
 	StartTime      string  `json:"start_time" binding:"required"`
 	EndTime        string  `json:"end_time" binding:"required"`
 	OwnerPct       float64 `json:"owner_pct" binding:"required"`
@@ -152,6 +155,7 @@ type CreateShiftConfigRequest struct {
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type UpdateShiftConfigRequest struct {
 	Name           string  `json:"name" binding:"required"`
+	Kode           string  `json:"kode"`
 	StartTime      string  `json:"start_time" binding:"required"`
 	EndTime        string  `json:"end_time" binding:"required"`
 	OwnerPct       float64 `json:"owner_pct" binding:"required"`

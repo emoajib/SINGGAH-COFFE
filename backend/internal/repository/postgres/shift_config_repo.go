@@ -63,6 +63,7 @@ func (r *shiftConfigRepository) Update(s *entity.ShiftConfig) error {
 	m := toModelShiftConfig(s)
 	return r.db.Model(&models.ShiftConfig{}).Where("id = ?", s.ID).Updates(map[string]interface{}{
 		"name":             m.Name,
+		"kode":             m.Kode,
 		"start_time":       m.StartTime,
 		"end_time":         m.EndTime,
 		"owner_pct":        m.OwnerPct,
@@ -99,6 +100,7 @@ func toDomainShiftConfig(m *models.ShiftConfig) entity.ShiftConfig {
 		ID:             m.ID,
 		OutletID:       m.OutletID,
 		Name:           m.Name,
+		Kode:           m.Kode,
 		StartTime:      m.StartTime,
 		EndTime:        m.EndTime,
 		OwnerPct:       m.OwnerPct,
@@ -115,6 +117,7 @@ func toModelShiftConfig(s *entity.ShiftConfig) *models.ShiftConfig {
 		ID:             s.ID,
 		OutletID:       s.OutletID,
 		Name:           s.Name,
+		Kode:           s.Kode,
 		StartTime:      s.StartTime,
 		EndTime:        s.EndTime,
 		OwnerPct:       s.OwnerPct,

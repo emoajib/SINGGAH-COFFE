@@ -118,3 +118,20 @@ func (uc *ScheduleUsecase) GetByDate(tanggal string, outletID uint) ([]entity.Sc
 	}
 	return uc.repo.FindByDate(tanggal, outletID)
 }
+
+// GetByRange mengambil jadwal satu rentang (matriks roster bulanan, 1 query).
+// Dibatasi 62 hari agar respons tetap ringan di shared hosting.
+func (uc *ScheduleUsecase) GetByRange(start, end string, outletID uint) ([]entity.Schedule, error) {
+	s, err := time.Parse("2006-01-02", start)
+	if err != nil {
+		return nil, domainErrors.NewInvalidInputError("format dari harus YYYY-MM-DD")
+	}
+	e, err := time.Parse("2006-01-02", end)
+	if err != nil {
+		return nil, domainErrors.NewInvalidInputError("format sampai harus YYYY-MM-DD")
+	}
+	if e.Before(s) || e.Sub(s).Hours()/24 > 62 {
+		return nil, domainErrors.NewInvalidInputError("rentang maksimal 62 hari dan sampai >= dari")
+	}
+	return uc.repo.FindByRange(start, end, outletID)
+}
