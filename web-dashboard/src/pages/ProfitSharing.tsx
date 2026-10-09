@@ -53,6 +53,23 @@ const attendanceDayCount = (p: ProfitSharingPerson): number | null => {
   return null
 }
 
+// Ringkasan kehadiran untuk tombol form: berbasis data aktual attendance,
+// bukan field lawas (modal memaksa leave_days=0 sehingga tombol selalu
+// menampilkan "Hadir Penuh" meski ada hari libur — itulah gap datanya).
+function formAttendInfo(person: ProfitSharingPerson, totalPeriodDays: number): { tone: "rose" | "amber" | "emerald" | "slate"; label: string } {
+  if (person.is_on_leave) return { tone: "rose", label: "Cuti Penuh" }
+  const n = attendanceDayCount(person)
+  if (n !== null) {
+    if (n <= 0) return { tone: "slate", label: "Libur penuh" }
+    if (n < totalPeriodDays) return { tone: "amber", label: `Hadir ${n}/${totalPeriodDays} hr` }
+    return { tone: "emerald", label: `Hadir Penuh (${n}/${totalPeriodDays} hr)` }
+  }
+  if (person.leave_days && person.leave_days > 0) {
+    return { tone: "amber", label: `Libur ${person.leave_days} Hari (${totalPeriodDays - person.leave_days}/${totalPeriodDays} hr)` }
+  }
+  return { tone: "emerald", label: `Hadir Penuh (${totalPeriodDays}/${totalPeriodDays} hr)` }
+}
+
 // Badge kehadiran berbasis data aktual, bukan field lawas (yang dipaksa 0
 // oleh modal sehingga semua orang tampil "Hadir Penuh").
 function AttendanceBadge({ person, pad }: { person: ProfitSharingPerson; pad: string }) {
@@ -1431,6 +1448,18 @@ export default function ProfitSharing() {
 
                         {!isOwner && (
                           <div className="flex items-center gap-2">
+                            {(() => {
+                              const info = formAttendInfo(person, totalPeriodDays)
+                              const toneCls = info.tone === "rose"
+                                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                : info.tone === "amber"
+                                ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                                : info.tone === "slate"
+                                ? 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              const Icon = info.tone === "rose" ? CalendarOff : Calendar
+                              const iconCls = info.tone === "rose" ? "text-rose-500" : info.tone === "amber" ? "text-amber-600" : info.tone === "slate" ? "text-slate-400" : "text-emerald-600"
+                              return (
                             <button
                               type="button"
                               onClick={() => {
@@ -1440,32 +1469,14 @@ export default function ProfitSharing() {
                                 }
                                 setAttendanceModalIndex(index)
                               }}
-                              className={`text-xs px-3 py-1.5 rounded-lg border font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
-                                person.leave_days && person.leave_days > 0
-                                  ? person.is_on_leave
-                                    ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                                    : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                              }`}
+                              className={`text-xs px-3 py-1.5 rounded-lg border font-semibold flex items-center gap-1.5 transition-all shadow-sm ${toneCls}`}
                               title="Klik untuk mengatur kehadiran per tanggal & shift"
                             >
-                              {person.is_on_leave ? (
-                                <>
-                                  <CalendarOff className="w-3.5 h-3.5 text-rose-500" />
-                                  <span>Cuti Penuh</span>
-                                </>
-                              ) : person.leave_days && person.leave_days > 0 ? (
-                                <>
-                                  <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>Libur {person.leave_days} Hari ({totalPeriodDays - person.leave_days}/{totalPeriodDays} hr)</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>Hadir Penuh ({totalPeriodDays}/{totalPeriodDays} hr)</span>
-                                </>
-                              )}
+                              <Icon className={`w-3.5 h-3.5 ${iconCls}`} />
+                              <span>{info.label}</span>
                             </button>
+                              )
+                            })()}
                             <Button variant="ghost" size="sm" onClick={() => removePerson(index)} className="text-slate-400 hover:text-rose-600">
                               <X className="w-4 h-4" />
                             </Button>
