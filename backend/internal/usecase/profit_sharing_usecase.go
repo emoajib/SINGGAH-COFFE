@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -124,6 +125,8 @@ type calcResult struct {
 	KeeperAmount   float64
 	OwnerAmount    float64
 	SisaKas        float64 // B3: total sisa rupiah yang kembali ke kas
+	SelisihPendapatan float64 // revenue tak terpetakan ke jendela shift mana pun
+	SelisihCogs       float64 // COGS tak terpetakan ke jendela shift mana pun
 	Products       []entity.ProductSalesVolume
 	PerProduct     []entity.ProductSharingDetail
 	PerProductJSON string
@@ -318,17 +321,19 @@ func (uc *ProfitSharingUsecase) resolveMultiShift(outletID uint, people []entity
 func (uc *ProfitSharingUsecase) calcSharing(basis, cogs, expenses, ratio float64, products []entity.ProductSalesVolume, ownerPct float64, people []entity.ProfitSharingPerson, taxPct, servicePct float64, basisType string, totalPeriodDays int, startNorm, endNorm string, outletID uint) (calcResult, []entity.ShiftBreakdown, error) {
 	shifts := uc.resolveMultiShift(outletID, people)
 	if len(shifts) > 0 {
-		ownerAmount, sisaKas, breakdown, err := uc.calcMultiShift(shifts, startNorm, endNorm, outletID, basisType, taxPct, servicePct, totalPeriodDays, expenses, basis, people)
+		ms, err := uc.calcMultiShift(shifts, startNorm, endNorm, outletID, basisType, taxPct, servicePct, totalPeriodDays, expenses, basis, cogs, people)
 		if err != nil {
 			return calcResult{}, nil, err
 		}
 		// Overall financials without per-person split (people amounts are set
 		// by calcMultiShift to avoid double-assignment).
 		result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, nil, taxPct, servicePct, basisType, totalPeriodDays)
-		result.OwnerAmount = ownerAmount
+		result.OwnerAmount = ms.Owner
 		result.KeeperAmount = 0
-		result.SisaKas = sisaKas
-		return result, breakdown, nil
+		result.SisaKas = ms.SisaKas
+		result.SelisihPendapatan = ms.SelisihRevenue
+		result.SelisihCogs = ms.SelisihCogs
+		return result, ms.Breakdown, nil
 	}
 	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays)
 	return result, nil, nil
@@ -350,71 +355,59 @@ func (uc *ProfitSharingUsecase) calcSharing(basis, cogs, expenses, ratio float64
 //     shifts on different dates; hak diakumulasi lintas shift yang diikuti.
 //   - All amounts are rounded to rupiah penuh; remainder goes to kas (B2/B3).
 //
+// multiShiftResult adalah hasil kalkulasi multi-shift: total owner, total sisa
+// kas, rincian per tipe shift, plus selisih rekonsiliasi terhadap angka periode.
+type multiShiftResult struct {
+	Owner          float64
+	SisaKas        float64
+	Breakdown      []entity.ShiftBreakdown
+	SelisihRevenue float64
+	SelisihCogs    float64
+}
+
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-// calcMultiShift membagi pool tiap shift SAMA RATA ke barista yang hadir
-// (equal-split, B2). Sisa rupiah yang tak habis dibagi kembali ke kas (B3).
-// Mengembalikan: total bagian owner, total sisa kas, rincian per shift.
-func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, startNorm, endNorm string, outletID uint, basisType string, taxPct, servicePct float64, totalPeriodDays int, totalExpenses, totalRevenue float64, people []entity.ProfitSharingPerson) (float64, float64, []entity.ShiftBreakdown, error) {
+// calcMultiShift membagi pool tiap shift SAMA RATA per KEJADIAN HARIAN ke
+// barista yang hadir (equal-split, B2). Sisa rupiah yang tak habis dibagi
+// kembali ke kas (B3).
+func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, startNorm, endNorm string, outletID uint, basisType string, taxPct, servicePct float64, totalPeriodDays int, totalExpenses, totalRevenue, totalCogs float64, people []entity.ProfitSharingPerson) (multiShiftResult, error) {
+	var out multiShiftResult
 	if totalPeriodDays < 1 {
 		totalPeriodDays = 1
 	}
 	// B1: taxPct/servicePct hanya info tampilan, tidak memotong angka shift.
 
-	type shiftFigures struct {
+	type shiftCell struct {
 		revenue, cogs, expenses, grossMargin, netProfit, sharingBasis, ownerShare, pool float64
+		present []int
 	}
-	figures := make([]shiftFigures, len(shifts))
+	// Angka harian per tipe shift dalam SATU query per shift (GROUP BY tanggal).
+	cells := make([]map[string]*shiftCell, len(shifts))
 	totalShiftRevenue := 0.0
+	totalShiftCogs := 0.0
 	for i, s := range shifts {
-		rev, err := uc.periodRepo.GetShiftRevenue(startNorm, endNorm, s.StartTime, s.EndTime, outletID)
+		rows, err := uc.periodRepo.GetDailyShiftFigures(startNorm, endNorm, s.StartTime, s.EndTime, outletID)
 		if err != nil {
-			return 0, 0, nil, err
+			return out, err
 		}
-		prods, err := uc.periodRepo.GetShiftProductSales(startNorm, endNorm, s.StartTime, s.EndTime, outletID)
-		if err != nil {
-			prods = nil
+		cells[i] = make(map[string]*shiftCell)
+		for _, r := range rows {
+			cells[i][r.Tanggal] = &shiftCell{revenue: r.Revenue, cogs: r.Cogs}
+			totalShiftRevenue += r.Revenue
+			totalShiftCogs += r.Cogs
 		}
-		var cogs float64
-		for _, p := range prods {
-			cogs += p.TotalCogs
-		}
-		figures[i].revenue = rev
-		figures[i].cogs = cogs
-		totalShiftRevenue += rev
 	}
 
-	// Allocate total expenses to each shift proportionally to its revenue share
-	// (keeps the sum of per-shift expenses equal to the total).
-	for i := range figures {
-		if totalShiftRevenue > 0 {
-			figures[i].expenses = totalExpenses * figures[i].revenue / totalShiftRevenue
-		}
-		// B1: laba kotor = revenue murni - COGS (tanpa potongan pajak/service).
-		figures[i].grossMargin = figures[i].revenue - figures[i].cogs
-		figures[i].netProfit = figures[i].grossMargin - figures[i].expenses
-		var basis float64
-		if basisType == "gross" {
-			basis = figures[i].grossMargin
-		} else {
-			basis = figures[i].netProfit
-			if basis < 0 {
-				basis = figures[i].grossMargin
-			}
-		}
-		if basis < 0 {
-			basis = 0
-		}
-		figures[i].sharingBasis = basis
-		ownerPct := shifts[i].OwnerPct
-		if ownerPct <= 0 {
-			ownerPct = 60
-		}
-		figures[i].ownerShare = roundIDR(basis * ownerPct / 100)
-		figures[i].pool = basis - figures[i].ownerShare
+	// Rekonsiliasi: angka tak terpetakan ke jendela jam mana pun wajib tampil
+	// eksplisit (jangan disembunyikan). Penyebab umum: celah jam antar shift
+	// (mis. PAGI berakhir 19:00, MALAM mulai 19:01 -> order 19:00:xx hilang).
+	out.SelisihRevenue = totalRevenue - totalShiftRevenue
+	if out.SelisihRevenue < 0 && out.SelisihRevenue > -1 {
+		out.SelisihRevenue = 0
 	}
-
-	totalOwnerShare := 0.0
-	totalSisaKas := 0.0
+	out.SelisihCogs = totalCogs - totalShiftCogs
+	if out.SelisihCogs < 0 && out.SelisihCogs > -1 {
+		out.SelisihCogs = 0
+	}
 
 	// Parse attendance data for each person: map[date][]shiftID
 	// Attendance JSON format: {"2026-10-01":[1,2],"2026-10-02":[1]}
@@ -432,60 +425,110 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 	startDate := parseDatePS(startNorm)
 	endDate := parseDatePS(endNorm)
 
-	// Helper: count attended days for a person in a specific shift
-	countAttendedDaysForShift := func(personIdx int, shiftID uint) int {
-		attendanceMap := personAttendance[personIdx]
-		if attendanceMap == nil {
-			return 0
-		}
-		count := 0
-		for dateStr, shiftIDs := range attendanceMap {
-			// Check if date is within period
-			attendedDate, err := time.Parse("2006-01-02", dateStr)
-			if err != nil {
-				continue
-			}
-			if attendedDate.Before(startDate) || attendedDate.After(endDate) {
-				continue
-			}
-			// Check if this shift is in the attended shifts for this date
-			for _, sid := range shiftIDs {
-				if sid == shiftID {
-					count++
-					break
-				}
-			}
-		}
-		return count
+	// Daftar tanggal periode (batas kehadiran yang dihitung).
+	var periodDates []string
+	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
+		periodDates = append(periodDates, d.Format("2006-01-02"))
 	}
 
-	// B2 EQUAL-SPLIT: pembagi pool shift = barista yang HADIR pada shift itu
-	// (tercatat di attendance untuk tanggal dalam periode + shift ini) dan
-	// tidak cuti penuh. Contoh spesifikasi: pool 400rb, 2 hadir -> @200rb;
-	// 1 hadir -> 400rb penuh. Absen/libur = tidak masuk pembagi (tanpa
-	// potongan proporsional ganda). Sisa rupiah -> kas toko (B3).
-	// Akumulasi bruto dilakukan lintas shift; clamp kasbon diterapkan
-	// setelah loop agar potongan tepat dari total hak (B6).
-	presentNames := make([][]string, len(shifts))
-	grossAccum := make(map[int]float64)
-	for i, s := range shifts {
+	// Helper: barista yang hadir pada tanggal + shift tertentu.
+	presentOn := func(dateStr string, shiftID uint) []int {
 		var present []int
 		for j := range people {
 			if people[j].Role == "owner" || people[j].IsOnLeave {
 				continue
 			}
-			if countAttendedDaysForShift(j, s.ID) > 0 {
-				present = append(present, j)
+			for _, sid := range personAttendance[j][dateStr] {
+				if sid == shiftID {
+					present = append(present, j)
+					break
+				}
 			}
 		}
+		return present
+	}
 
-		share, remainder := splitEqualShare(figures[i].pool, len(present))
-		totalSisaKas += remainder
-		for _, j := range present {
-			grossAccum[j] += share
-			presentNames[i] = append(presentNames[i], people[j].Name)
+	// B2 EQUAL-SPLIT PER KEJADIAN HARIAN: pool satu tanggal dalam satu tipe
+	// shift dibagi rata di antara yang hadir TANGGAL ITU. Barista yang libur
+	// tanggal itu tidak masuk pembagi dan tidak mendapat bagian tanggal itu
+	// (tanpa potongan proporsional ganda). Hak = akumulasi lintas tanggal.
+	// Sisa rupiah -> kas toko (B3). Clamp kasbon setelah loop (B6).
+	type shiftAgg struct {
+		revenue, cogs, expenses, grossMargin, netProfit, sharingBasis, ownerShare, pool, dibagikan, sisa float64
+		hari    int
+		names   map[string]bool
+		dailies []entity.ShiftDailyDetail
+	}
+	aggs := make([]*shiftAgg, len(shifts))
+	for i := range aggs {
+		aggs[i] = &shiftAgg{names: make(map[string]bool)}
+	}
+	grossAccum := make(map[int]float64)
+	for i, s := range shifts {
+		ownerPct := s.OwnerPct
+		if ownerPct <= 0 {
+			ownerPct = 60
 		}
-		totalOwnerShare += figures[i].ownerShare
+		for _, dateStr := range periodDates {
+			cell := cells[i][dateStr]
+			if cell == nil {
+				cell = &shiftCell{}
+				cells[i][dateStr] = cell
+			}
+			if totalShiftRevenue > 0 {
+				cell.expenses = totalExpenses * cell.revenue / totalShiftRevenue
+			}
+			// B1: laba kotor = revenue murni - COGS (tanpa potongan pajak/service).
+			cell.grossMargin = cell.revenue - cell.cogs
+			cell.netProfit = cell.grossMargin - cell.expenses
+			var basis float64
+			if basisType == "gross" {
+				basis = cell.grossMargin
+			} else {
+				basis = cell.netProfit
+				if basis < 0 {
+					basis = cell.grossMargin
+				}
+			}
+			if basis < 0 {
+				basis = 0
+			}
+			cell.sharingBasis = basis
+			cell.ownerShare = roundIDR(basis * ownerPct / 100)
+			cell.pool = basis - cell.ownerShare
+			cell.present = presentOn(dateStr, s.ID)
+
+			share, remainder := splitEqualShare(cell.pool, len(cell.present))
+			out.SisaKas += remainder
+			for _, j := range cell.present {
+				grossAccum[j] += share
+				aggs[i].names[people[j].Name] = true
+			}
+			out.Owner += cell.ownerShare
+			a := aggs[i]
+			a.revenue += cell.revenue
+			a.cogs += cell.cogs
+			a.expenses += cell.expenses
+			a.grossMargin += cell.grossMargin
+			a.netProfit += cell.netProfit
+			a.sharingBasis += basis
+			a.ownerShare += cell.ownerShare
+			a.pool += cell.pool
+			a.dibagikan += share * float64(len(cell.present))
+			a.sisa += remainder
+			if cell.revenue > 0 || len(cell.present) > 0 {
+				a.hari++
+				names := make([]string, 0, len(cell.present))
+				for _, j := range cell.present {
+					names = append(names, people[j].Name)
+				}
+				a.dailies = append(a.dailies, entity.ShiftDailyDetail{
+					Tanggal: dateStr, Revenue: cell.revenue, Pool: cell.pool,
+					JumlahPembagi: len(cell.present), DaftarPembagi: names,
+					JumlahDibagikan: share * float64(len(cell.present)), SisaKas: remainder,
+				})
+			}
+		}
 	}
 
 	for j := range people {
@@ -511,8 +554,8 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 
 	for i := range people {
 		if people[i].Role == "owner" {
-			people[i].GrossAmount = totalOwnerShare
-			people[i].Amount = totalOwnerShare
+			people[i].GrossAmount = out.Owner
+			people[i].Amount = out.Owner
 			people[i].LeaveReduction = 0
 			people[i].CashbonReduction = 0
 		}
@@ -520,34 +563,39 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 
 	breakdown := make([]entity.ShiftBreakdown, len(shifts))
 	for i, s := range shifts {
+		a := aggs[i]
+		names := make([]string, 0, len(a.names))
+		for n := range a.names {
+			names = append(names, n)
+		}
+		sort.Strings(names)
 		breakdown[i] = entity.ShiftBreakdown{
 			ShiftID:      s.ID,
 			ShiftName:    s.Name,
 			StartTime:    s.StartTime,
 			EndTime:      s.EndTime,
-			Revenue:      figures[i].revenue,
-			Cogs:         figures[i].cogs,
-			Expenses:     figures[i].expenses,
-			GrossMargin:  figures[i].grossMargin,
-			NetProfit:    figures[i].netProfit,
-			SharingBasis: figures[i].sharingBasis,
+			Revenue:      a.revenue,
+			Cogs:         a.cogs,
+			Expenses:     a.expenses,
+			GrossMargin:  a.grossMargin,
+			NetProfit:    a.netProfit,
+			SharingBasis: a.sharingBasis,
 			OwnerPct:     s.OwnerPct,
-			OwnerShare:   figures[i].ownerShare,
-			BaristaPool:  figures[i].pool,
+			OwnerShare:   a.ownerShare,
+			BaristaPool:  a.pool,
+			JumlahPembagi: len(names),
+			DaftarPembagi: names,
+			JumlahDibagikan: a.dibagikan,
+			SisaKas:      a.sisa,
+			TotalHari:    a.hari,
+			RincianHarian: a.dailies,
 		}
-	}
-	// Isi rincian pembagi + sisa kas per shift dari perhitungan di atas.
-	for i := range breakdown {
-		share, remainder := splitEqualShare(figures[i].pool, len(presentNames[i]))
-		breakdown[i].JumlahPembagi = len(presentNames[i])
-		breakdown[i].DaftarPembagi = presentNames[i]
 		if breakdown[i].DaftarPembagi == nil {
 			breakdown[i].DaftarPembagi = []string{}
 		}
-		breakdown[i].JumlahDibagikan = share * float64(len(presentNames[i]))
-		breakdown[i].SisaKas = remainder
 	}
-	return totalOwnerShare, totalSisaKas, breakdown, nil
+	out.Breakdown = breakdown
+	return out, nil
 }
 
 // matchesBarista mencocokkan catatan kasbon dengan barista terkait secara aman.
@@ -855,6 +903,8 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			Status:        "draft",
 			Note:          period.TaxNote,
 			SisaKas:       result.SisaKas,
+			SelisihPendapatan: result.SelisihPendapatan,
+			SelisihCogs:       result.SelisihCogs,
 			BasisType:     period.BasisType,
 			OwnerPct:      period.OwnerPct,
 			People:        people,
@@ -889,6 +939,7 @@ func (uc *ProfitSharingUsecase) PreviewReadOnly(start, end string, outletID uint
 			KeeperShare: result.KeeperAmount, OwnerShare: result.OwnerAmount,
 			Breakdown: pc.expenseList, PerProduct: result.PerProduct,
 			Status: "draft", Note: pc.taxNote, SisaKas: result.SisaKas,
+			SelisihPendapatan: result.SelisihPendapatan, SelisihCogs: result.SelisihCogs,
 			BasisType: pc.basisType, OwnerPct: pc.ownerPct,
 			People: people, Shifts: pc.shiftBreakdown,
 		},

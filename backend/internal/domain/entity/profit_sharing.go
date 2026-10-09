@@ -109,6 +109,24 @@ type ExpenseBreakdown struct {
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+// DailyShiftFigure adalah revenue + COGS satu tanggal dalam satu jendela jam shift.
+type DailyShiftFigure struct {
+	Tanggal string  `json:"tanggal"`
+	Revenue float64 `json:"revenue"`
+	Cogs    float64 `json:"cogs"`
+}
+
+// ShiftDailyDetail adalah hasil bagi pool untuk satu tanggal dalam satu shift.
+type ShiftDailyDetail struct {
+	Tanggal         string   `json:"tanggal"`
+	Revenue         float64  `json:"revenue"`
+	Pool            float64  `json:"pool"`
+	JumlahPembagi   int      `json:"jumlah_pembagi"`
+	DaftarPembagi   []string `json:"daftar_pembagi"`
+	JumlahDibagikan float64  `json:"jumlah_dibagikan"`
+	SisaKas         float64  `json:"sisa_kas"`
+}
+
 // ShiftBreakdown adalah rincian perhitungan Two-Tier per shift pada mode multi-shift.
 type ShiftBreakdown struct {
 	ShiftID      uint    `json:"shift_id"`
@@ -129,6 +147,10 @@ type ShiftBreakdown struct {
 	DaftarPembagi  []string `json:"daftar_pembagi"`
 	SisaKas        float64  `json:"sisa_kas"`
 	JumlahDibagikan float64 `json:"jumlah_dibagikan"`
+	// Per-tanggal: pool dibagi per kejadian shift harian, lalu diakumulasi.
+	// JumlahPembagi/DaftarPembagi di atas = gabungan unik lintas tanggal.
+	TotalHari     int                `json:"total_hari"`
+	RincianHarian []ShiftDailyDetail `json:"rincian_harian,omitempty"`
 }
 
 type Calculation struct {
@@ -148,6 +170,11 @@ type Calculation struct {
 	Status        string                `json:"status"`
 	Note          string                `json:"note"`
 	SisaKas       float64               `json:"sisa_kas"`
+	// Rekonsiliasi shift-vs-periode: pendapatan/COGS yang tidak terpetakan ke
+	// jendela jam shift mana pun (mis. celah 19:00–19:01). Bukan error fatal,
+	// tapi wajib tampil eksplisit agar tidak ada selisih tersembunyi.
+	SelisihPendapatan float64 `json:"selisih_pendapatan"`
+	SelisihCogs       float64 `json:"selisih_cogs"`
 	BasisType     string                `json:"basis_type"`
 	OwnerPct      float64               `json:"owner_pct"`
 	People        []ProfitSharingPerson `json:"people"`

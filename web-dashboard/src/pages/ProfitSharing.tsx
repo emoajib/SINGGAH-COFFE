@@ -2422,6 +2422,14 @@ export default function ProfitSharing() {
                     Sisa rupiah yang tak habis dibagi: <b>Rp {formatNumber(preview.calculation.sisa_kas || 0)}</b> kembali ke kas toko.
                   </div>
                 )}
+                {(preview.calculation.selisih_pendapatan || 0) > 0 && (
+                  <div className="p-3 bg-red-50 border border-red-300 rounded-xl text-xs text-red-900">
+                    <b>Selisih rekonsiliasi: Rp {formatNumber(preview.calculation.selisih_pendapatan || 0)}</b> pendapatan
+                    {(preview.calculation.selisih_cogs || 0) > 0 && <> (COGS Rp {formatNumber(preview.calculation.selisih_cogs || 0)})</>} tidak
+                    terpetakan ke jam shift mana pun. Penyebab umum: celah jam antar shift (mis. PAGI berakhir 19:00,
+                    MALAM mulai 19:01 — order 19:00:xx hilang). Rapatkan jam shift di Pengaturan agar selisih nol.
+                  </div>
+                )}
 
                 {/* Highlight Basis Card */}
                 <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-center justify-between">
@@ -2508,7 +2516,8 @@ export default function ProfitSharing() {
                         </div>
                         {(shift.daftar_pembagi?.length || shift.jumlah_pembagi) ? (
                           <p className="text-xs text-indigo-800">
-                            Dibagi rata ke {shift.jumlah_pembagi ?? shift.daftar_pembagi?.length ?? 0} barista hadir
+                            Dibagi rata per hari ke {shift.jumlah_pembagi ?? shift.daftar_pembagi?.length ?? 0} barista
+                            {shift.total_hari ? ` selama ${shift.total_hari} hari` : ""}
                             {shift.daftar_pembagi?.length ? `: ${shift.daftar_pembagi.join(", ")}` : ""}
                           </p>
                         ) : (

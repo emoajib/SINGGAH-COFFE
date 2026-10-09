@@ -169,6 +169,41 @@ func (r *profitSharingPeriodRepository) GetShiftRevenue(start, end, startTime, e
 	return total, err
 }
 
+// GetDailyShiftFigures mengelompokkan revenue + COGS per tanggal kalender
+// dalam jendela jam shift. Satu query per shift untuk seluruh periode
+// (jauh lebih ringan daripada N query per tanggal). Klausa jam identik dengan
+// GetShiftRevenue sehingga totalnya konsisten dengan angka agregatnya.
+// Catatan: order di luar SEMUA jendela jam (mis. celah 19:00–19:01) tidak
+// masuk baris mana pun — selisihnya dihitung caller sebagai rekonsiliasi.
+func (r *profitSharingPeriodRepository) GetDailyShiftFigures(start, end, startTime, endTime string, outletID ...uint) ([]entity.DailyShiftFigure, error) {
+	ow, args := outletWhere("orders", outletID...)
+	timeExpr := "TIME(COALESCE(NULLIF(orders.order_time, '0001-01-01 00:00:00'), orders.created_at))"
+	dateExpr := "DATE(COALESCE(orders.order_time, orders.created_at))"
+	var timeClause string
+	var timeArgs []interface{}
+	if startTime <= endTime {
+		timeClause = " AND " + timeExpr + " >= ? AND " + timeExpr + " < ?"
+		timeArgs = []interface{}{startTime, endTime}
+	} else {
+		timeClause = " AND (" + timeExpr + " >= ? OR " + timeExpr + " < ?)"
+		timeArgs = []interface{}{startTime, endTime}
+	}
+	query := "SELECT " + dateExpr + " as tanggal, " +
+		"COALESCE(SUM(order_items.price * order_items.quantity), 0) as revenue, " +
+		"COALESCE(SUM(order_items.cost * order_items.quantity), 0) as cogs " +
+		"FROM order_items JOIN orders ON orders.id = order_items.order_id " +
+		"WHERE " + dateExpr + " BETWEEN DATE(?) AND DATE(?) AND orders.status = ?" + timeClause + ow +
+		" GROUP BY " + dateExpr + " ORDER BY tanggal ASC"
+	allArgs := []interface{}{start, end, "Completed"}
+	allArgs = append(allArgs, timeArgs...)
+	allArgs = append(allArgs, args...)
+	var rows []entity.DailyShiftFigure
+	if err := r.db.Raw(query, allArgs...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *profitSharingPeriodRepository) GetTotalExpensesExcluding(start, end string, excluded []string, outletID ...uint) (float64, error) {
 	ow, args := outletWhere("expenses", outletID...)

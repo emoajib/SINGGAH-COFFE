@@ -711,6 +711,8 @@ export interface ProfitSharingCalculation {
   status: string
   note: string
   sisa_kas?: number
+  selisih_pendapatan?: number
+  selisih_cogs?: number
   basis_type: string
   owner_pct: number
   people: ProfitSharingPerson[]
@@ -758,6 +760,18 @@ export interface ShiftBreakdown {
   daftar_pembagi?: string[]
   sisa_kas?: number
   jumlah_dibagikan?: number
+  total_hari?: number
+  rincian_harian?: ShiftDailyDetail[]
+}
+
+export interface ShiftDailyDetail {
+  tanggal: string
+  revenue: number
+  pool: number
+  jumlah_pembagi: number
+  daftar_pembagi: string[]
+  jumlah_dibagikan: number
+  sisa_kas: number
 }
 
 // Fase C/D: jadwal, kehadiran, shift operasional, daftar tugas.
