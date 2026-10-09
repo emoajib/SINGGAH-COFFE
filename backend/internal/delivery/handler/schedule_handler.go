@@ -78,3 +78,23 @@ func (h *ScheduleHandler) CopyWeek(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"disalin": disalin, "dilewati": dilewati})
 }
+
+// GenerateMonth membuat jadwal 1 bulan penuh sekaligus (idempoten).
+func (h *ScheduleHandler) GenerateMonth(c *gin.Context) {
+	var req struct {
+		Bulan            string `json:"bulan" binding:"required"`
+		Status           string `json:"status"`
+		LiburAkhirPekan  bool   `json:"libur_akhir_pekan"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bulan wajib diisi (YYYY-MM)"})
+		return
+	}
+	uid, _ := getUserID(c)
+	dibuat, dilewati, err := h.usecase.GenerateMonth(getOutletID(c), req.Bulan, req.Status, req.LiburAkhirPekan, uid, getUserName(c))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"dibuat": dibuat, "dilewati": dilewati})
+}

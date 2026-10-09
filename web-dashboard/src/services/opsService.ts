@@ -18,6 +18,10 @@ export const OpsService = {
     const { data } = await api.post('/schedules/copy-week', null, { params: { dari, ke } })
     return data
   },
+  generateMonth: async (bulan: string, status?: string, liburAkhirPekan?: boolean): Promise<{ dibuat: number; dilewati: number }> => {
+    const { data } = await api.post('/schedules/generate', { bulan, status, libur_akhir_pekan: liburAkhirPekan })
+    return data
+  },
   recordAttendance: async (body: { schedule_id?: number; shift_instance_id: number; barista_id: number; barista_name?: string; status: string; alasan?: string }): Promise<Attendance> => {
     const { data } = await api.post<Attendance>('/attendances', body)
     return data

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { OpsTasksWidget } from "../components/ops/OpsTasksWidget"
 import { ShiftPanel } from "../components/ops/ShiftPanel"
 import { SchedulePanel } from "../components/ops/SchedulePanel"
+import { ScheduleGeneratePanel } from "../components/ops/ScheduleGeneratePanel"
 import { AttendancePanel } from "../components/ops/AttendancePanel"
 import { AttendanceRecordPanel } from "../components/ops/AttendanceRecordPanel"
 import { ExpenseClassifyPanel } from "../components/ops/ExpenseClassifyPanel"
@@ -34,7 +35,12 @@ export default function JadwalShift() {
         ))}
       </div>
       {tab === "shift" && <ShiftPanel tanggal={tanggal} configs={configs} />}
-      {tab === "jadwal" && <SchedulePanel tanggal={tanggal} configs={configs} />}
+      {tab === "jadwal" && (
+        <div className="space-y-4">
+          <ScheduleGeneratePanel />
+          <SchedulePanel tanggal={tanggal} configs={configs} />
+        </div>
+      )}
       {tab === "biaya" && <ExpenseClassifyPanel />}
       {tab === "hadir" && (
         <div className="space-y-4">
