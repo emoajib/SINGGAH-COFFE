@@ -713,6 +713,7 @@ export interface ProfitSharingCalculation {
   sisa_kas?: number
   selisih_pendapatan?: number
   selisih_cogs?: number
+  dihitung_pada?: string
   basis_type: string
   owner_pct: number
   people: ProfitSharingPerson[]

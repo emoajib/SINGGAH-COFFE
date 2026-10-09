@@ -39,6 +39,40 @@ const formatDateShort = (dateStr: string): string => {
   }
 }
 
+// Hitung hari hadir dari attendance JSON (objek form maupun string draft).
+// null = tidak ada data kehadiran -> fallback ke field lawas leave_days.
+const attendanceDayCount = (p: ProfitSharingPerson): number | null => {
+  const a = p.attendance as unknown
+  if (a && typeof a === "object") return Object.keys(a).length
+  if (typeof a === "string" && a.trim() !== "" && a.trim() !== "{}") {
+    try {
+      const o = JSON.parse(a)
+      if (o && typeof o === "object") return Object.keys(o).length
+    } catch { /* abaikan */ }
+  }
+  return null
+}
+
+// Badge kehadiran berbasis data aktual, bukan field lawas (yang dipaksa 0
+// oleh modal sehingga semua orang tampil "Hadir Penuh").
+function AttendanceBadge({ person, pad }: { person: ProfitSharingPerson; pad: string }) {
+  if (person.role === 'owner') return <span className="text-slate-400">-</span>
+  if (person.is_on_leave) {
+    return <span className={`text-[11px] ${pad} rounded bg-rose-100 text-rose-700 font-semibold`}>Cuti Penuh</span>
+  }
+  const n = attendanceDayCount(person)
+  if (n !== null) {
+    if (n <= 0) {
+      return <span className={`text-[11px] ${pad} rounded bg-slate-100 text-slate-500 font-semibold`}>Libur penuh</span>
+    }
+    return <span className={`text-[11px] ${pad} rounded bg-emerald-100 text-emerald-800 font-semibold`}>Hadir {n} hr</span>
+  }
+  if (person.leave_days && person.leave_days > 0) {
+    return <span className={`text-[11px] ${pad} rounded bg-amber-100 text-amber-800 font-semibold`}>Libur {person.leave_days} hr</span>
+  }
+  return <span className={`text-[11px] ${pad} rounded bg-emerald-100 text-emerald-800 font-semibold`}>Hadir Penuh</span>
+}
+
 // D5: ekspor CSV rekap periode (client-side, tanpa endpoint baru).
 const exportPreviewCSV = (preview: ProfitSharingPreview) => {
   const c = preview.calculation
@@ -2198,19 +2232,7 @@ export default function ProfitSharing() {
                                 </td>
                                 <td className="text-right py-2.5 px-3">{person.share_pct}%</td>
                                 <td className="text-center py-2.5 px-3">
-                                  {isOwner ? (
-                                    <span className="text-slate-400">-</span>
-                                  ) : person.is_on_leave ? (
-                                    <span className="text-[11px] px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-semibold">Cuti Penuh</span>
-                                  ) : person.leave_days && person.leave_days > 0 ? (
-                                    <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
-                                      Libur {person.leave_days} hr
-                                    </span>
-                                  ) : (
-                                    <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">
-                                      Hadir Penuh
-                                    </span>
-                                  )}
+                                  <AttendanceBadge person={person} pad="px-2 py-0.5" />
                                 </td>
                                 <td className="text-right py-2.5 px-3 text-slate-600">{formatNumber(normalShare)}</td>
                                 <td className="text-right py-2.5 px-3">
@@ -2438,6 +2460,9 @@ export default function ProfitSharing() {
                     <p className="text-sm text-indigo-700">
                       Basis: {preview.calculation.basis_type === 'gross' ? 'Laba Kotor' : 'Laba Bersih'} (Rasio {preview.calculation.ratio}%)
                     </p>
+                    {preview.calculation.dihitung_pada && (
+                      <p className="text-[10px] text-indigo-500">Dihitung pada {preview.calculation.dihitung_pada}</p>
+                    )}
                   </div>
                   <p className="text-xl font-extrabold text-indigo-950">
                     Rp {formatNumber(preview.calculation.basis_type === 'gross' ? preview.calculation.gross_profit : preview.calculation.net_profit)}
@@ -2566,19 +2591,7 @@ export default function ProfitSharing() {
                                 </td>
                                 <td className="text-right py-2.5 px-3">{person.share_pct}%</td>
                                 <td className="text-center py-2.5 px-3">
-                                  {isOwner ? (
-                                    <span className="text-slate-400">-</span>
-                                  ) : person.is_on_leave ? (
-                                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-semibold">Cuti Penuh</span>
-                                  ) : person.leave_days && person.leave_days > 0 ? (
-                                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
-                                      Libur {person.leave_days} hr
-                                    </span>
-                                  ) : (
-                                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">
-                                      Hadir Penuh
-                                    </span>
-                                  )}
+                                  <AttendanceBadge person={person} pad="px-1.5 py-0.5" />
                                 </td>
                                 <td className="text-right py-2.5 px-3 text-slate-600">{formatNumber(normalShare)}</td>
                                 <td className="text-right py-2.5 px-3">

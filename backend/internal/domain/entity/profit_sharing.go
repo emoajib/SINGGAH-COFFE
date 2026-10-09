@@ -175,6 +175,8 @@ type Calculation struct {
 	// tapi wajib tampil eksplisit agar tidak ada selisih tersembunyi.
 	SelisihPendapatan float64 `json:"selisih_pendapatan"`
 	SelisihCogs       float64 `json:"selisih_cogs"`
+	// DihitungPada menandai kapan angka ini dihitung (deteksi respons basi).
+	DihitungPada    string                `json:"dihitung_pada"`
 	BasisType     string                `json:"basis_type"`
 	OwnerPct      float64               `json:"owner_pct"`
 	People        []ProfitSharingPerson `json:"people"`
