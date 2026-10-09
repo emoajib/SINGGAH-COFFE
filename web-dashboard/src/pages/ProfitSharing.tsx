@@ -3003,8 +3003,9 @@ export default function ProfitSharing() {
       )}
 
       {/* ================= MODAL: KEHADIRAN PER TANGGAL & SHIFT ================= */}
-      {attendanceModalIndex !== null && (
+      {attendanceModalIndex !== null && people[attendanceModalIndex] && (
         <AttendanceModal
+          key={`${attendanceModalIndex}-${people[attendanceModalIndex].name}-${startDate}-${endDate}`}
           isOpen={true}
           onClose={() => setAttendanceModalIndex(null)}
           person={people[attendanceModalIndex]}

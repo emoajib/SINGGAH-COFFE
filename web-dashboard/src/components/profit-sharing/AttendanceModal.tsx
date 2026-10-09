@@ -40,8 +40,8 @@ export function AttendanceModal({
   onSave,
   isLoading = false
 }: AttendanceModalProps) {
-  if (!isOpen) return null
-
+  // Catatan: semua hooks harus jalan tanpa syarat (aturan React), jadi
+  // tidak ada early-return sebelum hooks. Guard person dilakukan setelah hooks.
   // Generate list of dates in period
   const periodDates = useMemo(() => {
     if (!startDate || !endDate) return []
@@ -55,23 +55,35 @@ export function AttendanceModal({
     return dates
   }, [startDate, endDate])
 
-  // Parse existing attendance (terima objek maupun string JSON dari draft tersimpan)
+  // Parse existing attendance (terima objek maupun string JSON dari draft tersimpan).
+  // ID shift dinormalisasi ke number agar perbandingan includes() selalu tepat
+  // (ID string vs number membuat toggle terlihat mati: diklik tapi tak berubah).
   const parseAttendance = (v: unknown): Record<string, number[]> => {
+    const norm = (arr: unknown): number[] =>
+      (Array.isArray(arr) ? arr : []).map(Number).filter((n) => Number.isFinite(n))
     if (!v) return {}
-    if (typeof v === "object") return v as Record<string, number[]>
+    if (typeof v === "object") {
+      const out: Record<string, number[]> = {}
+      for (const [k, val] of Object.entries(v as Record<string, unknown>)) out[k] = norm(val)
+      return out
+    }
     if (typeof v === "string") {
       try {
         const parsed = JSON.parse(v)
-        if (parsed && typeof parsed === "object") return parsed
+        if (parsed && typeof parsed === "object") {
+          const out: Record<string, number[]> = {}
+          for (const [k, val] of Object.entries(parsed)) out[k] = norm(val)
+          return out
+        }
       } catch { /* abaikan */ }
     }
     return {}
   }
   const [attendance, setAttendance] = useState<Record<string, number[]>>(() => {
-    const existing = parseAttendance(person.attendance)
+    const existing = parseAttendance(person?.attendance)
     if (Object.keys(existing).length > 0) return existing
     // Fallback: derive from leave_dates if no attendance
-    if (person.leave_dates) {
+    if (person?.leave_dates) {
       try {
         const leaveDates: string[] = JSON.parse(person.leave_dates)
         const attendanceMap: Record<string, number[]> = {}
@@ -90,7 +102,7 @@ export function AttendanceModal({
   })
 
   // Determine if person has default shifts assigned
-  const defaultShiftIds = person.shift_ids || []
+  const defaultShiftIds = (person?.shift_ids || []).map(Number).filter((n) => Number.isFinite(n))
   const isAllDay = defaultShiftIds.length === 0
 
   // Toggle shift for a date
@@ -112,11 +124,16 @@ export function AttendanceModal({
 
   // Quick actions
   const handleFullAttendance = () => {
+    // Staf All-Day (tanpa shift default): tandai semua shift aktif di semua
+    // tanggal. Sebelumnya fungsi ini tidak menghasilkan apa-apa (no-op) untuk
+    // staf All-Day sehingga tombol terlihat mati saat diklik.
+    const ids = defaultShiftIds.length > 0
+      ? [...defaultShiftIds]
+      : shiftConfigs.filter((c) => c.is_active).map((c) => Number(c.id))
+    if (ids.length === 0) return
     const newAttendance: Record<string, number[]> = {}
     for (const dateStr of periodDates) {
-      if (defaultShiftIds.length > 0) {
-        newAttendance[dateStr] = [...defaultShiftIds]
-      }
+      newAttendance[dateStr] = [...ids]
     }
     setAttendance(newAttendance)
   }
@@ -152,6 +169,10 @@ export function AttendanceModal({
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [onClose])
 
+  // Early return SETELAH semua hooks (aturan React). Parent selalu melepas
+  // mount saat modal ditutup, dan key memaksa remount per barista.
+  if (!isOpen || !person) return null
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
@@ -159,7 +180,7 @@ export function AttendanceModal({
         <div className="flex items-center justify-between p-4 border-b border-slate-200 sticky top-0 bg-white z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">
-              {person.name.charAt(0).toUpperCase()}
+              {(person.name?.charAt(0) || "?").toUpperCase()}
             </div>
             <div>
               <h3 className="font-bold text-slate-900">{person.name}</h3>
@@ -275,7 +296,7 @@ export function AttendanceModal({
                                 {shift.name}
                               </span>
                               <span className="text-[9px] opacity-75">
-                                {shift.start_time.slice(0,5)}-{shift.end_time.slice(0,5)}
+                                {(shift.start_time || "").slice(0, 5)}-{(shift.end_time || "").slice(0, 5)}
                               </span>
                               {isAttended && (
                                 <CheckCircle className={`w-3 h-3 ${isDefaultShift ? "text-emerald-500" : "text-indigo-500"}`} />
