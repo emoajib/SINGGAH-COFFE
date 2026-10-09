@@ -80,27 +80,33 @@ jobs:
   integration-test:
     name: Integration Test (Docker Compose)
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        # Pin minor agar tidak kejutan update upstream pada tag mengambang;
-        # mysql:8 pernah berpindah minor dan merusak init container.
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: singgah_pos
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -ppassword"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-          --health-start-period 60s
+    # Catatan: TIDAK memakai service container Docker — pull image dari Docker
+    # Hub kerap gagal (rate-limit IP bersama) tepat di "Initialize containers",
+    # sebelum kode apa pun berjalan. Sebagai gantinya install MariaDB via apt
+    # (mirror internal Azure, andal) — sekaligus lebih setia karena produksi
+    # juga MariaDB, bukan MySQL.
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
         node-version: '24'
+
+    - name: Install & Start MariaDB
+      run: |
+        sudo apt-get update -qq
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq mariadb-server
+        sudo service mariadb start
+        # Tunggu siap (init pertama bisa lambat)
+        for i in $(seq 1 20); do
+          if sudo mysqladmin ping 2>/dev/null | grep -q "alive"; then
+            echo "MariaDB siap (percobaan $i)"
+            break
+          fi
+          echo "Menunggu MariaDB... percobaan $i"
+          sleep 3
+        done
+        sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'password'; CREATE DATABASE IF NOT EXISTS singgah_pos;"
+        echo "Database singgah_pos siap"
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -114,16 +120,6 @@ jobs:
         DATABASE_URL: root:password@tcp(localhost:3306)/singgah_pos?charset=utf8mb4&parseTime=True&loc=Local
       run: |
         cd backend
-        # Tunggu MySQL benar-benar siap (init image bisa >30 dtk di runner lambat)
-        echo "Menunggu MySQL siap..."
-        for i in $(seq 1 30); do
-          if (echo > /dev/tcp/localhost/3306) >/dev/null 2>&1; then
-            echo "Port MySQL terbuka (percobaan $i)"
-            break
-          fi
-          sleep 3
-        done
-        sleep 10
         go run ./cmd/server &
         sleep 3
         # Wait for backend to be healthy
