@@ -46,6 +46,8 @@ fi
 # Backup database
 echo "   Backing up database..."
 DB_URL=$(grep DATABASE_URL "$PROJ_DIR/backend/.env" 2>/dev/null | head -1 | cut -d'=' -f2- || echo "")
+# Kupas tanda kutip pembungkus (backend/.env umumnya menulis DATABASE_URL="...").
+DB_URL=$(echo "$DB_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
 if [ -n "$DB_URL" ] && command -v mysqldump &>/dev/null; then
     ATIDX=$(echo "$DB_URL" | awk '{print index($0,"@tcp(")}')
     if [ "$ATIDX" -gt 0 ]; then
@@ -59,15 +61,20 @@ if [ -n "$DB_URL" ] && command -v mysqldump &>/dev/null; then
         DB_NAME=$(echo "$DB_URL" | sed 's|.*/||' | sed 's|?.*||')
         if [ -n "$DB_NAME" ] && [ -n "$DB_USER" ]; then
             # Vetted by AI - Manual Review Required by Senior Engineer/Manager
+            # Validasi ISI dump (harus ada CREATE TABLE): file tak-kosong saja
+            # tidak cukup karena mysqldump menulis pesan error ke stdout bila
+            # stderr digabung (kasus nyata: flag --column-statistics=0 ditolak
+            # klien MariaDB, menghasilkan file 162 byte tanpa isi).
+            dump_valid() { [ -f "$BACKUP_DIR/database.sql" ] && grep -q "CREATE TABLE" "$BACKUP_DIR/database.sql"; }
             DUMP_ERR=$(mysqldump --column-statistics=0 -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>&1 || true)
-            if [ ! -s "$BACKUP_DIR/database.sql" ]; then
+            if ! dump_valid; then
                 # Fallback without --column-statistics=0 (for older mysql/mariadb clients)
                 DUMP_ERR=$(mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>&1 || true)
             fi
-            if [ -s "$BACKUP_DIR/database.sql" ]; then
+            if dump_valid; then
                 echo "   ✅ Database backed up ($(du -sh "$BACKUP_DIR/database.sql" 2>/dev/null | cut -f1))"
             else
-                echo "   ⚠️ Database backup empty — check credentials (Info: $(echo "$DUMP_ERR" | head -1))"
+                echo "   ❌ Database backup INVALID — isi bukan dump SQL (Info: $(head -1 "$BACKUP_DIR/database.sql" 2>/dev/null))"
                 rm -f "$BACKUP_DIR/database.sql"
             fi
         else
@@ -89,8 +96,9 @@ BACKUP_OK=true
 [ -d "$PROJ_DIR/uploads" ] && [ ! -d "$BACKUP_DIR/uploads" ] && echo "❌ ERROR: Uploads backup missing! Aborting." && BACKUP_OK=false
 DB_URL_CHECK=$(grep DATABASE_URL "$PROJ_DIR/backend/.env" 2>/dev/null | head -1 | cut -d'=' -f2- || echo "")
 if [ -n "$DB_URL_CHECK" ]; then
-    if [ ! -f "$BACKUP_DIR/database.sql" ] || [ ! -s "$BACKUP_DIR/database.sql" ]; then
-        echo "⚠️  Database backup missing or empty — continuing without DB backup"
+    if [ ! -f "$BACKUP_DIR/database.sql" ] || ! grep -q "CREATE TABLE" "$BACKUP_DIR/database.sql" 2>/dev/null; then
+        echo "❌ ERROR: Database backup invalid! Aborting deploy — perbaiki kredensial mysqldump dulu."
+        BACKUP_OK=false
     fi
 fi
 if [ "$BACKUP_OK" = false ]; then
