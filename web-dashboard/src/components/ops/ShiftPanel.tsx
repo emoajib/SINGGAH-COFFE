@@ -11,8 +11,20 @@ export function ShiftPanel({ tanggal, configs }: { tanggal: string; configs: Shi
   const { list, create, close, setStatus } = useShifts(tanggal)
   const [cfg, setCfg] = useState("")
   const [warn, setWarn] = useState<string[]>([])
+  const [bulkMsg, setBulkMsg] = useState("")
   const rows = list.data || []
   const namaShift = (id: number, fallback?: string) => fallback || configs.find((c) => c.id === id)?.name || `#${id}`
+  const existingCfg = new Set(rows.map((s) => s.shift_config_id))
+  const openAll = async () => {
+    setBulkMsg("")
+    let ok = 0, skip = 0
+    for (const c of configs.filter((x) => x.is_active)) {
+      if (existingCfg.has(c.id)) { skip++; continue }
+      try { await create.mutateAsync({ shift_config_id: c.id, tgl: tanggal }); ok++ }
+      catch { skip++ }
+    }
+    setBulkMsg(`Dibuka ${ok}, dilewati ${skip}.`)
+  }
   return (
     <div className="bg-white rounded-lg border p-4 space-y-3">
       <div className="flex gap-2 items-end">
@@ -23,7 +35,10 @@ export function ShiftPanel({ tanggal, configs }: { tanggal: string; configs: Shi
           ))}
         </select>
         <Button size="sm" disabled={!cfg || create.isPending} onClick={() => create.mutate({ shift_config_id: Number(cfg), tgl: tanggal })}>Buka shift</Button>
+        <Button size="sm" variant="outline" disabled={create.isPending} title="Buka semua shift aktif tanggal ini sekaligus" onClick={openAll}>Buka semua shift</Button>
       </div>
+      <p className="text-xs text-slate-500">Angka pendapatan & pembagian dihitung saat shift ditutup (tombol Tutup).</p>
+      {bulkMsg && <div className="text-xs text-slate-600">{bulkMsg}</div>}
       {warn.length > 0 && (
         <div className="text-xs bg-amber-50 border border-amber-300 rounded p-2">
           {warn.map((w) => <div key={w}>⚠ {w}</div>)}

@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"time"
+
 	"singgah-pos-backend/internal/domain/entity"
 )
 
@@ -43,7 +45,9 @@ func (uc *ShiftInstanceUsecase) GetTasks(outletID uint) (entity.OpsTasks, error)
 	} else {
 		return t, err
 	}
-	if t.BiayaBelumKlasif, err = uc.expenses.CountUnclassified(outletID); err != nil {
+	// Biaya belum klasifikasi dibatasi 90 hari terakhir: arsip lama bukan
+	// tugas harian dan bisa dibereskan sekaligus via klasifikasi massal.
+	if t.BiayaBelumKlasif, err = uc.expenses.CountUnclassified(outletID, time.Now().AddDate(0, 0, -90).Format("2006-01-02")); err != nil {
 		return t, err
 	}
 	draft, err := uc.period.FindAll(outletID)

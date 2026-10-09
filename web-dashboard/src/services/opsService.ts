@@ -51,6 +51,10 @@ export const OpsService = {
     const { data } = await api.get<OpsTasks>('/ops/tasks')
     return data
   },
+  classifyBulkShared: async (start: string, end: string): Promise<{ message: string; affected: number }> => {
+    const { data } = await api.post('/expenses/classify-bulk', { start, end })
+    return data
+  },
   previewReadOnly: async (start: string, end: string): Promise<ProfitSharingPreview> => {
     const { data } = await api.get<ProfitSharingPreview>('/profit-sharing/preview-readonly', { params: { start, end } })
     return data

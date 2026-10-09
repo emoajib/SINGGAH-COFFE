@@ -188,3 +188,22 @@ func (h *ExpenseHandler) DeleteExpense(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Expense deleted successfully"})
 }
+
+// ClassifyBulkShared menandai semua biaya belum-klasifikasi pada rentang
+// tanggal sebagai biaya bersama (modul Jadwal, owner & manajer).
+func (h *ExpenseHandler) ClassifyBulkShared(c *gin.Context) {
+	var req struct {
+		Start string `json:"start" binding:"required"`
+		End   string `json:"end" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "start dan end wajib diisi (YYYY-MM-DD)"})
+		return
+	}
+	n, err := h.expenseUsecase.ClassifyBulkShared(getOutletID(c), req.Start, req.End)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Klasifikasi selesai", "affected": n})
+}

@@ -242,6 +242,16 @@ func (uc *ExpenseUsecase) Delete(id uint) error {
 	})
 }
 
+// ClassifyBulkShared menandai semua biaya belum-klasifikasi pada rentang
+// tanggal sebagai biaya bersama. Dipakai modul Jadwal untuk membereskan
+// backlog klasifikasi dalam satu klik (tanpa menyentuh bagi hasil).
+func (uc *ExpenseUsecase) ClassifyBulkShared(outletID uint, start, end string) (int64, error) {
+	if start == "" || end == "" {
+		return 0, domainErrors.NewInvalidInputError("rentang tanggal wajib diisi")
+	}
+	return uc.expenseRepo.ClassifyBulkShared(outletID, start, end)
+}
+
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uint) (*entity.ExpenseSummaryRecap, error) {
 	expenses, err := uc.expenseRepo.FindAllRange(start, end, "", outletID)

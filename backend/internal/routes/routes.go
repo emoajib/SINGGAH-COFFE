@@ -148,6 +148,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.PUT("/expenses/:id", middleware.RoleMiddleware("owner", "manager"), h.Expense.UpdateExpense)
 			protected.PUT("/expenses/:id/cost-type", middleware.RoleMiddleware("owner"), h.Expense.UpdateCostType)
 			protected.DELETE("/expenses/:id", middleware.RoleMiddleware("owner"), h.Expense.DeleteExpense)
+			protected.POST("/expenses/classify-bulk", middleware.RoleMiddleware("owner", "manager"), h.Expense.ClassifyBulkShared)
 
 			// Barista Cashbons (Owner & Manager)
 			// Vetted by AI - Manual Review Required by Senior Engineer/Manager

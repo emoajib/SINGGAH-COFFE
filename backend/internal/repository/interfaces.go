@@ -115,8 +115,12 @@ type ExpenseRepository interface {
 	// SumByShiftInstance menjumlahkan biaya LANGSUNG satu shift (Fase C).
 	SumByShiftInstance(shiftInstanceID uint, outletID uint) (float64, error)
 	// CountUnclassified menghitung biaya yang belum diklasifikasi
-	// (bukan langsung shift mana pun dan bukan biaya bersama) — daftar tugas.
-	CountUnclassified(outletID uint) (int64, error)
+	// (bukan langsung shift mana pun dan bukan biaya bersama) — dibatasi sejak
+	// tanggal tertentu agar widget tugas menampilkan beban aktual, bukan arsip.
+	CountUnclassified(outletID uint, since string) (int64, error)
+	// ClassifyBulkShared menandai semua biaya belum-klasifikasi pada rentang
+	// tanggal sebagai biaya bersama. Mengembalikan jumlah baris terdampak.
+	ClassifyBulkShared(outletID uint, start, end string) (int64, error)
 }
 
 // SettingRepository defines data access for settings

@@ -4,6 +4,7 @@ import { ShiftPanel } from "../components/ops/ShiftPanel"
 import { SchedulePanel } from "../components/ops/SchedulePanel"
 import { AttendancePanel } from "../components/ops/AttendancePanel"
 import { AttendanceRecordPanel } from "../components/ops/AttendanceRecordPanel"
+import { ExpenseClassifyPanel } from "../components/ops/ExpenseClassifyPanel"
 import { ProfitSharingService } from "../services/profitSharingService"
 import type { ShiftConfig } from "../types"
 
@@ -12,7 +13,7 @@ import type { ShiftConfig } from "../types"
 export default function JadwalShift() {
   const today = new Date().toISOString().slice(0, 10)
   const [tanggal, setTanggal] = useState(today)
-  const [tab, setTab] = useState<"shift" | "jadwal" | "hadir">("shift")
+  const [tab, setTab] = useState<"shift" | "jadwal" | "hadir" | "biaya">("shift")
   const [configs, setConfigs] = useState<ShiftConfig[]>([])
   useEffect(() => {
     ProfitSharingService.getShiftConfigs().then(setConfigs).catch(() => setConfigs([]))
@@ -25,15 +26,16 @@ export default function JadwalShift() {
       </div>
       <OpsTasksWidget />
       <div className="flex gap-2">
-        {(["shift", "jadwal", "hadir"] as const).map((t) => (
+        {(["shift", "jadwal", "hadir", "biaya"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`text-sm px-3 py-1.5 rounded ${tab === t ? "bg-slate-900 text-white" : "bg-white border"}`}>
-            {t === "shift" ? "Shift" : t === "jadwal" ? "Jadwal" : "Kehadiran"}
+            {t === "shift" ? "Shift" : t === "jadwal" ? "Jadwal" : t === "hadir" ? "Kehadiran" : "Biaya"}
           </button>
         ))}
       </div>
       {tab === "shift" && <ShiftPanel tanggal={tanggal} configs={configs} />}
       {tab === "jadwal" && <SchedulePanel tanggal={tanggal} configs={configs} />}
+      {tab === "biaya" && <ExpenseClassifyPanel />}
       {tab === "hadir" && (
         <div className="space-y-4">
           <AttendanceRecordPanel tanggal={tanggal} />

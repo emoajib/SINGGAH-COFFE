@@ -147,13 +147,27 @@ func (r *expenseRepository) SumByShiftInstance(shiftInstanceID uint, outletID ui
 
 // CountUnclassified menghitung biaya yang belum diklasifikasi ke shift
 // langsung mana pun dan bukan biaya bersama (daftar tugas, Fase C).
-func (r *expenseRepository) CountUnclassified(outletID uint) (int64, error) {
+func (r *expenseRepository) CountUnclassified(outletID uint, since string) (int64, error) {
 	tx := r.db.Model(&models.Expense{}).
 		Where("shift_instance_id IS NULL AND is_shared = ?", false)
+	if since != "" {
+		tx = tx.Where("DATE(date) >= DATE(?)", since)
+	}
 	tx = scopeOutlet(tx, "expenses", outletID)
 	var count int64
 	err := tx.Count(&count).Error
 	return count, err
+}
+
+// ClassifyBulkShared menandai semua biaya belum-klasifikasi pada rentang
+// tanggal sebagai biaya bersama (satu klik bereskan backlog klasifikasi).
+func (r *expenseRepository) ClassifyBulkShared(outletID uint, start, end string) (int64, error) {
+	tx := r.db.Model(&models.Expense{}).
+		Where("shift_instance_id IS NULL AND is_shared = ?", false).
+		Where("DATE(date) BETWEEN DATE(?) AND DATE(?)", start, end)
+	tx = scopeOutlet(tx, "expenses", outletID)
+	res := tx.Update("is_shared", true)
+	return res.RowsAffected, res.Error
 }
 
 func (r *expenseRepository) GetTotalSince(since string, outletID ...uint) (float64, error) {
