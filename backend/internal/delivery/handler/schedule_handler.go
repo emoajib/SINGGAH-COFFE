@@ -79,19 +79,75 @@ func (h *ScheduleHandler) CopyWeek(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"disalin": disalin, "dilewati": dilewati})
 }
 
-// GenerateMonth membuat jadwal 1 bulan penuh sekaligus (idempoten).
+// Request libur/izin/sakit barista (hari apa, shift apa).
+func (h *ScheduleHandler) CreateRequest(c *gin.Context) {
+	var req struct {
+		BaristaID     uint   `json:"barista_id" binding:"required"`
+		Tanggal       string `json:"tanggal" binding:"required"`
+		ShiftConfigID *uint  `json:"shift_config_id"`
+		Jenis         string `json:"jenis"`
+		Catatan       string `json:"catatan"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "barista dan tanggal wajib diisi"})
+		return
+	}
+	tgl, err := time.Parse("2006-01-02", req.Tanggal)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "format tanggal harus YYYY-MM-DD"})
+		return
+	}
+	uid, _ := getUserID(c)
+	r := &entity.ScheduleRequest{
+		OutletID: getOutletID(c), BaristaID: req.BaristaID, Tanggal: tgl,
+		ShiftConfigID: req.ShiftConfigID, Jenis: req.Jenis, Catatan: req.Catatan,
+	}
+	if err := h.usecase.CreateRequest(r, uid, getUserName(c)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, r)
+}
+
+func (h *ScheduleHandler) ListRequests(c *gin.Context) {
+	bulan := c.DefaultQuery("bulan", time.Now().Format("2006-01"))
+	list, err := h.usecase.ListRequests(getOutletID(c), bulan)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if list == nil {
+		list = []entity.ScheduleRequest{}
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+func (h *ScheduleHandler) DeleteRequest(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	uid, _ := getUserID(c)
+	if err := h.usecase.DeleteRequest(uint(id), getOutletID(c), uid, getUserName(c)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "request dihapus (tercatat di audit)"})
+}
 func (h *ScheduleHandler) GenerateMonth(c *gin.Context) {
 	var req struct {
 		Bulan            string `json:"bulan" binding:"required"`
 		Status           string `json:"status"`
 		LiburAkhirPekan  bool   `json:"libur_akhir_pekan"`
+		TerapkanRequest  *bool  `json:"terapkan_request"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bulan wajib diisi (YYYY-MM)"})
 		return
 	}
+	terapkan := true
+	if req.TerapkanRequest != nil {
+		terapkan = *req.TerapkanRequest
+	}
 	uid, _ := getUserID(c)
-	dibuat, dilewati, err := h.usecase.GenerateMonth(getOutletID(c), req.Bulan, req.Status, req.LiburAkhirPekan, uid, getUserName(c))
+	dibuat, dilewati, err := h.usecase.GenerateMonth(getOutletID(c), req.Bulan, req.Status, req.LiburAkhirPekan, terapkan, uid, getUserName(c))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

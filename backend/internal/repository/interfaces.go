@@ -377,6 +377,13 @@ type ShiftInstanceRepository interface {
 	CountByStatus(outletID uint, statuses ...string) (int64, error)
 }
 
+// ScheduleRequestRepository: titipan libur/izin/sakit per barista.
+type ScheduleRequestRepository interface {
+	Create(r *entity.ScheduleRequest) error
+	Delete(id uint, outletID uint) error
+	FindByMonth(outletID uint, bulan string) ([]entity.ScheduleRequest, error)
+}
+
 // AuditLogRepository: jejak audit append-only (Fase C).
 type AuditLogRepository interface {
 	Create(l *entity.AuditLog) error

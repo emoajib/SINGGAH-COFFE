@@ -65,6 +65,22 @@ type Attendance struct {
 	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
+// ScheduleRequest adalah titipan libur/izin/sakit: hari apa, shift apa.
+type ScheduleRequest struct {
+	ID            uint      `json:"id"`
+	OutletID      uint      `json:"outlet_id"`
+	BaristaID     uint      `json:"barista_id"`
+	BaristaName   string    `json:"barista_name"`
+	Tanggal       time.Time `json:"tanggal"`
+	ShiftConfigID *uint     `json:"shift_config_id"`
+	ShiftName     string    `json:"shift_name"`
+	Jenis         string    `json:"jenis"`
+	Catatan       string    `json:"catatan"`
+	DibuatOleh    uint      `json:"dibuat_oleh"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 // AuditLog adalah baris jejak audit yang append-only.
 type AuditLog struct {
 	ID           uint      `json:"id"`

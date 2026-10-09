@@ -3,6 +3,7 @@ import { OpsTasksWidget } from "../components/ops/OpsTasksWidget"
 import { ShiftPanel } from "../components/ops/ShiftPanel"
 import { SchedulePanel } from "../components/ops/SchedulePanel"
 import { ScheduleGeneratePanel } from "../components/ops/ScheduleGeneratePanel"
+import { ScheduleRequestPanel } from "../components/ops/ScheduleRequestPanel"
 import { AttendancePanel } from "../components/ops/AttendancePanel"
 import { AttendanceRecordPanel } from "../components/ops/AttendanceRecordPanel"
 import { ExpenseClassifyPanel } from "../components/ops/ExpenseClassifyPanel"
@@ -38,6 +39,7 @@ export default function JadwalShift() {
       {tab === "jadwal" && (
         <div className="space-y-4">
           <ScheduleGeneratePanel />
+          <ScheduleRequestPanel bulan={tanggal.slice(0, 7)} configs={configs} />
           <SchedulePanel tanggal={tanggal} configs={configs} />
         </div>
       )}

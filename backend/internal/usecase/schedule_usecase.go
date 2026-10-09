@@ -15,6 +15,7 @@ import (
 type ScheduleUsecase struct {
 	db        *gorm.DB
 	repo      repository.ScheduleRepository
+	requests  repository.ScheduleRequestRepository
 	baristas  repository.BaristaRepository
 	shifts    repository.ShiftConfigRepository
 	audit     *AuditWriter
@@ -23,6 +24,7 @@ type ScheduleUsecase struct {
 func NewScheduleUsecase(db *gorm.DB) *ScheduleUsecase {
 	return &ScheduleUsecase{
 		db: db, repo: postgres.NewScheduleRepository(db),
+		requests: postgres.NewScheduleRequestRepository(db),
 		baristas: postgres.NewBaristaRepository(db),
 		shifts:   postgres.NewShiftConfigRepository(db),
 		audit:    NewAuditWriter(db),

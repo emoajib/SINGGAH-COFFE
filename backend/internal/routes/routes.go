@@ -240,6 +240,9 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.DELETE("/schedules/:id", middleware.RoleMiddleware("owner", "manager"), h.Schedule.Delete)
 			protected.POST("/schedules/copy-week", middleware.RoleMiddleware("owner", "manager"), h.Schedule.CopyWeek)
 			protected.POST("/schedules/generate", middleware.RoleMiddleware("owner", "manager"), h.Schedule.GenerateMonth)
+			protected.GET("/schedule-requests", middleware.RoleMiddleware("owner", "manager"), h.Schedule.ListRequests)
+			protected.POST("/schedule-requests", middleware.RoleMiddleware("owner", "manager"), h.Schedule.CreateRequest)
+			protected.DELETE("/schedule-requests/:id", middleware.RoleMiddleware("owner", "manager"), h.Schedule.DeleteRequest)
 
 			// Kehadiran — Owner & Manajer (C2). Kasir diblokir total.
 			protected.POST("/attendances", middleware.RoleMiddleware("owner", "manager"), h.Attendance.Record)

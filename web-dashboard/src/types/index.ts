@@ -775,6 +775,19 @@ export interface ShiftDailyDetail {
   sisa_kas: number
 }
 
+export interface ScheduleRequest {
+  id: number
+  outlet_id: number
+  barista_id: number
+  barista_name: string
+  tanggal: string
+  shift_config_id?: number
+  shift_name?: string
+  jenis: string
+  catatan?: string
+  created_at?: string
+}
+
 // Fase C/D: jadwal, kehadiran, shift operasional, daftar tugas.
 export interface Schedule {
   id: number

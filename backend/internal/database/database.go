@@ -62,6 +62,7 @@ func Connect(cfg config.Config) *gorm.DB {
 		// Bagi hasil per-shift: jadwal, kehadiran, instance shift, audit (tanpa soft-delete, K1)
 		&models.ShiftInstance{},
 		&models.Schedule{},
+		&models.ScheduleRequest{},
 		&models.Attendance{},
 		&models.AuditLog{},
 		// Loyalty & Customer Feedback - Vetted by AI

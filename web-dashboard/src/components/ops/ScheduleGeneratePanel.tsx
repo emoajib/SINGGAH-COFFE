@@ -12,6 +12,7 @@ export function ScheduleGeneratePanel() {
   const [bulan, setBulan] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
   const [status, setStatus] = useState("dijadwalkan")
   const [weekendOff, setWeekendOff] = useState(false)
+  const [applyReq, setApplyReq] = useState(true)
   const [msg, setMsg] = useState("")
   const [busy, setBusy] = useState(false)
   return (
@@ -26,11 +27,15 @@ export function ScheduleGeneratePanel() {
           <input type="checkbox" checked={weekendOff} onChange={(e) => setWeekendOff(e.target.checked)} />
           Libur Sabtu-Minggu
         </label>
+        <label className="flex items-center gap-1.5 text-sm" title="Titipan libur/izin/sakit yang cocok mengalahkan status default">
+          <input type="checkbox" checked={applyReq} onChange={(e) => setApplyReq(e.target.checked)} />
+          Terapkan titipan libur
+        </label>
         <Button size="sm" disabled={busy || !bulan} onClick={async () => {
           setMsg("")
           setBusy(true)
           try {
-            const r = await OpsService.generateMonth(bulan, status, weekendOff)
+            const r = await OpsService.generateMonth(bulan, status, weekendOff, applyReq)
             setMsg(`Dibuat ${r.dibuat}, dilewati ${r.dilewati} (sudah ada). Silakan periksa lalu edit/hapus per baris bila perlu.`)
             qc.invalidateQueries({ queryKey: ["schedules"] })
           } catch (e) {

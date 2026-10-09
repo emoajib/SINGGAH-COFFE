@@ -11,8 +11,10 @@ import (
 // GenerateMonth membuat jadwal 1 bulan penuh sekaligus: setiap barista aktif
 // × setiap shift aktif × setiap tanggal, dengan status default. Idempoten —
 // kombinasi yang sudah ada dilewati (tidak duplikat, tidak error), sehingga
-// aman dijalankan ulang. Hasilnya tetap bisa diedit/dihapus per baris.
-func (uc *ScheduleUsecase) GenerateMonth(outletID uint, bulan string, statusDefault string, liburAkhirPekan bool, userID uint, userName string) (dibuat, dilewati int, err error) {
+// aman dijalankan ulang. Bila terapkanRequest, titipan libur/izin/sakit yang
+// cocok (barista + tanggal + shift/ semua shift) mengalahkan status default.
+// Hasilnya tetap bisa diedit/dihapus per baris (mis. tukar jadwal).
+func (uc *ScheduleUsecase) GenerateMonth(outletID uint, bulan string, statusDefault string, liburAkhirPekan bool, terapkanRequest bool, userID uint, userName string) (dibuat, dilewati int, err error) {
 	if statusDefault == "" {
 		statusDefault = "dijadwalkan"
 	}
@@ -39,15 +41,38 @@ func (uc *ScheduleUsecase) GenerateMonth(outletID uint, bulan string, statusDefa
 	}
 	hariPertama := time.Date(awal.Year(), awal.Month(), 1, 0, 0, 0, 0, time.UTC)
 	akhirBulan := hariPertama.AddDate(0, 1, -1).Day()
+	var reqs []entity.ScheduleRequest
+	if terapkanRequest {
+		reqs, err = uc.requests.FindByMonth(outletID, bulan)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	cocok := func(baristaID, shiftID uint, tglStr string) (string, bool) {
+		for _, r := range reqs {
+			if r.BaristaID != baristaID || r.Tanggal.Format("2006-01-02") != tglStr {
+				continue
+			}
+			if r.ShiftConfigID != nil && *r.ShiftConfigID != shiftID {
+				continue
+			}
+			return r.Jenis, true
+		}
+		return "", false
+	}
 	for d := 1; d <= akhirBulan; d++ {
 		tgl := time.Date(awal.Year(), awal.Month(), d, 0, 0, 0, 0, time.UTC)
 		tglStr := tgl.Format("2006-01-02")
-		st := statusDefault
-		if liburAkhirPekan && (tgl.Weekday() == time.Saturday || tgl.Weekday() == time.Sunday) {
-			st = "libur"
-		}
+		akhirPekan := liburAkhirPekan && (tgl.Weekday() == time.Saturday || tgl.Weekday() == time.Sunday)
 		for _, b := range baristas {
 			for _, s := range shifts {
+				st := statusDefault
+				if akhirPekan {
+					st = "libur"
+				}
+				if jenis, ok := cocok(b.ID, s.ID, tglStr); ok {
+					st = jenis
+				}
 				dup, err := uc.repo.Exists(b.ID, tglStr, s.ID, outletID)
 				if err != nil {
 					return dibuat, dilewati, err

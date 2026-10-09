@@ -1,5 +1,5 @@
 import api from '../lib/api'
-import type { Schedule, Attendance, ShiftInstance, OpsTasks, ProfitSharingPreview } from '../types'
+import type { Schedule, Attendance, ShiftInstance, OpsTasks, ProfitSharingPreview, ScheduleRequest } from '../types'
 
 // Fase C/D: klien API jadwal, kehadiran, shift operasional, tugas.
 export const OpsService = {
@@ -18,8 +18,8 @@ export const OpsService = {
     const { data } = await api.post('/schedules/copy-week', null, { params: { dari, ke } })
     return data
   },
-  generateMonth: async (bulan: string, status?: string, liburAkhirPekan?: boolean): Promise<{ dibuat: number; dilewati: number }> => {
-    const { data } = await api.post('/schedules/generate', { bulan, status, libur_akhir_pekan: liburAkhirPekan })
+  generateMonth: async (bulan: string, status?: string, liburAkhirPekan?: boolean, terapkanRequest?: boolean): Promise<{ dibuat: number; dilewati: number }> => {
+    const { data } = await api.post('/schedules/generate', { bulan, status, libur_akhir_pekan: liburAkhirPekan, terapkan_request: terapkanRequest })
     return data
   },
   recordAttendance: async (body: { schedule_id?: number; shift_instance_id: number; barista_id: number; barista_name?: string; status: string; alasan?: string }): Promise<Attendance> => {
@@ -62,5 +62,16 @@ export const OpsService = {
   previewReadOnly: async (start: string, end: string): Promise<ProfitSharingPreview> => {
     const { data } = await api.get<ProfitSharingPreview>('/profit-sharing/preview-readonly', { params: { start, end } })
     return data
+  },
+  getRequests: async (bulan: string): Promise<ScheduleRequest[]> => {
+    const { data } = await api.get<ScheduleRequest[]>('/schedule-requests', { params: { bulan } })
+    return Array.isArray(data) ? data : []
+  },
+  createRequest: async (body: { barista_id: number; tanggal: string; shift_config_id?: number; jenis?: string; catatan?: string }): Promise<ScheduleRequest> => {
+    const { data } = await api.post<ScheduleRequest>('/schedule-requests', body)
+    return data
+  },
+  deleteRequest: async (id: number): Promise<void> => {
+    await api.delete(`/schedule-requests/${id}`)
   },
 }
