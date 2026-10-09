@@ -175,6 +175,11 @@ func (r *profitSharingPeriodRepository) GetShiftRevenue(start, end, startTime, e
 // GetShiftRevenue sehingga totalnya konsisten dengan angka agregatnya.
 // Catatan: order di luar SEMUA jendela jam (mis. celah 19:00–19:01) tidak
 // masuk baris mana pun — selisihnya dihitung caller sebagai rekonsiliasi.
+// Catatan: CAST(... AS CHAR) WAJIB — tanpanya driver MySQL dengan parseTime
+// mengembalikan kolom DATE sebagai time.Time yang ter-scan ke string format
+// RFC3339 ("2026-10-01T00:00:00Z") sehingga kunci tanggal tak pernah cocok
+// dengan "2006-01-02": kartu shift tampil Rp 0 padahal total terhitung benar.
+// CAST memaksa VARCHAR "YYYY-MM-DD" di MySQL/MariaDB maupun SQLite.
 func (r *profitSharingPeriodRepository) GetDailyShiftFigures(start, end, startTime, endTime string, outletID ...uint) ([]entity.DailyShiftFigure, error) {
 	ow, args := outletWhere("orders", outletID...)
 	timeExpr := "TIME(COALESCE(NULLIF(orders.order_time, '0001-01-01 00:00:00'), orders.created_at))"
@@ -188,12 +193,12 @@ func (r *profitSharingPeriodRepository) GetDailyShiftFigures(start, end, startTi
 		timeClause = " AND (" + timeExpr + " >= ? OR " + timeExpr + " < ?)"
 		timeArgs = []interface{}{startTime, endTime}
 	}
-	query := "SELECT " + dateExpr + " as tanggal, " +
+	query := "SELECT CAST(" + dateExpr + " AS CHAR) as tanggal, " +
 		"COALESCE(SUM(order_items.price * order_items.quantity), 0) as revenue, " +
 		"COALESCE(SUM(order_items.cost * order_items.quantity), 0) as cogs " +
 		"FROM order_items JOIN orders ON orders.id = order_items.order_id " +
 		"WHERE " + dateExpr + " BETWEEN DATE(?) AND DATE(?) AND orders.status = ?" + timeClause + ow +
-		" GROUP BY " + dateExpr + " ORDER BY tanggal ASC"
+		" GROUP BY tanggal ORDER BY tanggal ASC"
 	allArgs := []interface{}{start, end, "Completed"}
 	allArgs = append(allArgs, timeArgs...)
 	allArgs = append(allArgs, args...)

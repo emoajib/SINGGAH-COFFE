@@ -6,6 +6,7 @@ import (
 
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
+	"singgah-pos-backend/internal/repository/postgres"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -43,6 +44,28 @@ func dailyPeople() []entity.ProfitSharingPerson {
 	return []entity.ProfitSharingPerson{
 		{Name: "RIO", Role: "barista", SharePct: 20, ShiftIDs: []uint{1, 2}, Attendance: `{"2026-10-01":[1,2]}`},
 		{Name: "SALMAN", Role: "barista", SharePct: 20, ShiftIDs: []uint{1, 2}, Attendance: `{"2026-10-01":[1,2],"2026-10-02":[1,2]}`},
+	}
+}
+
+// Regresi insiden produksi: kunci Tanggal HARUS persis "2006-01-02".
+// Driver MySQL dengan parseTime mengembalikan DATE sebagai time.Time yang
+// ter-scan ke string RFC3339 ("2026-10-01T00:00:00Z") sehingga tak pernah
+// cocok dengan kunci periode: kartu shift Rp 0 padahal total benar.
+func TestDailyFigures_KeyFormat(t *testing.T) {
+	db := setupDailyDB(t)
+	pr := postgres.NewProfitSharingPeriodRepository(db)
+	rows, err := pr.GetDailyShiftFigures("2026-10-01 00:00:00", "2026-10-02 23:59:59", "07:00", "19:00", 1)
+	if err != nil {
+		t.Fatalf("daily: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("harus 2 baris tanggal, got %d", len(rows))
+	}
+	if rows[0].Tanggal != "2026-10-01" || rows[1].Tanggal != "2026-10-02" {
+		t.Errorf("format kunci salah: %q %q", rows[0].Tanggal, rows[1].Tanggal)
+	}
+	if rows[0].Revenue != 600000 || rows[1].Revenue != 600000 {
+		t.Errorf("revenue harian salah: %v %v", rows[0].Revenue, rows[1].Revenue)
 	}
 }
 
