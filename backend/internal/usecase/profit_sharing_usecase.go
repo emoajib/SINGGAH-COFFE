@@ -375,6 +375,8 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 		totalPeriodDays = 1
 	}
 	// B1: taxPct/servicePct hanya info tampilan, tidak memotong angka shift.
+	_ = taxPct
+	_ = servicePct
 
 	type shiftCell struct {
 		revenue, cogs, expenses, grossMargin, netProfit, sharingBasis, ownerShare, pool float64

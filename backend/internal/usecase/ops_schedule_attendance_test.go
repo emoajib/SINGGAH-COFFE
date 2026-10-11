@@ -24,9 +24,15 @@ func setupOpsDB(t *testing.T) *gorm.DB {
 	return db
 }
 
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func seedBaristaShift(t *testing.T, db *gorm.DB) {
-	db.Create(&models.Barista{OutletID: 1, Name: "RIO", Status: "active"})
-	db.Create(&models.ShiftConfig{OutletID: 1, Name: "Pagi", StartTime: "07:00", EndTime: "14:00", OwnerPct: 60, BaristaPoolPct: 40, IsActive: true})
+	t.Helper()
+	if err := db.Create(&models.Barista{OutletID: 1, Name: "RIO", Status: "active"}).Error; err != nil {
+		t.Fatalf("seed barista: %v", err)
+	}
+	if err := db.Create(&models.ShiftConfig{OutletID: 1, Name: "Pagi", StartTime: "07:00", EndTime: "14:00", OwnerPct: 60, BaristaPoolPct: 40, IsActive: true}).Error; err != nil {
+		t.Fatalf("seed shift config: %v", err)
+	}
 }
 
 func TestSchedule_DuplicateRejected(t *testing.T) {
@@ -72,3 +78,63 @@ func TestAttendance_ApproveAntiDouble(t *testing.T) {
 		t.Errorf("approve ganda harus ditolak")
 	}
 }
+
+// TestSchedule_QuickSetDay menguji penetapan cepat jadwal: P, M, P+M, Libur, dan Clear.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestSchedule_QuickSetDay(t *testing.T) {
+	db := setupOpsDB(t)
+	seedBaristaShift(t, db) // Shift 1: Pagi
+	db.Create(&models.ShiftConfig{OutletID: 1, Name: "Malam", StartTime: "14:00", EndTime: "22:00", OwnerPct: 60, BaristaPoolPct: 40, IsActive: true}) // Shift 2: Malam
+	uc := NewScheduleUsecase(db)
+
+	tgl := "2026-10-11"
+
+	// 1. Set multi-shift: P + M
+	if err := uc.QuickSetDay(1, 1, tgl, "shift", []uint{1, 2}, 1, "owner"); err != nil {
+		t.Fatalf("quick set multi-shift: %v", err)
+	}
+	list, err := uc.GetByDate(tgl, 1)
+	if err != nil {
+		t.Fatalf("get by date: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("harus ada 2 jadwal (P+M), didapat %d", len(list))
+	}
+
+	// 2. Ubah menjadi Pagi saja
+	if err := uc.QuickSetDay(1, 1, tgl, "shift", []uint{1}, 1, "owner"); err != nil {
+		t.Fatalf("quick set shift 1: %v", err)
+	}
+	list, _ = uc.GetByDate(tgl, 1)
+	if len(list) != 1 || list[0].ShiftConfigID != 1 {
+		t.Fatalf("harus ada 1 jadwal (Pagi saja), didapat %d", len(list))
+	}
+
+	// 3. Ubah menjadi Malam saja
+	if err := uc.QuickSetDay(1, 1, tgl, "shift", []uint{2}, 1, "owner"); err != nil {
+		t.Fatalf("quick set shift 2: %v", err)
+	}
+	list, _ = uc.GetByDate(tgl, 1)
+	if len(list) != 1 || list[0].ShiftConfigID != 2 {
+		t.Fatalf("harus ada 1 jadwal (Malam saja), didapat %d", len(list))
+	}
+
+	// 4. Ubah menjadi Libur
+	if err := uc.QuickSetDay(1, 1, tgl, "libur", nil, 1, "owner"); err != nil {
+		t.Fatalf("quick set libur: %v", err)
+	}
+	list, _ = uc.GetByDate(tgl, 1)
+	if len(list) == 0 || list[0].Status != "libur" {
+		t.Fatalf("harus berstatus libur, didapat %+v", list)
+	}
+
+	// 5. Clear (hapus jadwal)
+	if err := uc.QuickSetDay(1, 1, tgl, "clear", nil, 1, "owner"); err != nil {
+		t.Fatalf("quick set clear: %v", err)
+	}
+	list, _ = uc.GetByDate(tgl, 1)
+	if len(list) != 0 {
+		t.Fatalf("jadwal harus kosong setelah clear, didapat %d", len(list))
+	}
+}
+

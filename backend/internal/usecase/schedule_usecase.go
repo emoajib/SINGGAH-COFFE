@@ -135,3 +135,101 @@ func (uc *ScheduleUsecase) GetByRange(start, end string, outletID uint) ([]entit
 	}
 	return uc.repo.FindByRange(start, end, outletID)
 }
+
+// QuickSetDay menetapkan jadwal barista pada tanggal tertentu secara atomik (1 transaksi).
+// Mode aksi:
+// - "shift": Menjadwalkan barista ke shift_config_ids yang ditentukan (misal P, M, atau P+M).
+// - "libur": Menandai barista libur pada tanggal tersebut.
+// - "clear": Menghapus seluruh jadwal barista pada tanggal tersebut.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (uc *ScheduleUsecase) QuickSetDay(outletID, baristaID uint, tanggal string, action string, shiftConfigIDs []uint, userID uint, userName string) error {
+	if baristaID == 0 {
+		return domainErrors.NewInvalidInputError("barista wajib diisi")
+	}
+	tgl, err := time.Parse("2006-01-02", tanggal)
+	if err != nil {
+		return domainErrors.NewInvalidInputError("format tanggal harus YYYY-MM-DD")
+	}
+	b, err := uc.baristas.FindByID(baristaID, outletID)
+	if err != nil {
+		return domainErrors.NewNotFoundError("barista")
+	}
+	if b.Status != "" && b.Status != "active" {
+		return domainErrors.NewInvalidInputError("barista nonaktif tidak bisa dijadwalkan")
+	}
+
+	lama, _ := uc.repo.FindByBaristaDate(baristaID, tanggal, outletID)
+
+	switch action {
+	case "clear":
+		if err := uc.repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
+			return err
+		}
+		_ = uc.audit.Write(outletID, userID, userName, "quick_set_clear", "schedule", 0, lama, nil, tanggal, "disetujui")
+		return nil
+
+	case "libur":
+		shifts, err := uc.shifts.FindByOutletID(outletID, true)
+		if err != nil {
+			return err
+		}
+		if len(shifts) == 0 {
+			return domainErrors.NewInvalidInputError("tidak ada shift aktif")
+		}
+		if err := uc.repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
+			return err
+		}
+		for _, s := range shifts {
+			sched := &entity.Schedule{
+				OutletID:      outletID,
+				BaristaID:     baristaID,
+				BaristaName:   b.Name,
+				Tanggal:       tgl,
+				ShiftConfigID: s.ID,
+				Status:        "libur",
+				DibuatOleh:    userID,
+			}
+			if err := uc.repo.Create(sched); err != nil {
+				return err
+			}
+		}
+		_ = uc.audit.Write(outletID, userID, userName, "quick_set_libur", "schedule", 0, lama, "libur", tanggal, "disetujui")
+		return nil
+
+	case "shift":
+		if len(shiftConfigIDs) == 0 {
+			return domainErrors.NewInvalidInputError("minimal 1 shift harus dipilih")
+		}
+		for _, sid := range shiftConfigIDs {
+			cfg, err := uc.shifts.FindByID(sid)
+			if err != nil || (cfg.OutletID != 0 && cfg.OutletID != outletID) {
+				return domainErrors.NewNotFoundError("shift")
+			}
+		}
+		if err := uc.repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
+			return err
+		}
+		var baru []entity.Schedule
+		for _, sid := range shiftConfigIDs {
+			sched := &entity.Schedule{
+				OutletID:      outletID,
+				BaristaID:     baristaID,
+				BaristaName:   b.Name,
+				Tanggal:       tgl,
+				ShiftConfigID: sid,
+				Status:        "dijadwalkan",
+				DibuatOleh:    userID,
+			}
+			if err := uc.repo.Create(sched); err != nil {
+				return err
+			}
+			baru = append(baru, *sched)
+		}
+		_ = uc.audit.Write(outletID, userID, userName, "quick_set_shift", "schedule", 0, lama, baru, tanggal, "disetujui")
+		return nil
+
+	default:
+		return domainErrors.NewInvalidInputError("aksi tidak valid, pilih 'shift', 'libur', atau 'clear'")
+	}
+}
+

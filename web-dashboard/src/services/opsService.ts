@@ -30,6 +30,11 @@ export const OpsService = {
     const { data } = await api.post('/schedules/generate', { bulan, status, libur_akhir_pekan: liburAkhirPekan, terapkan_request: terapkanRequest })
     return data
   },
+  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+  quickSetSchedule: async (body: { barista_id: number; tanggal: string; action: 'shift' | 'libur' | 'clear'; shift_config_ids?: number[] }): Promise<{ message: string }> => {
+    const { data } = await api.post<{ message: string }>('/schedules/quick-set', body)
+    return data
+  },
   recordAttendance: async (body: { schedule_id?: number; shift_instance_id: number; barista_id: number; barista_name?: string; status: string; alasan?: string }): Promise<Attendance> => {
     const { data } = await api.post<Attendance>('/attendances', body)
     return data

@@ -19,23 +19,20 @@ export function ScheduleRosterTab({ configs, outletName, userName }: { configs: 
   const list = (baristas || []).filter((b: { status: string }) => showInactive || b.status === "active")
   const monthRows = (rows || []).filter((r) => (r.tanggal || "").slice(0, 7) === bulan)
 
-  const cycleCell = async (baristaId: number, tanggal: string, _currentId: number | null) => {
+  const handleQuickSet = async (
+    baristaId: number,
+    tanggal: string,
+    action: "shift" | "libur" | "clear",
+    shiftConfigIds?: number[]
+  ) => {
     setMsg("")
     try {
-      const items = monthRows.filter((r) => r.barista_id === baristaId && (r.tanggal || "").slice(0, 10) === tanggal)
-      if (items.length === 0) {
-        for (const c of configs.filter((x) => x.is_active)) {
-          await OpsService.createSchedule({ barista_id: baristaId, tanggal, shift_config_id: c.id, status: "dijadwalkan" })
-        }
-      } else if (items.some((x) => x.status === "dijadwalkan")) {
-        for (const it of items) {
-          await OpsService.updateSchedule(it.id, { barista_id: it.barista_id, tanggal: (it.tanggal || "").slice(0, 10), shift_config_id: it.shift_config_id, status: "libur" })
-        }
-      } else {
-        for (const it of items) {
-          await OpsService.deleteSchedule(it.id)
-        }
-      }
+      await OpsService.quickSetSchedule({
+        barista_id: baristaId,
+        tanggal,
+        action,
+        shift_config_ids: shiftConfigIds,
+      })
       qc.invalidateQueries({ queryKey: ["schedulesMonth"] })
       qc.invalidateQueries({ queryKey: ["schedules"] })
     } catch (e) {
@@ -74,7 +71,7 @@ export function ScheduleRosterTab({ configs, outletName, userName }: { configs: 
           configs={configs}
           baristas={list.map((b: { id: number; name: string }) => ({ id: b.id, name: b.name }))}
           showInactive={showInactive}
-          onCycleCell={cycleCell}
+          onQuickSet={handleQuickSet}
         />
       )}
     </div>

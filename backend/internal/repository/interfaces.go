@@ -350,6 +350,7 @@ type ScheduleRepository interface {
 	Create(s *entity.Schedule) error
 	Update(s *entity.Schedule) error
 	Delete(id uint, outletID uint) error
+	DeleteByBaristaDate(baristaID uint, tanggal string, outletID uint) error
 	FindByID(id uint, outletID uint) (*entity.Schedule, error)
 	FindByDate(tanggal string, outletID uint) ([]entity.Schedule, error)
 	FindByRange(start, end string, outletID uint) ([]entity.Schedule, error)

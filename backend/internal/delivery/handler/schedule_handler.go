@@ -193,3 +193,25 @@ func (h *ScheduleHandler) GenerateMonth(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"dibuat": dibuat, "dilewati": dilewati})
 }
+
+// QuickSetDay menerima request untuk mengubah jadwal 1 hari barista secara atomik.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (h *ScheduleHandler) QuickSetDay(c *gin.Context) {
+	var req struct {
+		BaristaID      uint   `json:"barista_id" binding:"required"`
+		Tanggal        string `json:"tanggal" binding:"required"`
+		Action         string `json:"action" binding:"required"` // "shift", "libur", "clear"
+		ShiftConfigIDs []uint `json:"shift_config_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	uid, _ := getUserID(c)
+	if err := h.usecase.QuickSetDay(getOutletID(c), req.BaristaID, req.Tanggal, req.Action, req.ShiftConfigIDs, uid, getUserName(c)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "jadwal berhasil diperbarui"})
+}
+

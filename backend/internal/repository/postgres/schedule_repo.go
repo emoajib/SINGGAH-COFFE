@@ -40,6 +40,16 @@ func (r *scheduleRepository) Delete(id uint, outletID uint) error {
 	return r.db.Where("id = ? AND outlet_id = ?", id, outletID).Delete(&models.Schedule{}).Error
 }
 
+// DeleteByBaristaDate menghapus jadwal barista pada tanggal tertentu (dipakai saat quick-set / reset jadwal).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *scheduleRepository) DeleteByBaristaDate(baristaID uint, tanggal string, outletID uint) error {
+	q := r.db.Where("barista_id = ? AND DATE(tanggal) = DATE(?)", baristaID, tanggal)
+	if outletID > 0 {
+		q = q.Where("outlet_id = ?", outletID)
+	}
+	return q.Delete(&models.Schedule{}).Error
+}
+
 func (r *scheduleRepository) FindByID(id uint, outletID uint) (*entity.Schedule, error) {
 	var m models.Schedule
 	q := r.db.Where("id = ?", id)
