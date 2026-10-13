@@ -257,6 +257,10 @@ func Connect(cfg config.Config) *gorm.DB {
 		db.Create(&models.Setting{Key: "self_order_enabled", Value: "true", SettingGroup: "general"})
 	}
 
+	// Backfill: reference kosong (entri manual lama) diberi label unik per baris
+	// agar index unik reference bisa dipasang. Tanpa data loss (hanya pelabelan).
+	_ = db.Exec("UPDATE cash_books SET reference = CONCAT('manual:', id) WHERE reference = '' OR reference IS NULL")
+
 	// Anti kas ganda: unique index reference Buku Kas (idempotency EnsureOrderIncome/Sync).
 	// Aman diulang (Cek information_schema dulu untuk MySQL < 8.0).
 	var cbIdxCount int64

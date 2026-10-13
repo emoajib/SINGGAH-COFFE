@@ -3,6 +3,7 @@ package usecase
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -62,6 +63,10 @@ func (uc *CashBookUsecase) Create(c *entity.CashBook, outletID ...uint) (*entity
 	}
 	if len(outletID) > 0 {
 		c.OutletID = outletID[0]
+	}
+	// Reference kosong dilarang (index unik): entri manual dapat ref server-generated.
+	if strings.TrimSpace(c.Reference) == "" {
+		c.Reference = fmt.Sprintf("manual:%d-%d", time.Now().UnixNano(), c.CreatedBy)
 	}
 	if err := uc.cashBookRepo.Create(c); err != nil {
 		return nil, err
