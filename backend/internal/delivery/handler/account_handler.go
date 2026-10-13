@@ -42,7 +42,7 @@ func (h *AccountHandler) GetAccount(c *gin.Context) {
 		return
 	}
 
-	account, err := h.accountUsecase.GetByID(uint(id))
+	account, err := h.accountUsecase.GetByID(uint(id), getOutletID(c))
 	if err != nil {
 		log.Printf("[ERROR] GetAccount failed: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Account not found"})
@@ -117,7 +117,7 @@ func (h *AccountHandler) DeleteAccount(c *gin.Context) {
 		return
 	}
 
-	if err := h.accountUsecase.Delete(uint(id)); err != nil {
+	if err := h.accountUsecase.Delete(uint(id), getOutletID(c)); err != nil {
 		log.Printf("[ERROR] DeleteAccount failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

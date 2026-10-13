@@ -39,6 +39,28 @@ func (r *shiftInstanceRepository) Update(s *entity.ShiftInstance) error {
 		}).Error
 }
 
+// UpdateStatusIfActive menutup shift hanya jika masih aktif (anti double-close).
+func (r *shiftInstanceRepository) UpdateStatusIfActive(id, outletID uint, s *entity.ShiftInstance) error {
+	m := toModelShiftInstance(s)
+	res := r.db.Model(&models.ShiftInstance{}).Where("id = ? AND outlet_id = ? AND status = ?", id, outletID, "aktif").
+		Updates(map[string]interface{}{
+			"jam_mulai_aktual": m.JamMulaiAktual, "jam_selesai_aktual": m.JamSelesaiAktual,
+			"status": m.Status, "revenue": m.Revenue, "hpp": m.HPP,
+			"biaya_langsung": m.BiayaLangsung, "biaya_alokasi": m.BiayaAlokasi,
+			"dasar_bagi_hasil": m.DasarBagiHasil, "owner_share": m.OwnerShare,
+			"pool_barista": m.PoolBarista, "sisa_kas": m.SisaKas,
+			"catatan": m.Catatan, "penanggung_jawab": m.PenanggungJawab,
+			"updated_at": time.Now(),
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *shiftInstanceRepository) FindByID(id uint, outletID uint) (*entity.ShiftInstance, error) {
 	var m models.ShiftInstance
 	q := r.db.Where("id = ?", id)

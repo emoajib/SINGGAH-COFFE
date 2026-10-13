@@ -60,7 +60,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 		api.GET("/health", healthHandler)
 
 		// Public Routes
-		api.POST("/auth/login", middleware.LoginRateLimiter(), h.Auth.Login)
+		api.POST("/auth/login", middleware.RequestBodySizeLimiter(8*1024), middleware.LoginRateLimiter(), h.Auth.Login)
 		api.POST("/webhooks/xendit", middleware.WebhookRateLimiter(), h.Webhook.HandleXenditWebhook)
 		api.GET("/branding", h.Settings.GetBranding)
 		// Public Loyalty Card & Customer Feedback (QR scan pelanggan) - Vetted by AI

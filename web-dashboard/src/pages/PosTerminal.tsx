@@ -256,7 +256,7 @@ const PosTerminal: React.FC = () => {
     };
 
     const handleCheckout = async (method: string) => {
-        if (cart.length === 0) return;
+        if (cart.length === 0 || loading || createOrder.isPending) return;
         setLoading(true);
         try {
             const orderData = {
@@ -667,14 +667,14 @@ const PosTerminal: React.FC = () => {
                         </button>
                         <button
                             onClick={() => handleCheckout('QRIS')}
-                            disabled={cart.length === 0}
+                            disabled={cart.length === 0 || loading || createOrder.isPending}
                             className="py-2.5 px-2 bg-amber-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-amber-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-amber-900/20 flex items-center justify-center gap-1.5"
                         >
                             <CreditCard size={15} /> QRIS
                         </button>
                         <button
                             onClick={() => handleCheckout('Unpaid')}
-                            disabled={cart.length === 0}
+                            disabled={cart.length === 0 || loading || createOrder.isPending}
                             className="py-2.5 px-2 bg-amber-50 text-amber-900 border border-amber-300 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-amber-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-xs flex items-center justify-center gap-1.5"
                             title="Kirim pesanan ke dapur/barista untuk diracik, bayar nanti saat pelanggan minta bill"
                         >

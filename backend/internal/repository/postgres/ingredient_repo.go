@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"fmt"
 	"math"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -99,6 +100,44 @@ func (r *ingredientRepository) UpdateStockAtomicByLocation(id uint, delta float6
 		expr = gorm.Expr(col+" + ?", absDelta)
 	}
 	return r.db.Model(&models.Ingredient{}).Where("id = ?", id).UpdateColumn(col, expr).Error
+}
+
+// UpdateStockAtomicGuarded menolak sub yang membuat current_stock negatif.
+func (r *ingredientRepository) UpdateStockAtomicGuarded(id uint, delta float64, operator string) error {
+	absDelta := math.Abs(delta)
+	if operator != "sub" {
+		return r.UpdateStockAtomic(id, absDelta, operator)
+	}
+	res := r.db.Model(&models.Ingredient{}).Where("id = ? AND current_stock >= ?", id, absDelta).
+		UpdateColumn("current_stock", gorm.Expr("current_stock - ?", absDelta))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("stok bahan tidak cukup")
+	}
+	return nil
+}
+
+// UpdateStockAtomicByLocationGuarded menolak sub yang membuat stok lokasi negatif.
+func (r *ingredientRepository) UpdateStockAtomicByLocationGuarded(id uint, delta float64, operator string, location string) error {
+	col := "kedai_stock"
+	if location == "warehouse" {
+		col = "warehouse_stock"
+	}
+	absDelta := math.Abs(delta)
+	if operator != "sub" {
+		return r.UpdateStockAtomicByLocation(id, absDelta, operator, location)
+	}
+	res := r.db.Model(&models.Ingredient{}).Where("id = ? AND "+col+" >= ?", id, absDelta).
+		UpdateColumn(col, gorm.Expr(col+" - ?", absDelta))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("stok %s tidak cukup", location)
+	}
+	return nil
 }
 
 func (r *ingredientRepository) UpdateCostPerUnit(id uint, cost float64) error {

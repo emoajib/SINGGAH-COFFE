@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"fmt"
 	"math"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -50,6 +51,23 @@ func (r *productRepository) UpdateStockAtomic(id uint, delta float64, operator s
 		expr = gorm.Expr("stock - ?", absDelta)
 	}
 	return r.db.Model(&models.Product{}).Where("id = ?", id).UpdateColumn("stock", expr).Error
+}
+
+// UpdateStockAtomicGuarded menolak sub yang membuat stock negatif.
+func (r *productRepository) UpdateStockAtomicGuarded(id uint, delta float64, operator string) error {
+	absDelta := int(math.Abs(delta))
+	if operator != "sub" {
+		return r.UpdateStockAtomic(id, delta, operator)
+	}
+	res := r.db.Model(&models.Product{}).Where("id = ? AND stock >= ?", id, absDelta).
+		UpdateColumn("stock", gorm.Expr("stock - ?", absDelta))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("stok produk tidak cukup")
+	}
+	return nil
 }
 
 func (r *productRepository) FindAll(limit, offset int) ([]entity.Product, error) {

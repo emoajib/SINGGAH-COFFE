@@ -28,6 +28,7 @@ type ProductRepository interface {
 	Create(product *entity.Product) error
 	Update(product *entity.Product) error
 	UpdateStockAtomic(id uint, delta float64, operator string) error
+	UpdateStockAtomicGuarded(id uint, delta float64, operator string) error
 	Delete(id uint) error
 	DeleteRecipeByProductID(productID uint) error
 	CreateRecipeItems(items []entity.RecipeItem) error
@@ -46,6 +47,7 @@ type IngredientRepository interface {
 	// UpdateStockAtomicByLocation updates warehouse_stock or kedai_stock based on location.
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	UpdateStockAtomicByLocation(id uint, delta float64, operator string, location string) error
+	UpdateStockAtomicByLocationGuarded(id uint, delta float64, operator string, location string) error
 	UpdateCostPerUnit(id uint, cost float64) error
 	Delete(id uint) error
 	CountLowStock(outletID ...uint) (int64, error)
@@ -214,6 +216,8 @@ type CashBookRepository interface {
 	DeleteByReference(ref string, outletID ...uint) (int64, error)
 	ExistsByProfitSharingPeriod(periodID uint, outletID ...uint) (bool, error)
 	DeleteByProfitSharingPeriod(periodID uint, outletID ...uint) (int64, error)
+	// SumCashOutForShift menjumlahkan pengeluaran Cash selama shift (untuk ekspektasi laci).
+	SumCashOutForShift(cashierName string, openedAt, closedAt time.Time, outletID ...uint) (float64, error)
 }
 
 type ProfitSharingPersonRepository interface {
@@ -253,11 +257,11 @@ type BaristaRepository interface {
 // AccountRepository defines data access for PSAK Chart of Accounts
 type AccountRepository interface {
 	FindAll(outletID ...uint) ([]entity.Account, error)
-	FindByID(id uint) (*entity.Account, error)
+	FindByID(id uint, outletID ...uint) (*entity.Account, error)
 	FindByCode(code string, outletID ...uint) (*entity.Account, error)
 	Create(account *entity.Account) error
 	Update(account *entity.Account) error
-	Delete(id uint) error
+	Delete(id uint, outletID ...uint) error
 	CountByCode(code string, outletID ...uint) (int64, error)
 }
 
@@ -335,11 +339,11 @@ type FeedbackRepository interface {
 // ShiftConfigRepository defines data access for multi-shift profit sharing configurations
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 type ShiftConfigRepository interface {
-	FindByID(id uint) (*entity.ShiftConfig, error)
+	FindByID(id uint, outletID ...uint) (*entity.ShiftConfig, error)
 	FindByOutletID(outletID uint, activeOnly bool) ([]entity.ShiftConfig, error)
 	Create(shift *entity.ShiftConfig) error
 	Update(shift *entity.ShiftConfig) error
-	Delete(id uint) error
+	Delete(id uint, outletID ...uint) error
 	// CountPeopleByShiftID menghitung barista yang mereferensikan shift ini
 	// di kolom JSON shift_ids (format "[1,2]"). Dipakai sebagai guard hapus.
 	CountPeopleByShiftID(shiftID uint) (int64, error)
@@ -373,6 +377,7 @@ type AttendanceRepository interface {
 type ShiftInstanceRepository interface {
 	Create(s *entity.ShiftInstance) error
 	Update(s *entity.ShiftInstance) error
+	UpdateStatusIfActive(id, outletID uint, s *entity.ShiftInstance) error
 	FindByID(id uint, outletID uint) (*entity.ShiftInstance, error)
 	FindByOutletDate(outletID uint, tanggal string) ([]entity.ShiftInstance, error)
 	FindOpen(outletID uint) ([]entity.ShiftInstance, error)

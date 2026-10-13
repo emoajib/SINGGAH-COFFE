@@ -3,6 +3,8 @@ package usecase
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -31,6 +33,10 @@ func NewCashbonUsecase(db *gorm.DB) *CashbonUsecase {
 
 func cashbonRef(cashbonID uint) string {
 	return fmt.Sprintf("cashbon:%d", cashbonID)
+}
+
+func parseCashbonLimit(v string) (float64, error) {
+	return strconv.ParseFloat(strings.TrimSpace(v), 64)
 }
 
 func syncCashbonToCashBook(cashBookRepo repository.CashBookRepository, c *entity.BaristaCashbon) {
@@ -69,6 +75,37 @@ func (uc *CashbonUsecase) Create(c *entity.BaristaCashbon, outletID uint) (*enti
 	}
 	if c.Amount <= 0 {
 		return nil, domainErrors.NewInvalidInputError("nominal kasbon harus lebih dari 0")
+	}
+	// Plafon via setting (default: 500rb/request, 2jt outstanding).
+	maxReq := 500000.0
+	maxOut := 2000000.0
+	if uc.db != nil {
+		settingRepo := postgres.NewSettingRepository(uc.db)
+		if s, err := settingRepo.FindByKey("cashbon_max_per_request"); err == nil && s != nil {
+			if v, pe := parseCashbonLimit(s.Value); pe == nil && v > 0 {
+				maxReq = v
+			}
+		}
+		if s, err := settingRepo.FindByKey("cashbon_max_outstanding"); err == nil && s != nil {
+			if v, pe := parseCashbonLimit(s.Value); pe == nil && v > 0 {
+				maxOut = v
+			}
+		}
+	}
+	if c.Amount > maxReq {
+		return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("nominal kasbon melebihi plafon Rp %.0f per pengajuan", maxReq))
+	}
+	pendings, err := uc.cashbonRepo.FindByOutlet(outletID, "pending")
+	if err == nil {
+		var outstanding float64
+		for _, p := range pendings {
+			if p.BaristaName == c.BaristaName {
+				outstanding += p.Amount
+			}
+		}
+		if outstanding+c.Amount > maxOut {
+			return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("total kasbon pending %s (Rp %.0f) melebihi plafon Rp %.0f", c.BaristaName, outstanding+c.Amount, maxOut))
+		}
 	}
 	if c.CashbonDate.IsZero() {
 		c.CashbonDate = time.Now()

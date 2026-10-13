@@ -253,12 +253,20 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 	}
 
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-	// Konsolidasi kategori pengeluaran: lebur ke 6 kategori standar baku
+	// Konsolidasi kategori pengeluaran: lebur ke 6 kategori standar baku.
+	// Pembelian Bahan Baku (HPP) dikecualikan dari beban P&L karena HPP sudah
+	// dihitung via COGS resep terjual (sistem perpetual); pembelian menambah
+	// persediaan, bukan beban. Konsisten dengan BEP & profit sharing.
 	consolidatedExpenses := make(map[string]float64)
 	var expenseCatOrder []string
 	var totalExpenses float64
+	var inventoryPurchases float64
 	for _, e := range expenses {
 		cat := NormalizeCategory(e.Category)
+		if cat == "Bahan Baku (HPP)" {
+			inventoryPurchases += e.Amount
+			continue
+		}
 		if _, exists := consolidatedExpenses[cat]; !exists {
 			expenseCatOrder = append(expenseCatOrder, cat)
 		}
@@ -315,6 +323,7 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 		GrossProfit:      grossProfit,
 		Expenses:         mergedExpenses,
 		TotalExpenses:    totalExpenses,
+		InventoryPurchases: inventoryPurchases,
 		NetProfit:        netProfit,
 		CashBookIncome:   cbIncome,
 		CashBookExpense:  cbExpense,

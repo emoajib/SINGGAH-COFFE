@@ -8,6 +8,8 @@ type ProfitLossReport struct {
 	GrossProfit      float64            `json:"gross_profit"`
 	Expenses         []ExpenseDetail    `json:"expenses"`
 	TotalExpenses    float64            `json:"total_expenses"`
+	// InventoryPurchases = pembelian bahan baku periode ini (non-P&L, menambah persediaan).
+	InventoryPurchases float64          `json:"inventory_purchases"`
 	NetProfit        float64            `json:"net_profit"`
 	CashBookIncome   float64            `json:"cash_book_income"`
 	CashBookExpense  float64            `json:"cash_book_expense"`

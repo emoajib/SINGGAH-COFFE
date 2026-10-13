@@ -240,6 +240,12 @@ func (uc *LoyaltyUsecase) RedeemReward(customerID, programID, cashierID uint, re
 		loyaltyRepoTx := postgres.NewLoyaltyRepository(tx)
 		expenseRepoTx := postgres.NewExpenseRepository(tx)
 
+		// Hitung ulang di dalam tx (anti TOCTOU redeem konkuren).
+		inside, err := loyaltyRepoTx.CountActiveStamps(customerID, programID)
+		if err != nil || inside < thresh {
+			return domainErrors.NewInvalidInputError(fmt.Sprintf("stempel belum cukup (%d/%d)", inside, thresh))
+		}
+
 		now := time.Now()
 		var expenseID uint = 0
 
@@ -280,7 +286,10 @@ func (uc *LoyaltyUsecase) RedeemReward(customerID, programID, cashierID uint, re
 		}
 
 		// Reset stempel pelanggan sebanyak threshold (1 order = 1 stempel, kembali ke 0)
-		return loyaltyRepoTx.MarkStampsUsed(customerID, programID, red.ID, thresh)
+		if err := loyaltyRepoTx.MarkStampsUsed(customerID, programID, red.ID, thresh); err != nil {
+			return domainErrors.NewInvalidInputError("stempel sudah dipakai transaksi lain, coba lagi")
+		}
+		return nil
 	})
 
 	if err != nil {

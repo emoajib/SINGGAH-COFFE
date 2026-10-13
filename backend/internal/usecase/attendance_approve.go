@@ -47,11 +47,24 @@ func (uc *AttendanceUsecase) Approve(id, outletID, approverID uint, approverName
 	return nil
 }
 
-// Reject menolak kehadiran luar-jadwal dengan alasan tercatat.
+// Reject menolak kehadiran luar-jadwal dengan alasan tercatat (atomic FOR UPDATE, anti race dengan Approve).
 func (uc *AttendanceUsecase) Reject(id, outletID, approverID uint, approverName, alasan string) error {
-	a, err := uc.repo.FindByID(id, outletID)
+	tx := uc.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			tx.Rollback()
+		}
+	}()
+	a, err := uc.repo.FindByIDForUpdate(id, tx)
 	if err != nil {
 		return domainErrors.NewNotFoundError("kehadiran")
+	}
+	if a.OutletID != outletID {
+		return domainErrors.NewUnauthorizedError("tidak punya akses ke catatan ini")
 	}
 	if a.Disahkan {
 		return domainErrors.NewInvalidInputError("kehadiran yang sudah disahkan tidak bisa ditolak")
@@ -59,11 +72,17 @@ func (uc *AttendanceUsecase) Reject(id, outletID, approverID uint, approverName,
 	if alasan == "" {
 		return domainErrors.NewInvalidInputError("alasan penolakan wajib diisi")
 	}
-	a.Status = "ditolak"
-	a.Alasan = a.Alasan + " | penolakan: " + alasan
-	if err := uc.repo.Update(a); err != nil {
+	now := time.Now()
+	if err := tx.Model(&models.Attendance{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"status": "ditolak", "alasan": a.Alasan + " | penolakan: " + alasan,
+		"updated_at": now,
+	}).Error; err != nil {
 		return err
 	}
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	committed = true
 	_ = uc.audit.Write(outletID, approverID, approverName, "reject", "attendance", id, "menunggu_verifikasi", "ditolak", alasan, "disetujui")
 	return nil
 }

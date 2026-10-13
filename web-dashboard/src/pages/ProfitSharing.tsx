@@ -90,12 +90,22 @@ function AttendanceBadge({ person, pad }: { person: ProfitSharingPerson; pad: st
   return <span className={`text-[11px] ${pad} rounded bg-emerald-100 text-emerald-800 font-semibold`}>Hadir Penuh</span>
 }
 
+// Util anti-XSS & anti-CSV-injection untuk cetak/ekspor (nama barista bebas input).
+const escapeHtml = (s: unknown) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+const csvCell = (v: unknown) => {
+  let s = String(v ?? '')
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s
+  return `"${s.replace(/"/g, '""')}"`
+}
+
 // D5: ekspor CSV rekap periode (client-side, tanpa endpoint baru).
 const exportPreviewCSV = (preview: ProfitSharingPreview) => {
   const c = preview.calculation
   const lines = ["nama,role,bruto,potong_kasbon,sisa_kasbon,bersih"]
   for (const p of c.people || []) {
-    lines.push([p.name, p.role, p.gross_amount ?? 0, p.cashbon_reduction ?? 0, p.remaining_balance ?? 0, p.amount].join(","))
+    lines.push([csvCell(p.name), csvCell(p.role), p.gross_amount ?? 0, p.cashbon_reduction ?? 0, p.remaining_balance ?? 0, p.amount].join(","))
   }
   lines.push(`sisa_kas_periode,,,${c.sisa_kas ?? 0},,`)
   const blob = new Blob([lines.join("\n")], { type: "text/csv" })
@@ -597,7 +607,7 @@ export default function ProfitSharing() {
         <tr style="${isOwner ? 'background-color: #f0fdf4; font-weight: bold;' : ''}">
           <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center;">${idx + 1}</td>
           <td style="border: 1px solid #cbd5e1; padding: 6px 8px;">
-            ${person.name} <span style="font-size: 8pt; color: #475569; text-transform: uppercase;">(${isOwner ? 'Owner' : 'Barista'})</span>
+            ${escapeHtml(person.name)} <span style="font-size: 8pt; color: #475569; text-transform: uppercase;">(${isOwner ? 'Owner' : 'Barista'})</span>
             ${isOwner && totalBaristaLeaveReductions > 0 ? `<div style="font-size: 7.5pt; color: #0284c7;">+Rp ${formatNumber(totalBaristaLeaveReductions)} (libur barista)</div>` : ''}
             ${isOwner && totalBaristaCashbonReductions > 0 ? `<div style="font-size: 7.5pt; color: #16a34a;">+Rp ${formatNumber(totalBaristaCashbonReductions)} (pemulihan kasbon barista)</div>` : ''}
           </td>
@@ -624,8 +634,8 @@ export default function ProfitSharing() {
           <tr>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center;">${idx + 1}</td>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${c.cashbon_date || '-'}</td>
-            <td style="border: 1px solid #cbd5e1; padding: 5px 8px; font-weight: bold;">${c.barista_name}</td>
-            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${c.reason || 'Kasbon Pribadi Barista'}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px; font-weight: bold;">${escapeHtml(c.barista_name)}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${escapeHtml(c.reason || 'Kasbon Pribadi Barista')}</td>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center;">${c.payment_method || 'Cash'}</td>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: right; color: #dc2626; font-weight: bold;">Rp ${formatNumber(c.amount)}</td>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center; color: #16a34a; font-weight: bold;">Lunas Terpotong</td>
@@ -641,8 +651,8 @@ export default function ProfitSharing() {
           <tr>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center;">${i + 1}</td>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${exp.date || '-'}</td>
-            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${exp.title || exp.category}</td>
-            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${exp.category || '-'}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${escapeHtml(exp.title || exp.category)}</td>
+            <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${escapeHtml(exp.category || '-')}</td>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px;">${exp.payment_method || 'Cash'}</td>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: right;">Rp ${formatNumber(exp.amount || 0)}</td>
             <td style="border: 1px solid #cbd5e1; padding: 5px 8px; text-align: center; font-size: 8pt;">${isGross ? 'Non-Potong (Ditanggung Owner)' : 'Memotong Laba'}</td>
@@ -660,7 +670,7 @@ export default function ProfitSharing() {
           ${b.cashbon_reduction && b.cashbon_reduction > 0 ? `<div style="font-size: 7.5pt; color: #dc2626;">(Kasbon: -Rp ${formatNumber(b.cashbon_reduction)})</div>` : ''}
           <div style="height: 50px;"></div>
           <div style="border-top: 1px solid #0f172a; font-weight: bold; font-size: 9pt; padding-top: 4px;">
-            ( ${b.name} )
+            ( ${escapeHtml(b.name)} )
           </div>
           <div style="font-size: 8pt; color: #64748b; margin-top: 2px;">Tgl: ________________</div>
         </div>

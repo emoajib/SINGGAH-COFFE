@@ -31,9 +31,13 @@ func (r *shiftConfigRepository) Create(s *entity.ShiftConfig) error {
 	return nil
 }
 
-func (r *shiftConfigRepository) FindByID(id uint) (*entity.ShiftConfig, error) {
+func (r *shiftConfigRepository) FindByID(id uint, outletID ...uint) (*entity.ShiftConfig, error) {
 	var m models.ShiftConfig
-	if err := r.db.Where("id = ?", id).First(&m).Error; err != nil {
+	tx := r.db.Where("id = ?", id)
+	if len(outletID) > 0 && outletID[0] > 0 {
+		tx = tx.Where("outlet_id = ?", outletID[0])
+	}
+	if err := tx.First(&m).Error; err != nil {
 		return nil, err
 	}
 	res := toDomainShiftConfig(&m)
@@ -61,7 +65,11 @@ func (r *shiftConfigRepository) FindByOutletID(outletID uint, activeOnly bool) (
 
 func (r *shiftConfigRepository) Update(s *entity.ShiftConfig) error {
 	m := toModelShiftConfig(s)
-	return r.db.Model(&models.ShiftConfig{}).Where("id = ?", s.ID).Updates(map[string]interface{}{
+	tx := r.db.Model(&models.ShiftConfig{}).Where("id = ?", s.ID)
+	if s.OutletID > 0 {
+		tx = tx.Where("outlet_id = ?", s.OutletID)
+	}
+	res := tx.Updates(map[string]interface{}{
 		"name":             m.Name,
 		"kode":             m.Kode,
 		"start_time":       m.StartTime,
@@ -71,11 +79,29 @@ func (r *shiftConfigRepository) Update(s *entity.ShiftConfig) error {
 		"is_active":        m.IsActive,
 		"sort_order":       m.SortOrder,
 		"updated_at":       m.UpdatedAt,
-	}).Error
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
-func (r *shiftConfigRepository) Delete(id uint) error {
-	return r.db.Delete(&models.ShiftConfig{}, id).Error
+func (r *shiftConfigRepository) Delete(id uint, outletID ...uint) error {
+	tx := r.db.Where("id = ?", id)
+	if len(outletID) > 0 && outletID[0] > 0 {
+		tx = tx.Where("outlet_id = ?", outletID[0])
+	}
+	res := tx.Delete(&models.ShiftConfig{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // CountPeopleByShiftID menghitung ProfitSharingPerson yang mencantumkan

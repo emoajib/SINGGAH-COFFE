@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"fmt"
+
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/repository"
@@ -62,17 +64,17 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 		webhookRepo := postgres.NewWebhookRepository(tx)
 		orderRepo := postgres.NewOrderRepository(tx)
 
-		// Idempotency check: skip if this webhook ID was already processed
-		existing, _ := webhookRepo.FindByWebhookID(payload.ID)
-		if existing != nil {
-			return nil
-		}
-
-		// Record the processed webhook
-		webhookRepo.Create(&entity.ProcessedWebhook{
+		// Idempotency check: skip if this webhook ID was already processed.
+		// Gunakan insert-first agar race retry bersamaan ditangani unique constraint.
+		if err := webhookRepo.Create(&entity.ProcessedWebhook{
 			WebhookID: payload.ID,
 			Status:    payload.Status,
-		})
+		}); err != nil {
+			// Replay/duplikat: anggap sudah diproses.
+			return nil
+		}
+		existing, _ := webhookRepo.FindByWebhookID(payload.ID)
+		_ = existing
 
 		// Find order by external_id (which maps to OrderNumber)
 		type orderRow struct {
@@ -107,19 +109,19 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 			for _, item := range loadedOrder.OrderItems {
 				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
 				if err != nil {
-					continue
+					return fmt.Errorf("produk ID %d tidak ditemukan: %w", item.ProductID, err)
 				}
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
-						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+						if err := ingredientRepo.UpdateStockAtomicGuarded(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
 							return err
 						}
-						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
+						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err
 						}
-						_ = mutationRepo.Create(&entity.StockMutation{
+						if err := mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
 							Type:         string(entity.MutationOut),
 							Location:     "kedai",
@@ -127,10 +129,12 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 							ReferenceID:  loadedOrder.OrderNumber,
 							Notes:        "QRIS Webhook Payment Confirmed - Sales Deduction",
 							OutletID:     oid,
-						})
+						}); err != nil {
+							return err
+						}
 					}
 				} else {
-					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "sub"); err != nil {
+					if err := productRepo.UpdateStockAtomicGuarded(product.ID, float64(item.Quantity), "sub"); err != nil {
 						return err
 					}
 				}

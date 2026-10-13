@@ -77,7 +77,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 
 	result, err := h.orderUsecase.Create(ucReq, userID, cashierName, getOutletID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process order"})
+		writeDomainError(c, err, "Failed to process order")
 		return
 	}
 
@@ -139,7 +139,7 @@ func (h *OrderHandler) VoidOrder(c *gin.Context) {
 
 	result, err := h.orderUsecase.Void(uint(id), getOutletID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to void order"})
+		writeDomainError(c, err, "Failed to void order")
 		return
 	}
 
@@ -186,7 +186,7 @@ func (h *OrderHandler) CompleteOrder(c *gin.Context) {
 
 	result, err := h.orderUsecase.CompletePaymentWithMethod(uint(id), req.PaymentMethod, getOutletID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to complete order payment: " + err.Error()})
+		writeDomainError(c, err, "Failed to complete order payment")
 		return
 	}
 

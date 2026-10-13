@@ -55,6 +55,7 @@ const Reports: React.FC = () => {
     });
     const [plData, setPlData] = useState<any>(null);
     const [isPlLoading, setIsPlLoading] = useState(false);
+    const [plError, setPlError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchProfitLoss();
@@ -62,11 +63,12 @@ const Reports: React.FC = () => {
 
     const fetchProfitLoss = async () => {
         setIsPlLoading(true);
+        setPlError(null);
         try {
             const res = await api.get('/reports/profit-loss', { params: dateRange });
             setPlData(res.data);
-        } catch (err) {
-            void err;
+        } catch (err: any) {
+            setPlError(err?.response?.data?.error || `Gagal memuat laporan (HTTP ${err?.response?.status || 'network'})`);
         } finally {
             setIsPlLoading(false);
         }
@@ -113,7 +115,15 @@ const Reports: React.FC = () => {
         const res = await fetch(`${baseURL}/reports/profit-loss/export/pdf?${params}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
-        if (!res.ok) return;
+        if (res.status === 401) {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            return;
+        }
+        if (!res.ok) {
+            alert('Gagal mengunduh PDF: HTTP ' + res.status);
+            return;
+        }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -295,7 +305,15 @@ const Reports: React.FC = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="py-20 text-center text-gray-400 no-print">Gagal memuat data laporan keuangan.</div>
+                            <div className="py-20 text-center no-print">
+                                {isPlLoading ? (
+                                    <span className="text-gray-400">Memuat laporan...</span>
+                                ) : plError ? (
+                                    <span className="text-red-600 font-semibold">{plError}</span>
+                                ) : (
+                                    <span className="text-gray-400">Gagal memuat data laporan keuangan.</span>
+                                )}
+                            </div>
                         )}
                     </CardContent>
                 </Card>

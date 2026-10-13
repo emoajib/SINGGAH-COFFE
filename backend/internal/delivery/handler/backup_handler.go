@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +16,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// validBackupName hanya mengizinkan nama file backup yang aman (anti command injection & traversal).
+var validBackupName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\.(sql\.gz|tar\.gz)$`)
+
+func isValidBackupName(name string) bool {
+	return validBackupName.MatchString(name)
+}
 
 type BackupHandler struct {
 	db  *gorm.DB
@@ -207,7 +215,7 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 		return
 	}
 
-	if strings.Contains(req.File, "..") || strings.Contains(req.File, "/") || strings.Contains(req.File, "\\") {
+	if !isValidBackupName(req.File) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid backup filename"})
 		return
 	}
@@ -226,12 +234,31 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		restoreCmd := fmt.Sprintf("gunzip -c %s | mysql -u%s -h%s -P%s %s",
-			srcFile, user, host, port, dbname)
-		cmd := exec.Command("bash", "-c", restoreCmd)
-		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pass)
-		if out, e := cmd.CombinedOutput(); e != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": string(out), "exit": e.Error()})
+		// Tanpa shell: gunzip -c <file> | mysql ... (anti command injection)
+		gz := exec.Command("gunzip", "-c", srcFile)
+		mysqlArgs := []string{fmt.Sprintf("-u%s", user), fmt.Sprintf("-h%s", host), fmt.Sprintf("-P%s", port), dbname}
+		my := exec.Command("mysql", mysqlArgs...)
+		my.Env = append(os.Environ(), "MYSQL_PWD="+pass)
+		pipe, err := gz.StdoutPipe()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed"})
+			return
+		}
+		my.Stdin = pipe
+		var outBuf strings.Builder
+		my.Stdout = &outBuf
+		my.Stderr = &outBuf
+		if err := my.Start(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed"})
+			return
+		}
+		if err := gz.Run(); err != nil {
+			_ = my.Wait()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": outBuf.String()})
+			return
+		}
+		if err := my.Wait(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": outBuf.String(), "exit": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "database restored from " + req.File})
@@ -259,7 +286,7 @@ func (h *BackupHandler) DownloadBackup(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "filename required"})
 		return
 	}
-	if strings.Contains(name, "..") || strings.Contains(name, "/") {
+	if !isValidBackupName(name) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid filename"})
 		return
 	}
@@ -284,11 +311,13 @@ func (h *BackupHandler) UploadBackup(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if strings.Contains(file.Filename, "..") || strings.Contains(file.Filename, "/") {
+	if !isValidBackupName(file.Filename) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid filename"})
 		return
 	}
-	dst := filepath.Join(backupDir, file.Filename)
+	// Simpan dengan nama server-generated agar nama klien tidak dipercaya.
+	safeName := fmt.Sprintf("%s_%s", time.Now().Format("20060102_150405"), file.Filename)
+	dst := filepath.Join(backupDir, safeName)
 	if err := c.SaveUploadedFile(file, dst); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
 		return
@@ -296,7 +325,7 @@ func (h *BackupHandler) UploadBackup(c *gin.Context) {
 	info, _ := os.Stat(dst)
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
-		"file":   file.Filename,
+		"file":   safeName,
 		"size":   formatBytes(info.Size()),
 	})
 }

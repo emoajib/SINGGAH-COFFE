@@ -151,14 +151,20 @@ func (uc *CashRegisterUsecase) CloseCashRegister(userID uint, closingAmount floa
 		return nil, err
 	}
 
-	expectedCash := reg.OpeningAmount + cashSales
+	// Kurangi kas keluar (expense/cashbon Cash) selama shift agar ekspektasi laci akurat.
+	now := time.Now()
+	cashOut, err := postgres.NewCashBookRepository(uc.db).SumCashOutForShift(reg.CashierName, reg.OpenedAt, now, reg.OutletID)
+	if err != nil {
+		return nil, err
+	}
+
+	expectedCash := reg.OpeningAmount + cashSales - cashOut
 	variance := closingAmount - expectedCash
 
 	if err := uc.cashRegisterRepo.Close(userID, closingAmount, expectedCash, variance); err != nil {
 		return nil, err
 	}
 
-	now := time.Now()
 	reg.ClosingAmount = &closingAmount
 	reg.ExpectedCash = expectedCash
 	reg.Variance = variance

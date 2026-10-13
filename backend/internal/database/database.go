@@ -257,6 +257,26 @@ func Connect(cfg config.Config) *gorm.DB {
 		db.Create(&models.Setting{Key: "self_order_enabled", Value: "true", SettingGroup: "general"})
 	}
 
+	// Anti kas ganda: unique index reference Buku Kas (idempotency EnsureOrderIncome/Sync).
+	// Aman diulang (Cek information_schema dulu untuk MySQL < 8.0).
+	var cbIdxCount int64
+	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cash_books' AND INDEX_NAME = 'ux_cash_books_reference'`).Scan(&cbIdxCount)
+	if cbIdxCount == 0 {
+		_ = db.Exec("CREATE UNIQUE INDEX ux_cash_books_reference ON cash_books (reference(191))").Error
+	}
+	// Anti jurnal ganda: unique entry_number.
+	var jeIdxCount int64
+	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'psak_journal_entries' AND INDEX_NAME = 'ux_journal_entry_number'`).Scan(&jeIdxCount)
+	if jeIdxCount == 0 {
+		_ = db.Exec("CREATE UNIQUE INDEX ux_journal_entry_number ON psak_journal_entries (entry_number(191))").Error
+	}
+	// Anti stamp ganda: unique (order_id, program_id).
+	var stIdxCount int64
+	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'loyalty_stamps' AND INDEX_NAME = 'ux_stamps_order_program'`).Scan(&stIdxCount)
+	if stIdxCount == 0 {
+		_ = db.Exec("CREATE UNIQUE INDEX ux_stamps_order_program ON loyalty_stamps (order_id, program_id)").Error
+	}
+
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	// Ensure psak_accounts has hierarchy and contra columns (idempotent / non-blocking)
 	_ = db.Exec("ALTER TABLE psak_accounts ADD COLUMN IF NOT EXISTS level INT NOT NULL DEFAULT 3")

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"fmt"
+	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
@@ -192,6 +193,16 @@ func (r *cashBookRepository) GetOperationalTotalsRange(start, end string, outlet
 		return 0, 0, err
 	}
 	return income, expense, nil
+}
+
+// SumCashOutForShift menjumlahkan pengeluaran Cash selama shift kasir (ekspektasi laci).
+func (r *cashBookRepository) SumCashOutForShift(cashierName string, openedAt, closedAt time.Time, outletID ...uint) (float64, error) {
+	tx := r.db.Model(&models.CashBook{}).
+		Where("type = ? AND method = ? AND date >= ? AND date <= ?", "expense", "Cash", openedAt, closedAt)
+	tx = scopeOutlet(tx, "cash_books", outletID...)
+	var total float64
+	err := tx.Select("COALESCE(SUM(amount), 0)").Row().Scan(&total)
+	return total, err
 }
 
 func toDomainCashBook(m *models.CashBook) *entity.CashBook {

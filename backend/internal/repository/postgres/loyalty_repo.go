@@ -185,12 +185,12 @@ func (r *loyaltyRepository) MarkStampsUsed(customerID, programID, redemptionID u
 		return err
 	}
 
-	if len(stampIDs) == 0 {
-		return nil
+	if len(stampIDs) < count {
+		return gorm.ErrRecordNotFound
 	}
 
 	return r.db.Model(&models.LoyaltyStamp{}).
-		Where("id IN ?", stampIDs).
+		Where("id IN ? AND is_used = ?", stampIDs, false).
 		Updates(map[string]interface{}{
 			"is_used":       true,
 			"redemption_id": redemptionID,

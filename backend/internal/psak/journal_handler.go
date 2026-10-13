@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -487,7 +488,7 @@ func (h *JournalEventHandler) voidOriginalEntry(sourceType string, sourceID uint
 
 // toIDR converts float64 amount to int64 (Rupiah has no fractional unit).
 func toIDR(amount float64) int64 {
-	return int64(amount)
+	return int64(math.Round(amount))
 }
 
 // ─── Investor Journal Handlers ───────────────────────────────────────────────

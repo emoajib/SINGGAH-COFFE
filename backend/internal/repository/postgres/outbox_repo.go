@@ -31,8 +31,8 @@ func (r *outboxRepository) Create(event *entity.EventOutbox) error {
 
 func (r *outboxRepository) FindPending(limit int) ([]entity.EventOutbox, error) {
 	var ms []models.PSAKEventOutbox
-	// Order by `id asc` menggunakan clustered primary key index (paling cepat di InnoDB)
-	if err := r.db.Where("status = ?", "pending").
+	// Ambil pending + failed yang masih boleh retry (max 5x).
+	if err := r.db.Where("status = ? OR (status = ? AND retry_count < ?)", "pending", "failed", 5).
 		Order("id asc").
 		Limit(limit).
 		Find(&ms).Error; err != nil {
@@ -46,9 +46,16 @@ func (r *outboxRepository) FindPending(limit int) ([]entity.EventOutbox, error) 
 }
 
 func (r *outboxRepository) Claim(id uint) error {
-	return r.db.Model(&models.PSAKEventOutbox{}).
-		Where("id = ? AND status = ?", id, "pending").
-		Update("status", "processing").Error
+	res := r.db.Model(&models.PSAKEventOutbox{}).
+		Where("id = ? AND status IN ?", id, []string{"pending", "failed"}).
+		Update("status", "processing")
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (r *outboxRepository) MarkSuccess(id uint) error {

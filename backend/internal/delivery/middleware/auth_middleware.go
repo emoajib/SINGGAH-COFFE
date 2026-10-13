@@ -36,9 +36,19 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		outletID := claims.OutletID
+		// Re-validasi role/outlet ke DB agar demote/mutasi/pecat berlaku segera
+		// (klaim JWT 24 jam bersifat stale).
+		var dbUser models.User
+		if err := db.Select("id, role, outlet_id").First(&dbUser, claims.UserID).Error; err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			c.Abort()
+			return
+		}
 
-		if claims.Role == "owner" {
+		outletID := dbUser.OutletID
+		role := dbUser.Role
+
+		if role == "owner" {
 			headerOutlet := c.GetHeader("X-Outlet-ID")
 			if headerOutlet != "" {
 				parsedID, err := strconv.ParseUint(strings.TrimSpace(headerOutlet), 10, 64)
@@ -56,19 +66,15 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 				outletID = uint(parsedID)
 			}
 		} else if outletID == 0 {
-			var defID uint
-			if err := db.Model(&models.Outlet{}).Order("id ASC").Limit(1).Pluck("id", &defID).Error; err != nil || defID == 0 {
-				c.JSON(http.StatusForbidden, gin.H{"error": "No outlet is assigned to your account"})
-				c.Abort()
-				return
-			}
-			outletID = defID
+			c.JSON(http.StatusForbidden, gin.H{"error": "No outlet assigned to your account. Hubungi owner."})
+			c.Abort()
+			return
 		}
 
 		c.Set("user_id", claims.UserID)
 		c.Set("user_name", claims.Name)
 		c.Set("user_email", claims.Email)
-		c.Set("user_role", claims.Role)
+		c.Set("user_role", role)
 		c.Set("outlet_id", outletID)
 		c.Next()
 	}

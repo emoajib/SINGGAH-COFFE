@@ -7,6 +7,7 @@ import (
 	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
+	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 
@@ -40,8 +41,8 @@ func (uc *AccountUsecase) GetAll(outletID ...uint) ([]entity.AccountResponse, er
 }
 
 // GetByID fetches a single account by ID
-func (uc *AccountUsecase) GetByID(id uint) (*entity.AccountResponse, error) {
-	account, err := uc.accountRepo.FindByID(id)
+func (uc *AccountUsecase) GetByID(id uint, outletID ...uint) (*entity.AccountResponse, error) {
+	account, err := uc.accountRepo.FindByID(id, outletID...)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("account not found")
 	}
@@ -140,12 +141,21 @@ func (uc *AccountUsecase) Update(id uint, req *request.UpdateAccountRequest) (*e
 	return &resp, nil
 }
 
-// Delete removes an account
-func (uc *AccountUsecase) Delete(id uint) error {
-	if _, err := uc.accountRepo.FindByID(id); err != nil {
+// Delete removes an account (menolak jika sudah dipakai jurnal)
+func (uc *AccountUsecase) Delete(id uint, outletID ...uint) error {
+	acc, err := uc.accountRepo.FindByID(id, outletID...)
+	if err != nil {
 		return domainErrors.NewNotFoundError("account not found")
 	}
-	return uc.accountRepo.Delete(id)
+	var used int64
+	_ = uc.db.Model(&models.PSAKJournalEntryItem{}).Where("account_id = ?", acc.ID).Count(&used).Error
+	if used > 0 {
+		return domainErrors.NewInvalidInputError("akun sudah dipakai jurnal, tidak dapat dihapus (nonaktifkan saja)")
+	}
+	if err := uc.accountRepo.Delete(id, outletID...); err != nil {
+		return domainErrors.NewNotFoundError("account not found")
+	}
+	return nil
 }
 
 type defaultSeedAccount struct {

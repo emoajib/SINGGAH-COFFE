@@ -126,7 +126,7 @@ func TestReportUsecase_GetDashboardSummary(t *testing.T) {
 	db.Create(&models.Ingredient{
 		Name:         "Critical Item",
 		Unit:         "pcs",
-		CurrentStock: 5,
+		CurrentStock: 5, KedaiStock: 5,
 		MinStock:     10,
 		CostPerUnit:  100,
 	})

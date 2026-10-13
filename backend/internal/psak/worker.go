@@ -117,13 +117,27 @@ func (w *Worker) processEvent(ctx context.Context, evt *entity.EventOutbox) {
 		}
 	}()
 
-	// Claim the event (atomic: pending → processing)
+	// Claim the event (atomic: pending/failed → processing)
 	if err := w.outboxRepo.Claim(evt.ID); err != nil {
 		log.Printf("[Worker] WARN: Claim id=%d: %v", evt.ID, err)
 		return
 	}
 
-	// Dispatch to event bus
+	// Proses sinkron via handler agar MarkSuccess hanya setelah jurnal benar-benar posted.
+	// (Sebelumnya: MarkSuccess langsung setelah Publish async → jurnal gagal tetap dianggap sukses.)
+	if w.eventBus != nil && w.eventBus.handler != nil {
+		if err := w.eventBus.handler.ProcessEvent(evt); err != nil {
+			_ = w.outboxRepo.MarkFailed(evt.ID, err.Error())
+			log.Printf("[Worker] ERROR: event id=%d: %v", evt.ID, err)
+			return
+		}
+		if err := w.outboxRepo.MarkSuccess(evt.ID); err != nil {
+			log.Printf("[Worker] ERROR: MarkSuccess id=%d: %v", evt.ID, err)
+		}
+		return
+	}
+
+	// Fallback: Dispatch to event bus
 	if !w.eventBus.Publish(evt) {
 		// Queue full — mark as failed so it retries next cycle
 		_ = w.outboxRepo.MarkFailed(evt.ID, "event bus queue full")

@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	crand "crypto/rand"
 	"fmt"
 	"time"
 
@@ -159,6 +160,13 @@ func (r *journalRepository) GetNextEntryNumber(outletID uint) (string, error) {
 	today := time.Now().Format("20060102")
 	prefix := fmt.Sprintf("JE-%s-", today)
 
+	// Retry dengan suffix acak agar dua worker bersamaan tidak menghasilkan nomor kembar.
+	// (Constraint unik entry_number ditegakkan di DB; Create akan retry oleh pemanggil
+	// jika menabrak. Di sini cukup buat kandidat yang hampir pasti unik.)
+	var b [4]byte
+	_, _ = crand.Read(b[:])
+	randSuffix := fmt.Sprintf("%02X%02X", b[0], b[1])
+
 	var count int64
 	tx := r.db.Model(&models.PSAKJournalEntry{}).
 		Where("entry_number LIKE ?", prefix+"%")
@@ -168,7 +176,7 @@ func (r *journalRepository) GetNextEntryNumber(outletID uint) (string, error) {
 	if err := tx.Count(&count).Error; err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s%03d", prefix, count+1), nil
+	return fmt.Sprintf("%s%03d-%s", prefix, count+1, randSuffix), nil
 }
 
 func (r *journalRepository) GetTotalDebitCredit(start, end string, outletID ...uint) (debit int64, credit int64, err error) {

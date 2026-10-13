@@ -42,7 +42,7 @@ func cleanupLoop() {
 	defer ticker.Stop()
 	for range ticker.C {
 		now := time.Now()
-		for _, m := range []*sync.Map{&apiLimiters, &loginLimiters, &webhookLimiters} {
+		for _, m := range []*sync.Map{&apiLimiters, &loginLimiters, &webhookLimiters, &selfOrderLimiters} {
 			// Phase 1: Evict idle entries
 			m.Range(func(key, value interface{}) bool {
 				ip := key.(string)

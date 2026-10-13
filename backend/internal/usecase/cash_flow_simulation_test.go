@@ -47,8 +47,8 @@ func TestEndToEnd_CashFlowAndShiftSimulation(t *testing.T) {
 	db.Create(&cashier)
 
 	// Setup Ingredient & Product with BOM Recipe
-	beans := models.Ingredient{Name: "Espresso Beans", CurrentStock: 1000, Unit: "gram", CostPerUnit: 200, OutletID: outlet.ID}
-	milk := models.Ingredient{Name: "Fresh Milk", CurrentStock: 5000, Unit: "ml", CostPerUnit: 20, OutletID: outlet.ID}
+	beans := models.Ingredient{Name: "Espresso Beans", CurrentStock: 1000, KedaiStock: 1000, Unit: "gram", CostPerUnit: 200, OutletID: outlet.ID}
+	milk := models.Ingredient{Name: "Fresh Milk", CurrentStock: 5000, KedaiStock: 5000, Unit: "ml", CostPerUnit: 20, OutletID: outlet.ID}
 	db.Create(&beans)
 	db.Create(&milk)
 
@@ -164,12 +164,12 @@ func TestEndToEnd_CashFlowAndShiftSimulation(t *testing.T) {
 	assert.Equal(t, 300000.0, totalExpenseLainnya) // Pembelian Luar Owner
 
 	// 8. Step 7: Tutup Kasir (Close Shift)
-	// Expected Cash Sistem = Modal Awal (200.000) + Cash Sales (50.000) = 250.000
-	closedReg, err := regUC.CloseCashRegister(cashier.ID, 250000)
+	// Expected Cash Sistem = Modal Awal (200.000) + Cash Sales (50.000) - Cash Out (20.000) = 230.000
+	closedReg, err := regUC.CloseCashRegister(cashier.ID, 230000)
 	require.NoError(t, err)
 	assert.Equal(t, "closed", closedReg.Status)
-	assert.Equal(t, 250000.0, *closedReg.ClosingAmount)
-	assert.Equal(t, 250000.0, closedReg.ExpectedCash)
+	assert.Equal(t, 230000.0, *closedReg.ClosingAmount)
+	assert.Equal(t, 230000.0, closedReg.ExpectedCash)
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	t.Log("All calculations verified successfully!")
 }

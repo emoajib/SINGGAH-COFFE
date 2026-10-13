@@ -93,6 +93,15 @@ func (uc *ScheduleUsecase) Update(s *entity.Schedule, userID uint, userName stri
 	if err := uc.validate(s); err != nil {
 		return err
 	}
+	// Cek duplikat seperti Create (kecualikan diri sendiri).
+	tgl := s.Tanggal.Format("2006-01-02")
+	dup, err := uc.repo.Exists(s.BaristaID, tgl, s.ShiftConfigID, s.OutletID)
+	if err != nil {
+		return err
+	}
+	if dup && (lama.BaristaID != s.BaristaID || lama.Tanggal.Format("2006-01-02") != tgl || lama.ShiftConfigID != s.ShiftConfigID) {
+		return domainErrors.NewInvalidInputError("jadwal ganda: barista sudah dijadwalkan pada tanggal+shift ini")
+	}
 	if err := uc.repo.Update(s); err != nil {
 		return err
 	}

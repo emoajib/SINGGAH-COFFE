@@ -376,8 +376,9 @@ func (r *orderRepository) FindByTrackingToken(token string) (*entity.Order, erro
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) CountActiveUnpaidSelfOrders(outletID ...uint) (int64, error) {
 	var count int64
+	cutoff := time.Now().Add(-15 * time.Minute)
 	tx := r.db.Model(&models.Order{}).
-		Where("order_source = 'self_order' AND payment_status = 'Unpaid' AND status != 'Cancelled'")
+		Where("order_source = 'self_order' AND payment_status = 'Unpaid' AND status = 'Pending' AND order_time >= ?", cutoff)
 	tx = scopeOutlet(tx, "orders", outletID...)
 	err := tx.Count(&count).Error
 	return count, err

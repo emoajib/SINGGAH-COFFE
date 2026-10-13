@@ -3,6 +3,7 @@ package usecase
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
@@ -78,7 +79,7 @@ func TestOrderUsecase_CreateSuccess(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createOrderUsecase(db)
 
-	ing := &entity.Ingredient{Name: "Kopi Bubuk", Unit: "gram", CurrentStock: 1000, MinStock: 100, CostPerUnit: 100}
+	ing := &entity.Ingredient{Name: "Kopi Bubuk", Unit: "gram", CurrentStock: 1000, KedaiStock: 1000, MinStock: 100, CostPerUnit: 100}
 	db.Create(ing)
 
 	prodID := seedProductWithRecipe(db, "Kopi Susu", "KS-001", 25000, ing.ID, 20)
@@ -125,7 +126,7 @@ func TestOrderUsecase_CreateWithQRIS(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createOrderUsecase(db)
 
-	ing := &entity.Ingredient{Name: "Gula", Unit: "gram", CurrentStock: 500, MinStock: 50, CostPerUnit: 20}
+	ing := &entity.Ingredient{Name: "Gula", Unit: "gram", CurrentStock: 500, KedaiStock: 500, MinStock: 50, CostPerUnit: 20}
 	db.Create(ing)
 
 	prodID := seedProductWithRecipe(db, "Es Teh", "ET-001", 10000, ing.ID, 10)
@@ -155,7 +156,7 @@ func TestOrderUsecase_VoidSuccess(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createOrderUsecase(db)
 
-	ing := &entity.Ingredient{Name: "Susu", Unit: "ml", CurrentStock: 500, MinStock: 50, CostPerUnit: 30}
+	ing := &entity.Ingredient{Name: "Susu", Unit: "ml", CurrentStock: 500, KedaiStock: 500, MinStock: 50, CostPerUnit: 30}
 	db.Create(ing)
 
 	prodID := seedProductWithRecipe(db, "Susu Segar", "SS-001", 15000, ing.ID, 50)
@@ -186,7 +187,7 @@ func TestOrderUsecase_VoidAlreadyVoided(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createOrderUsecase(db)
 
-	ing := &entity.Ingredient{Name: "Teh", Unit: "gram", CurrentStock: 200, MinStock: 20, CostPerUnit: 10}
+	ing := &entity.Ingredient{Name: "Teh", Unit: "gram", CurrentStock: 200, KedaiStock: 200, MinStock: 20, CostPerUnit: 10}
 	db.Create(ing)
 	prodID := seedProductWithRecipe(db, "Teh Botol", "TB-001", 7000, ing.ID, 5)
 
@@ -221,7 +222,7 @@ func TestOrderUsecase_CreateInsufficientStock(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createOrderUsecase(db)
 
-	ing := &entity.Ingredient{Name: "Limited Stock", Unit: "pcs", CurrentStock: 5, MinStock: 1, CostPerUnit: 100}
+	ing := &entity.Ingredient{Name: "Limited Stock", Unit: "pcs", CurrentStock: 5, KedaiStock: 5, MinStock: 1, CostPerUnit: 100}
 	db.Create(ing)
 
 	prodID := seedProductWithRecipe(db, "Limited Item", "LIM-001", 50000, ing.ID, 10)
@@ -247,7 +248,7 @@ func TestOrderUsecase_CompletePayment(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createOrderUsecase(db)
 
-	ing := &entity.Ingredient{Name: "Kopi", Unit: "gram", CurrentStock: 500, MinStock: 50, CostPerUnit: 20}
+	ing := &entity.Ingredient{Name: "Kopi", Unit: "gram", CurrentStock: 500, KedaiStock: 500, MinStock: 50, CostPerUnit: 20}
 	db.Create(ing)
 
 	prodID := seedProductWithRecipe(db, "Kopi Hitam", "KH-001", 12000, ing.ID, 15)
@@ -284,7 +285,7 @@ func TestOrderUsecase_KitchenQueueAndStatusProgression(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createOrderUsecase(db)
 
-	ing := &entity.Ingredient{Name: "Espresso Beans", Unit: "gram", CurrentStock: 1000, MinStock: 100, CostPerUnit: 50}
+	ing := &entity.Ingredient{Name: "Espresso Beans", Unit: "gram", CurrentStock: 1000, KedaiStock: 1000, MinStock: 100, CostPerUnit: 50}
 	db.Create(ing)
 
 	prodID := seedProductWithRecipe(db, "Caramel Macchiato", "CM-001", 25000, ing.ID, 20)
@@ -349,7 +350,7 @@ func TestOrderUsecase_CreatePublicSelfOrder_SuccessAndCompletePayment(t *testing
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createOrderUsecase(db)
 
-	ing := &entity.Ingredient{Name: "Espresso Bean", Unit: "gram", CurrentStock: 500, MinStock: 50, CostPerUnit: 200}
+	ing := &entity.Ingredient{Name: "Espresso Bean", Unit: "gram", CurrentStock: 500, KedaiStock: 500, MinStock: 50, CostPerUnit: 200}
 	db.Create(ing)
 
 	prodID := seedProductWithRecipe(db, "Kopi Gula Aren", "KGA-01", 22000, ing.ID, 15)
@@ -475,6 +476,7 @@ func TestOrderUsecase_CreatePublicSelfOrder_QueueLimitExceeded(t *testing.T) {
 			PaymentStatus: "Unpaid",
 			Status:        "Pending",
 			KitchenStatus: "waiting_payment",
+			OrderTime:     time.Now(),
 		})
 	}
 

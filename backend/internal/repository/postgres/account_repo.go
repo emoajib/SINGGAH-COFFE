@@ -30,9 +30,13 @@ func (r *accountRepository) FindAll(outletID ...uint) ([]entity.Account, error) 
 	}
 	return result, nil
 }
-func (r *accountRepository) FindByID(id uint) (*entity.Account, error) {
+func (r *accountRepository) FindByID(id uint, outletID ...uint) (*entity.Account, error) {
+	tx := r.db.Where("id = ?", id)
+	if len(outletID) > 0 && outletID[0] > 0 {
+		tx = tx.Where("outlet_id = ? OR outlet_id = 0", outletID[0])
+	}
 	var m models.PSAKAccount
-	if err := r.db.First(&m, id).Error; err != nil {
+	if err := tx.First(&m).Error; err != nil {
 		return nil, err
 	}
 	return toDomainAccount(&m), nil
@@ -74,8 +78,19 @@ func (r *accountRepository) Update(account *entity.Account) error {
 		"outlet_id":      account.OutletID,
 	}).Error
 }
-func (r *accountRepository) Delete(id uint) error {
-	return r.db.Delete(&models.PSAKAccount{}, id).Error
+func (r *accountRepository) Delete(id uint, outletID ...uint) error {
+	tx := r.db.Where("id = ?", id)
+	if len(outletID) > 0 && outletID[0] > 0 {
+		tx = tx.Where("outlet_id = ?", outletID[0])
+	}
+	res := tx.Delete(&models.PSAKAccount{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 func (r *accountRepository) CountByCode(code string, outletID ...uint) (int64, error) {
 	tx := r.db.Model(&models.PSAKAccount{}).Where("code = ?", code)

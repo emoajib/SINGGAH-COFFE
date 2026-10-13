@@ -19,7 +19,7 @@ type ShiftConfigUsecase interface {
 	Create(shift *entity.ShiftConfig) error
 	Update(shift *entity.ShiftConfig) error
 	GetAll(outletID uint) ([]entity.ShiftConfig, error)
-	GetByID(id uint) (*entity.ShiftConfig, error)
+	GetByID(id uint, outletID ...uint) (*entity.ShiftConfig, error)
 	Delete(id uint, outletID uint) error
 }
 
@@ -151,9 +151,12 @@ func (uc *shiftConfigUsecase) GetAll(outletID uint) ([]entity.ShiftConfig, error
 }
 
 // GetByID returns a shift config by ID.
-// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-func (uc *shiftConfigUsecase) GetByID(id uint) (*entity.ShiftConfig, error) {
-	return uc.shiftConfigRepo.FindByID(id)
+func (uc *shiftConfigUsecase) GetByID(id uint, outletID ...uint) (*entity.ShiftConfig, error) {
+	cfg, err := uc.shiftConfigRepo.FindByID(id, outletID...)
+	if err != nil {
+		return nil, domainErrors.NewNotFoundError("shift")
+	}
+	return cfg, nil
 }
 
 // Delete removes a shift config. Refuses if any ProfitSharingPerson references it
@@ -169,5 +172,8 @@ func (uc *shiftConfigUsecase) Delete(id uint, outletID uint) error {
 	if count > 0 {
 		return domainErrors.NewInvalidInputError("tidak dapat menghapus shift yang masih digunakan oleh barista")
 	}
-	return uc.shiftConfigRepo.Delete(id)
+	if err := uc.shiftConfigRepo.Delete(id, outletID); err != nil {
+		return domainErrors.NewNotFoundError("shift")
+	}
+	return nil
 }

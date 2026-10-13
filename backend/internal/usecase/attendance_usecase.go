@@ -57,9 +57,21 @@ func (uc *AttendanceUsecase) Record(a *entity.Attendance, userID uint, userName 
 	}
 	a.DicatatOleh = userID
 	if a.ScheduleID != nil {
-		a.Disahkan = true
-		p := userID
-		a.DisetujuiOleh = &p
+		// Validasi schedule: harus ada dan milik barista/outlet yang sama,
+		// jika tidak cocok paksa jadi luar-jadwal + wajib alasan.
+		var match int64
+		uc.db.Table("schedules").Where("id = ? AND barista_id = ? AND outlet_id = ?", *a.ScheduleID, a.BaristaID, a.OutletID).Count(&match)
+		if match == 0 {
+			a.Disahkan = false
+			a.Status = "hadir_luar_jadwal"
+			if a.Alasan == "" {
+				return domainErrors.NewInvalidInputError("jadwal tidak cocok dengan barista/outlet: wajib mencantumkan alasan")
+			}
+		} else {
+			a.Disahkan = true
+			p := userID
+			a.DisetujuiOleh = &p
+		}
 	} else {
 		if a.Alasan == "" {
 			return domainErrors.NewInvalidInputError("kehadiran luar jadwal wajib mencantumkan alasan")

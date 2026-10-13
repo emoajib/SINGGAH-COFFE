@@ -34,6 +34,12 @@ func TestShiftConfigDelete_GuardReferences(t *testing.T) {
 		t.Fatalf("seed B: %v", err)
 	}
 
+	// Seed shift configs 1,2,3,11 milik outlet 1.
+	for _, sid := range []uint{1, 2, 3, 11} {
+		if err := db.Create(&models.ShiftConfig{ID: sid, OutletID: 1, Name: "S", StartTime: "08:00", EndTime: "16:00", OwnerPct: 60, BaristaPoolPct: 40}).Error; err != nil {
+			t.Fatalf("seed shift %d: %v", sid, err)
+		}
+	}
 	// Shift 1 dipakai B -> tolak.
 	if err := uc.Delete(1, 1); err == nil {
 		t.Errorf("Delete(1) harus ditolak karena dipakai person B")

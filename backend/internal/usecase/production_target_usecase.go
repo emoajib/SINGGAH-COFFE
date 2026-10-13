@@ -164,7 +164,7 @@ func (uc *ProductionTargetUsecase) GetDailyTargetRealization(outletID uint, date
 	menus, ingredientAgg, totalDailyTarget := uc.aggregateRequirements(products, ingMap, dailyTargetMap)
 	req := uc.finalizeRequirements(menus, ingredientAgg, ingMap, periodDays, totalDailyTarget)
 
-	salesVol, err := uc.orderItemRepo.GetProductSalesVolume(date+"T00:00:00", date+"T23:59:59", outletID)
+	salesVol, err := uc.orderItemRepo.GetProductSalesVolume(date+" 00:00:00", date+" 23:59:59", outletID)
 	if err != nil {
 		return nil, err
 	}

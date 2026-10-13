@@ -99,6 +99,14 @@ var validPaymentMethods = map[string]bool{
 	"Cash": true, "QRIS": true, "Lainnya": true, "Transfer": true, "Unpaid": true, "Belum Bayar": true,
 }
 
+// isPaidMethod: metode yang langsung lunas (potong stok + jurnal).
+// Deferred (tunda): QRIS, Unpaid, Belum Bayar.
+func isPaidMethod(m string) bool {
+	return m == "Cash" || m == "Transfer" || m == "Lainnya"
+}
+
+func isDeferredMethod(m string) bool { return !isPaidMethod(m) }
+
 func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName string, outletID ...uint) (*CreateOrderResponse, error) {
 	if !validPaymentMethods[req.PaymentMethod] {
 		return nil, domainErrors.NewInvalidInputError(
@@ -129,7 +137,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 				return err
 			}
 
-			// Validate stock availability
+			// Validate stock availability (total + kedai)
 			if len(product.Recipe) > 0 {
 				for _, recipeItem := range product.Recipe {
 					needed := recipeItem.Quantity * float64(itemInput.Quantity)
@@ -137,7 +145,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 					if err != nil {
 						return err
 					}
-					if ingredient.CurrentStock < needed {
+					if ingredient.CurrentStock < needed || ingredient.KedaiStock < needed {
 						return domainErrors.NewInsufficientStockError(ingredient.Name)
 					}
 				}
@@ -158,21 +166,20 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 			})
 
 			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-			// Cash & immediate paid orders: deduct stock immediately.
+			// Cash/Transfer/Lainnya: deduct stock immediately.
 			// QRIS & Unpaid (open bill / waiting payment): defer deduction until CompletePayment.
-			isDeferredPayment := req.PaymentMethod == "QRIS" || req.PaymentMethod == "Unpaid" || req.PaymentMethod == "Belum Bayar"
+			isDeferredPayment := isDeferredMethod(req.PaymentMethod)
 			if !isDeferredPayment {
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(itemInput.Quantity)
-						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
-							return err
+						if err := ingredientRepo.UpdateStockAtomicGuarded(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return domainErrors.NewInsufficientStockError(product.Name)
 						}
-						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
-							return err
+						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
+							return domainErrors.NewInsufficientStockError(product.Name)
 						}
-						mutationRepo.Create(&entity.StockMutation{
+						if err := mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
 							Type:         string(entity.MutationOut),
 							Location:     "kedai",
@@ -180,11 +187,13 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 							ReferenceID:  req.OrderNumber,
 							Notes:        "Sales Deduction",
 							OutletID:     oid,
-						})
+						}); err != nil {
+							return err
+						}
 					}
 				} else {
-					if err := productRepo.UpdateStockAtomic(product.ID, float64(itemInput.Quantity), "sub"); err != nil {
-						return err
+					if err := productRepo.UpdateStockAtomicGuarded(product.ID, float64(itemInput.Quantity), "sub"); err != nil {
+						return domainErrors.NewInsufficientStockError(product.Name)
 					}
 				}
 			}
@@ -207,7 +216,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		now := time.Now()
 		orderNumber := req.OrderNumber
 		if orderNumber == "" {
-			orderNumber = fmt.Sprintf("ORD-%s%03d", now.Format("20060102150405"), now.Nanosecond()/1e6)
+			orderNumber = fmt.Sprintf("ORD-%s-%s", now.Format("20060102150405"), generatePickupCode())
 		}
 
 		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -273,7 +282,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 				EventType:     "order.completed",
 				ReferenceType: "order",
 				ReferenceID:   loaded.ID,
-				Payload:       mustMarshal(orderEventPayload(loaded)),
+				Payload:       mustMarshal(orderEventPayload(loaded, taxAmount, serviceAmount)),
 				Status:        "pending",
 			}); err != nil {
 				return err
@@ -312,6 +321,9 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 
 		if order.Status == "Void" {
 			return domainErrors.ErrOrderAlreadyVoided
+		}
+		if len(outletID) > 0 && outletID[0] > 0 && order.OutletID != outletID[0] {
+			return domainErrors.NewNotFoundError("order")
 		}
 
 		oid := uint(0)
@@ -416,6 +428,9 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 		if order.Status == "Void" {
 			return domainErrors.ErrOrderAlreadyVoided
 		}
+		if len(outletID) > 0 && outletID[0] > 0 && order.OutletID != outletID[0] {
+			return domainErrors.NewNotFoundError("order")
+		}
 
 		// Same method — nothing to do
 		if order.PaymentMethod == newMethod {
@@ -429,10 +444,12 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 			return err
 		}
 
-		// Update order fields
+		// Update order fields. Paid = Cash/Transfer/Lainnya; Deferred = QRIS/Unpaid/Belum Bayar.
 		oldMethod := order.PaymentMethod
+		oldPaid := isPaidMethod(oldMethod)
+		newPaid := isPaidMethod(newMethod)
 		order.PaymentMethod = newMethod
-		if newMethod == "Cash" {
+		if newPaid {
 			order.PaymentStatus = "Paid"
 			order.Status = "Completed"
 		} else {
@@ -449,9 +466,8 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 		ingredientRepo := postgres.NewIngredientRepository(tx)
 		mutationRepo := postgres.NewStockMutationRepository(tx)
 
-		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-		wasStockDeductedOld := oldMethod != "QRIS" && oldMethod != "Unpaid" && oldMethod != "Belum Bayar"
-		shouldDeductStockNew := newMethod != "QRIS" && newMethod != "Unpaid" && newMethod != "Belum Bayar"
+		wasStockDeductedOld := oldPaid
+		shouldDeductStockNew := newPaid
 
 		if !wasStockDeductedOld && shouldDeductStockNew {
 			// Previously deferred (stock NOT deducted) → Now immediate: deduct stock now
@@ -463,11 +479,11 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
-						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
-							return err
+						if err := ingredientRepo.UpdateStockAtomicGuarded(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return domainErrors.NewInsufficientStockError(product.Name)
 						}
-						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
-							return err
+						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
+							return domainErrors.NewInsufficientStockError(product.Name)
 						}
 						if err := mutationRepo.Create(&entity.StockMutation{
 							IngredientID: recipeItem.IngredientID,
@@ -492,7 +508,7 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 			for _, item := range order.OrderItems {
 				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
 				if err != nil {
-					continue
+					return fmt.Errorf("produk ID %d tidak ditemukan: %w", item.ProductID, err)
 				}
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
@@ -525,7 +541,7 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 
 		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 		// Update Cash Book & PSAK outbox sesuai status pembayaran baru
-		if newMethod == "Cash" {
+		if newPaid {
 			if err := cashBookUC.EnsureOrderIncome(order); err != nil {
 				return err
 			}
@@ -539,8 +555,8 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 			}); err != nil {
 				return err
 			}
-		} else if oldMethod == "Cash" && newMethod == "QRIS" {
-			// Reverse previous Cash order journal entry since it is now Unpaid/Pending
+		} else if oldPaid && !newPaid {
+			// Reverse previous paid order journal entry since it is now Unpaid/Pending
 			outboxRepo := postgres.NewOutboxRepository(tx)
 			if err := outboxRepo.Create(&entity.EventOutbox{
 				EventType:     "order.voided",
@@ -578,6 +594,15 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 
 	if order.Status == "Void" {
 		return nil, domainErrors.ErrOrderAlreadyVoided
+	}
+	// Idempoten: order yang sudah lunas tidak diproses ulang (anti double-deduct/kas ganda).
+	if order.Status == "Completed" && order.PaymentStatus == "Paid" {
+		resp := order.ToResponse()
+		return &resp, nil
+	}
+	// IDOR lintas outlet: pastikan order milik outlet peminta.
+	if len(outletID) > 0 && outletID[0] > 0 && order.OutletID != outletID[0] {
+		return nil, domainErrors.NewNotFoundError("order")
 	}
 
 	previousMethod := order.PaymentMethod
@@ -617,7 +642,7 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 		}
 
 		// QRIS, Self-Order, or previously Unpaid orders: stock was NOT deducted at creation.
-		// Deduct now that payment is confirmed.
+		// Deduct now that payment is confirmed (dengan cek ulang kecukupan stok).
 		if previousMethod == "QRIS" || order.OrderSource == "self_order" || previousMethod == "Belum Bayar" || previousMethod == "Unpaid" || previousStatus == "Unpaid" {
 			oid := order.OutletID
 			for _, item := range order.OrderItems {
@@ -628,11 +653,17 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
-						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+						ing, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID)
+						if err != nil {
 							return err
 						}
-						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
+						if ing.CurrentStock < deductionAmount || ing.KedaiStock < deductionAmount {
+							return domainErrors.NewInsufficientStockError(ing.Name)
+						}
+						if err := ingredientRepo.UpdateStockAtomicGuarded(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
+							return err
+						}
+						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err
 						}
 						if err := mutationRepo.Create(&entity.StockMutation{
@@ -696,23 +727,30 @@ func (uc *OrderUsecase) GetUnpaidOrders(outletID ...uint) ([]entity.OrderRespons
 	return resp, nil
 }
 
-func orderEventPayload(order *entity.Order) map[string]interface{} {
+func orderEventPayload(order *entity.Order, taxService ...float64) map[string]interface{} {
 	items := make([]map[string]interface{}, len(order.OrderItems))
 	var totalCOGS float64
 	for i, item := range order.OrderItems {
-		cogs := item.Cost * float64(item.Quantity)
+		// Kontrak: cost = unit HPP, handler mengalikan qty (anti qty-kuadrat).
 		items[i] = map[string]interface{}{
 			"product_id": item.ProductID,
 			"quantity":   item.Quantity,
 			"price":      item.Price,
-			"cost":       cogs,
+			"cost":       item.Cost,
 		}
-		totalCOGS += cogs
+		totalCOGS += item.Cost * float64(item.Quantity)
+	}
+	var taxAmount, serviceAmount float64
+	if len(taxService) >= 2 {
+		taxAmount = taxService[0]
+		serviceAmount = taxService[1]
 	}
 	return map[string]interface{}{
 		"id":             order.ID,
 		"order_number":   order.OrderNumber,
 		"total_amount":   order.TotalAmount,
+		"tax_amount":     taxAmount,
+		"service_amount": serviceAmount,
 		"payment_method": order.PaymentMethod,
 		"outlet_id":      order.OutletID,
 		"cashier_name":   order.CashierName,
@@ -752,15 +790,48 @@ func (uc *OrderUsecase) UpdateKitchenStatus(id uint, status string, notes string
 		}
 	}
 
+	order, err := uc.orderRepo.FindByIDWithItems(id)
+	if err != nil {
+		return nil, domainErrors.NewNotFoundError("order")
+	}
+	if len(outletID) > 0 && outletID[0] > 0 && order.OutletID != outletID[0] {
+		return nil, domainErrors.NewNotFoundError("order")
+	}
+	// State-machine: pesanan belum lunas tidak boleh diracik/disajikan.
+	if status == "preparing" || status == "ready" || status == "served" {
+		if order.PaymentStatus != "Paid" || order.Status == "Pending" {
+			return nil, domainErrors.NewInvalidInputError("pesanan belum lunas, tidak dapat diproses dapur")
+		}
+	}
+	allowed := map[string][]string{
+		"":                {"queued"},
+		"unpaid":          {"queued"},
+		"waiting_payment": {"queued"},
+		"queued":          {"preparing", "served"},
+		"preparing":       {"ready", "served"},
+		"ready":           {"served"},
+		"served":          {},
+	}
+	ok := false
+	for _, s := range allowed[order.KitchenStatus] {
+		if s == status || status == "" {
+			ok = true
+			break
+		}
+	}
+	if status != "" && !ok {
+		return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("transisi dapur tidak valid: %s -> %s", order.KitchenStatus, status))
+	}
+
 	if err := uc.orderRepo.UpdateKitchenStatus(id, status, notes, outletID...); err != nil {
 		return nil, err
 	}
 
-	order, err := uc.orderRepo.FindByIDWithItems(id)
+	updated, err := uc.orderRepo.FindByIDWithItems(id)
 	if err != nil {
 		return nil, err
 	}
-	resp := order.ToResponse()
+	resp := updated.ToResponse()
 	return &resp, nil
 }
 
@@ -837,11 +908,8 @@ func (uc *OrderUsecase) CreatePublicSelfOrder(req request.PublicCreateOrderReque
 		}
 	}
 
-	// 2. Anti-spam cap: max 20 pending unpaid self-orders in outlet
-	unpaidCount, err := uc.orderRepo.CountActiveUnpaidSelfOrders(oid)
-	if err == nil && unpaidCount >= 20 {
-		return nil, domainErrors.NewInvalidInputError("Antrean pemesanan mandiri sedang penuh. Silakan langsung memesan ke kasir.")
-	}
+	// 2. Anti-spam cap: max 20 pending unpaid self-orders (15 mnt) — dicek di dalam tx agar anti-race.
+	// (Pengecekan awal di sini best-effort; putusan final di dalam transaksi.)
 
 	// 3. Validate & sanitize CustomerName
 	cleanName := strings.TrimSpace(req.CustomerName)
@@ -851,12 +919,17 @@ func (uc *OrderUsecase) CreatePublicSelfOrder(req request.PublicCreateOrderReque
 
 	var result PublicOrderCreateResponse
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
+	err := uc.db.Transaction(func(tx *gorm.DB) error {
 		orderRepo := postgres.NewOrderRepository(tx)
 		orderItemRepo := postgres.NewOrderItemRepository(tx)
 		productRepo := postgres.NewProductRepository(tx)
 		ingredientRepo := postgres.NewIngredientRepository(tx)
 		settingRepo := postgres.NewSettingRepository(tx)
+
+		// Kuota anti-spam final di dalam tx (anti race parallel).
+		if cnt, err := orderRepo.CountActiveUnpaidSelfOrders(oid); err == nil && cnt >= 20 {
+			return domainErrors.NewInvalidInputError("Antrean pemesanan mandiri sedang penuh. Silakan langsung memesan ke kasir.")
+		}
 
 		var totalAmount float64
 		var orderItems []entity.OrderItem
@@ -876,7 +949,7 @@ func (uc *OrderUsecase) CreatePublicSelfOrder(req request.PublicCreateOrderReque
 					if err != nil {
 						return err
 					}
-					if ingredient.CurrentStock < needed {
+					if ingredient.CurrentStock < needed || ingredient.KedaiStock < needed {
 						return domainErrors.NewInsufficientStockError(ingredient.Name)
 					}
 				}

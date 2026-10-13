@@ -162,14 +162,15 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 			// 2. Profit Sharing tidak salah memasukkan HPP ke basis bagi hasil
 			// 3. P&L report memisahkan HPP dari biaya operasional lain
 			exp := &entity.Expense{
-				Title:       "Pembelian: " + ingredient.Name,
-				Amount:      absQuantity * costToUse,
-				Category:    "Bahan Baku",
-				CostType:    "variable",
-				Date:        time.Now(),
-				Description: "Auto-generated from Stock In",
-				Notes:       notes,
-				OutletID:    oid,
+				Title:         "Pembelian: " + ingredient.Name,
+				Amount:        absQuantity * costToUse,
+				Category:      "Bahan Baku",
+				CostType:      "variable",
+				PaymentMethod: "Cash",
+				Date:          time.Now(),
+				Description:   "Auto-generated from Stock In (tunai)",
+				Notes:         notes,
+				OutletID:      oid,
 			}
 			if err := expenseRepo.Create(exp); err != nil {
 				return err
@@ -184,7 +185,7 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 					"id":             exp.ID,
 					"amount":         exp.Amount,
 					"category":       exp.Category,
-					"payment_method": "Lainnya",
+					"payment_method": "Cash",
 					"outlet_id":      oid,
 					"date":           exp.Date.Format("2006-01-02"),
 					"title":          exp.Title,

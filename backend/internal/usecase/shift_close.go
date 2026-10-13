@@ -18,7 +18,7 @@ func (uc *ShiftInstanceUsecase) Close(id, outletID uint, basisType string, owner
 	if basisType == "" {
 		basisType = "net"
 	}
-	cfg, err := uc.configs.FindByID(s.ShiftConfigID)
+	cfg, err := uc.configs.FindByID(s.ShiftConfigID, outletID)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("konfigurasi shift")
 	}
@@ -56,8 +56,9 @@ func (uc *ShiftInstanceUsecase) Close(id, outletID uint, basisType string, owner
 	s.PoolBarista = dasar - s.OwnerShare
 	s.Status = "ditutup"
 	warnings := uc.closeWarnings(outletID, s)
-	if err := uc.repo.Update(s); err != nil {
-		return nil, err
+	// Update atomik: hanya berhasil jika masih aktif (anti double-close konkuren).
+	if err := uc.repo.UpdateStatusIfActive(s.ID, outletID, s); err != nil {
+		return nil, domainErrors.NewInvalidInputError("shift sudah ditutup (double-close ditolak)")
 	}
 	_ = uc.audit.Write(outletID, userID, userName, "close", "shift_instance", id, "aktif", s, "", "disetujui")
 	return warnings, nil

@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"singgah-pos-backend/internal/usecase"
+	domainErrors "singgah-pos-backend/internal/domain/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,6 +39,17 @@ func (h *WebhookHandler) HandleXenditWebhook(c *gin.Context) {
 	callbackToken := c.GetHeader("X-Callback-Token")
 
 	if err := h.webhookUsecase.ProcessXenditWebhook(callbackToken, callback); err != nil {
+		var de *domainErrors.DomainError
+		if errors.As(err, &de) {
+			switch {
+			case errors.Is(err, domainErrors.ErrUnauthorized):
+				c.JSON(http.StatusUnauthorized, gin.H{"error": de.Message})
+				return
+			case errors.Is(err, domainErrors.ErrInvalidInput):
+				c.JSON(http.StatusBadRequest, gin.H{"error": de.Message})
+				return
+			}
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process webhook"})
 		return
 	}

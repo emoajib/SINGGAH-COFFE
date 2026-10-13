@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"strings"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -67,7 +68,7 @@ func (uc *ProductUsecase) Create(req CreateProductRequest) (*entity.ProductRespo
 	for _, item := range req.Recipe {
 		ingredient, err := uc.ingredientRepo.FindByID(item.IngredientID)
 		if err != nil {
-			continue
+			return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("bahan ID %d tidak ditemukan", item.IngredientID))
 		}
 		cost := item.Quantity * ingredient.CostPerUnit
 		totalCost += cost
@@ -121,7 +122,7 @@ func (uc *ProductUsecase) Update(id uint, req CreateProductRequest) (*entity.Pro
 	for _, item := range req.Recipe {
 		ingredient, err := uc.ingredientRepo.FindByID(item.IngredientID)
 		if err != nil {
-			continue
+			return nil, domainErrors.NewInvalidInputError(fmt.Sprintf("bahan ID %d tidak ditemukan", item.IngredientID))
 		}
 		cost := item.Quantity * ingredient.CostPerUnit
 		totalCost += cost

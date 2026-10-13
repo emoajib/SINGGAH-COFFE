@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"singgah-pos-backend/internal/domain/entity"
+	domainErrors "singgah-pos-backend/internal/domain/errors"
+	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/repository"
 	"singgah-pos-backend/internal/repository/postgres"
 
@@ -9,11 +11,13 @@ import (
 )
 
 type OutletUsecase struct {
+	db         *gorm.DB
 	outletRepo repository.OutletRepository
 }
 
 func NewOutletUsecase(db *gorm.DB) *OutletUsecase {
 	return &OutletUsecase{
+		db:         db,
 		outletRepo: postgres.NewOutletRepository(db),
 	}
 }
@@ -61,5 +65,24 @@ func (uc *OutletUsecase) Update(id uint, in *entity.Outlet) (*entity.OutletRespo
 }
 
 func (uc *OutletUsecase) Delete(id uint) error {
+	// Larang hapus outlet terakhir & outlet yang masih punya dependen.
+	var outletCount int64
+	uc.db.Model(&models.Outlet{}).Count(&outletCount)
+	if outletCount <= 1 {
+		return domainErrors.NewInvalidInputError("tidak dapat menghapus satu-satunya outlet")
+	}
+	deps := map[string]interface{}{
+		"users": &models.User{}, "orders": &models.Order{},
+		"ingredients": &models.Ingredient{}, "expenses": &models.Expense{},
+		"cash_registers": &models.CashRegister{}, "cash_books": &models.CashBook{},
+		"attendances": &models.Attendance{}, "schedules": &models.Schedule{},
+	}
+	for table, model := range deps {
+		var c int64
+		uc.db.Model(model).Where("outlet_id = ?", id).Count(&c)
+		if c > 0 {
+			return domainErrors.NewInvalidInputError("outlet masih memiliki " + table + " aktif, arsipkan dulu sebelum hapus")
+		}
+	}
 	return uc.outletRepo.Delete(id)
 }

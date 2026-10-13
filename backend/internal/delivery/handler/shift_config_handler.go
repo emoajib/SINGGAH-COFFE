@@ -114,7 +114,7 @@ func (h *ShiftConfigHandler) GetShiftByID(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id tidak valid"})
 		return
 	}
-	shift, err := h.uc.GetByID(uint(id))
+	shift, err := h.uc.GetByID(uint(id), getOutletID(c))
 	if err != nil {
 		writeDomainError(c, err)
 		return
@@ -166,20 +166,28 @@ type UpdateShiftConfigRequest struct {
 
 // writeDomainError maps domain errors to appropriate HTTP status codes.
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-func writeDomainError(c *gin.Context, err error) {
+func writeDomainError(c *gin.Context, err error, fallback ...string) {
+	fb := "Operation failed"
+	if len(fallback) > 0 && fallback[0] != "" {
+		fb = fallback[0]
+	}
 	var de *domainErrors.DomainError
 	if errors.As(err, &de) {
-		switch de.Err {
-		case domainErrors.ErrNotFound:
+		switch {
+		case errors.Is(err, domainErrors.ErrNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": de.Message})
 			return
-		case domainErrors.ErrUnauthorized:
+		case errors.Is(err, domainErrors.ErrUnauthorized):
 			c.JSON(http.StatusUnauthorized, gin.H{"error": de.Message})
+			return
+		case errors.Is(err, domainErrors.ErrInsufficientStock),
+			errors.Is(err, domainErrors.ErrOrderAlreadyVoided):
+			c.JSON(http.StatusConflict, gin.H{"error": de.Message})
 			return
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": de.Message})
 			return
 		}
 	}
-	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	c.JSON(http.StatusInternalServerError, gin.H{"error": fb})
 }
