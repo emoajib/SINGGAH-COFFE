@@ -423,9 +423,15 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 		}
 	}
 
-	// Parse period start/end for date comparison
-	startDate := parseDatePS(startNorm)
-	endDate := parseDatePS(endNorm)
+	// Parse period start/end for date comparison. Normalisasi ke tengah malam
+	// agar iterasi mencakup SEMUA tanggal kalender DATE(startNorm)..DATE(endNorm)
+	// — sama persis dengan filter DATE(col) BETWEEN DATE(?) AND DATE(?) di repo.
+	// Tanpa normalisasi, komponen jam pada batas rentang membuat hari terakhir
+	// terlewat sehingga Σ kartu shift < totalShiftRevenue (rekonsiliasi).
+	sd := parseDatePS(startNorm)
+	ed := parseDatePS(endNorm)
+	startDate := time.Date(sd.Year(), sd.Month(), sd.Day(), 0, 0, 0, 0, wib)
+	endDate := time.Date(ed.Year(), ed.Month(), ed.Day(), 0, 0, 0, 0, wib)
 
 	// Daftar tanggal periode (batas kehadiran yang dihitung).
 	var periodDates []string
@@ -553,6 +559,18 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 		people[j].Amount = subtotal - cashbon
 		people[j].RemainingBalance = 0 // dihitung caller dari total kasbon vs dipotong
 	}
+
+	// Konservasi total bagi hasil (selaras dengan calcFinancials): Owner juga
+	// menerima pengurangan barista (potongan kasbon & libur) agar hak yang
+	// dipotong dari barista TIDAK hilang dari pembagian. Tanpa ini, potongan
+	// kasbon (mis. Rp150.000) hanya mengurangi barista tanpa menambah Owner.
+	totalReductions := 0.0
+	for j := range people {
+		if people[j].Role != "owner" {
+			totalReductions += people[j].LeaveReduction + people[j].CashbonReduction
+		}
+	}
+	out.Owner += totalReductions
 
 	for i := range people {
 		if people[i].Role == "owner" {
@@ -721,7 +739,12 @@ func (uc *ProfitSharingUsecase) calculatePeriod(start, end string, outletID uint
 						totalCashbon += cb.Amount
 					}
 				}
-				if len(personCashbons) > 0 && people[i].CashbonReduction == 0 {
+				// Backend adalah sumber kebenaran untuk kasbon pending pada
+				// rentang ini — selalu hitung ulang dari data DB, jangan
+				// mempertahankan nilai draft yang mungkin basi/penggalan
+				// (guard lama "CashbonReduction == 0" membuat dua kasbon
+				// barista yang sama hanya terbaca satu → under-detect).
+				if len(personCashbons) > 0 {
 					people[i].CashbonReduction = totalCashbon
 					people[i].Cashbons = personCashbons
 				}
@@ -1700,13 +1723,15 @@ func parseDatePS(s string) time.Time {
 	return time.Time{}
 }
 
-// formatForDB mengkonversi time.Time ke string UTC "2006-01-02 15:04:05"
-// untuk digunakan dalam query BETWEEN pada kolom TIMESTAMP MySQL.
-// MySQL menyimpan TIMESTAMP selalu dalam UTC, sehingga perbandingan
-// harus menggunakan UTC — bukan waktu lokal server.
+// formatForDB memformat time.Time ke string "2006-01-02 15:04:05" TANPA
+// konversi zona waktu. Kolom orders.order_time / orders.created_at bertipe
+// DATETIME (bukan TIMESTAMP) dan menyimpan wall-clock WIB; server pun ber-TZ
+// WIB. Konversi ke UTC membuat filter DATE() bergeser satu hari ke belakang
+// (mis. 01 Okt 00:00 WIB menjadi 30 Sep 17:00) sehingga periode ikut menarik
+// hari di luar rentang yang dipilih.
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func formatForDB(t time.Time) string {
-	return t.UTC().Format("2006-01-02 15:04:05")
+	return t.Format("2006-01-02 15:04:05")
 }
 
 // normalizeLeaveDates parses, validates, deduplicates, and sorts leave dates.

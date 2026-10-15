@@ -81,7 +81,7 @@ func (r *baristaCashbonRepository) FindByPeriodID(periodID uint, outletID uint) 
 func (r *baristaCashbonRepository) FindPendingByDateRange(start, end string, outletID uint) ([]entity.BaristaCashbon, error) {
 	var list []models.BaristaCashbon
 	query := r.db.Where("status = ?", "pending").
-		Where("cashbon_date BETWEEN ? AND ?", start, end).
+		Where("DATE(cashbon_date) BETWEEN DATE(?) AND DATE(?)", start, end).
 		Order("cashbon_date ASC")
 	if outletID > 0 {
 		query = query.Where("outlet_id = ?", outletID)

@@ -779,7 +779,7 @@ export default function ProfitSharing() {
             <tr>
               <th style="width: 25px;" class="text-center">No</th>
               <th>Nama & Jabatan</th>
-              <th class="text-right" style="width: 55px;">Porsi %</th>
+              <th class="text-right" style="width: 55px;">Porsi Barista / Owner %</th>
               <th class="text-center" style="width: 85px;">Kehadiran</th>
               <th class="text-right" style="width: 90px;">Jatah Normal</th>
               <th class="text-right" style="width: 85px;">Potong Libur</th>
@@ -901,8 +901,14 @@ export default function ProfitSharing() {
       setRatio(period.ratio || 40)
 
       if (period.people && period.people.length > 0) {
+        // Pulihkan data kehadiran/libur barista, TAPI reset nilai turunan
+        // kasbon (dihitung ulang backend dari DB saat preview). Mempertahankan
+        // cashbon_reduction draft membuat hitung ulang terblokir / angka basi.
         setPeople(period.people.map(p => ({
           ...p,
+          cashbon_reduction: 0,
+          remaining_balance: 0,
+          cashbons: [],
           leave_dates: p.leave_dates || '',
           leave_days: p.leave_days || (p.leave_dates ? p.leave_dates.split(',').filter(Boolean).length : 0),
         })))
@@ -1204,7 +1210,7 @@ export default function ProfitSharing() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Owner %</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Owner (%)</label>
                     <Input
                       type="number"
                       min={0}
@@ -1218,7 +1224,7 @@ export default function ProfitSharing() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Total Barista %</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Porsi Pool Barista (%)</label>
                     <Input
                       type="number"
                       min={0}
@@ -2214,7 +2220,7 @@ export default function ProfitSharing() {
                         <thead>
                           <tr className="border-b bg-slate-50 text-slate-600">
                             <th className="text-left py-2.5 px-3">Nama & Jabatan</th>
-                            <th className="text-right py-2.5 px-3">Porsi %</th>
+                            <th className="text-right py-2.5 px-3">Porsi Barista / Owner %</th>
                             <th className="text-center py-2.5 px-3">Kehadiran</th>
                             <th className="text-right py-2.5 px-3">Jatah Normal</th>
                             <th className="text-right py-2.5 px-3">Potong Libur</th>
