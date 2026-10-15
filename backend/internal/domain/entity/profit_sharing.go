@@ -172,8 +172,9 @@ type Calculation struct {
 	Note          string                `json:"note"`
 	SisaKas       float64               `json:"sisa_kas"`
 	// Rekonsiliasi shift-vs-periode: pendapatan/COGS yang tidak terpetakan ke
-	// jendela jam shift mana pun (mis. celah 19:00–19:01). Bukan error fatal,
-	// tapi wajib tampil eksplisit agar tidak ada selisih tersembunyi.
+	// jendela jam shift mana pun (order ber-TIME di luar gabungan [start,end)
+	// seluruh shift). Bukan error fatal, tapi wajib tampil eksplisit agar tidak
+	// ada selisih tersembunyi.
 	SelisihPendapatan float64 `json:"selisih_pendapatan"`
 	SelisihCogs       float64 `json:"selisih_cogs"`
 	// DihitungPada menandai kapan angka ini dihitung (deteksi respons basi).

@@ -116,6 +116,50 @@ const exportPreviewCSV = (preview: ProfitSharingPreview) => {
   URL.revokeObjectURL(a.href)
 }
 
+const toMinutes = (hhmm: string): number => {
+  const [h, m] = hhmm.slice(0, 5).split(":").map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return 0
+  return h * 60 + m
+}
+
+const toHHMM = (min: number): string => {
+  const m = ((min % 1440) + 1440) % 1440
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`
+}
+
+// Hitung jendela jam (HH:MM) yang TIDAK tercakup oleh kombinasi seluruh shift
+// dalam satu hari penuh (24 jam). Menangani shift lintas tengah malam
+// (end <= start) yang membentang melewati 00:00.
+const computeUncoveredWindows = (shifts: { start_time: string; end_time: string }[]): { start: string; end: string }[] => {
+  const covered = new Array(1440).fill(false)
+  for (const s of shifts) {
+    const start = toMinutes(s.start_time)
+    let end = toMinutes(s.end_time)
+    if (end <= start) end += 1440
+    for (let m = start; m < end; m++) covered[m % 1440] = true
+  }
+  const gaps: { start: string; end: string }[] = []
+  let runStart = -1
+  for (let m = 0; m <= 1440; m++) {
+    const open = m < 1440 && !covered[m]
+    if (open && runStart === -1) runStart = m
+    if (!open && runStart !== -1) {
+      gaps.push({ start: toHHMM(runStart), end: toHHMM(m) })
+      runStart = -1
+    }
+  }
+  // Gabung bila celah terbelah batas tengah malam (menempel 00:00 dan 24:00).
+  if (gaps.length > 1) {
+    const first = gaps[0]
+    const last = gaps[gaps.length - 1]
+    if (first.start === "00:00" && last.end === "00:00") {
+      gaps[0] = { start: last.start, end: first.end }
+      gaps.pop()
+    }
+  }
+  return gaps
+}
+
 export default function ProfitSharing() {
   const { toast } = useToast()
   const {
@@ -2471,14 +2515,20 @@ export default function ProfitSharing() {
                     Sisa rupiah yang tak habis dibagi: <b>Rp {formatNumber(preview.calculation.sisa_kas || 0)}</b> kembali ke kas toko.
                   </div>
                 )}
-                {(preview.calculation.selisih_pendapatan || 0) > 0 && (
-                  <div className="p-3 bg-red-50 border border-red-300 rounded-xl text-xs text-red-900">
-                    <b>Selisih rekonsiliasi: Rp {formatNumber(preview.calculation.selisih_pendapatan || 0)}</b> pendapatan
-                    {(preview.calculation.selisih_cogs || 0) > 0 && <> (COGS Rp {formatNumber(preview.calculation.selisih_cogs || 0)})</>} tidak
-                    terpetakan ke jam shift mana pun. Penyebab umum: celah jam antar shift (mis. PAGI berakhir 19:00,
-                    MALAM mulai 19:01 — order 19:00:xx hilang). Rapatkan jam shift di Pengaturan agar selisih nol.
-                  </div>
-                )}
+                {(preview.calculation.selisih_pendapatan || 0) > 0 && (() => {
+                  const gaps = computeUncoveredWindows(preview.calculation.shifts || [])
+                  const gapText = gaps.map((g) => `${g.start}–${g.end}`).join(", ")
+                  return (
+                    <div className="p-3 bg-red-50 border border-red-300 rounded-xl text-xs text-red-900">
+                      <b>Selisih rekonsiliasi: Rp {formatNumber(preview.calculation.selisih_pendapatan || 0)}</b> pendapatan
+                      {(preview.calculation.selisih_cogs || 0) > 0 && <> (COGS Rp {formatNumber(preview.calculation.selisih_cogs || 0)})</>} tidak
+                      terpetakan ke jendela jam shift mana pun.{" "}
+                      {gaps.length > 0
+                        ? <>Jam operasional yang belum tercakup jam shift: <b>{gapText}</b>. Order pada jam tersebut belum ikut dibagi — sesuaikan jam shift di Pengaturan Bagi Hasil agar menutup seluruh jam operasional.</>
+                        : <>Semua jendela jam shift sudah rapat 24 jam — periksa order dengan waktu transaksi di luar rentang periode atau di luar jam operasional.</>}
+                    </div>
+                  )
+                })()}
 
                 {/* Highlight Basis Card */}
                 <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-center justify-between">

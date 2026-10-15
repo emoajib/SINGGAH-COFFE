@@ -400,8 +400,8 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 	}
 
 	// Rekonsiliasi: angka tak terpetakan ke jendela jam mana pun wajib tampil
-	// eksplisit (jangan disembunyikan). Penyebab umum: celah jam antar shift
-	// (mis. PAGI berakhir 19:00, MALAM mulai 19:01 -> order 19:00:xx hilang).
+	// eksplisit (jangan disembunyikan). Penyebab: order ber-TIME di luar gabungan
+	// [start,end) seluruh shift (mis. jam operasional di luar jam shift terkonfigurasi).
 	out.SelisihRevenue = totalRevenue - totalShiftRevenue
 	if out.SelisihRevenue < 0 && out.SelisihRevenue > -1 {
 		out.SelisihRevenue = 0
