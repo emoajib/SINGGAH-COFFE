@@ -108,12 +108,13 @@ export function ShiftConfigSettings({ saving }: ShiftConfigSettingsProps) {
                 sort_order: formSortOrder,
             }
 
-            if (editingShift) {
-                await ProfitSharingService.updateShiftConfig(editingShift.id, payload)
-                toast({ title: "Berhasil", description: "Shift diperbarui", variant: "success" })
-            } else {
-                await ProfitSharingService.createShiftConfig(payload)
-                toast({ title: "Berhasil", description: "Shift ditambahkan", variant: "success" })
+            const res = editingShift
+                ? await ProfitSharingService.updateShiftConfig(editingShift.id, payload)
+                : await ProfitSharingService.createShiftConfig(payload)
+            toast({ title: "Berhasil", description: editingShift ? "Shift diperbarui" : "Shift ditambahkan", variant: "success" })
+            const warnings: string[] | undefined = (res as any)?.warnings
+            if (warnings && warnings.length > 0) {
+                toast({ title: "Peringatan", description: warnings.join(" "), variant: "warning" })
             }
             closeModal()
             fetchShifts()

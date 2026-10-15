@@ -38,16 +38,18 @@ func TestShiftKodeUniquePerOutlet(t *testing.T) {
 		return &entity.ShiftConfig{OutletID: 1, Name: name, Kode: kode,
 			StartTime: "07:00", EndTime: "14:00", OwnerPct: 60, BaristaPoolPct: 40, IsActive: true}
 	}
-	if err := uc.Create(mk("PAGI", "")); err != nil {
+	if _, err := uc.Create(mk("PAGI", "")); err != nil {
 		t.Fatalf("create PAGI: %v", err)
 	}
 	// "PETANG" menurunkan P -> tabrakan dengan PAGI -> tolak dengan pesan jelas.
-	if err := uc.Create(mk("PETANG", "")); err == nil {
+	if _, err := uc.Create(mk("PETANG", "")); err == nil {
 		t.Errorf("kode duplikat hasil turunan harus ditolak")
 	}
-	// Kode eksplisit unik lolos dan tersimpan uppercase.
+	// Kode eksplisit unik lolos dan tersimpan uppercase (jam tidak tumpang-tindih).
 	s := mk("Petang", "pe")
-	if err := uc.Create(s); err != nil {
+	s.StartTime = "14:00"
+	s.EndTime = "22:00"
+	if _, err := uc.Create(s); err != nil {
 		t.Fatalf("create eksplisit: %v", err)
 	}
 	if s.Kode != "PE" {

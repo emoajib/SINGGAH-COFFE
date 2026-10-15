@@ -44,15 +44,20 @@ func (h *ShiftConfigHandler) CreateShift(c *gin.Context) {
 		IsActive:       req.IsActive,
 		SortOrder:      req.SortOrder,
 	}
-	if err := h.uc.Create(shift); err != nil {
+	warnings, err := h.uc.Create(shift)
+	if err != nil {
 		writeDomainError(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{
-		"id":             shift.ID,
-		"message":        "shift config created successfully",
-		"shift_config":   shift,
-	})
+	resp := gin.H{
+		"id":           shift.ID,
+		"message":      "shift config created successfully",
+		"shift_config": shift,
+	}
+	if len(warnings) > 0 {
+		resp["warnings"] = warnings
+	}
+	c.JSON(http.StatusCreated, resp)
 }
 
 // UpdateShift handles PUT /profit-sharing/shift-configs/:id
@@ -81,14 +86,19 @@ func (h *ShiftConfigHandler) UpdateShift(c *gin.Context) {
 		IsActive:       req.IsActive,
 		SortOrder:      req.SortOrder,
 	}
-	if err := h.uc.Update(shift); err != nil {
+	warnings, err := h.uc.Update(shift)
+	if err != nil {
 		writeDomainError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	resp := gin.H{
 		"message":      "shift config updated successfully",
 		"shift_config": shift,
-	})
+	}
+	if len(warnings) > 0 {
+		resp["warnings"] = warnings
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // GetShifts handles GET /profit-sharing/shift-configs
