@@ -25,6 +25,7 @@ type ProfitSharingPeriod struct {
 	RatioEffectiveDate *time.Time           `json:"ratio_effective_date"`
 	RatioLockedAt     *time.Time            `json:"ratio_locked_at"`
 	RoundingRemainder float64               `json:"rounding_remainder"`
+	BasisDistributed  float64               `json:"basis_distributed"`
 	People            []ProfitSharingPerson `json:"people"`
 	CreatedAt         time.Time             `json:"created_at"`
 	UpdatedAt         time.Time             `json:"updated_at"`
@@ -177,6 +178,11 @@ type Calculation struct {
 	// ada selisih tersembunyi.
 	SelisihPendapatan float64 `json:"selisih_pendapatan"`
 	SelisihCogs       float64 `json:"selisih_cogs"`
+	// BasisDistributed = basis yang benar-benar dibagi ke Owner+Pool
+	// (Σ SharingBasis tiap shift). BasisUnmapped = BasisAmount − BasisDistributed:
+	// bagian yang tidak terpetakan ke jendela shift dan tidak ikut dibagi.
+	BasisDistributed float64 `json:"basis_distributed"`
+	BasisUnmapped    float64 `json:"basis_unmapped"`
 	// DihitungPada menandai kapan angka ini dihitung (deteksi respons basi).
 	DihitungPada    string                `json:"dihitung_pada"`
 	BasisType     string                `json:"basis_type"`

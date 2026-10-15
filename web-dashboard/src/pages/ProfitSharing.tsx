@@ -160,6 +160,20 @@ const computeUncoveredWindows = (shifts: { start_time: string; end_time: string 
   return gaps
 }
 
+// Basis yang benar-benar dibagi ke Owner+Barista. Pakai basis_distributed dari
+// backend (Σ basis shift) bila tersedia; fallback ke basis penuh (gross/net)
+// untuk periode lama yang belum menyimpan kolom ini.
+const resolveSharingBasis = (c: {
+  basis_distributed?: number
+  basis_type?: string
+  gross_profit?: number
+  net_profit?: number
+}): number => {
+  const d = c.basis_distributed || 0
+  if (d > 0) return d
+  return c.basis_type === 'gross' ? (c.gross_profit || 0) : (c.net_profit || 0)
+}
+
 export default function ProfitSharing() {
   const { toast } = useToast()
   const {
@@ -604,10 +618,13 @@ export default function ProfitSharing() {
     peopleList: ProfitSharingPerson[],
     expensesList: any[],
     docStatus: string = "Finalized",
-    periodId?: number
+    periodId?: number,
+    basisDistributedVal?: number
   ) => {
     const isGross = basisTypeVal === 'gross'
-    const basisCalcValue = isGross ? grossProfitVal : netProfitVal
+    const basisCalcValue = (basisDistributedVal && basisDistributedVal > 0)
+      ? basisDistributedVal
+      : (isGross ? grossProfitVal : netProfitVal)
     const totalBaristaLeaveReductions = peopleList.reduce(
       (sum, p) => sum + (p.role !== 'owner' ? (p.leave_reduction || 0) : 0), 0
     )
@@ -2123,7 +2140,9 @@ export default function ProfitSharing() {
         const effectivePeople = (detailPeriod.people && detailPeriod.people.length > 0) ? detailPeriod.people : detailPeople
         const isGross = detailPeriod.basis_type === 'gross'
         const grossMarginVal = detailPeriod.basis_amount - detailPeriod.total_cogs
-        const basisCalcVal = isGross ? grossMarginVal : detailPeriod.net_profit
+        const basisCalcVal = (detailPeriod.basis_distributed && detailPeriod.basis_distributed > 0)
+          ? detailPeriod.basis_distributed
+          : (isGross ? grossMarginVal : detailPeriod.net_profit)
         const isDraft = detailPeriod.status === 'draft'
 
         const expensesList: any[] = (() => {
@@ -2189,7 +2208,8 @@ export default function ProfitSharing() {
                       effectivePeople,
                       expensesList,
                       detailPeriod.status,
-                      detailPeriod.id
+                      detailPeriod.id,
+                      detailPeriod.basis_distributed
                     )}
                     className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-sm text-xs font-semibold"
                   >
@@ -2410,7 +2430,8 @@ export default function ProfitSharing() {
                       effectivePeople,
                       expensesList,
                       detailPeriod.status,
-                      detailPeriod.id
+                      detailPeriod.id,
+                      detailPeriod.basis_distributed
                     )}
                     className="bg-amber-600 hover:bg-amber-700 text-white gap-2 font-semibold text-xs"
                   >
@@ -2542,9 +2563,16 @@ export default function ProfitSharing() {
                     )}
                   </div>
                   <p className="text-xl font-extrabold text-indigo-950">
-                    Rp {formatNumber(preview.calculation.basis_type === 'gross' ? preview.calculation.gross_profit : preview.calculation.net_profit)}
+                    Rp {formatNumber(resolveSharingBasis(preview.calculation))}
                   </p>
                 </div>
+                {(preview.calculation.basis_unmapped || 0) > 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900">
+                    Basis yang dibagi <b>Rp {formatNumber(resolveSharingBasis(preview.calculation))}</b>
+                    {" "}dari {preview.calculation.basis_type === 'gross' ? 'Laba Kotor' : 'Laba Bersih'} Rp {formatNumber(preview.calculation.basis_type === 'gross' ? preview.calculation.gross_profit : preview.calculation.net_profit)}.
+                    Sebesar <b>Rp {formatNumber(preview.calculation.basis_unmapped || 0)}</b> berada di luar jendela jam shift dan tidak ikut dibagi.
+                  </div>
+                )}
 
                 {/* Alert regarding barista cashbon deduction */}
                 {totalBaristaCashbonReductions > 0 && (
@@ -2734,7 +2762,8 @@ export default function ProfitSharing() {
                         preview.calculation.people || people,
                         expensesList,
                         "Draft (Preview)",
-                        preview.period.id
+                        preview.period.id,
+                        preview.calculation.basis_distributed
                       )
                     }}
                     className="gap-1.5 border-amber-300 text-amber-900 hover:bg-amber-50 text-xs font-semibold w-full sm:w-auto"

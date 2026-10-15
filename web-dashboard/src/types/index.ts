@@ -689,6 +689,7 @@ export interface ProfitSharingPeriod {
   ratio_effective_date?: string
   ratio_locked_at?: string
   rounding_remainder?: number
+  basis_distributed?: number
   people: ProfitSharingPerson[]
   created_at: string
   updated_at: string
@@ -717,6 +718,8 @@ export interface ProfitSharingCalculation {
   basis_type: string
   owner_pct: number
   people: ProfitSharingPerson[]
+  basis_distributed?: number
+  basis_unmapped?: number
   // Vetted by AI - Manual Review Required by Senior Engineer/Manager
   // Multi-shift breakdown (Two-Tier per shift)
   shifts?: ShiftBreakdown[]

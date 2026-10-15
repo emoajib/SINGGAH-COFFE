@@ -127,6 +127,11 @@ type calcResult struct {
 	SisaKas        float64 // B3: total sisa rupiah yang kembali ke kas
 	SelisihPendapatan float64 // revenue tak terpetakan ke jendela shift mana pun
 	SelisihCogs       float64 // COGS tak terpetakan ke jendela shift mana pun
+	// BasisDistributed: Σ basis shift yang benar-benar dibagi (mode multi-shift).
+	// BasisUnmapped: SharingBasis − BasisDistributed (basis dari order di luar
+	// jendela shift). Single-shift: Distributed = SharingBasis, Unmapped = 0.
+	BasisDistributed float64
+	BasisUnmapped    float64
 	Products       []entity.ProductSalesVolume
 	PerProduct     []entity.ProductSharingDetail
 	PerProductJSON string
@@ -333,9 +338,19 @@ func (uc *ProfitSharingUsecase) calcSharing(basis, cogs, expenses, ratio float64
 		result.SisaKas = ms.SisaKas
 		result.SelisihPendapatan = ms.SelisihRevenue
 		result.SelisihCogs = ms.SelisihCogs
+		// Basis yang benar-benar didistribusikan = Σ SharingBasis tiap shift.
+		// Selisihnya (order di luar jendela shift) tidak ikut dibagi dan wajib
+		// tampil eksplisit agar header tidak menampilkan basis penuh yang menyesatkan.
+		result.BasisDistributed = 0
+		for _, b := range ms.Breakdown {
+			result.BasisDistributed += b.SharingBasis
+		}
+		result.BasisUnmapped = result.SharingBasis - result.BasisDistributed
 		return result, ms.Breakdown, nil
 	}
 	result := calcFinancials(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, basisType, totalPeriodDays)
+	result.BasisDistributed = result.SharingBasis
+	result.BasisUnmapped = 0
 	return result, nil, nil
 }
 
@@ -824,6 +839,7 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 		PoolPct:           poolPct,
 		RatioEffectiveDate: &startDate,
 		RoundingRemainder: result.SisaKas,
+		BasisDistributed:  result.BasisDistributed,
 		People:            people,
 	}
 
@@ -930,6 +946,8 @@ func (uc *ProfitSharingUsecase) Preview(start, end string, outletID uint, ratio 
 			SisaKas:       result.SisaKas,
 			SelisihPendapatan: result.SelisihPendapatan,
 			SelisihCogs:       result.SelisihCogs,
+			BasisDistributed:  result.BasisDistributed,
+			BasisUnmapped:     result.BasisUnmapped,
 			DihitungPada:  time.Now().Format("2006-01-02 15:04:05"),
 			BasisType:     period.BasisType,
 			OwnerPct:      period.OwnerPct,
@@ -956,7 +974,8 @@ func (uc *ProfitSharingUsecase) PreviewReadOnly(start, end string, outletID uint
 			Status: "draft", PerProduct: result.PerProductJSON,
 			ExpensesBreakdown: pc.expenseListJSON, TaxNote: pc.taxNote,
 			BasisType: pc.basisType, OwnerPct: pc.ownerPct, PoolPct: pc.poolPct,
-			RoundingRemainder: result.SisaKas, People: people,
+			RoundingRemainder: result.SisaKas, BasisDistributed: result.BasisDistributed,
+			People: people,
 		},
 		Calculation: entity.Calculation{
 			BasisAmount: result.Basis, Tax: result.Tax, ServiceFee: result.ServiceFee,
@@ -966,6 +985,7 @@ func (uc *ProfitSharingUsecase) PreviewReadOnly(start, end string, outletID uint
 			Breakdown: pc.expenseList, PerProduct: result.PerProduct,
 			Status: "draft", Note: pc.taxNote, SisaKas: result.SisaKas,
 			SelisihPendapatan: result.SelisihPendapatan, SelisihCogs: result.SelisihCogs,
+			BasisDistributed: result.BasisDistributed, BasisUnmapped: result.BasisUnmapped,
 			DihitungPada: time.Now().Format("2006-01-02 15:04:05"),
 			BasisType: pc.basisType, OwnerPct: pc.ownerPct,
 			People: people, Shifts: pc.shiftBreakdown,
