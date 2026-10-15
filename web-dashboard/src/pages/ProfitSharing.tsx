@@ -1008,7 +1008,7 @@ export default function ProfitSharing() {
     }
   }
 
-  const handleFinalize = async (id: number) => {
+  const handleFinalize = async (id: number, periodRatio: number) => {
     const isConfirmed = window.confirm(
       "Proses Bagi Hasil Periode Ini?\n\n" +
       "1. Kasbon barista yang dipotongkan akan otomatis ditandai LUNAS (Settled).\n" +
@@ -1019,7 +1019,7 @@ export default function ProfitSharing() {
     if (!isConfirmed) return
 
     try {
-      await finalizeMutation.mutateAsync({ id, ratio })
+      await finalizeMutation.mutateAsync({ id, ratio: periodRatio })
       toast({
         title: "Bagi Hasil Berhasil Diproses",
         description: "Periode telah diproses, kasbon barista dilunaskan, dan pembayaran tercatat di Pengeluaran (Gaji & Upah).",
@@ -1679,7 +1679,7 @@ export default function ProfitSharing() {
                                   </Button>
                                   <Button
                                     size="sm"
-                                    onClick={() => handleFinalize(p.id)}
+                                    onClick={() => handleFinalize(p.id, p.ratio)}
                                     disabled={finalizeMutation.isPending}
                                     className="h-7 px-2 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shadow-xs"
                                     title="Proses Bagi Hasil, lunasi kasbon, dan catat ke Pengeluaran (Gaji & Upah)"
@@ -2446,7 +2446,7 @@ export default function ProfitSharing() {
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => handleFinalize(detailPeriod.id)}
+                          onClick={() => handleFinalize(detailPeriod.id, detailPeriod.ratio)}
                           disabled={finalizeMutation.isPending}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
                           title="Proses Bagi Hasil, lunasi kasbon, dan catat ke Pengeluaran (Gaji & Upah)"
@@ -2618,9 +2618,12 @@ export default function ProfitSharing() {
                         </div>
                         {(shift.daftar_pembagi?.length || shift.jumlah_pembagi) ? (
                           <p className="text-xs text-indigo-800">
-                            Dibagi rata per hari ke {shift.jumlah_pembagi ?? shift.daftar_pembagi?.length ?? 0} barista
-                            {shift.total_hari ? ` selama ${shift.total_hari} hari` : ""}
-                            {shift.daftar_pembagi?.length ? `: ${shift.daftar_pembagi.join(", ")}` : ""}
+                            Dibagi rata per hari di antara barista yang hadir
+                            {shift.total_hari ? ` (${shift.total_hari} hari operasional)` : ""}
+                            {shift.daftar_pembagi?.length
+                              ? `. ${shift.daftar_pembagi.length} barista terlibat: ${shift.daftar_pembagi.join(", ")}`
+                              : ""}
+                            .
                           </p>
                         ) : (
                           <p className="text-xs text-amber-700">Belum ada barista hadir yang disahkan pada shift ini.</p>
@@ -2666,7 +2669,13 @@ export default function ProfitSharing() {
                                     </span>
                                   </div>
                                 </td>
-                                <td className="text-right py-2.5 px-3">{person.share_pct}%</td>
+                                <td className="text-right py-2.5 px-3">
+                                  {isOwner || !(preview.calculation.shifts && preview.calculation.shifts.length > 0) ? (
+                                    `${person.share_pct}%`
+                                  ) : (
+                                    <span className="text-slate-400" title="Mode equal-split: pool dibagi rata per hari di antara barista yang hadir">sama rata</span>
+                                  )}
+                                </td>
                                 <td className="text-center py-2.5 px-3">
                                   <AttendanceBadge person={person} pad="px-1.5 py-0.5" />
                                 </td>
@@ -2769,7 +2778,7 @@ export default function ProfitSharing() {
 
                     <Button
                       size="sm"
-                      onClick={() => handleFinalize(preview.period.id)}
+                      onClick={() => handleFinalize(preview.period.id, preview.period.ratio)}
                       disabled={finalizeMutation.isPending}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
                       title="Proses Bagi Hasil, lunasi kasbon, dan catat ke Pengeluaran (Gaji & Upah)"
