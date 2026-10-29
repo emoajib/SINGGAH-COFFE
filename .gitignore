@@ -61,3 +61,6 @@ main_linux_amd64
 backend/cmd/server/main_linux_amd64
 web-fixed.zip
 backend/go.mod.backup
+
+# Local env (dev only)
+backend/.env.local
