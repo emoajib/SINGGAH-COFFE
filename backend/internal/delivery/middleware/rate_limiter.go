@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -38,6 +39,11 @@ func init() {
 // sync.Map.Range aman untuk iterasi concurrent, tapi tidak menjamin
 // konsistensi jika ada entri baru ditambah selama iterasi.
 func cleanupLoop() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[RateLimiter] PANIC in cleanup loop: %v", r)
+		}
+	}()
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {

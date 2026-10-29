@@ -10,7 +10,7 @@ Sistem MOKA POS for Singgah Coffee — Go backend + React/Vite frontend, MariaDB
 - **Infra**: Local dev server (port 8080 backend, 3001 frontend), Webhosting (sosiomen.com)
 
 ## Credentials
-- **DB**: `root:password@tcp(localhost:3306)/singgah_pos`
+- **DB**: `root:password@tcp(127.0.0.1:3306)/singgah_pos`
 - **Admin**: `owner@singgah.coffee` / `admin`
 - **JWT Secret**: `singgah-pos-super-secret-key-2024-long-enough`
 

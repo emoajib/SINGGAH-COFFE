@@ -1,7 +1,9 @@
 package database
 
 import (
+	"context"
 	"log"
+	"strings"
 	"time"
 	"singgah-pos-backend/internal/config"
 	"singgah-pos-backend/internal/domain/entity"
@@ -13,9 +15,36 @@ import (
 )
 
 func Connect(cfg config.Config) *gorm.DB {
-	db, err := gorm.Open(mysql.Open(cfg.DatabaseURL), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+	// Retry koneksi agar backend tidak langsung mati bila DB sedang
+	// start/recover (mis. MariaDB restart singkat). Ini mencegah
+	// proses backend exit saat DB sementara tidak tersedia.
+	var db *gorm.DB
+	var lastErr error
+	for attempt := 1; attempt <= 10; attempt++ {
+		candidate, err := gorm.Open(mysql.Open(cfg.DatabaseURL), &gorm.Config{})
+		if err == nil {
+			sqlDB, e := candidate.DB()
+			if e == nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				pingErr := sqlDB.PingContext(ctx)
+				cancel()
+				if pingErr == nil {
+					db = candidate
+					lastErr = nil
+					break
+				}
+				lastErr = pingErr
+			} else {
+				lastErr = e
+			}
+		} else {
+			lastErr = err
+		}
+		log.Printf("DB connect attempt %d/10 failed: %v", attempt, lastErr)
+		time.Sleep(2 * time.Second)
+	}
+	if db == nil {
+		log.Fatalf("Failed to connect to database after retries: %v", lastErr)
 	}
 
 	// Shared-hosting hardening: batasi connection pool agar jumlah OS thread
@@ -31,6 +60,18 @@ func Connect(cfg config.Config) *gorm.DB {
 	sqlDB.SetMaxIdleConns(2)
 	sqlDB.SetConnMaxIdleTime(60 * time.Second)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
+
+	// Peringatan dini bila DB yang dipakai punya bug crash yang diketahui
+	// (MariaDB 12.2.x crash pada query information_schema). Backend tetap
+	// jalan, tapi user disarankan downgrade ke LTS (11.4) atau MySQL 8.
+	var version string
+	if err := db.Raw("SELECT VERSION()").Scan(&version).Error; err == nil && version != "" {
+		log.Printf("Database version: %s", version)
+		lv := strings.ToLower(version)
+		if strings.Contains(lv, "mariadb") && strings.Contains(lv, "12.2") {
+			log.Printf("WARNING: MariaDB %s has a known crash bug on information_schema queries (used by AutoMigrate). This can make the DB (and backend startup) die. Recommend MariaDB 11.4 LTS or MySQL 8.", version)
+		}
+	}
 
 	// Auto Migrate the schema with error checking
 	log.Println("Running Auto Migration...")
@@ -85,18 +126,20 @@ func Connect(cfg config.Config) *gorm.DB {
 		log.Println("WARNING: Default admin credentials detected — please change password immediately")
 		hashedPassword, err := password.HashPassword("admin")
 		if err != nil {
-			log.Fatalf("Failed to hash default admin password: %v", err)
+			log.Printf("Failed to hash default admin password: %v", err)
+		} else {
+			admin := models.User{
+				Name:     "Owner Singgah",
+				Email:    "owner@singgah.coffee",
+				Password: hashedPassword,
+				Role:     "owner",
+			}
+			if result := db.Create(&admin); result.Error != nil {
+				log.Printf("Failed to seed default admin user: %v", result.Error)
+			} else {
+				log.Println("Seeded default admin user")
+			}
 		}
-		admin := models.User{
-			Name:     "Owner Singgah",
-			Email:    "owner@singgah.coffee",
-			Password: hashedPassword,
-			Role:     "owner",
-		}
-		if result := db.Create(&admin); result.Error != nil {
-			log.Fatalf("Failed to seed default admin user: %v", result.Error)
-		}
-		log.Println("Seeded default admin user")
 	}
 
 	// Seed Default Settings if not exists

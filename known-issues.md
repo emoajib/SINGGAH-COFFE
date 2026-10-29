@@ -98,3 +98,16 @@ style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' h
 **Cause:** Port 3000 is occupied by another process.
 
 **Fix:** Frontend dev server runs on port 3001. Check `vite.config.ts` for `server.port` setting.
+
+## Database (Local Dev)
+
+### MariaDB 12.2.x crash pada query information_schema
+
+**Gejala:** backend localhost sering mati sendiri; `mariadbd got signal 11`; log `Starting crash recovery`; setelah DB crash backend gagal seed (log.Fatalf) dan process exit.
+
+**Penyebab:** MariaDB 12.2.2 (Homebrew) bug di `acl_get`/`my_hash_search` saat query `INFORMATION_SCHEMA.table_constraints` (dipakai GORM AutoMigrate) dan `STATISTICS` (dipakai ensureColumn). Ini bug server, bukan kode aplikasi. DSN `localhost` juga bisa resolve ke `::1` padahal MariaDB hanya listen `127.0.0.1`, menyebabkan connection refused.
+
+**Pencegahan:**
+- Gunakan DB stabil: MariaDB 11.4 LTS (`brew install mariadb@11.4`) atau MySQL 8 (Docker) untuk dev lokal; jangan 12.2.x.
+- DSN lokal gunakan `127.0.0.1` (bukan `localhost`).
+- Backend kini retry koneksi DB saat startup dan tidak fatal pada seed gagal, serta goroutine background dibungkus recover.

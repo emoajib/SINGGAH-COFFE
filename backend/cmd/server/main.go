@@ -73,6 +73,11 @@ func main() {
 
 	// Start background cleanup of expired tokens every hour
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[TokenCleanup] PANIC recovered: %v", r)
+			}
+		}()
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 		for {
