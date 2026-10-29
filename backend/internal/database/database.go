@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"log"
+	"os"
 	"strings"
 	"time"
 	"singgah-pos-backend/internal/config"
@@ -73,50 +74,61 @@ func Connect(cfg config.Config) *gorm.DB {
 		}
 	}
 
-	// Auto Migrate the schema with error checking
-	log.Println("Running Auto Migration...")
-	err = db.AutoMigrate(
-		&models.User{},
-		&models.Product{},
-		&models.Ingredient{},
-		&models.RecipeItem{},
-		&models.StockMutation{},
-		&models.Order{},
-		&models.OrderItem{},
-		&models.Setting{},
-		&models.Expense{},
-		&models.ProcessedWebhook{},
-		&entity.TokenBlacklist{},
-		&models.Outlet{},
-		&models.CashRegister{},
-		&models.CashBook{},
-		&models.ProductionTarget{},
-		&models.ProfitSharingPeriod{},
-		&models.PSAKAccount{},
-		&models.PSAKJournalEntry{},
-		&models.PSAKJournalEntryItem{},
-		&models.PSAKEventOutbox{},
-		&models.PSAKSchemaVersion{},
-		&models.ProfitSharingPerson{},
-		&models.BaristaCashbon{},
-		&models.ShiftConfig{}, // Multi-shift bagi hasil - Vetted by AI
-		// Bagi hasil per-shift: jadwal, kehadiran, instance shift, audit (tanpa soft-delete, K1)
-		&models.ShiftInstance{},
-		&models.Schedule{},
-		&models.ScheduleRequest{},
-		&models.Attendance{},
-		&models.AuditLog{},
-		// Loyalty & Customer Feedback - Vetted by AI
-		&models.Customer{},
-		&models.LoyaltyProgram{},
-		&models.LoyaltyStamp{},
-		&models.LoyaltyRedemption{},
-		&models.CustomerFeedback{},
-		// Master Data Barista - Vetted by AI
-		&models.Barista{},
-	)
-	if err != nil {
-		log.Printf("AutoMigrate failed: %v", err)
+	// Auto Migrate the schema with error checking.
+	// Dapat dilewati di dev (SKIP_AUTOMIGRATE=1) atau otomatis pada
+	// MariaDB 12.2.x (bug crash pada query information_schema).
+	skipMigrate := os.Getenv("SKIP_AUTOMIGRATE") == "1" || strings.EqualFold(os.Getenv("SKIP_AUTOMIGRATE"), "true")
+	if strings.Contains(strings.ToLower(version), "mariadb") && strings.Contains(strings.ToLower(version), "12.2") {
+		skipMigrate = true
+		log.Println("WARNING: MariaDB 12.2.x terdeteksi — AutoMigrate otomatis dilewati untuk mencegah crash DB. Gunakan MariaDB 11.4 LTS/MySQL 8 untuk migrasi skema.")
+	}
+	if skipMigrate {
+		log.Println("Skipping GORM AutoMigrate")
+	} else {
+		log.Println("Running Auto Migration...")
+		err = db.AutoMigrate(
+			&models.User{},
+			&models.Product{},
+			&models.Ingredient{},
+			&models.RecipeItem{},
+			&models.StockMutation{},
+			&models.Order{},
+			&models.OrderItem{},
+			&models.Setting{},
+			&models.Expense{},
+			&models.ProcessedWebhook{},
+			&entity.TokenBlacklist{},
+			&models.Outlet{},
+			&models.CashRegister{},
+			&models.CashBook{},
+			&models.ProductionTarget{},
+			&models.ProfitSharingPeriod{},
+			&models.PSAKAccount{},
+			&models.PSAKJournalEntry{},
+			&models.PSAKJournalEntryItem{},
+			&models.PSAKEventOutbox{},
+			&models.PSAKSchemaVersion{},
+			&models.ProfitSharingPerson{},
+			&models.BaristaCashbon{},
+			&models.ShiftConfig{}, // Multi-shift bagi hasil - Vetted by AI
+			// Bagi hasil per-shift: jadwal, kehadiran, instance shift, audit (tanpa soft-delete, K1)
+			&models.ShiftInstance{},
+			&models.Schedule{},
+			&models.ScheduleRequest{},
+			&models.Attendance{},
+			&models.AuditLog{},
+			// Loyalty & Customer Feedback - Vetted by AI
+			&models.Customer{},
+			&models.LoyaltyProgram{},
+			&models.LoyaltyStamp{},
+			&models.LoyaltyRedemption{},
+			&models.CustomerFeedback{},
+			// Master Data Barista - Vetted by AI
+			&models.Barista{},
+		)
+		if err != nil {
+			log.Printf("AutoMigrate failed: %v", err)
+		}
 	}
 
 	// Seed Default Owner if not exists
