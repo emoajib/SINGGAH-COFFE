@@ -213,6 +213,8 @@ func Connect(cfg config.Config) *gorm.DB {
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 	// Bersihkan antrian lampau: pesanan dari sebelum hari ini yang berstatus Completed
 	// otomatis diset kitchen_status = 'served' agar tidak memenuhi antrian aktif barista
+	// Pastikan kolom kitchen_status ada (idempoten) sebelum cleanup historis.
+	ensureColumn(db, "orders", "kitchen_status", "VARCHAR(20) NOT NULL DEFAULT 'queued'")
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	if err := db.Model(&models.Order{}).
