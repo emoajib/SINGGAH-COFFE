@@ -272,6 +272,11 @@ func Connect(cfg config.Config) *gorm.DB {
 	ensureColumn(db, "orders", "customer_phone", "VARCHAR(30) NOT NULL DEFAULT ''")
 	ensureColumn(db, "orders", "tracking_token", "VARCHAR(64) NOT NULL DEFAULT ''")
 	ensureColumn(db, "orders", "pickup_code", "VARCHAR(10) NOT NULL DEFAULT ''")
+	ensureColumn(db, "orders", "kitchen_status", "VARCHAR(20) NOT NULL DEFAULT 'queued'")
+	ensureColumn(db, "orders", "queued_at", "DATETIME NULL")
+	ensureColumn(db, "orders", "preparing_at", "DATETIME NULL")
+	ensureColumn(db, "orders", "ready_at", "DATETIME NULL")
+	ensureColumn(db, "orders", "served_at", "DATETIME NULL")
 	ensureColumn(db, "order_items", "notes", "VARCHAR(100) NOT NULL DEFAULT ''")
 
 	// Ensure ingredients has warehouse_stock & kedai_stock for dual-location stock (idempotent / non-blocking)
