@@ -250,9 +250,18 @@ func (uc *ReportUsecase) GetSalesSummary(outletID ...uint) *entity.SalesSummaryR
 }
 
 func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint) (*entity.ProfitLossReport, error) {
-	revenue, _ := uc.orderRepo.GetTotalSalesRange(start, end, outletID...)
-	cogs, _ := uc.orderItemRepo.GetTotalCogsRange(start, end, outletID...)
-	expenses, _ := uc.expenseRepo.GetBreakdownRange(start, end, outletID...)
+	revenue, err := uc.orderRepo.GetTotalSalesRange(start, end, outletID...)
+	if err != nil {
+		return nil, err
+	}
+	cogs, err := uc.orderItemRepo.GetTotalCogsRange(start, end, outletID...)
+	if err != nil {
+		return nil, err
+	}
+	expenses, err := uc.expenseRepo.GetBreakdownRange(start, end, outletID...)
+	if err != nil {
+		return nil, err
+	}
 	if expenses == nil {
 		expenses = []entity.ExpenseDetail{}
 	}
@@ -286,7 +295,10 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 		})
 	}
 
-	paymentBreakdown, _ := uc.orderRepo.GetSalesByPaymentMethod(start, end, outletID...)
+	paymentBreakdown, err := uc.orderRepo.GetSalesByPaymentMethod(start, end, outletID...)
+	if err != nil {
+		return nil, err
+	}
 	if paymentBreakdown == nil {
 		paymentBreakdown = []entity.PaymentBreakdown{}
 	}
@@ -316,7 +328,10 @@ func (uc *ReportUsecase) GetProfitLossReport(start, end string, outletID ...uint
 			Count:         otherCount,
 		})
 	}
-	cbIncome, cbExpense, _ := uc.cashBookRepo.GetOperationalTotalsRange(start, end, outletID...)
+	cbIncome, cbExpense, err := uc.cashBookRepo.GetOperationalTotalsRange(start, end, outletID...)
+	if err != nil {
+		return nil, err
+	}
 	grossProfit := revenue - cogs
 	netProfit := grossProfit - totalExpenses
 
