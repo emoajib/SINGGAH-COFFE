@@ -115,7 +115,7 @@ func TestLoyaltyUsecase_CustomerFeedback(t *testing.T) {
 	assert.Equal(t, "new", fb.Status)
 
 	// Owner membalas feedback
-	err = uc.ReplyFeedback(fb.ID, "Terima kasih banyak Kak Siti, kami tunggu kedatangannya lagi!", 1)
+	err = uc.ReplyFeedback(fb.ID, "Terima kasih banyak Kak Siti, kami tunggu kedatangannya lagi!", 1, 1)
 	assert.NoError(t, err)
 
 	feedbacks, err := uc.GetFeedbacks(10, 0, "", 1)

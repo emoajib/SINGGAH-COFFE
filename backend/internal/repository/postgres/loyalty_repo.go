@@ -2,8 +2,8 @@
 package postgres
 
 import (
+	"errors"
 	"time"
-
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/models"
 	"singgah-pos-backend/internal/repository"
@@ -317,14 +317,25 @@ func (r *feedbackRepository) FindByToken(token string, limit int) ([]entity.Cust
 	return res, nil
 }
 
-func (r *feedbackRepository) Reply(id uint, reply string, repliedBy uint) error {
+func (r *feedbackRepository) Reply(id uint, reply string, repliedBy uint, outletID uint) error {
 	now := time.Now()
-	return r.db.Model(&models.CustomerFeedback{}).Where("id = ?", id).Updates(map[string]interface{}{
+	q := r.db.Model(&models.CustomerFeedback{}).Where("id = ?", id)
+	if outletID != 0 {
+		q = q.Where("outlet_id = ?", outletID)
+	}
+	res := q.Updates(map[string]interface{}{
 		"owner_reply": reply,
 		"replied_by":  repliedBy,
 		"replied_at":  &now,
 		"status":      "replied",
-	}).Error
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("feedback tidak ditemukan atau bukan milik outlet Anda")
+	}
+	return nil
 }
 
 func (r *feedbackRepository) GetAverageRating(outletID ...uint) (float64, int64, error) {

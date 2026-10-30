@@ -337,12 +337,12 @@ func (uc *LoyaltyUsecase) GetFeedbacks(limit, offset int, status string, outletI
 	return uc.feedbackRepo.FindAll(limit, offset, status, outletID...)
 }
 
-func (uc *LoyaltyUsecase) ReplyFeedback(id uint, reply string, repliedBy uint) error {
+func (uc *LoyaltyUsecase) ReplyFeedback(id uint, reply string, repliedBy uint, outletID uint) error {
 	cleanReply := strings.TrimSpace(reply)
 	if cleanReply == "" {
 		return domainErrors.NewInvalidInputError("balasan tidak boleh kosong")
 	}
-	return uc.feedbackRepo.Reply(id, cleanReply, repliedBy)
+	return uc.feedbackRepo.Reply(id, cleanReply, repliedBy, outletID)
 }
 
 func (uc *LoyaltyUsecase) GetPrograms(outletID ...uint) ([]entity.LoyaltyProgram, error) {

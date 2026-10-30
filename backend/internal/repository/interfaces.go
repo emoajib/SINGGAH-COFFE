@@ -332,7 +332,7 @@ type FeedbackRepository interface {
 	FindAll(limit, offset int, status string, outletID ...uint) ([]entity.CustomerFeedback, error)
 	FindByID(id uint) (*entity.CustomerFeedback, error)
 	FindByToken(token string, limit int) ([]entity.CustomerFeedback, error)
-	Reply(id uint, reply string, repliedBy uint) error
+	Reply(id uint, reply string, repliedBy uint, outletID uint) error
 	GetAverageRating(outletID ...uint) (float64, int64, error)
 }
 

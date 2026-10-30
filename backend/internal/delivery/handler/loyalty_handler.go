@@ -221,6 +221,13 @@ func (h *LoyaltyHandler) ReplyFeedback(c *gin.Context) {
 	}
 
 	userID, _ := getUserID(c)
+	outletID := getOutletID(c)
+	role := getUserRole(c)
+	// Owner boleh membalas lintas outlet; manager dibatasi outlet miliknya.
+	if role == "owner" {
+		outletID = 0
+	}
+
 	var req struct {
 		Reply string `json:"reply" binding:"required"`
 	}
@@ -229,7 +236,7 @@ func (h *LoyaltyHandler) ReplyFeedback(c *gin.Context) {
 		return
 	}
 
-	if err := h.loyaltyUsecase.ReplyFeedback(uint(id), req.Reply, userID); err != nil {
+	if err := h.loyaltyUsecase.ReplyFeedback(uint(id), req.Reply, userID, outletID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
