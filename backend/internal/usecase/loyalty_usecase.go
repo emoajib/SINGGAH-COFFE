@@ -312,16 +312,13 @@ func (uc *LoyaltyUsecase) SubmitFeedback(token string, rating int, category, mes
 	}
 
 	customer, err := uc.customerRepo.FindByToken(token)
-	var customerID uint = 0
-	var outletID uint = 0
-	if err == nil && customer != nil {
-		customerID = customer.ID
-		outletID = customer.OutletID
+	if err != nil || customer == nil {
+		return nil, domainErrors.NewNotFoundError("customer")
 	}
 
 	fb := &entity.CustomerFeedback{
-		CustomerID:   customerID,
-		OutletID:     outletID,
+		CustomerID:   customer.ID,
+		OutletID:     customer.OutletID,
 		LoyaltyToken: token,
 		Rating:       rating,
 		Category:     category,
