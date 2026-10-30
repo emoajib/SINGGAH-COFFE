@@ -29,10 +29,10 @@ export const useLoyaltyPrograms = () => {
     });
 };
 
-export const useFeedbacks = (status?: string) => {
+export const useFeedbacks = (status?: string, limit = 50, offset = 0) => {
     return useQuery({
-        queryKey: ['customer-feedbacks', status],
-        queryFn: () => LoyaltyService.getFeedbacks(status),
+        queryKey: ['customer-feedbacks', status, limit, offset],
+        queryFn: () => LoyaltyService.getFeedbacks(status, limit, offset),
         staleTime: 15000,
     });
 };

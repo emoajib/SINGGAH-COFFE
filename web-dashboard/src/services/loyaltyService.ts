@@ -52,9 +52,12 @@ export const LoyaltyService = {
         await api.post('/loyalty/redeem', payload);
     },
 
-    getFeedbacks: async (status?: string): Promise<CustomerFeedback[]> => {
-        const url = status ? `/feedback?status=${status}` : '/feedback';
-        const response = await api.get(url);
+    getFeedbacks: async (status?: string, limit = 50, offset = 0): Promise<CustomerFeedback[]> => {
+        const params = new URLSearchParams();
+        if (status) params.set('status', status);
+        params.set('limit', String(limit));
+        params.set('offset', String(offset));
+        const response = await api.get(`/feedback?${params.toString()}`);
         return response.data || [];
     },
 
