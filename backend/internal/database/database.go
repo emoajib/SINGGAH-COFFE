@@ -131,26 +131,33 @@ func Connect(cfg config.Config) *gorm.DB {
 		}
 	}
 
-	// Seed Default Owner if not exists
+	// Seed Default Owner hanya jika operator menyediakan kredensial bootstrap
+	// via environment (BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD).
+	// Tidak ada lagi password tetap yang dibuat otomatis (SEC-01).
 	var userCount int64
 	db.Model(&models.User{}).Count(&userCount)
 	if userCount == 0 {
-		log.Println("WARNING: Default admin credentials detected — please change password immediately")
-		hashedPassword, err := password.HashPassword("admin")
-		if err != nil {
-			log.Printf("Failed to hash default admin password: %v", err)
-		} else {
-			admin := models.User{
-				Name:     "Owner Singgah",
-				Email:    "owner@singgah.coffee",
-				Password: hashedPassword,
-				Role:     "owner",
-			}
-			if result := db.Create(&admin); result.Error != nil {
-				log.Printf("Failed to seed default admin user: %v", result.Error)
+		email := strings.TrimSpace(os.Getenv("BOOTSTRAP_ADMIN_EMAIL"))
+		pass := os.Getenv("BOOTSTRAP_ADMIN_PASSWORD")
+		if email != "" && pass != "" {
+			hashedPassword, err := password.HashPassword(pass)
+			if err != nil {
+				log.Printf("Failed to hash bootstrap admin password: %v", err)
 			} else {
-				log.Println("Seeded default admin user")
+				admin := models.User{
+					Name:     "Owner Singgah",
+					Email:    email,
+					Password: hashedPassword,
+					Role:     "owner",
+				}
+				if result := db.Create(&admin); result.Error != nil {
+					log.Printf("Failed to seed bootstrap admin user: %v", result.Error)
+				} else {
+					log.Println("Seeded bootstrap admin user from environment")
+				}
 			}
+		} else {
+			log.Println("WARNING: No users found and BOOTSTRAP_ADMIN_EMAIL/PASSWORD not set. Complete first-run setup manually before using the app.")
 		}
 	}
 
