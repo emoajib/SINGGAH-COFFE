@@ -82,7 +82,7 @@ func (uc *BEPUsecase) GetBEPReport(month, year int, outletID ...uint) (*entity.B
 		return nil, err
 	}
 
-	fc, err := uc.expenseRepo.GetTotalByCostType("fixed", startStr, endStr, outletID...)
+	fc, err := uc.expenseRepo.GetTotalFixedExcludingCategories(startStr, endStr, []string{"Bahan Baku", "Bahan Baku (HPP)", "HPP", "COGS"}, outletID...)
 	if err != nil {
 		return nil, err
 	}

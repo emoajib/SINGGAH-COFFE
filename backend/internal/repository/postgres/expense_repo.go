@@ -214,6 +214,19 @@ func (r *expenseRepository) GetTotalVariableExcludingCategories(start, end strin
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func (r *expenseRepository) GetTotalFixedExcludingCategories(start, end string, excludeCategories []string, outletID ...uint) (float64, error) {
+	tx := r.db.Model(&models.Expense{}).
+		Where("DATE(date) BETWEEN DATE(?) AND DATE(?) AND cost_type = 'fixed'", start, end)
+	if len(excludeCategories) > 0 {
+		tx = tx.Where("category NOT IN (?)", excludeCategories)
+	}
+	tx = scopeOutlet(tx, "expenses", outletID...)
+	var total float64
+	err := tx.Select("COALESCE(SUM(amount), 0)").Row().Scan(&total)
+	return total, err
+}
+
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *expenseRepository) GetFixedCostBreakdown(start, end string, outletID ...uint) ([]entity.FixedCostItem, error) {
 	tx := r.db.Model(&models.Expense{}).
 		Where("DATE(date) BETWEEN DATE(?) AND DATE(?) AND cost_type = ?", start, end, "fixed")

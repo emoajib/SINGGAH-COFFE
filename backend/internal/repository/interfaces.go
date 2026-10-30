@@ -113,6 +113,7 @@ type ExpenseRepository interface {
 	// BEP
 	GetTotalByCostType(costType, start, end string, outletID ...uint) (float64, error)
 	GetTotalVariableExcludingCategories(start, end string, excludeCategories []string, outletID ...uint) (float64, error)
+	GetTotalFixedExcludingCategories(start, end string, excludeCategories []string, outletID ...uint) (float64, error)
 	GetFixedCostBreakdown(start, end string, outletID ...uint) ([]entity.FixedCostItem, error)
 	// SumByShiftInstance menjumlahkan biaya LANGSUNG satu shift (Fase C).
 	SumByShiftInstance(shiftInstanceID uint, outletID uint) (float64, error)
