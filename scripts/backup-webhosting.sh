@@ -5,27 +5,46 @@ set -euo pipefail
 
 BACKUP_DIR="$HOME/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DB_NAME="$DB_NAME"
-DB_USER="$DB_USER"
-DB_PASS="$DB_PASS"
 UPLOADS_DIR="$HOME/singgah-pos/backend/uploads"
-
-# Kredensial diambil dari backend/.env server (jangan pernah di-commit literal).
 ENV_FILE="$HOME/singgah-pos/backend/.env"
-if [ -f "$ENV_FILE" ]; then
-    set -a
-    # shellcheck disable=SC1091
-    source "$ENV_FILE"
-    set +a
-fi
 
-# Isi dari .env jika tersedia; KOSONGKAN (bukan hardcode) jika tidak terbaca.
+# Parser dotenv aman (tidak source shell) agar DSN dengan metakarakter tidak crash.
+load_env_file() {
+  [ -f "$1" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|\#*) continue ;; esac
+    case "$line" in *=*) : ;; *) continue ;; esac
+    name="${line%%=*}"
+    value="${line#*=}"
+    case "$value" in
+      \"*\") value="${value#\"}"; value="${value%\"}" ;;
+      \'*\') value="${value#\'}"; value="${value%\'}" ;;
+    esac
+    [ -n "$name" ] && export "$name=${value}" 2>/dev/null || true
+  done < "$1"
+}
+load_env_file "$ENV_FILE"
+
+# Izinkan override via env DB_NAME/DB_USER/DB_PASS; jika kosong, parse dari DATABASE_URL.
 DB_NAME="${DB_NAME:-}"
 DB_USER="${DB_USER:-}"
 DB_PASS="${DB_PASS:-}"
 if [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
+  if [ -n "${DATABASE_URL:-}" ]; then
+    CREDS="${DATABASE_URL%%@*}"
+    CREDS="${CREDS#*//}"
+    HOSTPART="${DATABASE_URL#*@}"
+    HOSTPART="${HOSTPART%%)*}"
+    DB_USER="${DB_USER:-${CREDS%%:*}}"
+    DB_PASS="${DB_PASS:-${CREDS#*:}}"
+    DB_NAME="${DB_NAME:-${DATABASE_URL##*/}}"
+    DB_NAME="${DB_NAME%%\?*}"
+  fi
+fi
+
+if [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
     echo "⚠️  DB_NAME/DB_USER/DB_PASS kosong — isi backend/.env (DATABASE_URL) atau export DB_*. Backup DB dibatalkan." >&2
-    DB_NAME="" DB_USER="" DB_PASS=""   # matikan dump
+    DB_NAME="" DB_USER="" DB_PASS=""
 fi
 
 mkdir -p "$BACKUP_DIR"
