@@ -77,7 +77,13 @@ func Connect(cfg config.Config) *gorm.DB {
 	// Auto Migrate the schema with error checking.
 	// Dapat dilewati di dev (SKIP_AUTOMIGRATE=1) atau otomatis pada
 	// MariaDB 12.2.x (bug crash pada query information_schema).
-	skipMigrate := os.Getenv("SKIP_AUTOMIGRATE") == "1" || strings.EqualFold(os.Getenv("SKIP_AUTOMIGRATE"), "true")
+	// Default: jangan AutoMigrate di startup (DB-01). Aktifkan eksplisit via RUN_MIGRATIONS=1
+	// atau SKIP_AUTOMIGRATE=false untuk kompatibilitas lama.
+	runMigrate := strings.EqualFold(os.Getenv("RUN_MIGRATIONS"), "1") || strings.EqualFold(os.Getenv("RUN_MIGRATIONS"), "true")
+	skipMigrate := !runMigrate
+	if os.Getenv("SKIP_AUTOMIGRATE") == "1" || strings.EqualFold(os.Getenv("SKIP_AUTOMIGRATE"), "true") {
+		skipMigrate = true
+	}
 	if strings.Contains(strings.ToLower(version), "mariadb") && strings.Contains(strings.ToLower(version), "12.2") {
 		skipMigrate = true
 		log.Println("WARNING: MariaDB 12.2.x terdeteksi — AutoMigrate otomatis dilewati untuk mencegah crash DB. Gunakan MariaDB 11.4 LTS/MySQL 8 untuk migrasi skema.")
