@@ -65,7 +65,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 		api.GET("/branding", h.Settings.GetBranding)
 		// Public Loyalty Card & Customer Feedback (QR scan pelanggan) - Vetted by AI
 		api.GET("/loyalty/:token", h.Loyalty.GetPublicLoyaltyCard)
-		api.POST("/loyalty/:token/feedback", h.Loyalty.SubmitFeedback)
+		api.POST("/loyalty/:token/feedback", middleware.RequestBodySizeLimiter(8*1024), middleware.SelfOrderRateLimiter(), h.Loyalty.SubmitFeedback)
 		api.POST("/loyalty/register-or-find", h.Loyalty.RegisterOrFindCustomer)
 
 		// Public Self-Order (Mobile Ordering Smartphone) - Vetted by AI - Manual Review Required by Senior Engineer/Manager
