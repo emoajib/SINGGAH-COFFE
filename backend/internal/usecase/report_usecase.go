@@ -31,6 +31,11 @@ var (
 func startDashboardCacheCleanup() {
 	cacheCleanupOnce.Do(func() {
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[DashboardCacheCleanup] PANIC recovered: %v", r)
+				}
+			}()
 			ticker := time.NewTicker(cacheTTL)
 			defer ticker.Stop()
 			for range ticker.C {
