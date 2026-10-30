@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/usecase"
@@ -35,9 +36,14 @@ func (h *PublicOrderHandler) GetPublicMenu(c *gin.Context) {
 		return
 	}
 
-	// Compute lightweight ETag based on product count and names
-	rawHash := fmt.Sprintf("%d-%d", len(menu.Products), len(menu.Categories))
-	hash := sha256.Sum256([]byte(rawHash))
+	// Compute ETag from a representation of the menu so price/stock/availability
+	// changes invalidate the cache (not just count changes).
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d|%d", len(menu.Products), len(menu.Categories))
+	for _, p := range menu.Products {
+		fmt.Fprintf(&b, "|%d:%s:%.2f:%d:%t", p.ID, p.Name, p.Price, p.Stock, p.Available)
+	}
+	hash := sha256.Sum256([]byte(b.String()))
 	etag := `"` + hex.EncodeToString(hash[:8]) + `"`
 
 	if match := c.GetHeader("If-None-Match"); match == etag {
