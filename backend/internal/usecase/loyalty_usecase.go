@@ -307,8 +307,9 @@ func (uc *LoyaltyUsecase) SubmitFeedback(token string, rating int, category, mes
 	if cleanMsg == "" {
 		return nil, domainErrors.NewInvalidInputError("pesan saran tidak boleh kosong")
 	}
-	if len(cleanMsg) > 500 {
-		cleanMsg = cleanMsg[:500]
+	runes := []rune(cleanMsg)
+	if len(runes) > 500 {
+		cleanMsg = string(runes[:500])
 	}
 
 	customer, err := uc.customerRepo.FindByToken(token)
