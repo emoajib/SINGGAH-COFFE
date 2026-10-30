@@ -222,6 +222,19 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 	var categoryOrder []string
 	var publicProducts []PublicProductItem
 
+	// Cache stok bahan untuk pengecekan ketersediaan produk ber-resep.
+	ingredientStock := make(map[uint]float64)
+	if uc.ingredientRepo != nil {
+		if ings, err := uc.ingredientRepo.FindAll(); err == nil {
+			for _, ing := range ings {
+				ingredientStock[ing.ID] = ing.KedaiStock + ing.WarehouseStock
+				if ingredientStock[ing.ID] <= 0 {
+					ingredientStock[ing.ID] = ing.CurrentStock
+				}
+			}
+		}
+	}
+
 	for _, p := range products {
 		cat := strings.TrimSpace(p.Category)
 		if cat == "" {
@@ -251,6 +264,15 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 			}
 		}
 
+		// Produk ber-resep: tersedia hanya jika semua bahan cukup.
+		if len(p.Recipe) > 0 {
+			for _, r := range p.Recipe {
+				if ingredientStock[r.IngredientID] < r.Quantity {
+					isAvailable = false
+					break
+				}
+			}
+		}
 		publicProducts = append(publicProducts, PublicProductItem{
 			ID:          p.ID,
 			Name:        p.Name,
