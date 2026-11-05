@@ -125,6 +125,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 
 		var totalAmount float64
 		var orderItems []entity.OrderItem
+		var orderMaterials []models.OrderMaterial
 
 		oid := uint(0)
 		if len(outletID) > 0 {
@@ -148,6 +149,11 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 					if ingredient.CurrentStock < needed || ingredient.KedaiStock < needed {
 						return domainErrors.NewInsufficientStockError(ingredient.Name)
 					}
+					orderMaterials = append(orderMaterials, models.OrderMaterial{
+						IngredientID: recipeItem.IngredientID,
+						Quantity:     needed,
+						Location:     "kedai",
+					})
 				}
 			} else {
 				if float64(product.Stock) < float64(itemInput.Quantity) {
@@ -263,6 +269,14 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		if err := orderItemRepo.Create(orderItems); err != nil {
 			return err
 		}
+		for i := range orderMaterials {
+			orderMaterials[i].OrderID = order.ID
+		}
+		if len(orderMaterials) > 0 {
+			if err := tx.Create(&orderMaterials).Error; err != nil {
+				return err
+			}
+		}
 
 		loaded, err := orderRepo.FindByIDWithItems(order.ID)
 		if err != nil {
@@ -334,35 +348,72 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 		needsStockRestore := order.PaymentStatus == "Paid" || order.Status == "Completed"
 
 		if needsStockRestore {
+			// B2: pakai snapshot bahan (order_materials) jika ada; fallback ke resep terkini untuk order lama.
+			var materials []models.OrderMaterial
+			if err := tx.Where("order_id = ?", order.ID).Find(&materials).Error; err != nil {
+				return err
+			}
+			if len(materials) > 0 {
+				for _, m := range materials {
+					if _, err := ingredientRepo.FindByIDForUpdate(m.IngredientID); err != nil {
+						return err
+					}
+					loc := m.Location
+					if loc == "" {
+						loc = "kedai"
+					}
+					if err := ingredientRepo.UpdateStockAtomicByLocation(m.IngredientID, m.Quantity, "add", loc); err != nil {
+						return err
+					}
+					if err := mutationRepo.Create(&entity.StockMutation{
+						IngredientID: m.IngredientID,
+						Type:         string(entity.MutationIn),
+						Location:     loc,
+						Quantity:     m.Quantity,
+						ReferenceID:  order.OrderNumber,
+						Notes:        "Void Return (snapshot)",
+						OutletID:     oid,
+					}); err != nil {
+						return err
+					}
+				}
+			} else {
+				for _, item := range order.OrderItems {
+					product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
+					if err != nil {
+						return fmt.Errorf("gagal mengembalikan stok untuk item order: produk ID %d tidak ditemukan", item.ProductID)
+					}
+					if len(product.Recipe) > 0 {
+						for _, recipeItem := range product.Recipe {
+							restoreAmount := recipeItem.Quantity * float64(item.Quantity)
+							if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
+								return err
+							}
+							if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, restoreAmount, "add", "kedai"); err != nil {
+								return err
+							}
+							if err := mutationRepo.Create(&entity.StockMutation{
+								IngredientID: recipeItem.IngredientID,
+								Type:         string(entity.MutationIn),
+								Location:     "kedai",
+								Quantity:     restoreAmount,
+								ReferenceID:  order.OrderNumber,
+								Notes:        "Void Return",
+								OutletID:     oid,
+							}); err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+			// Produk non-resep: kembalikan stok produk.
 			for _, item := range order.OrderItems {
 				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
 				if err != nil {
 					return fmt.Errorf("gagal mengembalikan stok untuk item order: produk ID %d tidak ditemukan", item.ProductID)
 				}
-
-				if len(product.Recipe) > 0 {
-					for _, recipeItem := range product.Recipe {
-						restoreAmount := recipeItem.Quantity * float64(item.Quantity)
-						if _, err := ingredientRepo.FindByIDForUpdate(recipeItem.IngredientID); err != nil {
-							return err
-						}
-						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, restoreAmount, "add", "kedai"); err != nil {
-							return err
-						}
-						if err := mutationRepo.Create(&entity.StockMutation{
-							IngredientID: recipeItem.IngredientID,
-							Type:         string(entity.MutationIn),
-							Location:     "kedai",
-							Quantity:     restoreAmount,
-							ReferenceID:  order.OrderNumber,
-							Notes:        "Void Return",
-							OutletID:     oid,
-						}); err != nil {
-							return err
-						}
-					}
-				} else {
+				if len(product.Recipe) == 0 {
 					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "add"); err != nil {
 						return err
 					}
@@ -938,6 +989,7 @@ func (uc *OrderUsecase) CreatePublicSelfOrder(req request.PublicCreateOrderReque
 
 		var totalAmount float64
 		var orderItems []entity.OrderItem
+		var orderMaterials []models.OrderMaterial
 		var itemSummaries []PublicOrderItemSummary
 
 		for _, itemInput := range req.Items {
@@ -957,6 +1009,11 @@ func (uc *OrderUsecase) CreatePublicSelfOrder(req request.PublicCreateOrderReque
 					if ingredient.CurrentStock < needed || ingredient.KedaiStock < needed {
 						return domainErrors.NewInsufficientStockError(ingredient.Name)
 					}
+					orderMaterials = append(orderMaterials, models.OrderMaterial{
+						IngredientID: recipeItem.IngredientID,
+						Quantity:     needed,
+						Location:     "kedai",
+					})
 				}
 			} else {
 				if float64(product.Stock) < float64(itemInput.Quantity) {
@@ -1030,6 +1087,14 @@ func (uc *OrderUsecase) CreatePublicSelfOrder(req request.PublicCreateOrderReque
 		}
 		if err := orderItemRepo.Create(orderItems); err != nil {
 			return err
+		}
+		for i := range orderMaterials {
+			orderMaterials[i].OrderID = order.ID
+		}
+		if len(orderMaterials) > 0 {
+			if err := tx.Create(&orderMaterials).Error; err != nil {
+				return err
+			}
 		}
 
 		result = PublicOrderCreateResponse{

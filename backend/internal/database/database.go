@@ -100,6 +100,7 @@ func Connect(cfg config.Config) *gorm.DB {
 			&models.StockMutation{},
 			&models.Order{},
 			&models.OrderItem{},
+			&models.OrderMaterial{},
 			&models.Setting{},
 			&models.Expense{},
 			&models.ProcessedWebhook{},

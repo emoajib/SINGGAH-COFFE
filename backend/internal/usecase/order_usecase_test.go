@@ -21,7 +21,7 @@ func setupOrderTestDB() *gorm.DB {
 		panic("Failed to connect to database: " + err.Error())
 	}
 	db.AutoMigrate(
-		&models.Order{}, &models.OrderItem{}, &models.Product{}, &models.Ingredient{},
+		&models.Order{}, &models.OrderItem{}, &models.OrderMaterial{}, &models.Product{}, &models.Ingredient{},
 		&models.RecipeItem{}, &models.StockMutation{}, &models.Setting{},
 		&models.Expense{}, &models.CashBook{}, &models.PSAKEventOutbox{},
 		&models.Customer{}, &models.LoyaltyProgram{}, &models.LoyaltyStamp{},

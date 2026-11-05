@@ -27,6 +27,7 @@ func setupSimulationDB(t *testing.T) *gorm.DB {
 		&models.RecipeItem{},
 		&models.Order{},
 		&models.OrderItem{},
+		&models.OrderMaterial{},
 		&models.Expense{},
 		&models.CashRegister{},
 		&models.CashBook{},
