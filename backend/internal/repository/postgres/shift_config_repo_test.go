@@ -8,6 +8,9 @@ import (
 	"singgah-pos-backend/internal/models"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -72,4 +75,26 @@ func TestProfitSharingPerson_ShiftFieldsMapping(t *testing.T) {
 	assert.Equal(t, []uint{shiftID}, dBack.ShiftIDs)
 	assert.Equal(t, []string{"Shift 2 (Siang)"}, dBack.ShiftNames)
 	assert.Equal(t, []float64{50.0}, dBack.ShiftPoolPcts)
+}
+
+// E2 regression: template shift tidak boleh bocor antar outlet.
+func TestShiftConfigRepository_FindByOutletID_Isolation(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.ShiftConfig{}))
+	repo := NewShiftConfigRepository(db)
+
+	require.NoError(t, db.Create(&models.ShiftConfig{OutletID: 1, Name: "Pagi O1", StartTime: "07:00", EndTime: "14:00"}).Error)
+	require.NoError(t, db.Create(&models.ShiftConfig{OutletID: 2, Name: "Pagi O2", StartTime: "07:00", EndTime: "14:00"}).Error)
+	require.NoError(t, db.Create(&models.ShiftConfig{OutletID: 0, Name: "Legacy", StartTime: "07:00", EndTime: "14:00"}).Error)
+
+	list1, err := repo.FindByOutletID(1, false)
+	require.NoError(t, err)
+	require.Len(t, list1, 1)
+	assert.Equal(t, "Pagi O1", list1[0].Name)
+
+	list0, err := repo.FindByOutletID(0, false)
+	require.NoError(t, err)
+	require.Len(t, list0, 1)
+	assert.Equal(t, "Legacy", list0[0].Name, "outlet 0 hanya boleh melihat data legacy/global")
 }

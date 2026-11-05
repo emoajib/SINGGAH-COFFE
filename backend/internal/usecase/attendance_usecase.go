@@ -125,7 +125,8 @@ func (uc *AttendanceUsecase) enrich(list []entity.Attendance, outletID uint) {
 		a.ShiftConfigID = si.ShiftConfigID
 		cfg, ok := cfgCache[si.ShiftConfigID]
 		if !ok {
-			if found, err := uc.configs.FindByID(si.ShiftConfigID); err == nil {
+			// E2: lookup template harus dibatasi outlet yang sama.
+			if found, err := uc.configs.FindByID(si.ShiftConfigID, outletID); err == nil {
 				cfg = found
 			}
 			cfgCache[si.ShiftConfigID] = cfg

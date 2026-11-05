@@ -31,7 +31,8 @@ func (uc *ScheduleUsecase) CreateRequest(r *entity.ScheduleRequest, userID uint,
 	}
 	r.BaristaName = b.Name
 	if r.ShiftConfigID != nil {
-		if _, err := uc.shifts.FindByID(*r.ShiftConfigID); err != nil {
+		// E2: template shift wajib milik outlet yang sama (cegah referensi lintas outlet).
+		if _, err := uc.shifts.FindByID(*r.ShiftConfigID, r.OutletID); err != nil {
 			return domainErrors.NewNotFoundError("shift")
 		}
 	}

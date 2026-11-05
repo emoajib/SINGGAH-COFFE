@@ -47,8 +47,12 @@ func (r *shiftConfigRepository) FindByID(id uint, outletID ...uint) (*entity.Shi
 func (r *shiftConfigRepository) FindByOutletID(outletID uint, activeOnly bool) ([]entity.ShiftConfig, error) {
 	var list []models.ShiftConfig
 	query := r.db.Order("sort_order ASC, start_time ASC")
+	// E2: selalu batasi ke outlet yang diminta. outletID = 0 hanya mengambil
+	// data legacy/global (outlet_id 0/NULL), TIDAK lagi semua outlet.
 	if outletID > 0 {
 		query = query.Where("outlet_id = ?", outletID)
+	} else {
+		query = query.Where("outlet_id = 0 OR outlet_id IS NULL")
 	}
 	if activeOnly {
 		query = query.Where("is_active = ?", true)

@@ -18,7 +18,7 @@ func setupOpsDB(t *testing.T) *gorm.DB {
 	}
 	if err := db.AutoMigrate(&models.Schedule{}, &models.Attendance{},
 		&models.ShiftInstance{}, &models.ShiftConfig{}, &models.Barista{},
-		&models.AuditLog{}); err != nil {
+		&models.AuditLog{}, &models.ScheduleRequest{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	return db
@@ -138,3 +138,39 @@ func TestSchedule_QuickSetDay(t *testing.T) {
 	}
 }
 
+
+// E2 regression: request jadwal tidak boleh mereferensikan template shift outlet lain.
+func TestScheduleRequest_RejectsShiftFromOtherOutlet(t *testing.T) {
+	db := setupOpsDB(t)
+	seedBaristaShift(t, db)
+
+	other := models.ShiftConfig{OutletID: 2, Name: "Pagi Outlet 2", StartTime: "07:00", EndTime: "14:00", OwnerPct: 60, BaristaPoolPct: 40, IsActive: true}
+	if err := db.Create(&other).Error; err != nil {
+		t.Fatalf("seed shift outlet 2: %v", err)
+	}
+
+	uc := NewScheduleUsecase(db)
+	otherShiftID := other.ID
+	err := uc.CreateRequest(&entity.ScheduleRequest{
+		OutletID:      1,
+		BaristaID:     1,
+		Tanggal:       time.Date(2026, 11, 10, 0, 0, 0, 0, time.UTC),
+		Jenis:         "libur",
+		ShiftConfigID: &otherShiftID,
+	}, 1, "owner")
+	if err == nil {
+		t.Fatalf("request dengan shift outlet lain harus ditolak")
+	}
+
+	// Shift milik outlet sendiri tetap boleh.
+	ownShiftID := uint(1)
+	if err := uc.CreateRequest(&entity.ScheduleRequest{
+		OutletID:      1,
+		BaristaID:     1,
+		Tanggal:       time.Date(2026, 11, 11, 0, 0, 0, 0, time.UTC),
+		Jenis:         "libur",
+		ShiftConfigID: &ownShiftID,
+	}, 1, "owner"); err != nil {
+		t.Fatalf("request shift outlet sendiri harus boleh: %v", err)
+	}
+}
