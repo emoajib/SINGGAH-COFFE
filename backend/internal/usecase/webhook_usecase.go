@@ -70,11 +70,14 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 			WebhookID: payload.ID,
 			Status:    payload.Status,
 		}); err != nil {
+			// Hanya perlakukan duplicate-key sebagai replay/idempotent.
+			// Error DB lain harus dipropagasikan agar tidak diam-diam dianggap sukses.
+			if !postgres.IsDuplicateKey(err) {
+				return err
+			}
 			// Replay/duplikat: anggap sudah diproses.
 			return nil
 		}
-		existing, _ := webhookRepo.FindByWebhookID(payload.ID)
-		_ = existing
 
 		// Find order by external_id (which maps to OrderNumber)
 		type orderRow struct {
