@@ -169,76 +169,82 @@ func (uc *ScheduleUsecase) QuickSetDay(outletID, baristaID uint, tanggal string,
 
 	lama, _ := uc.repo.FindByBaristaDate(baristaID, tanggal, outletID)
 
-	switch action {
-	case "clear":
-		if err := uc.repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
-			return err
-		}
-		_ = uc.audit.Write(outletID, userID, userName, "quick_set_clear", "schedule", 0, lama, nil, tanggal, "disetujui")
-		return nil
+	return uc.db.Transaction(func(tx *gorm.DB) error {
+		repo := postgres.NewScheduleRepository(tx)
+		shifts := postgres.NewShiftConfigRepository(tx)
+		txaudit := NewAuditWriter(tx)
 
-	case "libur":
-		shifts, err := uc.shifts.FindByOutletID(outletID, true)
-		if err != nil {
-			return err
-		}
-		if len(shifts) == 0 {
-			return domainErrors.NewInvalidInputError("tidak ada shift aktif")
-		}
-		if err := uc.repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
-			return err
-		}
-		for _, s := range shifts {
-			sched := &entity.Schedule{
-				OutletID:      outletID,
-				BaristaID:     baristaID,
-				BaristaName:   b.Name,
-				Tanggal:       tgl,
-				ShiftConfigID: s.ID,
-				Status:        "libur",
-				DibuatOleh:    userID,
-			}
-			if err := uc.repo.Create(sched); err != nil {
+		switch action {
+		case "clear":
+			if err := repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
 				return err
 			}
-		}
-		_ = uc.audit.Write(outletID, userID, userName, "quick_set_libur", "schedule", 0, lama, "libur", tanggal, "disetujui")
-		return nil
+			_ = txaudit.Write(outletID, userID, userName, "quick_set_clear", "schedule", 0, lama, nil, tanggal, "disetujui")
+			return nil
 
-	case "shift":
-		if len(shiftConfigIDs) == 0 {
-			return domainErrors.NewInvalidInputError("minimal 1 shift harus dipilih")
-		}
-		for _, sid := range shiftConfigIDs {
-			cfg, err := uc.shifts.FindByID(sid)
-			if err != nil || (cfg.OutletID != 0 && cfg.OutletID != outletID) {
-				return domainErrors.NewNotFoundError("shift")
-			}
-		}
-		if err := uc.repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
-			return err
-		}
-		var baru []entity.Schedule
-		for _, sid := range shiftConfigIDs {
-			sched := &entity.Schedule{
-				OutletID:      outletID,
-				BaristaID:     baristaID,
-				BaristaName:   b.Name,
-				Tanggal:       tgl,
-				ShiftConfigID: sid,
-				Status:        "dijadwalkan",
-				DibuatOleh:    userID,
-			}
-			if err := uc.repo.Create(sched); err != nil {
+		case "libur":
+			shiftList, err := shifts.FindByOutletID(outletID, true)
+			if err != nil {
 				return err
 			}
-			baru = append(baru, *sched)
-		}
-		_ = uc.audit.Write(outletID, userID, userName, "quick_set_shift", "schedule", 0, lama, baru, tanggal, "disetujui")
-		return nil
+			if len(shiftList) == 0 {
+				return domainErrors.NewInvalidInputError("tidak ada shift aktif")
+			}
+			if err := repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
+				return err
+			}
+			for _, sh := range shiftList {
+				sched := &entity.Schedule{
+					OutletID:      outletID,
+					BaristaID:     baristaID,
+					BaristaName:   b.Name,
+					Tanggal:       tgl,
+					ShiftConfigID: sh.ID,
+					Status:        "libur",
+					DibuatOleh:    userID,
+				}
+				if err := repo.Create(sched); err != nil {
+					return err
+				}
+			}
+			_ = txaudit.Write(outletID, userID, userName, "quick_set_libur", "schedule", 0, lama, "libur", tanggal, "disetujui")
+			return nil
 
-	default:
-		return domainErrors.NewInvalidInputError("aksi tidak valid, pilih 'shift', 'libur', atau 'clear'")
-	}
+		case "shift":
+			if len(shiftConfigIDs) == 0 {
+				return domainErrors.NewInvalidInputError("minimal 1 shift harus dipilih")
+			}
+			for _, sid := range shiftConfigIDs {
+				cfg, err := shifts.FindByID(sid)
+				if err != nil || (cfg.OutletID != 0 && cfg.OutletID != outletID) {
+					return domainErrors.NewNotFoundError("shift")
+				}
+			}
+			if err := repo.DeleteByBaristaDate(baristaID, tanggal, outletID); err != nil {
+				return err
+			}
+			var baru []entity.Schedule
+			for _, sid := range shiftConfigIDs {
+				sched := &entity.Schedule{
+					OutletID:      outletID,
+					BaristaID:     baristaID,
+					BaristaName:   b.Name,
+					Tanggal:       tgl,
+					ShiftConfigID: sid,
+					Status:        "dijadwalkan",
+					DibuatOleh:    userID,
+				}
+				if err := repo.Create(sched); err != nil {
+					return err
+				}
+				baru = append(baru, *sched)
+			}
+			_ = txaudit.Write(outletID, userID, userName, "quick_set_shift", "schedule", 0, lama, baru, tanggal, "disetujui")
+			return nil
+
+		default:
+			return domainErrors.NewInvalidInputError("aksi tidak valid, pilih 'shift', 'libur', atau 'clear'")
+		}
+	})
 }
 
