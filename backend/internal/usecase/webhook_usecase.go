@@ -103,6 +103,16 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 			loadedOrder.PaymentStatus = "Paid"
 			loadedOrder.Status = "Completed"
 
+			// Conditional UPDATE: hanya 1 proses yang berhasil (RowsAffected=1).
+			// Jika 0, berarti sudah Paid/Void oleh proses lain → skip tanpa potong stok.
+			rowsAffected, err := orderRepo.UpdateIfUnpaid(loadedOrder)
+			if err != nil {
+				return err
+			}
+			if rowsAffected == 0 {
+				return nil
+			}
+
 			// Potong stok saat pembayaran QRIS terkonfirmasi (sebelumnya ditunda saat checkout)
 			productRepo := postgres.NewProductRepository(tx)
 			ingredientRepo := postgres.NewIngredientRepository(tx)
@@ -141,10 +151,6 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 						return err
 					}
 				}
-			}
-
-			if err := orderRepo.Update(loadedOrder); err != nil {
-				return err
 			}
 
 			// PSAK: Create outbox event for journal entry

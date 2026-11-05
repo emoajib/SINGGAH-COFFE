@@ -106,6 +106,37 @@ func (r *orderRepository) Update(order *entity.Order) error {
 	return r.db.Model(&models.Order{}).Where("id = ?", order.ID).Updates(updates).Error
 }
 
+// UpdateIfUnpaid updates the order only when it is not already Paid or Void.
+// Used to avoid race conditions where two processes both observe "Unpaid".
+func (r *orderRepository) UpdateIfUnpaid(order *entity.Order) (int64, error) {
+	updates := map[string]interface{}{
+		"total_amount":      order.TotalAmount,
+		"payment_status":    order.PaymentStatus,
+		"payment_method":    order.PaymentMethod,
+		"status":            order.Status,
+		"kitchen_status":    order.KitchenStatus,
+		"queue_number":      order.QueueNumber,
+		"preparation_notes": order.PreparationNotes,
+		"customer_name":     order.CustomerName,
+		"customer_phone":    order.CustomerPhone,
+	}
+	if order.QueuedAt != nil {
+		updates["queued_at"] = order.QueuedAt
+	}
+	if order.PreparingAt != nil {
+		updates["preparing_at"] = order.PreparingAt
+	}
+	if order.ReadyAt != nil {
+		updates["ready_at"] = order.ReadyAt
+	}
+	if order.ServedAt != nil {
+		updates["served_at"] = order.ServedAt
+	}
+	res := r.db.Model(&models.Order{}).
+		Where("id = ? AND payment_status <> ? AND status <> ?", order.ID, "Paid", "Void").
+		Updates(updates)
+	return res.RowsAffected, res.Error
+}
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *orderRepository) GetTotalSalesSince(since string, outletID ...uint) (float64, error) {
 	tx := r.db.Model(&models.Order{}).Where("COALESCE(order_time, created_at) >= ? AND status = ?", since, "Completed")

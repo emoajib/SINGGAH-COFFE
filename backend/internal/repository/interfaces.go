@@ -68,6 +68,9 @@ type OrderRepository interface {
 	FindAllFiltered(start, end, status string, limit, offset int, outletID ...uint) ([]entity.Order, error)
 	Create(order *entity.Order) error
 	Update(order *entity.Order) error
+	// UpdateIfUnpaid updates order fields only if the order is not already
+	// Paid/Void (conditional UPDATE). Returns RowsAffected for race handling.
+	UpdateIfUnpaid(order *entity.Order) (int64, error)
 	GetTotalSalesSince(since string, outletID ...uint) (float64, error)
 	GetTotalSalesRange(start, end string, outletID ...uint) (float64, error)
 	GetSalesByPaymentMethod(start, end string, outletID ...uint) ([]entity.PaymentBreakdown, error)

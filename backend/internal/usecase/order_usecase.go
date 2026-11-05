@@ -621,6 +621,7 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 		order.QueuedAt = &now
 	}
 
+	claimed := true
 	if err := uc.db.Transaction(func(tx *gorm.DB) error {
 		orderRepo := postgres.NewOrderRepository(tx)
 		productRepo := postgres.NewProductRepository(tx)
@@ -637,8 +638,13 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 			order.QueueNumber = int(queueCount) + 1
 		}
 
-		if err := orderRepo.Update(order); err != nil {
+		rowsAffected, err := orderRepo.UpdateIfUnpaid(order)
+		if err != nil {
 			return err
+		}
+		if rowsAffected == 0 {
+			claimed = false
+			return nil
 		}
 
 		// QRIS, Self-Order, or previously Unpaid orders: stock was NOT deducted at creation.
@@ -708,6 +714,20 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 		return NewCashBookUsecase(tx).EnsureOrderIncome(order)
 	}); err != nil {
 		return nil, err
+	}
+
+	if !claimed {
+		current, err := uc.orderRepo.FindByIDWithItems(id)
+		if err == nil && current != nil {
+			if current.PaymentStatus == "Paid" && current.Status == "Completed" {
+				resp := current.ToResponse()
+				return &resp, nil
+			}
+			if current.Status == "Void" {
+				return nil, domainErrors.ErrOrderAlreadyVoided
+			}
+		}
+		return nil, domainErrors.NewInvalidInputError("order already processed")
 	}
 
 	resp := order.ToResponse()
