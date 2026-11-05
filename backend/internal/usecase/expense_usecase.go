@@ -38,10 +38,13 @@ func expenseRef(expenseID uint) string {
 }
 
 // syncExpenseToCashBook menyesuaikan entry Buku Kas dengan nilai terkini expense.
-// Hapus entry lama lalu buat baru — upsert logis. Best-effort: error diabaikan.
-func syncExpenseToCashBook(cashBookRepo repository.CashBookRepository, expense *entity.Expense) {
+// Hapus entry lama lalu buat baru — upsert logis.
+//
+// D1: mengembalikan error (tidak lagi ditelan) supaya pemanggil yang sudah
+// berada di dalam transaksi bisa rollback saat Buku Kas gagal ditulis.
+func syncExpenseToCashBook(cashBookRepo repository.CashBookRepository, expense *entity.Expense) error {
 	if expense.ID == 0 || expense.Amount <= 0 {
-		return
+		return nil
 	}
 	ref := expenseRef(expense.ID)
 	date := expense.Date
@@ -52,8 +55,10 @@ func syncExpenseToCashBook(cashBookRepo repository.CashBookRepository, expense *
 	if method == "" {
 		method = "Cash"
 	}
-	_, _ = cashBookRepo.DeleteByReference(ref, expense.OutletID)
-	_ = cashBookRepo.Create(&entity.CashBook{
+	if _, err := cashBookRepo.DeleteByReference(ref, expense.OutletID); err != nil {
+		return err
+	}
+	return cashBookRepo.Create(&entity.CashBook{
 		OutletID:    expense.OutletID,
 		Date:        date,
 		Method:      method,
@@ -113,8 +118,10 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*en
 		if err := expenseRepo.Create(expense); err != nil {
 			return err
 		}
-		// Sync real-time ke Buku Kas
-		syncExpenseToCashBook(cashBookRepo, expense)
+		// Sync real-time ke Buku Kas (D1: error dipropagasikan → rollback).
+		if err := syncExpenseToCashBook(cashBookRepo, expense); err != nil {
+			return err
+		}
 		// PSAK: Create outbox event for journal entry
 		outboxRepo := postgres.NewOutboxRepository(tx)
 		if err := outboxRepo.Create(&entity.EventOutbox{
@@ -177,8 +184,10 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense, outletID ...u
 		if err := expenseRepo.Update(existing); err != nil {
 			return err
 		}
-		// Sync update ke Buku Kas
-		syncExpenseToCashBook(cashBookRepo, existing)
+		// Sync update ke Buku Kas (D1: error dipropagasikan → rollback).
+		if err := syncExpenseToCashBook(cashBookRepo, existing); err != nil {
+			return err
+		}
 		// PSAK: Create outbox event for journal update
 		outboxRepo := postgres.NewOutboxRepository(tx)
 		if err := outboxRepo.Create(&entity.EventOutbox{

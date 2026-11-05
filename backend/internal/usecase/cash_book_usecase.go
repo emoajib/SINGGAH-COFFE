@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"time"
@@ -72,25 +73,31 @@ func (uc *CashBookUsecase) Create(c *entity.CashBook, outletID ...uint) (*entity
 	if strings.TrimSpace(c.Reference) == "" {
 		c.Reference = fmt.Sprintf("manual:%d-%d", time.Now().UnixNano(), c.CreatedBy)
 	}
-	if err := uc.cashBookRepo.Create(c); err != nil {
-		return nil, err
-	}
+	// D1: Buku Kas + outbox PSAK harus atomik. Sebelumnya outbox ditulis di
+	// luar transaksi dengan error diabaikan → bisa hilang tanpa jejak.
+	if err := uc.db.Transaction(func(tx *gorm.DB) error {
+		cashBookRepo := postgres.NewCashBookRepository(tx)
+		if err := cashBookRepo.Create(c); err != nil {
+			return err
+		}
 
-	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-	// Publish PSAK event outbox if transaction involves investor
-	var eventType string
-	switch c.SubType {
-	case "investor_capital":
-		eventType = "investor.capital_in"
-	case "investor_loan":
-		eventType = "investor.loan_in"
-	case "loan_payment":
-		eventType = "investor.loan_payment"
-	}
+		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+		// Publish PSAK event outbox if transaction involves investor
+		var eventType string
+		switch c.SubType {
+		case "investor_capital":
+			eventType = "investor.capital_in"
+		case "investor_loan":
+			eventType = "investor.loan_in"
+		case "loan_payment":
+			eventType = "investor.loan_payment"
+		}
+		if eventType == "" {
+			return nil
+		}
 
-	if eventType != "" {
-		outboxRepo := postgres.NewOutboxRepository(uc.db)
-		_ = outboxRepo.Create(&entity.EventOutbox{
+		outboxRepo := postgres.NewOutboxRepository(tx)
+		return outboxRepo.Create(&entity.EventOutbox{
 			EventType:     eventType,
 			ReferenceType: "cash_book",
 			ReferenceID:   c.ID,
@@ -104,6 +111,8 @@ func (uc *CashBookUsecase) Create(c *entity.CashBook, outletID ...uint) (*entity
 			}),
 			Status: "pending",
 		})
+	}); err != nil {
+		return nil, err
 	}
 
 	resp := c.ToResponse()
@@ -348,7 +357,8 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 			if cashier == "" {
 				cashier = "Kasir"
 			}
-			_ = uc.cashBookRepo.Create(&entity.CashBook{
+			// D1: jangan telan error — hanya hitung yang benar-benar tersimpan.
+			if err := uc.cashBookRepo.Create(&entity.CashBook{
 				OutletID:    oid,
 				Date:        r.OpenedAt,
 				Method:      "Cash",
@@ -356,7 +366,10 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 				Amount:      r.OpeningAmount,
 				Description: fmt.Sprintf("Modal Awal Kasir (%s)", cashier),
 				Reference:   fmt.Sprintf("cash_register_open:%d", r.ID),
-			})
+			}); err != nil {
+				log.Printf("[WARN] SyncFromTransactions: gagal membuat modal awal kasir %d: %v", r.ID, err)
+				continue
+			}
 			result.RegistersSynced++
 		}
 	}

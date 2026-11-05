@@ -39,13 +39,17 @@ func parseCashbonLimit(v string) (float64, error) {
 	return strconv.ParseFloat(strings.TrimSpace(v), 64)
 }
 
-func syncCashbonToCashBook(cashBookRepo repository.CashBookRepository, c *entity.BaristaCashbon) {
+// syncCashbonToCashBook menyinkronkan kasbon ke Buku Kas.
+// D1: error dikembalikan agar bisa me-rollback transaksi pemanggil.
+func syncCashbonToCashBook(cashBookRepo repository.CashBookRepository, c *entity.BaristaCashbon) error {
 	if c.ID == 0 || c.Amount <= 0 {
-		return
+		return nil
 	}
 	ref := cashbonRef(c.ID)
 	// Hapus entri lama jika ada
-	_, _ = cashBookRepo.DeleteByReference(ref, c.OutletID)
+	if _, err := cashBookRepo.DeleteByReference(ref, c.OutletID); err != nil {
+		return err
+	}
 
 	// Jika metode Cash, catat kas keluar dari laci kasir
 	if c.PaymentMethod == "Cash" {
@@ -57,7 +61,7 @@ func syncCashbonToCashBook(cashBookRepo repository.CashBookRepository, c *entity
 		if c.Reason != "" {
 			desc += " (" + c.Reason + ")"
 		}
-		_ = cashBookRepo.Create(&entity.CashBook{
+		return cashBookRepo.Create(&entity.CashBook{
 			OutletID:    c.OutletID,
 			Date:        date,
 			Method:      "Cash",
@@ -67,6 +71,7 @@ func syncCashbonToCashBook(cashBookRepo repository.CashBookRepository, c *entity
 			Reference:   ref,
 		})
 	}
+	return nil
 }
 
 func (uc *CashbonUsecase) Create(c *entity.BaristaCashbon, outletID uint) (*entity.BaristaCashbon, error) {
@@ -118,12 +123,18 @@ func (uc *CashbonUsecase) Create(c *entity.BaristaCashbon, outletID uint) (*enti
 		c.Status = "pending"
 	}
 
-	if err := uc.cashbonRepo.Create(c); err != nil {
+	// D1: kasbon + entri Buku Kas dibuat dalam satu transaksi agar tidak
+	// ada kasbon tanpa catatan kas (atau sebaliknya).
+	if err := uc.db.Transaction(func(tx *gorm.DB) error {
+		cashbonRepo := postgres.NewBaristaCashbonRepository(tx)
+		cashBookRepo := postgres.NewCashBookRepository(tx)
+		if err := cashbonRepo.Create(c); err != nil {
+			return err
+		}
+		return syncCashbonToCashBook(cashBookRepo, c)
+	}); err != nil {
 		return nil, err
 	}
-
-	// Sinkronisasi otomatis ke Buku Kas jika metode Cash
-	syncCashbonToCashBook(uc.cashBookRepo, c)
 
 	return c, nil
 }
@@ -159,11 +170,17 @@ func (uc *CashbonUsecase) Update(c *entity.BaristaCashbon, outletID uint) (*enti
 		existing.PersonID = c.PersonID
 	}
 
-	if err := uc.cashbonRepo.Update(existing); err != nil {
+	// D1: update kasbon + Buku Kas atomik.
+	if err := uc.db.Transaction(func(tx *gorm.DB) error {
+		cashbonRepo := postgres.NewBaristaCashbonRepository(tx)
+		cashBookRepo := postgres.NewCashBookRepository(tx)
+		if err := cashbonRepo.Update(existing); err != nil {
+			return err
+		}
+		return syncCashbonToCashBook(cashBookRepo, existing)
+	}); err != nil {
 		return nil, err
 	}
-
-	syncCashbonToCashBook(uc.cashBookRepo, existing)
 	return existing, nil
 }
 
@@ -176,14 +193,18 @@ func (uc *CashbonUsecase) Delete(id uint, outletID uint) error {
 		return domainErrors.NewInvalidInputError("kasbon yang sudah lunas (finalized) tidak dapat dihapus")
 	}
 
-	if err := uc.cashbonRepo.Delete(id, outletID); err != nil {
-		return err
-	}
-
-	// Hapus entri dari buku kas
-	ref := cashbonRef(id)
-	_, _ = uc.cashBookRepo.DeleteByReference(ref, outletID)
-	return nil
+	// D1: hapus kasbon + entri Buku Kas atomik.
+	return uc.db.Transaction(func(tx *gorm.DB) error {
+		cashbonRepo := postgres.NewBaristaCashbonRepository(tx)
+		cashBookRepo := postgres.NewCashBookRepository(tx)
+		if err := cashbonRepo.Delete(id, outletID); err != nil {
+			return err
+		}
+		if _, err := cashBookRepo.DeleteByReference(cashbonRef(id), outletID); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (uc *CashbonUsecase) GetByID(id uint, outletID uint) (*entity.BaristaCashbon, error) {

@@ -207,7 +207,9 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 			// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 			if exp.ID > 0 && exp.Amount > 0 {
 				cashBookRepo := postgres.NewCashBookRepository(tx)
-				syncExpenseToCashBook(cashBookRepo, exp)
+				if err := syncExpenseToCashBook(cashBookRepo, exp); err != nil {
+					return err
+				}
 			}
 		}
 
