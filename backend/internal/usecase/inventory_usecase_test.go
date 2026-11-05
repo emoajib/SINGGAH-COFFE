@@ -145,7 +145,7 @@ func TestInventoryUsecase_UpdateStockIn(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createInventoryUsecase(db)
 
-	created, _ := uc.CreateIngredient(&entity.Ingredient{Name: "Stock Test", Unit: "pcs", CurrentStock: 10, MinStock: 2, CostPerUnit: 50})
+	created, _ := uc.CreateIngredient(&entity.Ingredient{Name: "Stock Test", Unit: "pcs", CurrentStock: 10, KedaiStock: 10, MinStock: 2, CostPerUnit: 50})
 
 	err := uc.UpdateStock(created.ID, "IN", 5, "Restock", false, false, 0)
 
@@ -160,7 +160,7 @@ func TestInventoryUsecase_UpdateStockOut(t *testing.T) {
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createInventoryUsecase(db)
 
-	created, _ := uc.CreateIngredient(&entity.Ingredient{Name: "Usage Test", Unit: "gram", CurrentStock: 100, MinStock: 10, CostPerUnit: 20})
+	created, _ := uc.CreateIngredient(&entity.Ingredient{Name: "Usage Test", Unit: "gram", CurrentStock: 100, KedaiStock: 100, MinStock: 10, CostPerUnit: 20})
 
 	err := uc.UpdateStock(created.ID, "OUT", 30, "Production usage", false, false, 0)
 
@@ -170,12 +170,33 @@ func TestInventoryUsecase_UpdateStockOut(t *testing.T) {
 	assert.Equal(t, 70.0, updated.CurrentStock)
 }
 
+// B3 regression: mutasi stok keluar yang melebihi stok lokasi harus ditolak
+// dan tidak boleh meninggalkan stok minus / mutasi tercatat.
+func TestInventoryUsecase_UpdateStockOutInsufficientRejected(t *testing.T) {
+	db := setupInventoryTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createInventoryUsecase(db)
+
+	created, _ := uc.CreateIngredient(&entity.Ingredient{Name: "Kopi Sisa", Unit: "gram", CurrentStock: 10, KedaiStock: 10, MinStock: 2, CostPerUnit: 100})
+
+	err := uc.UpdateStock(created.ID, "OUT", 25, "Pemakaian berlebih", false, false, 0)
+
+	assert.Error(t, err)
+
+	updated, _ := uc.GetByID(created.ID)
+	assert.Equal(t, 10.0, updated.CurrentStock, "stok tidak boleh berubah saat mutasi ditolak")
+	assert.Equal(t, 10.0, updated.KedaiStock)
+
+	history, _ := uc.GetStockHistory(created.ID)
+	assert.Len(t, history, 0, "mutasi yang gagal harus ikut ter-rollback")
+}
+
 func TestInventoryUsecase_GetStockHistory(t *testing.T) {
 	db := setupInventoryTestDB()
 	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
 	uc := createInventoryUsecase(db)
 
-	created, _ := uc.CreateIngredient(&entity.Ingredient{Name: "History Test", Unit: "pcs", CurrentStock: 50, MinStock: 5, CostPerUnit: 10})
+	created, _ := uc.CreateIngredient(&entity.Ingredient{Name: "History Test", Unit: "pcs", CurrentStock: 50, KedaiStock: 50, MinStock: 5, CostPerUnit: 10})
 	uc.UpdateStock(created.ID, "IN", 10, "Purchase", false, false, 0)
 	uc.UpdateStock(created.ID, "OUT", 5, "Usage", false, false, 0)
 

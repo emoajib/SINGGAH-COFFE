@@ -136,8 +136,11 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 			return fmt.Errorf("tipe mutasi tidak valid: %s", mutationType)
 		}
 
-		// Update current_stock (total) selalu, lalu update lokasi spesifik
-		if err := ingredientRepo.UpdateStockAtomicByLocation(ingredientID, absQuantity, operator, location); err != nil {
+		// Update current_stock (total) selalu, lalu update lokasi spesifik.
+		// B3: gunakan varian guarded — pengurangan stok memakai klausa
+		// `WHERE <lokasi>_stock >= qty` sehingga stok tidak pernah minus
+		// walaupun ada dua mutasi bersamaan.
+		if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(ingredientID, absQuantity, operator, location); err != nil {
 			return err
 		}
 

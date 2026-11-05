@@ -540,8 +540,10 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 						}
 					}
 				} else {
-					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "sub"); err != nil {
-						return err
+					// B3: conditional decrement (WHERE stock >= qty) agar stok produk
+					// tidak bisa minus saat dua transaksi bersamaan memotong stok.
+					if err := productRepo.UpdateStockAtomicGuarded(product.ID, float64(item.Quantity), "sub"); err != nil {
+						return domainErrors.NewInsufficientStockError(product.Name)
 					}
 				}
 			}
@@ -721,8 +723,10 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 						}
 					}
 				} else {
-					if err := productRepo.UpdateStockAtomic(product.ID, float64(item.Quantity), "sub"); err != nil {
-						return err
+					// B3: conditional decrement (WHERE stock >= qty) agar stok produk
+					// tidak bisa minus saat pembayaran & penjualan berjalan bersamaan.
+					if err := productRepo.UpdateStockAtomicGuarded(product.ID, float64(item.Quantity), "sub"); err != nil {
+						return domainErrors.NewInsufficientStockError(product.Name)
 					}
 				}
 			}

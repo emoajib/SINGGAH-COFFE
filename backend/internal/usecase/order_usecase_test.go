@@ -279,6 +279,44 @@ func TestOrderUsecase_CompletePayment(t *testing.T) {
 	assert.NotNil(t, completed.QueuedAt)
 }
 
+// B3 regression: stok produk non-resep tidak boleh minus saat pelunasan
+// order deferred (QRIS/unpaid) jika stok sudah terpakai transaksi lain.
+func TestOrderUsecase_CompletePayment_ProductStockGuarded(t *testing.T) {
+	db := setupOrderTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createOrderUsecase(db)
+
+	product := &models.Product{Name: "Air Mineral", Sku: "AM-001", Price: 5000, Cost: 2000, Stock: 3}
+	db.Create(product)
+
+	created, err := uc.Create(CreateOrderRequest{
+		OrderNumber:   "ORD-GUARD-001",
+		PaymentMethod: "QRIS",
+		CashierName:   "Kasir Test",
+		Items: []struct {
+			ProductID uint `json:"product_id"`
+			Quantity  int  `json:"quantity"`
+		}{{ProductID: product.ID, Quantity: 2}},
+	}, 1, "Kasir Test")
+	assert.NoError(t, err)
+	assert.Equal(t, "Unpaid", created.Order.PaymentStatus)
+
+	// Simulasi stok produk terpakai lebih dulu oleh transaksi lain.
+	db.Model(&models.Product{}).Where("id = ?", product.ID).Update("stock", 1)
+
+	_, err = uc.CompletePayment(created.Order.ID)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, errors.ErrInsufficientStock)
+
+	var updated models.Product
+	db.First(&updated, product.ID)
+	assert.Equal(t, 1, updated.Stock, "stok produk tidak boleh minus")
+
+	var reloaded models.Order
+	db.First(&reloaded, created.Order.ID)
+	assert.Equal(t, "Unpaid", reloaded.PaymentStatus, "pelunasan gagal harus rollback status")
+}
+
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func TestOrderUsecase_KitchenQueueAndStatusProgression(t *testing.T) {
 	db := setupOrderTestDB()
