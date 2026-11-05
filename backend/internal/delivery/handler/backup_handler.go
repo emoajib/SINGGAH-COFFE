@@ -267,10 +267,9 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 
 	if req.Type == "uploads" {
 		upDir := filepath.Join(".", "uploads")
-		os.MkdirAll(upDir, 0755)
-		cmd := exec.Command("tar", "xzf", srcFile, "-C", ".")
-		if out, e := cmd.CombinedOutput(); e != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": string(out), "exit": e.Error()})
+		// G2: ekstraksi tervalidasi (anti path traversal) + staging atomik.
+		if err := restoreUploadsArchive(srcFile, upDir); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "restore uploads gagal", "details": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "uploads restored from " + req.File})
