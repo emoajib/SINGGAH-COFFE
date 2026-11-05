@@ -146,10 +146,14 @@ func (uc *ExpenseUsecase) Create(expense *entity.Expense, outletID ...uint) (*en
 // Update memperbarui expense dan menyegarkan entry Buku Kas.
 // GAP 3 FIX: sebelumnya edit expense tidak mengupdate Buku Kas → data stale.
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.ExpenseResponse, error) {
+func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense, outletID ...uint) (*entity.ExpenseResponse, error) {
 	existing, err := uc.expenseRepo.FindByID(id)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("expense not found")
+	}
+	// B4: cegah update lintas outlet.
+	if err := assertOutletAccess("expense", existing.OutletID, outletID); err != nil {
+		return nil, err
 	}
 
 	existing.Title = expense.Title
@@ -204,10 +208,14 @@ func (uc *ExpenseUsecase) Update(id uint, expense *entity.Expense) (*entity.Expe
 }
 
 // ⚠️ Vetted by AI - Manual Review Required by Senior Engineer/Manager
-func (uc *ExpenseUsecase) UpdateCostType(id uint, costType string) error {
+func (uc *ExpenseUsecase) UpdateCostType(id uint, costType string, outletID ...uint) error {
 	existing, err := uc.expenseRepo.FindByID(id)
 	if err != nil {
 		return domainErrors.NewNotFoundError("expense not found")
+	}
+	// B4: cegah update lintas outlet.
+	if err := assertOutletAccess("expense", existing.OutletID, outletID); err != nil {
+		return err
 	}
 	existing.CostType = costType
 	return uc.expenseRepo.Update(existing)
@@ -216,10 +224,14 @@ func (uc *ExpenseUsecase) UpdateCostType(id uint, costType string) error {
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 // Delete menghapus expense dan membersihkan entry Buku Kas terkait.
 // GAP 2 FIX: sebelumnya hapus expense meninggalkan orphan entry di Buku Kas.
-func (uc *ExpenseUsecase) Delete(id uint) error {
+func (uc *ExpenseUsecase) Delete(id uint, outletID ...uint) error {
 	existing, err := uc.expenseRepo.FindByID(id)
 	if err != nil {
 		return domainErrors.NewNotFoundError("expense not found")
+	}
+	// B4: cegah hapus lintas outlet.
+	if err := assertOutletAccess("expense", existing.OutletID, outletID); err != nil {
+		return err
 	}
 	return uc.db.Transaction(func(tx *gorm.DB) error {
 		expenseRepo := postgres.NewExpenseRepository(tx)

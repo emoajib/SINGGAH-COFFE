@@ -296,10 +296,14 @@ func (uc *InventoryUsecase) TransferStock(ingredientID uint, quantity float64, f
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
-func (uc *InventoryUsecase) UpdateIngredient(id uint, name, category, unit, purchaseUnit string, purchaseUnitSize, costPerUnit, minStock float64) error {
+func (uc *InventoryUsecase) UpdateIngredient(id uint, name, category, unit, purchaseUnit string, purchaseUnitSize, costPerUnit, minStock float64, outletID ...uint) error {
 	ingredient, err := uc.ingredientRepo.FindByID(id)
 	if err != nil {
 		return domainErrors.NewNotFoundError("ingredient")
+	}
+	// B4: cegah update lintas outlet.
+	if err := assertOutletAccess("ingredient", ingredient.OutletID, outletID); err != nil {
+		return err
 	}
 
 	oldCost := ingredient.CostPerUnit
@@ -340,7 +344,16 @@ func (uc *InventoryUsecase) GetLowStockAlerts(outletID ...uint) ([]entity.Ingred
 	return resp, nil
 }
 
-func (uc *InventoryUsecase) DeleteIngredient(id uint) error {
+func (uc *InventoryUsecase) DeleteIngredient(id uint, outletID ...uint) error {
+	existing, err := uc.ingredientRepo.FindByID(id)
+	if err != nil {
+		return domainErrors.NewNotFoundError("ingredient")
+	}
+	// B4: cegah hapus lintas outlet.
+	if err := assertOutletAccess("ingredient", existing.OutletID, outletID); err != nil {
+		return err
+	}
+
 	// Cek apakah ada produk yang masih menggunakan bahan ini di resepnya
 	type Dep struct {
 		ProductID   uint

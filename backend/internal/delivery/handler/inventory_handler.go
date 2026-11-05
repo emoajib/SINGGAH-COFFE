@@ -98,7 +98,7 @@ func (h *InventoryHandler) UpdateIngredient(c *gin.Context) {
 		return
 	}
 
-	if err := h.inventoryUsecase.UpdateIngredient(uint(id), req.Name, req.Category, req.Unit, req.PurchaseUnit, req.PurchaseUnitSize, req.CostPerUnit, req.MinStock); err != nil {
+	if err := h.inventoryUsecase.UpdateIngredient(uint(id), req.Name, req.Category, req.Unit, req.PurchaseUnit, req.PurchaseUnitSize, req.CostPerUnit, req.MinStock, getOutletID(c)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update ingredient"})
 		return
 	}
@@ -113,7 +113,7 @@ func (h *InventoryHandler) DeleteIngredient(c *gin.Context) {
 		return
 	}
 
-	if err := h.inventoryUsecase.DeleteIngredient(uint(id)); err != nil {
+	if err := h.inventoryUsecase.DeleteIngredient(uint(id), getOutletID(c)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete ingredient"})
 		return
 	}

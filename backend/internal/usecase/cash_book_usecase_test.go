@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"singgah-pos-backend/internal/domain/entity"
+	"singgah-pos-backend/internal/domain/errors"
 	"singgah-pos-backend/internal/models"
 
 	"github.com/stretchr/testify/assert"
@@ -81,4 +83,36 @@ func TestCashBookUsecase_ExchangeCash(t *testing.T) {
 		assert.Nil(t, res)
 		assert.Contains(t, err.Error(), "metode tidak valid")
 	})
+}
+
+// B4 regression: entri Buku Kas hanya boleh dibaca/diubah/dihapus outlet pemiliknya.
+func TestCashBookUsecase_OutletScoped(t *testing.T) {
+	db := setupSimulationDB(t)
+	uc := NewCashBookUsecase(db)
+
+	created, err := uc.Create(&entity.CashBook{
+		Date: time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), Method: "Cash", Type: "income", Amount: 50000, Description: "Setoran",
+	}, 1)
+	require.NoError(t, err)
+
+	_, err = uc.GetByID(created.ID, 2)
+	assert.ErrorIs(t, err, errors.ErrNotFound)
+
+	_, err = uc.Update(created.ID, &entity.CashBook{
+		Date: time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), Method: "QRIS", Type: "income", Amount: 1, Description: "Diubah outlet 2",
+	}, 2)
+	assert.ErrorIs(t, err, errors.ErrNotFound)
+
+	err = uc.Delete(created.ID, 2)
+	assert.ErrorIs(t, err, errors.ErrNotFound)
+
+	// Outlet pemilik tetap boleh membaca & mengubah.
+	got, err := uc.GetByID(created.ID, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 50000.0, got.Amount)
+
+	_, err = uc.Update(created.ID, &entity.CashBook{
+		Date: time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), Method: "Cash", Type: "income", Amount: 75000, Description: "Setoran revisi",
+	}, 1)
+	assert.NoError(t, err)
 }

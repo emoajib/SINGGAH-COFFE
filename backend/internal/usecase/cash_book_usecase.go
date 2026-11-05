@@ -48,9 +48,13 @@ func (uc *CashBookUsecase) GetAllFiltered(start, end, method, tipe string, outle
 	return resp, nil
 }
 
-func (uc *CashBookUsecase) GetByID(id uint) (*entity.CashBookResponse, error) {
+func (uc *CashBookUsecase) GetByID(id uint, outletID ...uint) (*entity.CashBookResponse, error) {
 	c, err := uc.cashBookRepo.FindByID(id)
 	if err != nil {
+		return nil, err
+	}
+	// B4: cegah baca lintas outlet.
+	if err := assertOutletAccess("cash book", c.OutletID, outletID); err != nil {
 		return nil, err
 	}
 	resp := c.ToResponse()
@@ -106,9 +110,13 @@ func (uc *CashBookUsecase) Create(c *entity.CashBook, outletID ...uint) (*entity
 	return &resp, nil
 }
 
-func (uc *CashBookUsecase) Update(id uint, c *entity.CashBook) (*entity.CashBookResponse, error) {
+func (uc *CashBookUsecase) Update(id uint, c *entity.CashBook, outletID ...uint) (*entity.CashBookResponse, error) {
 	existing, err := uc.cashBookRepo.FindByID(id)
 	if err != nil {
+		return nil, err
+	}
+	// B4: cegah update lintas outlet.
+	if err := assertOutletAccess("cash book", existing.OutletID, outletID); err != nil {
 		return nil, err
 	}
 	existing.Date = c.Date
@@ -126,7 +134,15 @@ func (uc *CashBookUsecase) Update(id uint, c *entity.CashBook) (*entity.CashBook
 	return &resp, nil
 }
 
-func (uc *CashBookUsecase) Delete(id uint) error {
+func (uc *CashBookUsecase) Delete(id uint, outletID ...uint) error {
+	existing, err := uc.cashBookRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	// B4: cegah hapus lintas outlet.
+	if err := assertOutletAccess("cash book", existing.OutletID, outletID); err != nil {
+		return err
+	}
 	return uc.cashBookRepo.Delete(id)
 }
 

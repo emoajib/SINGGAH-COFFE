@@ -140,7 +140,7 @@ func (h *ExpenseHandler) UpdateExpense(c *gin.Context) {
 		Notes:         req.Notes,
 	}
 
-	result, err := h.expenseUsecase.Update(uint(id), expense)
+	result, err := h.expenseUsecase.Update(uint(id), expense, getOutletID(c))
 	if err != nil {
 		log.Printf("[ERROR] UpdateExpense failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -164,7 +164,7 @@ func (h *ExpenseHandler) UpdateCostType(c *gin.Context) {
 		return
 	}
 
-	if err := h.expenseUsecase.UpdateCostType(uint(id), req.CostType); err != nil {
+	if err := h.expenseUsecase.UpdateCostType(uint(id), req.CostType, getOutletID(c)); err != nil {
 		log.Printf("[ERROR] UpdateCostType failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -180,7 +180,7 @@ func (h *ExpenseHandler) DeleteExpense(c *gin.Context) {
 		return
 	}
 
-	if err := h.expenseUsecase.Delete(uint(id)); err != nil {
+	if err := h.expenseUsecase.Delete(uint(id), getOutletID(c)); err != nil {
 		log.Printf("[ERROR] DeleteExpense failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

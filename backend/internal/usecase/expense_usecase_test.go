@@ -333,3 +333,31 @@ func TestGetExpenseSummaryRecap_WithCategoryDrilldown(t *testing.T) {
 	assert.Equal(t, 3, opStat.Count)
 	assert.Len(t, opStat.Items, 3) // Drilldown items populated!
 }
+// B4 regression: expense hanya boleh diubah/dihapus oleh outlet pemiliknya.
+func TestExpenseUsecase_OutletScoped(t *testing.T) {
+	db := setupExpenseTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createExpenseUsecase(db)
+
+	created, err := uc.Create(&entity.Expense{
+		Title: "Listrik", Amount: 100000, Category: "Operasional", CostType: "fixed", PaymentMethod: "Cash",
+	}, 1)
+	assert.NoError(t, err)
+
+	_, err = uc.Update(created.ID, &entity.Expense{Title: "Diubah Outlet 2", Amount: 1}, 2)
+	assert.ErrorIs(t, err, errors.ErrNotFound)
+
+	err = uc.UpdateCostType(created.ID, "variable", 2)
+	assert.ErrorIs(t, err, errors.ErrNotFound)
+
+	err = uc.Delete(created.ID, 2)
+	assert.ErrorIs(t, err, errors.ErrNotFound)
+
+	var count int64
+	db.Model(&models.Expense{}).Where("id = ?", created.ID).Count(&count)
+	assert.Equal(t, int64(1), count, "expense outlet lain tidak boleh terhapus")
+
+	// Outlet pemilik tetap boleh mengubah.
+	_, err = uc.Update(created.ID, &entity.Expense{Title: "Listrik Sept", Amount: 120000, Category: "Operasional", CostType: "fixed", PaymentMethod: "Cash"}, 1)
+	assert.NoError(t, err)
+}

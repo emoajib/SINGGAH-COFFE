@@ -63,7 +63,7 @@ func (h *CashBookHandler) GetCashBook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cash book ID"})
 		return
 	}
-	item, err := h.cashBookUsecase.GetByID(uint(id))
+	item, err := h.cashBookUsecase.GetByID(uint(id), getOutletID(c))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Cash book entry not found"})
 		return
@@ -125,7 +125,7 @@ func (h *CashBookHandler) UpdateCashBook(c *gin.Context) {
 		Description:  req.Description,
 		Reference:    req.Reference,
 	}
-	result, err := h.cashBookUsecase.Update(uint(id), item)
+	result, err := h.cashBookUsecase.Update(uint(id), item, getOutletID(c))
 	if err != nil {
 		log.Printf("[ERROR] UpdateCashBook failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -144,7 +144,7 @@ func (h *CashBookHandler) DeleteCashBook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cash book ID"})
 		return
 	}
-	if err := h.cashBookUsecase.Delete(uint(id)); err != nil {
+	if err := h.cashBookUsecase.Delete(uint(id), getOutletID(c)); err != nil {
 		log.Printf("[ERROR] DeleteCashBook failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

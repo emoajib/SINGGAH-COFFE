@@ -270,3 +270,26 @@ func TestInventoryUsecase_NonPurchaseStockIn_NoExpense(t *testing.T) {
 	db.Model(&models.Expense{}).Count(&count)
 	assert.Equal(t, int64(0), count, "Non-purchase stock-in tidak boleh membuat expense")
 }
+
+// B4 regression: user outlet lain tidak boleh update/hapus bahan outlet 1.
+func TestInventoryUsecase_IngredientOutletScoped(t *testing.T) {
+	db := setupInventoryTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createInventoryUsecase(db)
+
+	created, _ := uc.CreateIngredient(&entity.Ingredient{
+		Name: "Biji Kopi", Unit: "gram", CurrentStock: 100, KedaiStock: 100, MinStock: 10, CostPerUnit: 100,
+	}, 1)
+
+	err := uc.UpdateIngredient(created.ID, "Diubah Outlet 2", "Kopi", "gram", "kg", 1000, 100, 10, 2)
+	assert.ErrorIs(t, err, errors.ErrNotFound)
+
+	got, _ := uc.GetByID(created.ID)
+	assert.Equal(t, "Biji Kopi", got.Name, "data outlet lain tidak boleh berubah")
+
+	err = uc.DeleteIngredient(created.ID, 2)
+	assert.ErrorIs(t, err, errors.ErrNotFound)
+
+	// Outlet pemilik tetap boleh mengubah.
+	assert.NoError(t, uc.UpdateIngredient(created.ID, "Biji Kopi Baru", "Kopi", "gram", "kg", 1000, 100, 10, 1))
+}
