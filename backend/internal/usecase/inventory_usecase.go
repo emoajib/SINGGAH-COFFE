@@ -137,9 +137,6 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 		}
 
 		// Update current_stock (total) selalu, lalu update lokasi spesifik
-		if err := ingredientRepo.UpdateStockAtomic(ingredientID, absQuantity, operator); err != nil {
-			return err
-		}
 		if err := ingredientRepo.UpdateStockAtomicByLocation(ingredientID, absQuantity, operator, location); err != nil {
 			return err
 		}

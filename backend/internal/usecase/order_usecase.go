@@ -173,9 +173,6 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(itemInput.Quantity)
-						if err := ingredientRepo.UpdateStockAtomicGuarded(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
-							return domainErrors.NewInsufficientStockError(product.Name)
-						}
 						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return domainErrors.NewInsufficientStockError(product.Name)
 						}
@@ -350,9 +347,6 @@ func (uc *OrderUsecase) Void(id uint, outletID ...uint) (*entity.OrderResponse, 
 							return err
 						}
 						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
-							return err
-						}
 						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, restoreAmount, "add", "kedai"); err != nil {
 							return err
 						}
@@ -479,9 +473,6 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
-						if err := ingredientRepo.UpdateStockAtomicGuarded(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
-							return domainErrors.NewInsufficientStockError(product.Name)
-						}
 						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return domainErrors.NewInsufficientStockError(product.Name)
 						}
@@ -513,9 +504,6 @@ func (uc *OrderUsecase) UpdatePaymentMethod(id uint, newMethod string, outletID 
 				if len(product.Recipe) > 0 {
 					for _, recipeItem := range product.Recipe {
 						restoreAmount := recipeItem.Quantity * float64(item.Quantity)
-						if err := ingredientRepo.UpdateStockAtomic(recipeItem.IngredientID, restoreAmount, "add"); err != nil {
-							return err
-						}
 						if err := ingredientRepo.UpdateStockAtomicByLocation(recipeItem.IngredientID, restoreAmount, "add", "kedai"); err != nil {
 							return err
 						}
@@ -665,9 +653,6 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 						}
 						if ing.CurrentStock < deductionAmount || ing.KedaiStock < deductionAmount {
 							return domainErrors.NewInsufficientStockError(ing.Name)
-						}
-						if err := ingredientRepo.UpdateStockAtomicGuarded(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
-							return err
 						}
 						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err

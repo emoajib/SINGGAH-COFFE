@@ -128,9 +128,6 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 					for _, recipeItem := range product.Recipe {
 						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
-						if err := ingredientRepo.UpdateStockAtomicGuarded(recipeItem.IngredientID, deductionAmount, "sub"); err != nil {
-							return err
-						}
 						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err
 						}

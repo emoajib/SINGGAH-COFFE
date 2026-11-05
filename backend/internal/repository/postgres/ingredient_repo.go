@@ -93,13 +93,16 @@ func (r *ingredientRepository) UpdateStockAtomicByLocation(id uint, delta float6
 		col = "warehouse_stock"
 	}
 	absDelta := math.Abs(delta)
-	var expr interface{}
+	colExpr := gorm.Expr(col+" + ?", absDelta)
+	totalExpr := gorm.Expr("current_stock + ?", absDelta)
 	if operator == "sub" {
-		expr = gorm.Expr(col+" - ?", absDelta)
-	} else {
-		expr = gorm.Expr(col+" + ?", absDelta)
+		colExpr = gorm.Expr(col+" - ?", absDelta)
+		totalExpr = gorm.Expr("current_stock - ?", absDelta)
 	}
-	return r.db.Model(&models.Ingredient{}).Where("id = ?", id).UpdateColumn(col, expr).Error
+	return r.db.Model(&models.Ingredient{}).Where("id = ?", id).Updates(map[string]interface{}{
+		col:            colExpr,
+		"current_stock": totalExpr,
+	}).Error
 }
 
 // UpdateStockAtomicGuarded menolak sub yang membuat current_stock negatif.
@@ -130,7 +133,10 @@ func (r *ingredientRepository) UpdateStockAtomicByLocationGuarded(id uint, delta
 		return r.UpdateStockAtomicByLocation(id, absDelta, operator, location)
 	}
 	res := r.db.Model(&models.Ingredient{}).Where("id = ? AND "+col+" >= ?", id, absDelta).
-		UpdateColumn(col, gorm.Expr(col+" - ?", absDelta))
+		Updates(map[string]interface{}{
+			col:            gorm.Expr(col+" - ?", absDelta),
+			"current_stock": gorm.Expr("current_stock - ?", absDelta),
+		})
 	if res.Error != nil {
 		return res.Error
 	}
