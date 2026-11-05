@@ -5,6 +5,7 @@ import (
 	"singgah-pos-backend/internal/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type stockMutationRepository struct {
@@ -16,6 +17,36 @@ func NewStockMutationRepository(db *gorm.DB) *stockMutationRepository {
 }
 
 func (r *stockMutationRepository) Create(mutation *entity.StockMutation) error {
+	return r.db.Create(toModelStockMutation(mutation)).Error
+}
+
+// CreateIdempotent menyimpan mutasi stok hanya jika idempotency_key belum ada.
+//
+// C4: retry dari webhook / antrean sync offline tidak boleh menggandakan mutasi.
+// Mengembalikan created=false bila baris dengan kunci yang sama sudah tersimpan
+// (dipakai pemanggil untuk melewati pengurangan stok).
+//
+// Catatan: kolom idempotency_key bersifat NULL-able + unique index, sehingga
+// mutasi tanpa kunci (NULL) tetap boleh berulang.
+func (r *stockMutationRepository) CreateIdempotent(mutation *entity.StockMutation) (bool, error) {
+	m := toModelStockMutation(mutation)
+	if m.IdempotencyKey == nil {
+		if err := r.db.Create(m).Error; err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	res := r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "idempotency_key"}},
+		DoNothing: true,
+	}).Create(m)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
+func toModelStockMutation(mutation *entity.StockMutation) *models.StockMutation {
 	m := &models.StockMutation{
 		IngredientID: mutation.IngredientID,
 		Type:         mutation.Type,
@@ -33,7 +64,11 @@ func (r *stockMutationRepository) Create(mutation *entity.StockMutation) error {
 	if !mutation.Date.IsZero() {
 		m.Date = mutation.Date
 	}
-	return r.db.Create(m).Error
+	if mutation.IdempotencyKey != "" {
+		key := mutation.IdempotencyKey
+		m.IdempotencyKey = &key
+	}
+	return m
 }
 
 // FindByIngredientID mengembalikan riwayat mutasi stok untuk bahan tertentu.
@@ -62,6 +97,9 @@ func (r *stockMutationRepository) FindByIngredientID(ingredientID uint, outletID
 			Date:         m.Date,
 			OutletID:     m.OutletID,
 			CreatedAt:    m.CreatedAt,
+		}
+		if m.IdempotencyKey != nil {
+			result[i].IdempotencyKey = *m.IdempotencyKey
 		}
 	}
 	return result, nil

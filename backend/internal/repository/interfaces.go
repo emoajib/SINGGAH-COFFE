@@ -57,6 +57,8 @@ type IngredientRepository interface {
 // StockMutationRepository defines data access for stock mutations
 type StockMutationRepository interface {
 	Create(mutation *entity.StockMutation) error
+	// CreateIdempotent menyimpan mutasi hanya jika idempotency_key belum ada (C4).
+	CreateIdempotent(mutation *entity.StockMutation) (bool, error)
 	FindByIngredientID(ingredientID uint, outletID ...uint) ([]entity.StockMutation, error)
 }
 

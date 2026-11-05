@@ -317,6 +317,48 @@ func TestOrderUsecase_CompletePayment_ProductStockGuarded(t *testing.T) {
 	assert.Equal(t, "Unpaid", reloaded.PaymentStatus, "pelunasan gagal harus rollback status")
 }
 
+// C4 regression: retry pelunasan tidak boleh memotong stok dua kali.
+func TestOrderUsecase_CompletePaymentIdempotent(t *testing.T) {
+	db := setupOrderTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createOrderUsecase(db)
+
+	ing := &entity.Ingredient{Name: "Kopi Retry", Unit: "gram", CurrentStock: 500, KedaiStock: 500, MinStock: 50, CostPerUnit: 20}
+	db.Create(ing)
+
+	prodID := seedProductWithRecipe(db, "Kopi Retry", "KR-001", 12000, ing.ID, 15)
+
+	created, err := uc.Create(CreateOrderRequest{
+		OrderNumber:   "ORD-RETRY-001",
+		PaymentMethod: "QRIS",
+		CashierName:   "Kasir Retry",
+		Items: []struct {
+			ProductID uint `json:"product_id"`
+			Quantity  int  `json:"quantity"`
+		}{{ProductID: prodID, Quantity: 1}},
+	}, 1, "Kasir Retry")
+	assert.NoError(t, err)
+
+	_, err = uc.CompletePayment(created.Order.ID)
+	assert.NoError(t, err)
+
+	var afterFirst entity.Ingredient
+	db.First(&afterFirst, ing.ID)
+	assert.Equal(t, 485.0, afterFirst.CurrentStock)
+
+	// Retry: harus no-op, stok tidak berkurang lagi.
+	_, err = uc.CompletePayment(created.Order.ID)
+	assert.NoError(t, err)
+
+	var afterRetry entity.Ingredient
+	db.First(&afterRetry, ing.ID)
+	assert.Equal(t, 485.0, afterRetry.CurrentStock, "retry pelunasan tidak boleh memotong stok lagi")
+
+	var mutationCount int64
+	db.Model(&models.StockMutation{}).Where("ingredient_id = ?", ing.ID).Count(&mutationCount)
+	assert.Equal(t, int64(1), mutationCount)
+}
+
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func TestOrderUsecase_KitchenQueueAndStatusProgression(t *testing.T) {
 	db := setupOrderTestDB()

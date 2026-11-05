@@ -172,6 +172,7 @@ func (h *InventoryHandler) UpdateStock(c *gin.Context) {
 		req.UpdateMasterPrice,
 		req.NewCostPerUnit,
 		location,
+		idempotencyKeyFromHeader(c),
 		getOutletID(c),
 	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock"})
@@ -206,6 +207,7 @@ func (h *InventoryHandler) TransferStock(c *gin.Context) {
 		from,
 		to,
 		req.Notes,
+		idempotencyKeyFromHeader(c),
 		getOutletID(c),
 	); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

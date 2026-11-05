@@ -128,27 +128,33 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 			mutationRepo := postgres.NewStockMutationRepository(tx)
 			oid := loadedOrder.OutletID
 
-			for _, item := range loadedOrder.OrderItems {
+			for itemIdx, item := range loadedOrder.OrderItems {
 				product, err := productRepo.FindByIDWithRecipeForUpdate(item.ProductID)
 				if err != nil {
 					return fmt.Errorf("produk ID %d tidak ditemukan: %w", item.ProductID, err)
 				}
 				if len(product.Recipe) > 0 {
-					for _, recipeItem := range product.Recipe {
+					for recipeIdx, recipeItem := range product.Recipe {
 						// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 						deductionAmount := recipeItem.Quantity * float64(item.Quantity)
-						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
+						// C4: kunci idempoten — retry webhook tidak memotong stok dua kali.
+						created, err := mutationRepo.CreateIdempotent(&entity.StockMutation{
+							IngredientID:   recipeItem.IngredientID,
+							Type:           string(entity.MutationOut),
+							Location:       "kedai",
+							Quantity:       deductionAmount,
+							ReferenceID:    loadedOrder.OrderNumber,
+							Notes:          "QRIS Webhook Payment Confirmed - Sales Deduction",
+							OutletID:       oid,
+							IdempotencyKey: fmt.Sprintf("payment:%s:item%d:recipe%d", loadedOrder.OrderNumber, itemIdx, recipeIdx),
+						})
+						if err != nil {
 							return err
 						}
-						if err := mutationRepo.Create(&entity.StockMutation{
-							IngredientID: recipeItem.IngredientID,
-							Type:         string(entity.MutationOut),
-							Location:     "kedai",
-							Quantity:     deductionAmount,
-							ReferenceID:  loadedOrder.OrderNumber,
-							Notes:        "QRIS Webhook Payment Confirmed - Sales Deduction",
-							OutletID:     oid,
-						}); err != nil {
+						if !created {
+							continue
+						}
+						if err := ingredientRepo.UpdateStockAtomicByLocationGuarded(recipeItem.IngredientID, deductionAmount, "sub", "kedai"); err != nil {
 							return err
 						}
 					}

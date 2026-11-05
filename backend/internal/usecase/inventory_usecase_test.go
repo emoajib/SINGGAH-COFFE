@@ -293,3 +293,48 @@ func TestInventoryUsecase_IngredientOutletScoped(t *testing.T) {
 	// Outlet pemilik tetap boleh mengubah.
 	assert.NoError(t, uc.UpdateIngredient(created.ID, "Biji Kopi Baru", "Kopi", "gram", "kg", 1000, 100, 10, 1))
 }
+
+// C4 regression: retry mutasi stok dengan Idempotency-Key yang sama
+// tidak boleh memotong stok dua kali.
+func TestInventoryUsecase_UpdateStockIdempotent(t *testing.T) {
+	db := setupInventoryTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createInventoryUsecase(db)
+
+	ing, _ := uc.CreateIngredient(&entity.Ingredient{
+		Name: "Susu UHT", Unit: "ml", CurrentStock: 100, KedaiStock: 100, MinStock: 10, CostPerUnit: 20,
+	}, 1)
+
+	err := uc.UpdateStockWithLocation(ing.ID, "OUT", 20, "Pemakaian", false, false, 0, "kedai", "sync-key-001", 1)
+	assert.NoError(t, err)
+
+	// Retry (mis. antrean sync offline mengirim ulang request yang sama).
+	err = uc.UpdateStockWithLocation(ing.ID, "OUT", 20, "Pemakaian", false, false, 0, "kedai", "sync-key-001", 1)
+	assert.NoError(t, err)
+
+	got, _ := uc.GetByID(ing.ID)
+	assert.Equal(t, 80.0, got.CurrentStock, "stok hanya boleh berkurang sekali")
+	assert.Equal(t, 80.0, got.KedaiStock)
+
+	history, _ := uc.GetStockHistory(ing.ID, 1)
+	assert.Len(t, history, 1, "mutasi ganda tidak boleh tercatat")
+}
+
+// C4 regression: retry transfer stok dengan kunci sama tidak memindahkan stok dua kali.
+func TestInventoryUsecase_TransferStockIdempotent(t *testing.T) {
+	db := setupInventoryTestDB()
+	defer func() { sqlDB, _ := db.DB(); sqlDB.Close() }()
+	uc := createInventoryUsecase(db)
+
+	ing, _ := uc.CreateIngredient(&entity.Ingredient{
+		Name: "Biji Arabika", Unit: "gram", CurrentStock: 100, WarehouseStock: 100, KedaiStock: 0, MinStock: 10, CostPerUnit: 200,
+	}, 1)
+
+	assert.NoError(t, uc.TransferStock(ing.ID, 30, "warehouse", "kedai", "Kirim ke bar", "trf-key-001", 1))
+	assert.NoError(t, uc.TransferStock(ing.ID, 30, "warehouse", "kedai", "Kirim ke bar", "trf-key-001", 1))
+
+	got, _ := uc.GetByID(ing.ID)
+	assert.Equal(t, 70.0, got.WarehouseStock)
+	assert.Equal(t, 30.0, got.KedaiStock)
+	assert.Equal(t, 100.0, got.CurrentStock)
+}

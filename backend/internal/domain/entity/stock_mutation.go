@@ -17,6 +17,8 @@ type StockMutation struct {
 	Date         time.Time
 	CreatedAt    time.Time
 	OutletID     uint
+	// C4: kunci idempotensi mutasi stok (unik). Kosong = tidak dedupe.
+	IdempotencyKey string
 }
 
 type MutationType string

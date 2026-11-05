@@ -301,6 +301,8 @@ func Connect(cfg config.Config) *gorm.DB {
 	ensureColumn(db, "stock_mutations", "location", "VARCHAR(20) NOT NULL DEFAULT 'kedai'")
 	ensureColumn(db, "stock_mutations", "from_location", "VARCHAR(20) NOT NULL DEFAULT ''")
 	ensureColumn(db, "stock_mutations", "to_location", "VARCHAR(20) NOT NULL DEFAULT ''")
+	// C4: kunci idempotensi mutasi stok (NULL agar baris lama & manual tetap boleh berulang).
+	ensureColumn(db, "stock_mutations", "idempotency_key", "VARCHAR(191) NULL DEFAULT NULL")
 
 	// Bagi hasil per-shift: kolom baru idempoten untuk database lama.
 	ensureColumn(db, "orders", "shift_instance_id", "BIGINT UNSIGNED NULL")
@@ -355,6 +357,12 @@ func Connect(cfg config.Config) *gorm.DB {
 	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'loyalty_stamps' AND INDEX_NAME = 'ux_stamps_order_program'`).Scan(&stIdxCount)
 	if stIdxCount == 0 {
 		_ = db.Exec("CREATE UNIQUE INDEX ux_stamps_order_program ON loyalty_stamps (order_id, program_id)").Error
+	}
+	// C4: anti mutasi stok ganda saat retry (webhook / sync offline).
+	var smIdxCount int64
+	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_mutations' AND INDEX_NAME = 'ux_stock_mutations_idem'`).Scan(&smIdxCount)
+	if smIdxCount == 0 {
+		_ = db.Exec("CREATE UNIQUE INDEX ux_stock_mutations_idem ON stock_mutations (idempotency_key)").Error
 	}
 
 	// Vetted by AI - Manual Review Required by Senior Engineer/Manager

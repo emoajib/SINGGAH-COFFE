@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,6 +17,17 @@ func getOutletID(c *gin.Context) uint {
 		}
 	}
 	return 0
+}
+
+// idempotencyKeyFromHeader membaca header Idempotency-Key dari client.
+// C4: mencegah mutasi stok ganda saat request di-retry (mis. antrean sync offline).
+// Nilai dipangkas & dibatasi 191 karakter agar aman untuk kolom unique index.
+func idempotencyKeyFromHeader(c *gin.Context) string {
+	key := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if len(key) > 191 {
+		key = key[:191]
+	}
+	return key
 }
 
 func getUserID(c *gin.Context) (uint, bool) {

@@ -77,7 +77,7 @@ type RecipeItem struct {
 type StockMutation struct {
 	BaseModel
 	IngredientID uint      `json:"ingredient_id" gorm:"index"`
-	Type         string    `json:"type"` // IN (Purchase), OUT (Sales), ADJ (Audit), TRANSFER
+	Type         string    `json:"type"` // IN (Purchase), OUT (Sales), ADJ, TRANSFER
 	Location     string    `json:"location" gorm:"size:20;default:'kedai'"`
 	FromLocation string    `json:"from_location" gorm:"size:20;default:''"`
 	ToLocation   string    `json:"to_location" gorm:"size:20;default:''"`
@@ -86,6 +86,9 @@ type StockMutation struct {
 	Notes        string    `json:"notes"`
 	Date         time.Time `json:"date"`
 	OutletID     uint      `json:"outlet_id" gorm:"index"`
+	// C4: kunci idempotensi agar retry (webhook/sync offline) tidak menggandakan mutasi.
+	// NULL diizinkan (mutasi lama/manual) — unique index MySQL & SQLite mengizinkan banyak NULL.
+	IdempotencyKey *string `json:"idempotency_key" gorm:"size:191;uniqueIndex:ux_stock_mutations_idem"`
 }
 
 
