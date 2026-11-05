@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"math"
 
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
@@ -99,6 +100,14 @@ func (uc *WebhookUsecase) ProcessXenditWebhook(callbackToken string, payload Xen
 		case "PAID", "SETTLED":
 			if loadedOrder.PaymentStatus == "Paid" {
 				return nil
+			}
+			// Validasi nominal pembayaran vs tagihan (hindari float64 precision loss).
+			if loadedOrder.TotalAmount > 0 {
+				paidCents := int64(math.Round(payload.PaidAmount * 100))
+				totalCents := int64(math.Round(loadedOrder.TotalAmount * 100))
+				if paidCents != totalCents {
+					return fmt.Errorf("nominal pembayaran tidak sesuai tagihan: paid=%d total=%d", paidCents, totalCents)
+				}
 			}
 			loadedOrder.PaymentStatus = "Paid"
 			loadedOrder.Status = "Completed"
