@@ -62,11 +62,11 @@ Catatan: tidak ada halaman/UI outlet di frontend — modul outlet hanya ada di b
 | A6 | Tombol void tampil untuk cashier (UI) padahal backend owner+manager | Sedang | **FIXED** |
 | A7 | `cleanup_dummy_test_data.sql` merujuk kolom tak ada (`orders.customer_email`, `orders.notes`) | Sedang | **FIXED** |
 | A8 | Kontradiksi driver DB (MySQL) vs DSN (PostgreSQL) + query PG-only/MySQL-only | Tinggi (runtime) | **FIXED** — diseragamkan ke MySQL di semua lingkungan |
-| A9 | `api.ts` tidak pernah kirim header `X-Outlet-ID`; tidak ada UI switch outlet | Sedang | Terbuka |
-| A10 | Gate role frontend lebih longgar untuk beberapa menu (reports, integration, sales) | Rendah | Terbuka (UI lebih ketat = aman) |
-| A11 | `InventoryUsecase.GetByID` tanpa outlet scoping → potensi baca lintas-outlet | Rendah | Terbuka |
+| A9 | `api.ts` tidak pernah kirim header `X-Outlet-ID`; tidak ada UI switch outlet | Sedang | **FIXED** (header + dropdown owner global; A9) |
+| A10 | Gate role frontend vs backend (reports, integration, sales) | Rendah | **FIXED (by design)** — UI lebih ketat dari backend (arah aman) |
+| A11 | `InventoryUsecase.GetByID` tanpa outlet scoping → potensi baca lintas-outlet | Rendah | **FIXED** (A11) |
 | A12 | `SettingRepository.FindAll` global (tanpa outlet scoping) | Rendah | Terbuka (by design, branding) |
-| A13 | Register binding `role oneof=owner...` — siapapun yang login bisa daftar role owner? | Perlu cek | Terbuka (route `/users` owner-gated, lihat catatan) |
+| A13 | Register binding `role oneof=owner...` | Perlu cek | **FIXED (by design)** — route `/users` owner-gated |
 
 ---
 
