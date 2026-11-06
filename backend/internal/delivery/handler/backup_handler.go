@@ -90,6 +90,8 @@ func (h *BackupHandler) CreateBackup(c *gin.Context) {
 				os.Remove(outFile)
 			} else {
 				size, _ := getFileSize(outFile)
+				// G1: tulis manifest checksum agar restore bisa memverifikasi integritas.
+				_ = writeChecksumManifest(outFile)
 				results = append(results, gin.H{"type": "db", "status": "ok", "file": fmt.Sprintf("db_%s.sql.gz", ts), "size": size})
 			}
 		}
@@ -109,6 +111,7 @@ func (h *BackupHandler) CreateBackup(c *gin.Context) {
 				os.Remove(outFile)
 			} else {
 				size, _ := getFileSize(outFile)
+				_ = writeChecksumManifest(outFile)
 				results = append(results, gin.H{"type": "uploads", "status": "ok", "file": fmt.Sprintf("uploads_%s.tar.gz", ts), "size": size})
 			}
 		}
@@ -234,39 +237,97 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		// Tanpa shell: gunzip -c <file> | mysql ... (anti command injection)
-		gz := exec.Command("gunzip", "-c", srcFile)
-		mysqlArgs := []string{fmt.Sprintf("-u%s", user), fmt.Sprintf("-h%s", host), fmt.Sprintf("-P%s", port), dbname}
-		my := exec.Command("mysql", mysqlArgs...)
-		my.Env = append(os.Environ(), "MYSQL_PWD="+pass)
-		pipe, err := gz.StdoutPipe()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed"})
+
+		// G1 langkah 1: verifikasi checksum (bila manifest tersedia) sebelum
+		// menyentuh database. Arsip yang berubah/rusak ditolak lebih awal.
+		if err := verifyChecksumManifest(srcFile); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "verifikasi backup gagal", "details": err.Error()})
 			return
 		}
-		my.Stdin = pipe
-		var outBuf strings.Builder
-		my.Stdout = &outBuf
-		my.Stderr = &outBuf
-		if err := my.Start(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed"})
+		// G1 langkah 2: uji integritas gzip sampai habis.
+		if err := validateGzipIntegrity(srcFile); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "verifikasi backup gagal", "details": err.Error()})
 			return
 		}
-		if err := gz.Run(); err != nil {
-			_ = my.Wait()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": outBuf.String()})
+
+		// G1 langkah 3: snapshot database saat ini. Tanpa snapshot, restore
+		// parsial bisa meninggalkan data rusak tanpa jalan pulang → fail closed.
+		snapshotName := fmt.Sprintf("db_pre_restore_%s.sql.gz", time.Now().Format("20060102_150405"))
+		snapshotPath := filepath.Join(backupDir, snapshotName)
+		if err := dumpDatabase(snapshotPath, user, pass, host, port, dbname); err != nil {
+			os.Remove(snapshotPath)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "restore dibatalkan: gagal membuat snapshot pengaman",
+				"details": err.Error(),
+			})
 			return
 		}
-		if err := my.Wait(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore failed", "details": outBuf.String(), "exit": err.Error()})
+		if fileSizeBytes(snapshotPath) <= 20 {
+			os.Remove(snapshotPath)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "restore dibatalkan: snapshot pengaman kosong (mysqldump tidak tersedia?)",
+			})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "database restored from " + req.File})
+		_ = writeChecksumManifest(snapshotPath)
+
+		// G1 langkah 4: eksekusi restore.
+		if err := restoreDatabaseDump(srcFile, user, pass, host, port, dbname); err != nil {
+			// G1 langkah 5: restore gagal di tengah → pulihkan snapshot (sekali coba).
+			rollbackState := "ok"
+			rollbackErr := restoreDatabaseDump(snapshotPath, user, pass, host, port, dbname)
+			if rollbackErr != nil {
+				rollbackState = "failed"
+			}
+			resp := gin.H{
+				"error":    "restore gagal",
+				"details":  err.Error(),
+				"snapshot": snapshotName,
+				"rollback": rollbackState,
+			}
+			if rollbackErr != nil {
+				resp["rollback_error"] = rollbackErr.Error()
+			}
+			c.JSON(http.StatusInternalServerError, resp)
+			return
+		}
+
+		// G1 langkah 6: verifikasi skema hasil restore.
+		if err := h.verifyRestoredSchema(); err != nil {
+			rollbackState := "ok"
+			rollbackErr := restoreDatabaseDump(snapshotPath, user, pass, host, port, dbname)
+			if rollbackErr != nil {
+				rollbackState = "failed"
+			}
+			resp := gin.H{
+				"error":             "verifikasi restore gagal, snapshot dipulihkan",
+				"details":           err.Error(),
+				"snapshot":          snapshotName,
+				"rollback":          rollbackState,
+				"restore_cancelled": true,
+			}
+			if rollbackErr != nil {
+				resp["rollback_error"] = rollbackErr.Error()
+			}
+			c.JSON(http.StatusInternalServerError, resp)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "ok",
+			"message":  "database restored from " + req.File,
+			"snapshot": snapshotName,
+		})
 		return
 	}
 
 	if req.Type == "uploads" {
 		upDir := filepath.Join(".", "uploads")
+		// G1: verifikasi checksum arsip uploads (bila manifest tersedia).
+		if err := verifyChecksumManifest(srcFile); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "verifikasi backup gagal", "details": err.Error()})
+			return
+		}
 		// G2: ekstraksi tervalidasi (anti path traversal) + staging atomik.
 		if err := restoreUploadsArchive(srcFile, upDir); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "restore uploads gagal", "details": err.Error()})
@@ -277,6 +338,28 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid restore type, use 'db' or 'uploads'"})
+}
+
+// verifyRestoredSchema memastikan tabel inti benar-benar ada setelah restore.
+// Ini menangkap kasus dump terpotong/rusak yang tetap membuat exit code 0.
+func (h *BackupHandler) verifyRestoredSchema() error {
+	if h.db == nil {
+		return nil
+	}
+	required := []string{"users", "orders", "order_items", "ingredients", "cash_books"}
+	for _, table := range required {
+		var count int64
+		if err := h.db.Raw(
+			"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
+			table,
+		).Scan(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			return fmt.Errorf("tabel wajib '%s' tidak ditemukan setelah restore", table)
+		}
+	}
+	return nil
 }
 
 func (h *BackupHandler) DownloadBackup(c *gin.Context) {
