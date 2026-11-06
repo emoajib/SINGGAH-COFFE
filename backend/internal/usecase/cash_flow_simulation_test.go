@@ -82,7 +82,7 @@ func TestEndToEnd_CashFlowAndShiftSimulation(t *testing.T) {
 			{ProductID: product.ID, Quantity: 2},
 		},
 	}
-	cashOrder, err := orderUC.Create(cashOrderReq, cashier.ID, cashier.Name, outlet.ID)
+	cashOrder, err := orderUC.Create(cashOrderReq, cashier.ID, cashier.Name, "", outlet.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 50000.0, cashOrder.Order.TotalAmount)
 	assert.Equal(t, "Paid", cashOrder.Order.PaymentStatus)
@@ -104,7 +104,7 @@ func TestEndToEnd_CashFlowAndShiftSimulation(t *testing.T) {
 			{ProductID: product.ID, Quantity: 3},
 		},
 	}
-	qrisOrder, err := orderUC.Create(qrisOrderReq, cashier.ID, cashier.Name, outlet.ID)
+	qrisOrder, err := orderUC.Create(qrisOrderReq, cashier.ID, cashier.Name, "", outlet.ID)
 	require.NoError(t, err)
 	// Pelanggan selesai scan QRIS -> status lunas
 	completedQris, err := orderUC.CompletePayment(qrisOrder.Order.ID, outlet.ID)

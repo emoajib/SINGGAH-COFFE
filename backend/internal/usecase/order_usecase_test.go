@@ -96,7 +96,7 @@ func TestOrderUsecase_CreateSuccess(t *testing.T) {
 		},
 	}
 
-	resp, err := uc.Create(req, 1, "Test Cashier")
+	resp, err := uc.Create(req, 1, "Test Cashier", "")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -143,7 +143,7 @@ func TestOrderUsecase_CreateWithQRIS(t *testing.T) {
 		},
 	}
 
-	resp, err := uc.Create(req, 1, "Test Cashier")
+	resp, err := uc.Create(req, 1, "Test Cashier", "")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -169,7 +169,7 @@ func TestOrderUsecase_VoidSuccess(t *testing.T) {
 		}{
 			{ProductID: prodID, Quantity: 1},
 		},
-	}, 1, "CS")
+	}, 1, "CS", "")
 
 	resp, err := uc.Void(created.Order.ID)
 
@@ -197,7 +197,7 @@ func TestOrderUsecase_VoidAlreadyVoided(t *testing.T) {
 			ProductID uint `json:"product_id"`
 			Quantity  int  `json:"quantity"`
 		}{{ProductID: prodID, Quantity: 1}},
-	}, 1, "CS")
+	}, 1, "CS", "")
 
 	uc.Void(created.Order.ID)
 
@@ -237,7 +237,7 @@ func TestOrderUsecase_CreateInsufficientStock(t *testing.T) {
 		},
 	}
 
-	_, err := uc.Create(req, 1, "CS")
+	_, err := uc.Create(req, 1, "CS", "")
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, errors.ErrInsufficientStock)
@@ -263,7 +263,7 @@ func TestOrderUsecase_CompletePayment(t *testing.T) {
 		}{
 			{ProductID: prodID, Quantity: 1},
 		},
-	}, 1, "Kasir Ari")
+	}, 1, "Kasir Ari", "")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "Pending", created.Order.Status)
@@ -297,7 +297,7 @@ func TestOrderUsecase_CompletePayment_ProductStockGuarded(t *testing.T) {
 			ProductID uint `json:"product_id"`
 			Quantity  int  `json:"quantity"`
 		}{{ProductID: product.ID, Quantity: 2}},
-	}, 1, "Kasir Test")
+	}, 1, "Kasir Test", "")
 	assert.NoError(t, err)
 	assert.Equal(t, "Unpaid", created.Order.PaymentStatus)
 
@@ -336,7 +336,7 @@ func TestOrderUsecase_CompletePaymentIdempotent(t *testing.T) {
 			ProductID uint `json:"product_id"`
 			Quantity  int  `json:"quantity"`
 		}{{ProductID: prodID, Quantity: 1}},
-	}, 1, "Kasir Retry")
+	}, 1, "Kasir Retry", "")
 	assert.NoError(t, err)
 
 	_, err = uc.CompletePayment(created.Order.ID)
@@ -384,7 +384,7 @@ func TestOrderUsecase_KitchenQueueAndStatusProgression(t *testing.T) {
 		}{
 			{ProductID: prodID, Quantity: 2},
 		},
-	}, 1, "Kasir Salsabil")
+	}, 1, "Kasir Salsabil", "")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, res)

@@ -107,7 +107,7 @@ func isPaidMethod(m string) bool {
 
 func isDeferredMethod(m string) bool { return !isPaidMethod(m) }
 
-func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName string, outletID ...uint) (*CreateOrderResponse, error) {
+func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName string, idempotencyKey string, outletID ...uint) (*CreateOrderResponse, error) {
 	if !validPaymentMethods[req.PaymentMethod] {
 		return nil, domainErrors.NewInvalidInputError(
 			fmt.Sprintf("metode pembayaran tidak valid: %s. Pilih: Cash, QRIS, Lainnya, Transfer, Unpaid", req.PaymentMethod))
@@ -130,6 +130,18 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		oid := uint(0)
 		if len(outletID) > 0 {
 			oid = outletID[0]
+		}
+
+		// Idempotency: jika key sudah ada, kembalikan order lama tanpa duplikasi.
+		if idempotencyKey != "" {
+			var existing models.Order
+			if err := tx.Where("idempotency_key = ?", idempotencyKey).First(&existing).Error; err == nil {
+				loaded, err := orderRepo.FindByIDWithItems(existing.ID)
+				if err == nil {
+					result.Order = loaded.ToResponse()
+					return nil
+				}
+			}
 		}
 
 		for _, itemInput := range req.Items {
@@ -251,6 +263,7 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 			KitchenStatus:    kitchenStatus,
 			PreparationNotes: req.PreparationNotes,
 			QueuedAt:         queuedAt,
+			IdempotencyKey:   idempotencyKey,
 		}
 
 		// If QRIS or Unpaid (Barista Open Bill), set as pending payment

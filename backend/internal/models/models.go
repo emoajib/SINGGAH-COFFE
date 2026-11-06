@@ -112,6 +112,7 @@ type Order struct {
 	KitchenStatus    string      `json:"kitchen_status" gorm:"size:20;default:'queued';index:idx_orders_kitchen"`
 	PreparationNotes string      `json:"preparation_notes" gorm:"type:text"`
 	OrderSource      string      `json:"order_source" gorm:"type:varchar(20);default:'cashier';index"` // cashier, self_order
+	IdempotencyKey   *string     `json:"idempotency_key" gorm:"size:191;uniqueIndex:ux_orders_idempotency"`
 	CustomerPhone    string      `json:"customer_phone" gorm:"type:varchar(30);default:''"`
 	TrackingToken    string      `json:"tracking_token" gorm:"type:varchar(64);index;default:''"`
 	PickupCode       string      `json:"pickup_code" gorm:"type:varchar(10);default:''"`

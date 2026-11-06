@@ -75,7 +75,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		}{ProductID: item.ProductID, Quantity: item.Quantity})
 	}
 
-	result, err := h.orderUsecase.Create(ucReq, userID, cashierName, getOutletID(c))
+	result, err := h.orderUsecase.Create(ucReq, userID, cashierName, c.GetHeader("Idempotency-Key"), getOutletID(c))
 	if err != nil {
 		writeDomainError(c, err, "Failed to process order")
 		return

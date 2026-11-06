@@ -54,7 +54,7 @@ func TestI1_ConcurrentStockDeductionNeverNegative(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			_, results[idx] = uc.Create(mkReq([]string{"ORD-I1-A", "ORD-I1-B"}[idx]), 1, "Kasir I1", 1)
+			_, results[idx] = uc.Create(mkReq([]string{"ORD-I1-A", "ORD-I1-B"}[idx]), 1, "Kasir I1", "", 1)
 		}(i)
 	}
 	wg.Wait()
@@ -96,7 +96,7 @@ func TestI1_WebhookReplayDeductsStockOnce(t *testing.T) {
 			ProductID uint `json:"product_id"`
 			Quantity  int  `json:"quantity"`
 		}{{ProductID: prodID, Quantity: 1}},
-	}, 1, "Kasir I1", 1)
+	}, 1, "Kasir I1", "", 1)
 	require.NoError(t, err)
 
 	wh := NewWebhookUsecase(db)
@@ -139,7 +139,7 @@ func TestI1_VoidCrossOutletRejected(t *testing.T) {
 			ProductID uint `json:"product_id"`
 			Quantity  int  `json:"quantity"`
 		}{{ProductID: product.ID, Quantity: 1}},
-	}, 1, "Kasir Outlet 1", 1)
+	}, 1, "Kasir Outlet 1", "", 1)
 	require.NoError(t, err)
 
 	_, err = uc.Void(created.Order.ID, 2)

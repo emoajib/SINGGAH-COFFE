@@ -23,6 +23,7 @@ type Order struct {
 	KitchenStatus    string
 	PreparationNotes string
 	OrderSource      string // cashier, self_order
+	IdempotencyKey   string
 	CustomerPhone    string
 	TrackingToken    string
 	PickupCode       string
