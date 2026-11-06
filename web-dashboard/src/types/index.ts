@@ -4,6 +4,7 @@ export interface User {
   name: string
   email: string
   role: 'owner' | 'manager' | 'cashier'
+  outlet_id?: number
 }
 
 // ─── Auth ───────────────────────────────────────────────────────────────────

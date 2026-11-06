@@ -1,6 +1,6 @@
 # AUDIT REPORT — Sistem Moka POS Singgah Coffee
 
-Tanggal: 4 Agustus 2026
+Tanggal: 4 Agustus 2026 (diperbarui 6 Nov 2026 — sinkron commit f73cbbf)
 Scope: Backend (Go/Gin/GORM), Frontend (React+TS+Vite), Database, Kesesuaian UI per role.
 Status: Temuan terverifikasi baris-per-baris (file:line). Perbaikan bernomor **FIXED** sudah diterapkan.
 

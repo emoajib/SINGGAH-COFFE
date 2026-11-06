@@ -15,6 +15,7 @@ import BaristaQueue from "./pages/BaristaQueue"
 import ProductManagement from "./pages/ProductManagement"
 import Expenses from "./pages/Expenses"
 import BackupManagement from "./pages/BackupManagement"
+import Outlets from "./pages/Outlets"
 import KebutuhanStok from "./pages/KebutuhanStok"
 import CashRegister from "./pages/CashRegister"
 import CashBookPage from "./pages/CashBook"
@@ -70,7 +71,7 @@ function AppContent() {
     }
 
     // Tab eksklusif owner saja
-    const ownerOnlyTabs = ["reports", "bep", "kebutuhan-stok", "integration", "backup", "profit-sharing", "psak-coa", "psak-journal", "psak-reports"]
+    const ownerOnlyTabs = ["reports", "bep", "kebutuhan-stok", "integration", "backup", "profit-sharing", "psak-coa", "psak-journal", "psak-reports", "outlets"]
     // Tab yang boleh diakses manager & owner (bukan cashier)
     const managerOnlyTabs: string[] = ["loyalty-feedback", "jadwal-shift"]
 
@@ -140,6 +141,7 @@ function AppContent() {
                             {activeTab === "integration" && <Integration />}
                             {activeTab === "settings" && <Settings />}
                             {activeTab === "backup" && <BackupManagement />}
+                            {activeTab === "outlets" && <Outlets />}
                             {activeTab === "profit-sharing" && <ProfitSharing />}
                             {activeTab === "jadwal-shift" && <JadwalShift />}
                             {activeTab === "psak-coa" && <PsakCoA />}

@@ -10,6 +10,10 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  const activeOutlet = localStorage.getItem('active_outlet_id')
+  if (activeOutlet && config.headers) {
+    config.headers['X-Outlet-ID'] = activeOutlet
+  }
   return config
 })
 
@@ -39,6 +43,13 @@ api.interceptors.response.use(
       return api(config)
     }
 
+    if (error.response?.status === 400) {
+      const msg = (error.response.data as { error?: string })?.error || ''
+      if (msg.toLowerCase().includes('outlet')) {
+        localStorage.removeItem('active_outlet_id')
+        window.location.reload()
+      }
+    }
     if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')

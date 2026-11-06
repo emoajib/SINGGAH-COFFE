@@ -16,6 +16,8 @@ import { Button } from "../ui/button"
 import { useDispatch, useSelector } from "react-redux"
 import { logout } from "../../store/authSlice"
 import { RootState } from "../../store"
+import { OutletsService } from "../../services/outletsService"
+import type { Outlet } from "../../types/index"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
 import { useEffect, useState } from "react"
 import { fetchSettings } from "../../services/settingsService"
@@ -31,6 +33,8 @@ interface HeaderProps {
 export default function Header({ onMenuClick, onGuideClick, onNavigate }: HeaderProps) {
     const dispatch = useDispatch()
     const { user } = useSelector((state: RootState) => state.auth)
+    const [outlets, setOutlets] = useState<Outlet[]>([])
+    const [activeOutlet, setActiveOutlet] = useState<string>(localStorage.getItem('active_outlet_id') || '')
     const [outletName, setOutletName] = useState("Singgah Coffee")
     const [alerts, setAlerts] = useState<Ingredient[]>([])
     const [alertCount, setAlertCount] = useState<number>(0)
@@ -69,6 +73,12 @@ export default function Header({ onMenuClick, onGuideClick, onNavigate }: Header
     }
 
     useEffect(() => {
+        if (user?.role === 'owner' && !user?.outlet_id) {
+            OutletsService.list().then(setOutlets).catch(() => {})
+        }
+    }, [user])
+
+    useEffect(() => {
         loadSettingsAndAlerts()
         const interval = setInterval(() => {
             loadSettingsAndAlerts()
@@ -94,6 +104,17 @@ export default function Header({ onMenuClick, onGuideClick, onNavigate }: Header
                 <button onClick={onMenuClick} className="lg:hidden p-1.5 hover:bg-gray-100 rounded-md">
                     <Menu className="w-5 h-5 text-gray-600" />
                 </button>
+                {user?.role === 'owner' && !user?.outlet_id && outlets.length > 0 && (
+                    <select className="text-sm border rounded px-2 py-1" value={activeOutlet} onChange={(e) => {
+                        const v = e.target.value
+                        if (v) localStorage.setItem('active_outlet_id', v); else localStorage.removeItem('active_outlet_id')
+                        setActiveOutlet(v)
+                        if (confirm('Ganti outlet? Data akan dimuat ulang.')) window.location.reload()
+                    }}>
+                        <option value="">Semua outlet</option>
+                        {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    </select>
+                )}
                 <h2 className="font-semibold text-base md:text-lg text-gray-800 truncate">
                     Dashboard {outletName}
                 </h2>

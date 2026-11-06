@@ -46,10 +46,14 @@ func (uc *InventoryUsecase) GetIngredients(outletID ...uint) ([]entity.Ingredien
 	return resp, nil
 }
 
-func (uc *InventoryUsecase) GetByID(id uint) (*entity.IngredientResponse, error) {
+func (uc *InventoryUsecase) GetByID(id uint, outletID ...uint) (*entity.IngredientResponse, error) {
 	ingredient, err := uc.ingredientRepo.FindByID(id)
 	if err != nil {
 		return nil, domainErrors.NewNotFoundError("ingredient")
+	}
+	// A11: cegah baca lintas outlet (konsisten dengan B4).
+	if err := assertOutletAccess("ingredient", ingredient.OutletID, outletID); err != nil {
+		return nil, err
 	}
 	resp := ingredient.ToResponse()
 	return &resp, nil
@@ -63,7 +67,10 @@ func (uc *InventoryUsecase) GetStockHistory(ingredientID uint, outletID ...uint)
 	ingredient, err := uc.ingredientRepo.FindByID(ingredientID)
 	ingredientName := ""
 	if err == nil && ingredient != nil {
-		ingredientName = ingredient.Name
+		// A11: jangan bocorkan nama bahan lintas outlet.
+		if assertOutletAccess("ingredient", ingredient.OutletID, outletID) == nil {
+			ingredientName = ingredient.Name
+		}
 	}
 	resp := make([]entity.StockMutationResponse, len(mutations))
 	for i, m := range mutations {
