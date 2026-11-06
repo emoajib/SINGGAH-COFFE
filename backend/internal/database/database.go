@@ -344,7 +344,12 @@ func Connect(cfg config.Config) *gorm.DB {
 	var cbIdxCount int64
 	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cash_books' AND INDEX_NAME = 'ux_cash_books_reference'`).Scan(&cbIdxCount)
 	if cbIdxCount == 0 {
-		_ = db.Exec("CREATE UNIQUE INDEX ux_cash_books_reference ON cash_books (reference(191))").Error
+		if err := db.Exec("CREATE UNIQUE INDEX ux_cash_books_reference ON cash_books (reference(191))").Error; err != nil {
+			// D2: index ini adalah pengaman race pada Buku Kas. Jika gagal (mis. masih
+			// ada reference duplikat lama), jangan hapus data otomatis — laporkan agar
+			// dideduplikasi manual, selagi insert-if-absent tetap mencegah duplikat baru.
+			log.Printf("WARNING: gagal membuat ux_cash_books_reference: %v — periksa reference duplikat di cash_books secara manual", err)
+		}
 	}
 	// Anti jurnal ganda: unique entry_number.
 	var jeIdxCount int64

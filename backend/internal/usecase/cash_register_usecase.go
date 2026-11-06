@@ -77,20 +77,18 @@ func (uc *CashRegisterUsecase) OpenCashRegister(userID uint, outletID uint, req 
 		if req.OpeningAmount > 0 {
 			cbRepo := postgres.NewCashBookRepository(tx)
 			ref := fmt.Sprintf("cash_register_open:%d", cashRegister.ID)
-			exists, _ := cbRepo.ExistsByReference(ref, outletID)
-			if !exists {
-				if err := cbRepo.Create(&entity.CashBook{
-					OutletID:    outletID,
-					Date:        now,
-					Method:      "Cash",
-					Type:        "income",
-					Amount:      req.OpeningAmount,
-					Description: fmt.Sprintf("Modal Awal Kasir (%s)", user.Name),
-					Reference:   ref,
-					CreatedBy:   userID,
-				}); err != nil {
-					return err
-				}
+			// D2: insert-if-absent — race buka kas paralel tidak menggandakan modal awal.
+			if _, err := cbRepo.CreateIfAbsent(&entity.CashBook{
+				OutletID:    outletID,
+				Date:        now,
+				Method:      "Cash",
+				Type:        "income",
+				Amount:      req.OpeningAmount,
+				Description: fmt.Sprintf("Modal Awal Kasir (%s)", user.Name),
+				Reference:   ref,
+				CreatedBy:   userID,
+			}); err != nil {
+				return err
 			}
 		}
 		return nil

@@ -172,13 +172,6 @@ func (uc *CashBookUsecase) EnsureOrderIncome(o *entity.Order, outletID ...uint) 
 		return nil
 	}
 	ref := uc.orderRef(o.ID)
-	exists, err := uc.cashBookRepo.ExistsByReference(ref, outletID...)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
 	desc := "Penjualan " + o.OrderNumber
 	if o.CashierName != "" {
 		desc += " (kasir " + o.CashierName + ")"
@@ -187,7 +180,9 @@ func (uc *CashBookUsecase) EnsureOrderIncome(o *entity.Order, outletID ...uint) 
 	if date.IsZero() {
 		date = time.Now()
 	}
-	return uc.cashBookRepo.Create(&entity.CashBook{
+	// D2: insert-if-absent (bukan read-before-create) agar dua pelunasan
+	// bersamaan tidak menghasilkan entri Buku Kas ganda.
+	_, err := uc.cashBookRepo.CreateIfAbsent(&entity.CashBook{
 		OutletID:    o.OutletID,
 		Date:        date,
 		Method:      mapCashBookMethod(o.PaymentMethod),
@@ -196,6 +191,7 @@ func (uc *CashBookUsecase) EnsureOrderIncome(o *entity.Order, outletID ...uint) 
 		Description: desc,
 		Reference:   ref,
 	})
+	return err
 }
 
 func (uc *CashBookUsecase) RemoveOrderIncome(orderID uint, outletID ...uint) error {
@@ -215,13 +211,6 @@ func (uc *CashBookUsecase) EnsureRegisterClose(cr *entity.CashRegister, outletID
 		return nil
 	}
 	ref := uc.registerCloseRef(cr.ID)
-	exists, err := uc.cashBookRepo.ExistsByReference(ref, outletID)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
 	tipe := "income"
 	label := "surplus"
 	if cr.Variance < 0 {
@@ -229,7 +218,8 @@ func (uc *CashBookUsecase) EnsureRegisterClose(cr *entity.CashRegister, outletID
 		label = "kekurangan"
 	}
 	desc := fmt.Sprintf("Selisih tutup kas %s (%s) Rp %.0f", cr.CashierName, label, math.Abs(cr.Variance))
-	return uc.cashBookRepo.Create(&entity.CashBook{
+	// D2: insert-if-absent agar tutup kas berulang/paralel tidak menggandakan selisih.
+	_, err := uc.cashBookRepo.CreateIfAbsent(&entity.CashBook{
 		OutletID:    outletID,
 		Date:        time.Now(),
 		Method:      "Lainnya",
@@ -238,6 +228,7 @@ func (uc *CashBookUsecase) EnsureRegisterClose(cr *entity.CashRegister, outletID
 		Description: desc,
 		Reference:   ref,
 	})
+	return err
 }
 
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
@@ -314,7 +305,9 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 		if oid == 0 && outletID > 0 {
 			oid = outletID
 		}
-		if err := uc.cashBookRepo.Create(&entity.CashBook{
+		// D2: insert-if-absent agar sync paralel tidak gagal duplicate-key
+		// dan tidak membuat entri ganda.
+		created, err := uc.cashBookRepo.CreateIfAbsent(&entity.CashBook{
 			OutletID:    oid,
 			Date:        e.Date,
 			Method:      method,
@@ -322,10 +315,13 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 			Amount:      e.Amount,
 			Description: "Pengeluaran: " + e.Title,
 			Reference:   uc.expenseRef(e.ID),
-		}); err != nil {
+		})
+		if err != nil {
 			return nil, err
 		}
-		result.ExpensesSynced++
+		if created {
+			result.ExpensesSynced++
+		}
 	}
 
 	// Sinkronkan modal kas awal dari cash registers yang belum tercatat di Buku Kas
@@ -358,7 +354,8 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 				cashier = "Kasir"
 			}
 			// D1: jangan telan error — hanya hitung yang benar-benar tersimpan.
-			if err := uc.cashBookRepo.Create(&entity.CashBook{
+			// D2: insert-if-absent agar sync paralel tidak gagal duplicate-key.
+			created, err := uc.cashBookRepo.CreateIfAbsent(&entity.CashBook{
 				OutletID:    oid,
 				Date:        r.OpenedAt,
 				Method:      "Cash",
@@ -366,11 +363,14 @@ func (uc *CashBookUsecase) SyncFromTransactions(outletID uint) (*CashBookSyncRes
 				Amount:      r.OpeningAmount,
 				Description: fmt.Sprintf("Modal Awal Kasir (%s)", cashier),
 				Reference:   fmt.Sprintf("cash_register_open:%d", r.ID),
-			}); err != nil {
+			})
+			if err != nil {
 				log.Printf("[WARN] SyncFromTransactions: gagal membuat modal awal kasir %d: %v", r.ID, err)
 				continue
 			}
-			result.RegistersSynced++
+			if created {
+				result.RegistersSynced++
+			}
 		}
 	}
 

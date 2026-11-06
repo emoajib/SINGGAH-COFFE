@@ -8,6 +8,7 @@ import (
 	"singgah-pos-backend/internal/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type cashBookRepository struct {
@@ -70,6 +71,42 @@ func (r *cashBookRepository) Create(c *entity.CashBook) error {
 	}
 	c.ID = m.ID
 	return nil
+}
+
+// CreateIfAbsent membuat entri Buku Kas hanya jika `reference` belum ada.
+//
+// D2: pola read-before-create (ExistsByReference lalu Create) masih bisa
+// menghasilkan duplikat saat dua request berjalan bersamaan. Method ini
+// mengandalkan unique index `ux_cash_books_reference` + INSERT ... ON CONFLICT
+// (MySQL: ON DUPLICATE KEY) sehingga race aman tanpa tabel/lock tambahan.
+//
+// Mengembalikan created=false bila entri dengan reference yang sama sudah ada.
+func (r *cashBookRepository) CreateIfAbsent(c *entity.CashBook) (bool, error) {
+	m := &models.CashBook{
+		OutletID:     c.OutletID,
+		Date:         c.Date,
+		Method:       c.Method,
+		Type:         c.Type,
+		SubType:      c.SubType,
+		InvestorName: c.InvestorName,
+		Amount:       c.Amount,
+		Description:  c.Description,
+		Reference:    c.Reference,
+		CreatedBy:    c.CreatedBy,
+	}
+	res := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(m)
+	if res.Error != nil {
+		// Defensif: sebagian driver melaporkan duplicate sebagai error, bukan no-op.
+		if IsDuplicateKey(res.Error) {
+			return false, nil
+		}
+		return false, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return false, nil
+	}
+	c.ID = m.ID
+	return true, nil
 }
 
 func (r *cashBookRepository) Update(c *entity.CashBook) error {

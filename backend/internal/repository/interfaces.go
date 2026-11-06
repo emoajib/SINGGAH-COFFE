@@ -210,6 +210,8 @@ type CashBookRepository interface {
 	FindAllRange(start, end, method, tipe string, outletID ...uint) ([]entity.CashBook, error)
 	FindByID(id uint) (*entity.CashBook, error)
 	Create(c *entity.CashBook) error
+	// CreateIfAbsent menyimpan entri hanya jika `reference` belum ada (D2, race-safe).
+	CreateIfAbsent(c *entity.CashBook) (bool, error)
 	Update(c *entity.CashBook) error
 	Delete(id uint) error
 	GetTotalsSince(since string, outletID ...uint) (income float64, expense float64, err error)
