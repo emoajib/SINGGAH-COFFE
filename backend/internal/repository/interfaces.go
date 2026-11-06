@@ -280,6 +280,8 @@ type JournalRepository interface {
 	FindByID(id uint) (*entity.JournalEntry, error)
 	FindByIDWithItems(id uint) (*entity.JournalEntry, error)
 	Create(entry *entity.JournalEntry, items []entity.JournalEntryItem) error
+	// CreateIdempotent menyimpan jurnal hanya jika idempotency_key belum ada (D3).
+	CreateIdempotent(entry *entity.JournalEntry, items []entity.JournalEntryItem) (bool, error)
 	UpdateStatus(id uint, status string) error
 	GetNextEntryNumber(outletID uint) (string, error)
 	GetTotalDebitCredit(start, end string, outletID ...uint) (debit int64, credit int64, err error)

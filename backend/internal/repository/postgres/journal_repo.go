@@ -9,6 +9,7 @@ import (
 	"singgah-pos-backend/internal/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type journalRepository struct {
@@ -148,6 +149,62 @@ func (r *journalRepository) Create(entry *entity.JournalEntry, items []entity.Jo
 	})
 }
 
+// CreateIdempotent menyimpan jurnal + item dalam satu transaksi, tetapi hanya
+// jika `idempotency_key` belum pernah dipakai.
+//
+// D3: worker PSAK bisa me-retry event yang sama (MarkSuccess gagal, proses mati
+// setelah insert, dsb). Tanpa kunci idempotensi, retry menghasilkan jurnal ganda.
+// Unique index `ux_journal_idem` + ON CONFLICT menjamin hanya satu yang tersimpan.
+//
+// Mengembalikan created=false bila jurnal dengan kunci tersebut sudah ada.
+func (r *journalRepository) CreateIdempotent(entry *entity.JournalEntry, items []entity.JournalEntryItem) (bool, error) {
+	created := false
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		m := toModelJournalEntry(entry)
+		res := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "idempotency_key"}},
+			DoNothing: true,
+		}).Create(m)
+		if res.Error != nil {
+			if IsDuplicateKey(res.Error) {
+				return nil
+			}
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return nil
+		}
+		created = true
+		entry.ID = m.ID
+		entry.CreatedAt = m.CreatedAt
+		entry.UpdatedAt = m.UpdatedAt
+
+		if len(items) > 0 {
+			modelItems := make([]models.PSAKJournalEntryItem, len(items))
+			for i, item := range items {
+				modelItems[i] = models.PSAKJournalEntryItem{
+					JournalEntryID: m.ID,
+					AccountID:      item.AccountID,
+					AccountCode:    item.AccountCode,
+					AccountName:    item.AccountName,
+					Debit:          item.Debit,
+					Credit:         item.Credit,
+					Description:    item.Description,
+					OutletID:       item.OutletID,
+				}
+			}
+			if err := tx.Create(&modelItems).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	return created, nil
+}
+
 func (r *journalRepository) UpdateStatus(id uint, status string) error {
 	updates := map[string]interface{}{"status": status}
 	if status == "posted" {
@@ -211,7 +268,7 @@ func (r *journalRepository) FindItemsByEntryID(entryID uint) ([]entity.JournalEn
 }
 
 func toDomainJournalEntry(m *models.PSAKJournalEntry) *entity.JournalEntry {
-	return &entity.JournalEntry{
+	e := &entity.JournalEntry{
 		ID:          m.ID,
 		EntryNumber: m.EntryNumber,
 		Date:        m.Date,
@@ -224,10 +281,14 @@ func toDomainJournalEntry(m *models.PSAKJournalEntry) *entity.JournalEntry {
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 	}
+	if m.IdempotencyKey != nil {
+		e.IdempotencyKey = *m.IdempotencyKey
+	}
+	return e
 }
 
 func toModelJournalEntry(e *entity.JournalEntry) *models.PSAKJournalEntry {
-	return &models.PSAKJournalEntry{
+	m := &models.PSAKJournalEntry{
 		EntryNumber: e.EntryNumber,
 		Date:        e.Date,
 		Description: e.Description,
@@ -237,6 +298,11 @@ func toModelJournalEntry(e *entity.JournalEntry) *models.PSAKJournalEntry {
 		OutletID:    e.OutletID,
 		CreatedBy:   e.CreatedBy,
 	}
+	if e.IdempotencyKey != "" {
+		key := e.IdempotencyKey
+		m.IdempotencyKey = &key
+	}
+	return m
 }
 
 func toDomainJournalEntryItem(m *models.PSAKJournalEntryItem) *entity.JournalEntryItem {

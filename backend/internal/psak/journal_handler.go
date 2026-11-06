@@ -114,6 +114,20 @@ func (h *JournalEventHandler) ProcessEvent(event *entity.EventOutbox) error {
 	}
 }
 
+// postJournal menyimpan jurnal secara idempoten berdasarkan event outbox.
+//
+// D3: setiap event mendapat kunci `outbox:<id>` (+suffix untuk entri turunan
+// seperti reversal), sehingga retry worker tidak pernah membuat jurnal ganda.
+func (h *JournalEventHandler) postJournal(event *entity.EventOutbox, entry *entity.JournalEntry, items []entity.JournalEntryItem, suffix string) error {
+	if event == nil || event.ID == 0 {
+		// Tanpa id event (mis. pemanggilan manual) → perilaku lama.
+		return h.journalRepo.Create(entry, items)
+	}
+	entry.IdempotencyKey = fmt.Sprintf("outbox:%d%s", event.ID, suffix)
+	_, err := h.journalRepo.CreateIdempotent(entry, items)
+	return err
+}
+
 // handleOrderCompleted creates a double-entry journal for a completed order.
 //
 //	DR 1101 Kas (totalAmount)            — or DR 1102 Piutang if QRIS
@@ -210,7 +224,7 @@ func (h *JournalEventHandler) handleOrderCompleted(event *entity.EventOutbox) er
 		OutletID:    payload.OutletID,
 	}
 
-	return h.journalRepo.Create(entry, items)
+	return h.postJournal(event, entry, items, "")
 }
 
 // handleOrderVoided creates a reversing journal entry for a voided order.
@@ -269,7 +283,7 @@ func (h *JournalEventHandler) handleOrderVoided(event *entity.EventOutbox) error
 		OutletID:    payload.OutletID,
 	}
 
-	return h.journalRepo.Create(entry, reverseItems)
+	return h.postJournal(event, entry, reverseItems, ":void")
 }
 
 // handleExpenseCreated creates a journal entry for a new expense.
@@ -350,7 +364,7 @@ func (h *JournalEventHandler) handleExpenseCreated(event *entity.EventOutbox) er
 		OutletID:    payload.OutletID,
 	}
 
-	return h.journalRepo.Create(entry, items)
+	return h.postJournal(event, entry, items, "")
 }
 
 // handleExpenseUpdated voids the original expense journal and creates a new one.
@@ -361,7 +375,7 @@ func (h *JournalEventHandler) handleExpenseUpdated(event *entity.EventOutbox) er
 		return fmt.Errorf("unmarshal expense payload: %w", err)
 	}
 
-	if err := h.voidOriginalEntry("expense", payload.ID, fmt.Sprintf("VOID (update) Expense: %s", payload.Title)); err != nil {
+	if err := h.voidOriginalEntry(event, "expense", payload.ID, fmt.Sprintf("VOID (update) Expense: %s", payload.Title)); err != nil {
 		return fmt.Errorf("void original expense entry: %w", err)
 	}
 
@@ -376,7 +390,7 @@ func (h *JournalEventHandler) handleExpenseDeleted(event *entity.EventOutbox) er
 		return fmt.Errorf("unmarshal expense payload: %w", err)
 	}
 
-	return h.voidOriginalEntry("expense", payload.ID, fmt.Sprintf("VOID (delete) Expense: %s", payload.Title))
+	return h.voidOriginalEntry(event, "expense", payload.ID, fmt.Sprintf("VOID (delete) Expense: %s", payload.Title))
 }
 
 // lookupAccounts fetches multiple accounts by code, returning a map keyed by code.
@@ -439,7 +453,7 @@ func (h *JournalEventHandler) findOriginalEntry(sourceType string, sourceID uint
 }
 
 // voidOriginalEntry finds and voids a journal entry by source type and ID.
-func (h *JournalEventHandler) voidOriginalEntry(sourceType string, sourceID uint, reason string) error {
+func (h *JournalEventHandler) voidOriginalEntry(event *entity.EventOutbox, sourceType string, sourceID uint, reason string) error {
 	original, err := h.findOriginalEntry(sourceType, sourceID)
 	if err != nil {
 		return fmt.Errorf("find original entry: %w", err)
@@ -483,7 +497,7 @@ func (h *JournalEventHandler) voidOriginalEntry(sourceType string, sourceID uint
 		OutletID:    original.OutletID,
 	}
 
-	return h.journalRepo.Create(reversal, reverseItems)
+	return h.postJournal(event, reversal, reverseItems, ":void")
 }
 
 // toIDR converts float64 amount to int64 (Rupiah has no fractional unit).
@@ -535,7 +549,7 @@ func (h *JournalEventHandler) handleInvestorCapitalIn(event *entity.EventOutbox)
 		{AccountID: accounts["3101"].ID, AccountCode: "3101", AccountName: accounts["3101"].Name,
 			Debit: 0, Credit: toIDR(p.Amount), Description: desc, OutletID: p.OutletID},
 	}
-	return h.journalRepo.Create(&entity.JournalEntry{
+	return h.postJournal(event, &entity.JournalEntry{
 		EntryNumber: entryNumber,
 		Date:        time.Now(),
 		Description: desc,
@@ -543,7 +557,7 @@ func (h *JournalEventHandler) handleInvestorCapitalIn(event *entity.EventOutbox)
 		SourceID:    &sourceID,
 		Status:      "posted",
 		OutletID:    p.OutletID,
-	}, items)
+	}, items, "")
 }
 
 // handleInvestorLoanIn: Investor pinjamkan dana (hutang).
@@ -577,7 +591,7 @@ func (h *JournalEventHandler) handleInvestorLoanIn(event *entity.EventOutbox) er
 		{AccountID: accounts["2201"].ID, AccountCode: "2201", AccountName: accounts["2201"].Name,
 			Debit: 0, Credit: toIDR(p.Amount), Description: desc, OutletID: p.OutletID},
 	}
-	return h.journalRepo.Create(&entity.JournalEntry{
+	return h.postJournal(event, &entity.JournalEntry{
 		EntryNumber: entryNumber,
 		Date:        time.Now(),
 		Description: desc,
@@ -585,7 +599,7 @@ func (h *JournalEventHandler) handleInvestorLoanIn(event *entity.EventOutbox) er
 		SourceID:    &sourceID,
 		Status:      "posted",
 		OutletID:    p.OutletID,
-	}, items)
+	}, items, "")
 }
 
 // handleInvestorLoanPayment: Bayar cicilan/angsuran hutang investor.
@@ -619,7 +633,7 @@ func (h *JournalEventHandler) handleInvestorLoanPayment(event *entity.EventOutbo
 		{AccountID: accounts[cashCode].ID, AccountCode: cashCode, AccountName: accounts[cashCode].Name,
 			Debit: 0, Credit: toIDR(p.Amount), Description: desc, OutletID: p.OutletID},
 	}
-	return h.journalRepo.Create(&entity.JournalEntry{
+	return h.postJournal(event, &entity.JournalEntry{
 		EntryNumber: entryNumber,
 		Date:        time.Now(),
 		Description: desc,
@@ -627,5 +641,5 @@ func (h *JournalEventHandler) handleInvestorLoanPayment(event *entity.EventOutbo
 		SourceID:    &sourceID,
 		Status:      "posted",
 		OutletID:    p.OutletID,
-	}, items)
+	}, items, "")
 }

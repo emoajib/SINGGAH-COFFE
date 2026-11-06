@@ -357,6 +357,15 @@ func Connect(cfg config.Config) *gorm.DB {
 	if jeIdxCount == 0 {
 		_ = db.Exec("CREATE UNIQUE INDEX ux_journal_entry_number ON psak_journal_entries (entry_number(191))").Error
 	}
+	// D3: kunci idempotensi jurnal per event outbox (retry worker tidak menggandakan jurnal).
+	ensureColumn(db, "psak_journal_entries", "idempotency_key", "VARCHAR(191) NULL DEFAULT NULL")
+	var jiIdxCount int64
+	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'psak_journal_entries' AND INDEX_NAME = 'ux_journal_idem'`).Scan(&jiIdxCount)
+	if jiIdxCount == 0 {
+		if err := db.Exec("CREATE UNIQUE INDEX ux_journal_idem ON psak_journal_entries (idempotency_key)").Error; err != nil {
+			log.Printf("WARNING: gagal membuat ux_journal_idem: %v — periksa idempotency_key duplikat di psak_journal_entries secara manual", err)
+		}
+	}
 	// Anti stamp ganda: unique (order_id, program_id).
 	var stIdxCount int64
 	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'loyalty_stamps' AND INDEX_NAME = 'ux_stamps_order_program'`).Scan(&stIdxCount)

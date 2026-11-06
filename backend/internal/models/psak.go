@@ -29,6 +29,8 @@ type PSAKJournalEntry struct {
 	Status      string    `gorm:"default:draft;index" json:"status"` // draft, posted, void
 	OutletID    uint      `gorm:"index" json:"outlet_id"`
 	CreatedBy   uint      `json:"created_by"`
+	// D3: kunci idempotensi per event outbox agar retry worker tidak membuat jurnal ganda.
+	IdempotencyKey *string `gorm:"size:191;uniqueIndex:ux_journal_idem" json:"idempotency_key"`
 }
 
 // PSAKJournalEntryItem represents a line item in a journal entry.

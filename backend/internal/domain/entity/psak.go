@@ -69,6 +69,8 @@ type JournalEntry struct {
 	Items       []JournalEntryItem
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	// D3: kunci idempotensi jurnal (mis. "outbox:123"). Kosong = tidak dedupe.
+	IdempotencyKey string
 }
 
 type JournalEntryResponse struct {
