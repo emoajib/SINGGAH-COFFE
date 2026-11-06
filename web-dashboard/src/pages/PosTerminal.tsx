@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react"
+import { OfflineQueue } from "../services/offlineQueue"
 import {
     Plus,
     Minus,
@@ -106,7 +107,7 @@ const PosTerminal: React.FC = () => {
     const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
     useEffect(() => {
-        const handleOnline = () => setIsOnline(true);
+        const handleOnline = () => { setIsOnline(true); if (OfflineQueue.count() > 0) { OfflineQueue.flush().then((r) => { if (r.ok > 0) alert('Sinkronisasi offline selesai: ' + r.ok + ' order') }) } }
         const handleOffline = () => setIsOnline(false);
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
