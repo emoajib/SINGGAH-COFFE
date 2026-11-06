@@ -63,6 +63,14 @@ func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 					c.Abort()
 					return
 				}
+				// A2: validasi membership. Owner hanya boleh berpindah ke outlet
+				// miliknya sendiri. Owner dengan outlet_id = 0 adalah owner global
+				// (multi-outlet) sehingga boleh memilih outlet mana pun.
+				if dbUser.OutletID != 0 && uint(parsedID) != dbUser.OutletID {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki akses ke outlet ini"})
+					c.Abort()
+					return
+				}
 				outletID = uint(parsedID)
 			}
 		} else if outletID == 0 {
