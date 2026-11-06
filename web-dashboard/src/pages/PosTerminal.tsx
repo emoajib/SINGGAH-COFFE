@@ -259,15 +259,17 @@ const PosTerminal: React.FC = () => {
     const handleCheckout = async (method: string) => {
         if (cart.length === 0 || loading || createOrder.isPending) return;
         setLoading(true);
+        const idempotencyKey = crypto.randomUUID();
+        const orderData = {
+            items: cart.map(item => ({ product_id: item.id, quantity: item.quantity })),
+            payment_method: method,
+            customer_email: "customer@example.com",
+            customer_name: customerName.trim(),
+            customer_phone: customerPhone.trim(),
+            preparation_notes: preparationNotes.trim(),
+            idempotencyKey,
+        };
         try {
-            const orderData = {
-                items: cart.map(item => ({ product_id: item.id, quantity: item.quantity })),
-                payment_method: method,
-                customer_email: "customer@example.com",
-                customer_name: customerName.trim(),
-                customer_phone: customerPhone.trim(),
-                preparation_notes: preparationNotes.trim(),
-            };
             const data = await createOrder.mutateAsync(orderData) as any;
 
             setLastOrder(data.order || data);
@@ -284,7 +286,16 @@ const PosTerminal: React.FC = () => {
                 window.open(data.invoice_url, '_blank');
             }
         } catch (error: any) {
-            alert('Checkout gagal: ' + (error.response?.data?.error || error.message));
+            if (!navigator.onLine) {
+                OfflineQueue.enqueue({ type: 'order', payload: orderData, idempotencyKey });
+                setCart([]);
+                setCustomerName('');
+                setCustomerPhone('');
+                setPreparationNotes('');
+                alert('Offline: pesanan disimpan ke antrean sinkronisasi. Akan dikirim otomatis saat online.');
+            } else {
+                alert('Checkout gagal: ' + (error.response?.data?.error || error.message));
+            }
         } finally {
             setLoading(false);
         }

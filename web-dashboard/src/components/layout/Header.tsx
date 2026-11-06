@@ -17,6 +17,7 @@ import { useDispatch, useSelector } from "react-redux"
 import { logout } from "../../store/authSlice"
 import { RootState } from "../../store"
 import { OutletsService } from "../../services/outletsService"
+import { OfflineQueue } from "../../services/offlineQueue"
 import type { Outlet } from "../../types/index"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
 import { useEffect, useState } from "react"
@@ -36,6 +37,8 @@ export default function Header({ onMenuClick, onGuideClick, onNavigate }: Header
     const [outlets, setOutlets] = useState<Outlet[]>([])
     const [activeOutlet, setActiveOutlet] = useState<string>(localStorage.getItem('active_outlet_id') || '')
     const [outletName, setOutletName] = useState("Singgah Coffee")
+    const [syncCount, setSyncCount] = useState(OfflineQueue.count())
+    const [syncing, setSyncing] = useState(false)
     const [alerts, setAlerts] = useState<Ingredient[]>([])
     const [alertCount, setAlertCount] = useState<number>(0)
     const [loadingAlerts, setLoadingAlerts] = useState(false)
@@ -79,6 +82,25 @@ export default function Header({ onMenuClick, onGuideClick, onNavigate }: Header
     }, [user])
 
     useEffect(() => {
+        const on = () => { setSyncCount(OfflineQueue.count()); if (OfflineQueue.count() > 0) OfflineQueue.flush().then(r => { if (r.ok>0) setSyncCount(OfflineQueue.count()) }) }
+        const off = () => setSyncCount(OfflineQueue.count())
+        window.addEventListener('online', on)
+        window.addEventListener('offline', off)
+        return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+    }, [])
+
+    const handleManualSync = async () => {
+        if (syncing) return
+        setSyncing(true)
+        try {
+            const r = await OfflineQueue.flush()
+            alert(`Sinkronisasi: ${r.ok} berhasil, ${r.fail} gagal. Sisa ${OfflineQueue.count()} di antrean.`)
+            setSyncCount(OfflineQueue.count())
+            window.dispatchEvent(new CustomEvent('inventory-updated'))
+        } finally { setSyncing(false) }
+    }
+
+    useEffect(() => {
         loadSettingsAndAlerts()
         const interval = setInterval(() => {
             loadSettingsAndAlerts()
@@ -118,6 +140,17 @@ export default function Header({ onMenuClick, onGuideClick, onNavigate }: Header
                 <h2 className="font-semibold text-base md:text-lg text-gray-800 truncate">
                     Dashboard {outletName}
                 </h2>
+                {syncCount > 0 && (
+                    <button
+                        onClick={handleManualSync}
+                        disabled={syncing}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all"
+                        title="Sinkronkan data offline sekarang"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                        <span>Sinkron ({syncCount})</span>
+                    </button>
+                )}
             </div>
 
             <div className="flex items-center gap-3">
