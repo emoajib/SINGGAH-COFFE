@@ -179,8 +179,13 @@ func (r *cashBookRepository) ExistsByReference(ref string, outletID ...uint) (bo
 	return count > 0, nil
 }
 
+// DeleteByReference menghapus entri Buku Kas secara hard-delete (Unscoped).
+// Soft-delete (deleted_at) TIDAK digunakan di sini karena unique index
+// ux_cash_books_reference tidak partial — row yang sudah soft-deleted masih
+// memblokir INSERT baru dengan reference yang sama (Error 1062).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *cashBookRepository) DeleteByReference(ref string, outletID ...uint) (int64, error) {
-	tx := r.db.Where("reference = ?", ref)
+	tx := r.db.Unscoped().Where("reference = ?", ref)
 	tx = scopeOutlet(tx, "cash_books", outletID...)
 	res := tx.Delete(&models.CashBook{})
 	return res.RowsAffected, res.Error
@@ -197,9 +202,12 @@ func (r *cashBookRepository) ExistsByProfitSharingPeriod(periodID uint, outletID
 	return count > 0, nil
 }
 
+// DeleteByProfitSharingPeriod hard-deletes cash_book entries by profit-sharing reference.
+// Sama seperti DeleteByReference: harus Unscoped agar unique index tidak terblokir.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func (r *cashBookRepository) DeleteByProfitSharingPeriod(periodID uint, outletID ...uint) (int64, error) {
 	ref := fmt.Sprintf("profit-sharing:%d", periodID)
-	tx := r.db.Where("reference = ?", ref)
+	tx := r.db.Unscoped().Where("reference = ?", ref)
 	tx = scopeOutlet(tx, "cash_books", outletID...)
 	res := tx.Delete(&models.CashBook{})
 	return res.RowsAffected, res.Error
