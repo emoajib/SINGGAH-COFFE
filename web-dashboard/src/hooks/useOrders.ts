@@ -22,7 +22,9 @@ export function useCreateOrder() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: CreateOrderRequest & { idempotencyKey?: string }) =>
-      api.post<Order>('/orders', data, { headers: { 'Idempotency-Key': data.idempotencyKey || '' } }).then((r) => r.data),
+      api.post<Order>('/orders', data, {
+        headers: data.idempotencyKey ? { 'Idempotency-Key': data.idempotencyKey } : {},
+      }).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })

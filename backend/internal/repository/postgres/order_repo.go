@@ -1,6 +1,9 @@
 package postgres
 
 import (
+	"log"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"singgah-pos-backend/internal/domain/entity"
@@ -15,6 +18,31 @@ type orderRepository struct {
 
 func NewOrderRepository(db *gorm.DB) *orderRepository {
 	return &orderRepository{db: db}
+}
+
+// orderIdemColumnMissing menandai bahwa kolom orders.idempotency_key belum ada
+// di database produksi (mis. user DB tidak punya hak ALTER TABLE di shared
+// hosting). Selama kolom belum ada, checkout TETAP jalan: nilai idempotency
+// di-omit dari INSERT dan pengecekan duplikat dilewati.
+var orderIdemColumnMissing atomic.Bool
+
+// OrderIdempotencySupported melaporkan apakah kolom orders.idempotency_key
+// tersedia. Dipakai usecase untuk melewati query deteksi duplikat bila tidak.
+func OrderIdempotencySupported() bool { return !orderIdemColumnMissing.Load() }
+
+// isMissingColumnErr mendeteksi error "unknown column" dari MySQL/MariaDB
+// (1054) maupun SQLite ("no such column") untuk kolom tertentu.
+func isMissingColumnErr(err error, column string) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	if !strings.Contains(msg, column) {
+		return false
+	}
+	return strings.Contains(msg, "unknown column") ||
+		strings.Contains(msg, "no such column") ||
+		strings.Contains(msg, "doesn't exist")
 }
 
 func (r *orderRepository) FindByID(id uint) (*entity.Order, error) {
@@ -72,7 +100,32 @@ func (r *orderRepository) FindAllFiltered(start, end, status string, limit, offs
 
 func (r *orderRepository) Create(order *entity.Order) error {
 	m := toModelOrder(order)
-	if err := r.db.Create(m).Error; err != nil {
+
+	if orderIdemColumnMissing.Load() {
+		// Kolom belum ada: buat order tanpa idempotency_key.
+		m.IdempotencyKey = nil
+		if err := r.db.Omit("IdempotencyKey").Create(m).Error; err != nil {
+			return err
+		}
+		order.ID = m.ID
+		return nil
+	}
+
+	err := r.db.Create(m).Error
+	if err != nil && isMissingColumnErr(err, "idempotency_key") {
+		// Self-heal: jangan sampai checkout gagal total hanya karena kolom
+		// migrasi belum diterapkan di DB produksi.
+		orderIdemColumnMissing.Store(true)
+		log.Printf("WARNING: kolom orders.idempotency_key belum ada (%v). Order tetap dibuat TANPA idempotency. Jalankan deploy/sql/2026-11-09_orders_idempotency.sql atau pastikan user DB punya hak ALTER.", err)
+		m2 := toModelOrder(order)
+		m2.IdempotencyKey = nil
+		if err2 := r.db.Omit("IdempotencyKey").Create(m2).Error; err2 != nil {
+			return err2
+		}
+		order.ID = m2.ID
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 	order.ID = m.ID

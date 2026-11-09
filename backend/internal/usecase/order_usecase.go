@@ -133,7 +133,8 @@ func (uc *OrderUsecase) Create(req CreateOrderRequest, userID uint, cashierName 
 		}
 
 		// Idempotency: jika key sudah ada, kembalikan order lama tanpa duplikasi.
-		if idempotencyKey != "" {
+		// Dilewati bila kolom orders.idempotency_key belum tersedia di DB.
+		if idempotencyKey != "" && postgres.OrderIdempotencySupported() {
 			var existing models.Order
 			if err := tx.Where("idempotency_key = ?", idempotencyKey).First(&existing).Error; err == nil {
 				loaded, err := orderRepo.FindByIDWithItems(existing.ID)

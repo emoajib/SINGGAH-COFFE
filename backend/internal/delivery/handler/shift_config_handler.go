@@ -2,8 +2,10 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"singgah-pos-backend/internal/domain/entity"
 	domainErrors "singgah-pos-backend/internal/domain/errors"
@@ -199,5 +201,35 @@ func writeDomainError(c *gin.Context, err error, fallback ...string) {
 			return
 		}
 	}
-	c.JSON(http.StatusInternalServerError, gin.H{"error": fb})
+
+	// Error tak dikenal (DB/driver/infra): catat detailnya ke
+	// ~/singgah-pos/logs/backend.log lalu kirim pesan yang bisa ditindaklanjuti
+	// untuk masalah skema/koneksi yang umum di shared hosting.
+	log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	msg, status := describeInfraError(err, fb)
+	c.JSON(status, gin.H{"error": msg})
+}
+
+// describeInfraError menerjemahkan error infrastruktur yang sering muncul
+// menjadi pesan yang bisa langsung ditindaklanjuti kasir/operator.
+func describeInfraError(err error, fallback string) (string, int) {
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "unknown column"), strings.Contains(msg, "no such column"):
+		return "Skema database belum diperbarui (kolom tidak ditemukan). Jalankan migrasi lalu coba lagi. Detail ada di log server.", http.StatusInternalServerError
+	case strings.Contains(msg, "doesn't exist"), strings.Contains(msg, "table") && strings.Contains(msg, "not found"):
+		return "Tabel database belum tersedia. Jalankan migrasi/setup database. Detail ada di log server.", http.StatusInternalServerError
+	case strings.Contains(msg, "access denied"):
+		return "Server tidak punya akses ke database. Periksa kredensial DB.", http.StatusInternalServerError
+	case strings.Contains(msg, "connection refused"),
+		strings.Contains(msg, "connection reset"),
+		strings.Contains(msg, "invalid connection"),
+		strings.Contains(msg, "bad connection"),
+		strings.Contains(msg, "can't connect"),
+		strings.Contains(msg, "broken pipe"):
+		return "Koneksi database terputus. Coba lagi sebentar.", http.StatusServiceUnavailable
+	case strings.Contains(msg, "deadlock"), strings.Contains(msg, "lock wait timeout"):
+		return "Data sedang diproses transaksi lain. Coba lagi.", http.StatusConflict
+	}
+	return fallback, http.StatusInternalServerError
 }
