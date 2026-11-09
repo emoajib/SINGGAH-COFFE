@@ -304,6 +304,9 @@ func Connect(cfg config.Config) *gorm.DB {
 	// C4: kunci idempotensi mutasi stok (NULL agar baris lama & manual tetap boleh berulang).
 	ensureColumn(db, "stock_mutations", "idempotency_key", "VARCHAR(191) NULL DEFAULT NULL")
 
+	// Idempotency key untuk order (OPS-OFFLINE-01)
+	ensureColumn(db, "orders", "idempotency_key", "VARCHAR(191) NULL DEFAULT NULL")
+
 	// Bagi hasil per-shift: kolom baru idempoten untuk database lama.
 	ensureColumn(db, "orders", "shift_instance_id", "BIGINT UNSIGNED NULL")
 	ensureColumn(db, "expenses", "shift_instance_id", "BIGINT UNSIGNED NULL")
