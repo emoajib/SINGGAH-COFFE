@@ -147,6 +147,63 @@ else
     exit 1
 fi
 
+# 4b. JALANKAN SQL MIGRATIONS (file baru di deploy/sql/ yang belum dijalankan)
+echo ""
+echo "🗄️  Step 4b: Running pending SQL migrations..."
+# Tracking file: catat nama SQL yang sudah dijalankan agar idempoten
+MIGRATION_TRACKER="$PROJ_DIR/.applied_migrations"
+touch "$MIGRATION_TRACKER" 2>/dev/null || true
+
+# Parse DB credentials dari backup .env (lebih aman, sudah ada di BACKUP_DIR)
+_DB_URL=$(grep DATABASE_URL "$BACKUP_DIR/.env.backup" 2>/dev/null | head -1 | cut -d'=' -f2-)
+_DB_URL=$(echo "$_DB_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+
+_run_migrations=false
+if [ -n "$_DB_URL" ] && command -v mysql &>/dev/null; then
+    _ATIDX=$(echo "$_DB_URL" | awk '{print index($0,"@tcp(")}')
+    if [ "$_ATIDX" -gt 0 ]; then
+        _CREDS="${_DB_URL:0:$((_ATIDX-1))}"
+        _HOSTPART=$(echo "$_DB_URL" | sed "s/.*@tcp(//" | sed 's/).*//')
+        _MIG_USER=$(echo "$_CREDS" | cut -d':' -f1)
+        _MIG_PASS=$(echo "$_CREDS" | cut -d':' -f2-)
+        _MIG_HOST=$(echo "$_HOSTPART" | cut -d':' -f1)
+        _MIG_PORT=$(echo "$_HOSTPART" | cut -d':' -f2)
+        _MIG_PORT="${_MIG_PORT:-3306}"
+        _MIG_DB=$(echo "$_DB_URL" | sed 's|.*/||' | sed 's|?.*||')
+        _run_migrations=true
+    fi
+fi
+
+if [ "$_run_migrations" = true ] && [ -d "$PROJ_DIR/scripts/migrations" ]; then
+    _any=false
+    # Jalankan semua .sql di scripts/migrations/ secara berurutan (sort alphabetical = kronologis)
+    for sql_file in $(ls "$PROJ_DIR/scripts/migrations/"*.sql 2>/dev/null | sort); do
+        sql_name=$(basename "$sql_file")
+        if grep -qxF "$sql_name" "$MIGRATION_TRACKER" 2>/dev/null; then
+            echo "   ⏭️  $sql_name (already applied — skip)"
+        else
+            echo "   ⏳ Applying $sql_name ..."
+            if mysql -h "$_MIG_HOST" -P "$_MIG_PORT" -u "$_MIG_USER" -p"$_MIG_PASS" "$_MIG_DB" < "$sql_file" 2>/dev/null; then
+                echo "$sql_name" >> "$MIGRATION_TRACKER"
+                echo "   ✅ $sql_name applied"
+                _any=true
+            else
+                echo "   ⚠️  $sql_name FAILED — lihat error di atas. Deploy dilanjutkan."
+            fi
+        fi
+    done
+    if [ "$_any" = false ]; then
+        echo "   ✅ No new migrations to apply"
+    fi
+else
+    if [ ! -d "$PROJ_DIR/scripts/migrations" ]; then
+        echo "   ℹ️  scripts/migrations/ not found — skipping migrations"
+    else
+        echo "   ⚠️  Cannot connect to DB for migrations — jalankan manual:"
+        echo "      mysql -u <user> -p <database> < scripts/migrations/<file>.sql"
+    fi
+fi
+
 # 5. RESTORE .ENV (jangan timpa!)
 echo ""
 echo "🔒 Step 5: Restoring .env (preserving production credentials)..."
