@@ -306,6 +306,16 @@ func Connect(cfg config.Config) *gorm.DB {
 
 	// Idempotency key untuk order (OPS-OFFLINE-01)
 	ensureColumn(db, "orders", "idempotency_key", "VARCHAR(191) NULL DEFAULT NULL")
+	// Create unique index for orders.idempotency_key if not exists
+	var orderIdxCount int64
+	db.Raw(`SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND INDEX_NAME = 'ux_orders_idempotency'`).Scan(&orderIdxCount)
+	if orderIdxCount == 0 {
+		if err := db.Exec("CREATE UNIQUE INDEX ux_orders_idempotency ON orders (idempotency_key)").Error; err != nil {
+			log.Printf("WARNING: gagal membuat ux_orders_idempotency: %v", err)
+		} else {
+			log.Printf("ensureColumn: created unique index ux_orders_idempotency")
+		}
+	}
 
 	// Bagi hasil per-shift: kolom baru idempoten untuk database lama.
 	ensureColumn(db, "orders", "shift_instance_id", "BIGINT UNSIGNED NULL")
@@ -493,10 +503,25 @@ func Connect(cfg config.Config) *gorm.DB {
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func ensureColumn(db *gorm.DB, table, column, definition string) {
 	var count int64
-	db.Raw(`SELECT COUNT(*) FROM information_schema.COLUMNS
+	if err := db.Raw(`SELECT COUNT(*) FROM information_schema.COLUMNS
 		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
-		table, column).Scan(&count)
+		table, column).Scan(&count).Error; err != nil {
+		log.Printf("WARNING: ensureColumn query failed for %s.%s: %v", table, column, err)
+		// Try to add column anyway in case query failed
+		if err := db.Exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition).Error; err != nil {
+			log.Printf("WARNING: ensureColumn ALTER TABLE failed for %s.%s: %v", table, column, err)
+		} else {
+			log.Printf("ensureColumn: added column %s.%s", table, column)
+		}
+		return
+	}
 	if count == 0 {
-		_ = db.Exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition)
+		if err := db.Exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition).Error; err != nil {
+			log.Printf("WARNING: ensureColumn ALTER TABLE failed for %s.%s: %v", table, column, err)
+		} else {
+			log.Printf("ensureColumn: added column %s.%s", table, column)
+		}
+	} else {
+		log.Printf("ensureColumn: column %s.%s already exists", table, column)
 	}
 }
