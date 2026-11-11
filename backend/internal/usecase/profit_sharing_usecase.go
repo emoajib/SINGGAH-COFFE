@@ -740,10 +740,14 @@ func (uc *ProfitSharingUsecase) calculatePeriod(start, end string, outletID uint
 		totalPeriodDays = 1
 	}
 
-	// Cari kasbon pending barista pada rentang periode ini untuk dikaitkan ke draft
+	// Cari kasbon pending barista pada outlet ini untuk dikaitkan ke draft
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	// Semua kasbon berstatus 'pending' milik barista di outlet bersangkutan wajib
+	// diperhitungkan sebagai potongan kasbon aktif, tanpa terpotong oleh filter tanggal,
+	// agar pinjaman kasbon yang belum lunas otomatis terpotong saat bagi hasil dihitung.
 	cashbonTotals := make(map[int]float64)
 	if len(people) > 0 {
-		pendingCashbons, _ := uc.cashbonRepo.FindPendingByDateRange(startNorm, endNorm, outletID)
+		pendingCashbons, _ := uc.cashbonRepo.FindByOutlet(outletID, "pending")
 		for i := range people {
 			if people[i].Role == "barista" {
 				var personCashbons []entity.BaristaCashbon
@@ -754,11 +758,9 @@ func (uc *ProfitSharingUsecase) calculatePeriod(start, end string, outletID uint
 						totalCashbon += cb.Amount
 					}
 				}
-				// Backend adalah sumber kebenaran untuk kasbon pending pada
-				// rentang ini — selalu hitung ulang dari data DB, jangan
-				// mempertahankan nilai draft yang mungkin basi/penggalan
-				// (guard lama "CashbonReduction == 0" membuat dua kasbon
-				// barista yang sama hanya terbaca satu → under-detect).
+				// Backend adalah sumber kebenaran untuk kasbon pending barista — selalu hitung
+				// ulang dari data DB. Jika di DB tidak ada kasbon pending tapi request sudah
+				// membawa CashbonReduction (misal unit test), pertahankan nilai tersebut.
 				if len(personCashbons) > 0 {
 					people[i].CashbonReduction = totalCashbon
 					people[i].Cashbons = personCashbons
@@ -1103,7 +1105,8 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 	taxNote := fmt.Sprintf("Pajak (%.0f%%) & biaya layanan (%.0f%%) hanya info, tidak memotong dasar bagi hasil", taxPct, servicePct)
 
 	// Tandai semua kasbon yang terpotong menjadi settled / lunas
-	pendingCashbons, _ := uc.cashbonRepo.FindPendingByDateRange(start, end, outletID[0])
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	pendingCashbons, _ := uc.cashbonRepo.FindByOutlet(outletID[0], "pending")
 	for _, p := range people {
 		if p.Role == "barista" && p.CashbonReduction > 0 {
 			for _, cb := range pendingCashbons {
@@ -1364,7 +1367,8 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 	}
 
 	// Sinkronisasi data kasbon terbaru untuk barista dalam draft
-	pendingCashbons, _ := uc.cashbonRepo.FindPendingByDateRange(start, end, outletID[0])
+	// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+	pendingCashbons, _ := uc.cashbonRepo.FindByOutlet(outletID[0], "pending")
 	periodCashbons, _ := uc.cashbonRepo.FindByPeriodID(existing.ID, outletID[0])
 	allCandidateCashbons := append(pendingCashbons, periodCashbons...)
 	for i := range people {

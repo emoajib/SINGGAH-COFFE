@@ -166,3 +166,46 @@ func TestFindPendingByDateRange_DatesIncluded(t *testing.T) {
 		t.Errorf("RIO harus 2 kasbon terjumlah = 100000, got %v", rioTotal)
 	}
 }
+
+// TestCalculatePeriod_PendingCashbonAppliedRegardlessOfDate: Kasbon aktif (pending)
+// barista wajib otomatis memotong bagi hasil pada outlet bersangkutan, meskipun
+// tanggal kasbon dibuat setelah tanggal akhir periode (misal dicatat tgl 11 Nov untuk periode 1-10 Nov).
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func TestCalculatePeriod_PendingCashbonAppliedRegardlessOfDate(t *testing.T) {
+	db := setupRangeDB(t)
+	if err := db.AutoMigrate(&models.BaristaCashbon{}, &models.Setting{}, &models.Expense{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	// Buat kasbon aktif untuk SALMAN pada 15 Okt (setelah akhir periode 1-14 Okt)
+	if err := db.Create(&models.BaristaCashbon{
+		OutletID: 1, BaristaName: "SALMAN", Amount: 150000,
+		CashbonDate: time.Date(2026, 10, 15, 8, 0, 0, 0, time.UTC), Status: "pending",
+	}).Error; err != nil {
+		t.Fatalf("create cashbon: %v", err)
+	}
+
+	uc := NewProfitSharingUsecase(db)
+	people := []entity.ProfitSharingPerson{
+		{Name: "Owner", Role: "owner", SharePct: 60},
+		{Name: "ADIL", Role: "barista", SharePct: 20},
+		{Name: "RIO", Role: "barista", SharePct: 20},
+		{Name: "SALMAN", Role: "barista", SharePct: 20},
+	}
+
+	pc, err := uc.calculatePeriod("2026-10-01T00:00:00+07:00", "2026-10-14T23:59:00+07:00", 1, 40, "gross", 60, people)
+	if err != nil {
+		t.Fatalf("calculatePeriod: %v", err)
+	}
+
+	var salmanResult entity.ProfitSharingPerson
+	for _, p := range people {
+		if p.Name == "SALMAN" {
+			salmanResult = p
+		}
+	}
+
+	if salmanResult.CashbonReduction != 150000 {
+		t.Errorf("SALMAN CashbonReduction harus 150000, got %v", salmanResult.CashbonReduction)
+	}
+	_ = pc
+}

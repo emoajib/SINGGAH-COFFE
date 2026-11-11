@@ -510,6 +510,23 @@ export default function ProfitSharing() {
     setPeople(updated)
   }
 
+  // Vetted by AI - Manual Review Required by Senior Engineer/Manager
+  // getPeoplePayload menyelaraskan kasbon pending barista ke payload people
+  // agar preview dan draft selalu membawa kasbon aktif yang belum lunas.
+  const getPeoplePayload = () => {
+    return people.map(p => {
+      if (p.role === 'barista') {
+        const pCashbons = pendingCashbons.filter(c => c.barista_name.toLowerCase().trim() === p.name.toLowerCase().trim())
+        const total = pCashbons.reduce((s, c) => s + c.amount, 0)
+        return {
+          ...p,
+          cashbon_reduction: total > 0 ? total : (p.cashbon_reduction || 0),
+        }
+      }
+      return p
+    })
+  }
+
   const handlePreview = async () => {
     if (!startDate || !endDate) {
       toast({ title: "Error", description: "Pilih tanggal mulai dan akhir", variant: "error" })
@@ -518,7 +535,8 @@ export default function ProfitSharing() {
     const startDT = `${startDate}T${startTime}:00+07:00`
     const endDT = `${endDate}T${endTime}:00+07:00`
     try {
-      const result = await previewMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people })
+      const payload = getPeoplePayload()
+      const result = await previewMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people: payload })
       setPreview(result)
       setShowPreview(true)
     } catch (e: any) {
@@ -994,7 +1012,8 @@ export default function ProfitSharing() {
     const startDT = `${startDate}T${startTime}:00+07:00`
     const endDT = `${endDate}T${endTime}:00+07:00`
     try {
-      await saveDraftMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people })
+      const payload = getPeoplePayload()
+      await saveDraftMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people: payload })
       toast({
         title: "Draft Berhasil Disimpan",
         description: "Draft bagi hasil dan rincian tanggal libur barista tersimpan aman di Daftar Periode.",
@@ -1013,7 +1032,8 @@ export default function ProfitSharing() {
     const startDT = `${startDate}T${startTime}:00+07:00`
     const endDT = `${endDate}T${endTime}:00+07:00`
     try {
-      await saveDraftMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people })
+      const payload = getPeoplePayload()
+      await saveDraftMutation.mutateAsync({ start: startDT, end: endDT, ratio, basisType, ownerPct, people: payload })
       setShowPreview(false)
       toast({
         title: "Draft Berhasil Disimpan",
