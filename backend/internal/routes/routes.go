@@ -79,8 +79,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 	protected.Use(middleware.AuthMiddleware(db))
 	{
 			// Auth
-			protected.PUT("/auth/profile", middleware.RoleMiddleware("owner"), h.Auth.UpdateProfile)
-			protected.POST("/auth/change-password", middleware.RoleMiddleware("owner"), h.Auth.ChangePassword)
+			protected.PUT("/auth/profile", h.Auth.UpdateProfile)
+			protected.POST("/auth/change-password", h.Auth.ChangePassword)
 			protected.POST("/auth/logout", h.Auth.Logout)
 
 			// User Management
