@@ -34,6 +34,7 @@ type ProfitSharingPeriod struct {
 	RatioLockedAt       *time.Time `json:"ratio_locked_at"`
 	RoundingRemainder   float64    `json:"rounding_remainder" gorm:"default:0"` // total sisa rupiah ke kas
 	BasisDistributed    float64    `json:"basis_distributed" gorm:"default:0"`  // basis yang benar-benar dibagi (Σ basis shift)
+	ShiftsBreakdown     string     `json:"shifts_breakdown" gorm:"type:text"`    // JSON rincian shift & harian
 	People        []ProfitSharingPerson `json:"people" gorm:"foreignKey:PeriodID"`
 }
 

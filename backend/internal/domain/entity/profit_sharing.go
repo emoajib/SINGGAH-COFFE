@@ -26,6 +26,7 @@ type ProfitSharingPeriod struct {
 	RatioLockedAt     *time.Time            `json:"ratio_locked_at"`
 	RoundingRemainder float64               `json:"rounding_remainder"`
 	BasisDistributed  float64               `json:"basis_distributed"`
+	ShiftsBreakdown   string                `json:"shifts_breakdown,omitempty"`
 	People            []ProfitSharingPerson `json:"people"`
 	CreatedAt         time.Time             `json:"created_at"`
 	UpdatedAt         time.Time             `json:"updated_at"`
@@ -122,6 +123,12 @@ type DailyShiftFigure struct {
 type ShiftDailyDetail struct {
 	Tanggal         string   `json:"tanggal"`
 	Revenue         float64  `json:"revenue"`
+	Cogs            float64  `json:"cogs"`
+	GrossMargin     float64  `json:"gross_margin"`
+	Expenses        float64  `json:"expenses"`
+	SharingBasis    float64  `json:"sharing_basis"`
+	OwnerPct        float64  `json:"owner_pct"`
+	OwnerShare      float64  `json:"owner_share"`
 	Pool            float64  `json:"pool"`
 	JumlahPembagi   int      `json:"jumlah_pembagi"`
 	DaftarPembagi   []string `json:"daftar_pembagi"`

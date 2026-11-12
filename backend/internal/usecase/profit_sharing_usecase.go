@@ -100,6 +100,18 @@ func validateRatio(ownerPct float64) (float64, error) {
 // sisa kas, bukan dibulatkan ke barista/owner tertentu.
 func roundIDR(x float64) float64 { return math.Round(x) }
 
+// marshalShiftBreakdown serializes shift breakdown to JSON string (empty if nil).
+func marshalShiftBreakdown(sb []entity.ShiftBreakdown) string {
+	if len(sb) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(sb)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
 // splitEqualShare membagi pool sama rata ke n pembagi dalam rupiah penuh.
 // Mengembalikan bagian per orang dan sisa yang kembali ke kas toko.
 // n <= 0 → share 0 dan seluruh pool menjadi sisa (plus warning di caller).
@@ -462,7 +474,8 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 				continue
 			}
 			for _, sid := range personAttendance[j][dateStr] {
-				if sid == shiftID {
+				// Staf all-day (shift id 0) dianggap hadir di semua shift aktif.
+				if sid == shiftID || sid == 0 {
 					present = append(present, j)
 					break
 				}
@@ -546,7 +559,10 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 					names = append(names, people[j].Name)
 				}
 				a.dailies = append(a.dailies, entity.ShiftDailyDetail{
-					Tanggal: dateStr, Revenue: cell.revenue, Pool: cell.pool,
+					Tanggal: dateStr, Revenue: cell.revenue, Cogs: cell.cogs,
+					GrossMargin: cell.grossMargin, Expenses: cell.expenses,
+					SharingBasis: cell.sharingBasis, OwnerPct: ownerPct,
+					OwnerShare: cell.ownerShare, Pool: cell.pool,
 					JumlahPembagi: len(cell.present), DaftarPembagi: names,
 					JumlahDibagikan: share * float64(len(cell.present)), SisaKas: remainder,
 				})
@@ -842,6 +858,7 @@ func (uc *ProfitSharingUsecase) computeAndPersistDraft(start, end string, outlet
 		RatioEffectiveDate: &startDate,
 		RoundingRemainder: result.SisaKas,
 		BasisDistributed:  result.BasisDistributed,
+		ShiftsBreakdown:   marshalShiftBreakdown(shiftBreakdown),
 		People:            people,
 	}
 
@@ -1098,7 +1115,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		totalPeriodDays = 1
 	}
 
-	result, _, err := uc.calcSharing(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, period.BasisType, totalPeriodDays, start, end, outletID[0])
+	result, shiftBreakdown, err := uc.calcSharing(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, period.BasisType, totalPeriodDays, start, end, outletID[0])
 	if err != nil {
 		return err
 	}
@@ -1111,18 +1128,22 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		if p.Role == "barista" && p.CashbonReduction > 0 {
 			for _, cb := range pendingCashbons {
 				if matchesBarista(cb, p) {
-					_ = tx.Model(&models.BaristaCashbon{}).Where("id = ?", cb.ID).Updates(map[string]interface{}{
+					if err := tx.Model(&models.BaristaCashbon{}).Where("id = ?", cb.ID).Updates(map[string]interface{}{
 						"status":    "settled",
 						"period_id": period.ID,
 						"person_id": p.ID,
-					}).Error
+					}).Error; err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
-	_ = tx.Model(&models.BaristaCashbon{}).Where("period_id = ?", period.ID).Updates(map[string]interface{}{
+	if err := tx.Model(&models.BaristaCashbon{}).Where("period_id = ?", period.ID).Updates(map[string]interface{}{
 		"status": "settled",
-	}).Error
+	}).Error; err != nil {
+		return err
+	}
 
 	// Update people amounts in DB
 	if len(people) > 0 {
@@ -1158,6 +1179,7 @@ func (uc *ProfitSharingUsecase) Finalize(id uint, ratio float64, outletID ...uin
 		"pool_pct":           100 - ownerPct,
 		"ratio_locked_at":    time.Now(),
 		"rounding_remainder": result.SisaKas,
+		"shifts_breakdown":   marshalShiftBreakdown(shiftBreakdown),
 	}).Error; err != nil {
 		return err
 	}
@@ -1230,7 +1252,7 @@ func (uc *ProfitSharingUsecase) MarkAsPaid(id uint, outletID ...uint) error {
 	} else {
 		// Bersihkan entri expense lama untuk periode ini jika ada (idempotensi)
 		// Vetted by AI - Manual Review Required by Senior Engineer/Manager
-		_ = tx.Where("outlet_id = ? AND notes = ?", outletID[0], fmt.Sprintf("profit_sharing_period_%d", existing.ID)).Delete(&models.Expense{})
+		_ = tx.Where("outlet_id = ? AND notes = ?", outletID[0], fmt.Sprintf("profit_sharing_period_%d", existing.ID)).Delete(&models.Expense{}).Error
 
 		// Create one cashbook entry and expense entry per person
 		for _, p := range people {
@@ -1383,7 +1405,7 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		}
 	}
 
-	result, _, err := uc.calcSharing(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, existing.BasisType, totalPeriodDays, start, end, outletID[0])
+	result, shiftBreakdown, err := uc.calcSharing(basis, cogs, expenses, ratio, products, ownerPct, people, taxPct, servicePct, existing.BasisType, totalPeriodDays, start, end, outletID[0])
 	if err != nil {
 		return err
 	}
@@ -1409,6 +1431,7 @@ func (uc *ProfitSharingUsecase) Recalculate(id uint, ratio float64, outletID ...
 		"owner_pct":      ownerPct,
 		"pool_pct":       100 - ownerPct,
 		"rounding_remainder": result.SisaKas,
+		"shifts_breakdown":   marshalShiftBreakdown(shiftBreakdown),
 	}).Error; err != nil {
 		return err
 	}

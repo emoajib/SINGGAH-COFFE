@@ -2690,7 +2690,7 @@ export default function ProfitSharing() {
                         <thead>
                           <tr className="border-b bg-slate-50 text-slate-600">
                             <th className="text-left py-2 px-3">Nama & Role</th>
-                            <th className="text-right py-2 px-3">Share %</th>
+                            <th className="text-right py-2 px-3">Share % (dari pool barista)</th>
                             <th className="text-center py-2 px-3">Kehadiran</th>
                             <th className="text-right py-2 px-3">Jatah Normal</th>
                             <th className="text-right py-2 px-3">Potong Libur</th>

@@ -88,6 +88,7 @@ func (r *profitSharingPeriodRepository) Create(period *entity.ProfitSharingPerio
 		RatioLockedAt:     period.RatioLockedAt,
 		RoundingRemainder: period.RoundingRemainder,
 		BasisDistributed:  period.BasisDistributed,
+		ShiftsBreakdown:   period.ShiftsBreakdown,
 	}
 	if err := r.db.Create(m).Error; err != nil {
 		return err
@@ -119,6 +120,7 @@ func (r *profitSharingPeriodRepository) Update(period *entity.ProfitSharingPerio
 		"ratio_locked_at":    period.RatioLockedAt,
 		"rounding_remainder": period.RoundingRemainder,
 		"basis_distributed":  period.BasisDistributed,
+		"shifts_breakdown":   period.ShiftsBreakdown,
 	}).Error
 }
 
@@ -384,6 +386,7 @@ func toDomainProfitSharing(m *models.ProfitSharingPeriod) *entity.ProfitSharingP
 		RatioLockedAt:     m.RatioLockedAt,
 		RoundingRemainder: m.RoundingRemainder,
 		BasisDistributed:  m.BasisDistributed,
+		ShiftsBreakdown:   m.ShiftsBreakdown,
 		People:            people,
 		CreatedAt:         m.CreatedAt,
 		UpdatedAt:         m.UpdatedAt,

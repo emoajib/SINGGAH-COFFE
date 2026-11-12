@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strings"
@@ -380,7 +381,9 @@ func (uc *ExpenseUsecase) GetExpenseSummaryRecap(start, end string, outletID uin
 	if end != "" {
 		orderTx = orderTx.Where("DATE(created_at) <= DATE(?)", end)
 	}
-	_ = orderTx.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&totalRevenue)
+	if err := orderTx.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&totalRevenue); err != nil {
+		log.Printf("[WARN] expense ratio revenue scan failed: %v", err)
+	}
 
 	var expenseRatio float64
 	if totalRevenue > 0 {

@@ -123,7 +123,11 @@ func (uc *ReportUsecase) GetDashboardSummary(start, end string, outletID ...uint
 	lowStockCount := int64(0)
 	setting, err := uc.settingRepo.FindByKey("enable_stock_alerts")
 	if err == nil && setting != nil && setting.Value == "true" {
-		lowStockCount, _ = uc.ingredientRepo.CountLowStock(outletID...)
+		if c, err := uc.ingredientRepo.CountLowStock(outletID...); err != nil {
+			log.Printf("[WARN] dashboard: failed to count low stock: %v", err)
+		} else {
+			lowStockCount = c
+		}
 	}
 
 	totalCogs, err := uc.orderItemRepo.GetTotalCogsSince("Completed", since, outletID...)

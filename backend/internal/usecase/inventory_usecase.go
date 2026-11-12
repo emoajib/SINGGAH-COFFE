@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"time"
@@ -230,7 +231,9 @@ func (uc *InventoryUsecase) UpdateStockWithLocation(ingredientID uint, mutationT
 		// reflects current ingredient prices for accurate P&L/Profit Sharing HPP.
 		if isPurchase && mutationType == string(entity.MutationIn) {
 			productRepo := postgres.NewProductRepository(tx)
-			_ = productRepo.RecalculateCosts(ingredientID)
+			if err := productRepo.RecalculateCosts(ingredientID); err != nil {
+				log.Printf("[WARN] RecalculateCosts failed for ingredient %d: %v", ingredientID, err)
+			}
 		}
 
 		return nil

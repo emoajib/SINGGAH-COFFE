@@ -325,6 +325,7 @@ func Connect(cfg config.Config) *gorm.DB {
 	ensureColumn(db, "profit_sharing_periods", "ratio_effective_date", "DATETIME NULL")
 	ensureColumn(db, "profit_sharing_periods", "ratio_locked_at", "DATETIME NULL")
 	ensureColumn(db, "profit_sharing_periods", "rounding_remainder", "DOUBLE NOT NULL DEFAULT 0")
+	ensureColumn(db, "profit_sharing_periods", "shifts_breakdown", "TEXT NULL")
 	ensureColumn(db, "barista_cashbons", "remaining_balance", "DOUBLE NOT NULL DEFAULT 0")
 	ensureColumn(db, "barista_cashbons", "recorded_by", "BIGINT UNSIGNED NOT NULL DEFAULT 0")
 	ensureColumn(db, "barista_cashbons", "approved_by", "BIGINT UNSIGNED NULL")

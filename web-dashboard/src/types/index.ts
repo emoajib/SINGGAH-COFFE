@@ -773,6 +773,12 @@ export interface ShiftBreakdown {
 export interface ShiftDailyDetail {
   tanggal: string
   revenue: number
+  cogs?: number
+  gross_margin?: number
+  expenses?: number
+  sharing_basis?: number
+  owner_pct?: number
+  owner_share?: number
   pool: number
   jumlah_pembagi: number
   daftar_pembagi: string[]

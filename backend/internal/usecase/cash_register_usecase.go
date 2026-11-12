@@ -3,6 +3,7 @@ package usecase
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -45,8 +46,12 @@ func (uc *CashRegisterUsecase) OpenCashRegister(userID uint, outletID uint, req 
 	existing, err := uc.cashRegisterRepo.FindOpenByUserID(userID)
 	if err == nil && existing != nil {
 		// Close the stale register with its opening amount as "expected" (no variance).
-		_ = uc.cashRegisterRepo.Close(userID, existing.OpeningAmount, existing.OpeningAmount, 0)
-		_ = NewCashBookUsecase(uc.db).EnsureRegisterClose(existing, existing.OutletID)
+		if err := uc.cashRegisterRepo.Close(userID, existing.OpeningAmount, existing.OpeningAmount, 0); err != nil {
+			log.Printf("[WARN] close stale register failed: %v", err)
+		}
+		if err := NewCashBookUsecase(uc.db).EnsureRegisterClose(existing, existing.OutletID); err != nil {
+			log.Printf("[WARN] ensure register close failed: %v", err)
+		}
 	} else if err != nil && !isNotFound(err) {
 		return nil, err
 	}

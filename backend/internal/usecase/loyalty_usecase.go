@@ -4,6 +4,7 @@ package usecase
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"math/big"
 	"strings"
 	"time"
@@ -78,7 +79,9 @@ func (uc *LoyaltyUsecase) FindOrCreateCustomer(phone, name string, outletID uint
 	if err == nil && existing != nil {
 		if name != "" && (existing.Name == "" || existing.Name == "Pelanggan") {
 			existing.Name = name
-			_ = uc.customerRepo.Update(existing)
+			if err := uc.customerRepo.Update(existing); err != nil {
+				log.Printf("[WARN] loyalty: update customer failed: %v", err)
+			}
 		}
 		return existing, nil
 	}
@@ -123,7 +126,9 @@ func (uc *LoyaltyUsecase) ProcessOrderLoyalty(phone, name string, orderID uint, 
 	}
 
 	// Update customer stats
-	_ = uc.customerRepo.IncrementStats(customer.ID, amount)
+	if err := uc.customerRepo.IncrementStats(customer.ID, amount); err != nil {
+		log.Printf("[WARN] loyalty: increment stats failed: %v", err)
+	}
 
 	// Tambahkan stempel untuk semua program aktif
 	activePrograms, err := uc.loyaltyRepo.FindActivePrograms(outletID)
@@ -139,7 +144,9 @@ func (uc *LoyaltyUsecase) ProcessOrderLoyalty(phone, name string, orderID uint, 
 				IsUsed:     false,
 				OutletID:   outletID,
 			}
-			_ = uc.loyaltyRepo.AddStamp(stamp)
+			if err := uc.loyaltyRepo.AddStamp(stamp); err != nil {
+				log.Printf("[WARN] loyalty: add stamp failed: %v", err)
+			}
 		}
 	}
 
