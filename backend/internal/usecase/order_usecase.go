@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -768,7 +769,9 @@ func (uc *OrderUsecase) CompletePaymentWithMethod(id uint, actualMethod string, 
 		// Loyalty & Stempel: proses jika ada nomor HP pelanggan saat pelunasan (termasuk pesanan self-order QR)
 		if order.CustomerPhone != "" {
 			loyaltyUC := NewLoyaltyUsecase(tx)
-			_, _ = loyaltyUC.ProcessOrderLoyalty(order.CustomerPhone, order.CustomerName, order.ID, order.TotalAmount, order.OutletID)
+			if _, err := loyaltyUC.ProcessOrderLoyalty(order.CustomerPhone, order.CustomerName, order.ID, order.TotalAmount, order.OutletID); err != nil {
+				log.Printf("[WARN] loyalty processing failed for order %d: %v", order.ID, err)
+			}
 		}
 
 		return NewCashBookUsecase(tx).EnsureOrderIncome(order)

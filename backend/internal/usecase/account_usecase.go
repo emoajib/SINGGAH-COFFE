@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"singgah-pos-backend/internal/delivery/request"
@@ -267,7 +268,9 @@ func (uc *AccountUsecase) SeedDefaultAccounts(outletID uint) (int, error) {
 					changed = true
 				}
 				if changed {
-					_ = uc.accountRepo.Update(acc)
+					if err := uc.accountRepo.Update(acc); err != nil {
+						log.Printf("[WARN] account update failed for %s: %v", acc.Code, err)
+					}
 				}
 			}
 			continue
