@@ -15,7 +15,7 @@ set -euo pipefail
 HOST="${DEPLOY_HOST:-sosb4282@colorado.sosomedia.net}"
 PORT="${DEPLOY_PORT:-992}"
 REMOTE_BACKUP_DIR="~/backups"
-REMOTE_UPLOADS_DIR="~/singgah-pos/backend/uploads"
+REMOTE_UPLOADS_DIR="${REMOTE_UPLOADS_DIR:-~/singgah-pos/backend/uploads}"
 LOCAL_BACKUP_DIR="./backups"
 
 ACTION="${1:---help}"

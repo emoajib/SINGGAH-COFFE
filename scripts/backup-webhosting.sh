@@ -5,7 +5,7 @@ set -euo pipefail
 
 BACKUP_DIR="$HOME/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-UPLOADS_DIR="$HOME/singgah-pos/backend/uploads"
+UPLOADS_DIR="${UPLOADS_DIR:-$HOME/singgah-pos/backend/uploads}"
 ENV_FILE="$HOME/singgah-pos/backend/.env"
 
 # Parser dotenv aman (tidak source shell) agar DSN dengan metakarakter tidak crash.

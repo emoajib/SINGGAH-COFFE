@@ -6,7 +6,7 @@ set -euo pipefail
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="./backups"
 DB_NAME="singgah_pos"
-UPLOADS_DIR="./backend/uploads"
+UPLOADS_DIR="${UPLOADS_DIR:-./backend/uploads}"
 
 mkdir -p "$BACKUP_DIR"
 
