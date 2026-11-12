@@ -1,6 +1,28 @@
 import api from '../lib/api'
 
 const KEY = 'offline_queue_v1'
+const DB_NAME = 'singgah_offline'
+const STORE = 'queue'
+
+// IndexedDB mirror (best-effort). localStorage tetap source of truth (sync API).
+function openDB(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null)
+  return new Promise((resolve) => {
+    const req = indexedDB.open(DB_NAME, 1)
+    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: 'id' }) }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => resolve(null)
+  })
+}
+
+async function mirrorToIDB(items: QueuedItem[]): Promise<void> {
+  const db = await openDB()
+  if (!db) return
+  const tx = db.transaction(STORE, 'readwrite')
+  const st = tx.objectStore(STORE)
+  st.clear()
+  items.forEach((it) => st.put(it))
+}
 
 export interface QueuedItem {
   id: string
@@ -20,11 +42,13 @@ export const OfflineQueue = {
     const entry: QueuedItem = { ...item, id: crypto.randomUUID(), createdAt: Date.now(), attempts: 0 }
     q.push(entry)
     localStorage.setItem(KEY, JSON.stringify(q))
+    void mirrorToIDB(q)
     return entry
   },
   remove(id: string) {
     const q = this.list().filter((x) => x.id !== id)
     localStorage.setItem(KEY, JSON.stringify(q))
+    void mirrorToIDB(q)
   },
   count(): number { return this.list().length },
   async flush(): Promise<{ ok: number; fail: number }> {
@@ -52,6 +76,7 @@ export const OfflineQueue = {
             q.splice(idx, 1)
           }
           localStorage.setItem(KEY, JSON.stringify(q))
+          void mirrorToIDB(q)
         }
       }
       await new Promise((r) => setTimeout(r, 200))
