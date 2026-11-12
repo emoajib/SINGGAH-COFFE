@@ -15,14 +15,21 @@ import (
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		tokenString := ""
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			tokenString = strings.Replace(authHeader, "Bearer ", "", 1)
+		}
+		if tokenString == "" {
+			if ck, err := c.Cookie("token"); err == nil {
+				tokenString = ck
+			}
+		}
+		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
 			c.Abort()
 			return
 		}
-
-		tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 		claims, err := jwt.ValidateToken(tokenString)
 		if err != nil {
 			if err.Error() == "token has been revoked" {

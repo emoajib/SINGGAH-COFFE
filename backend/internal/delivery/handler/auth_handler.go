@@ -36,6 +36,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// SEC-04: set HttpOnly cookie (dual-mode; localStorage tetap untuk kompatibilitas lama).
+	c.SetCookie("token", result.Token, 24*60*60, "/", "", false, true)
+
 	c.JSON(http.StatusOK, result)
 }
 
@@ -146,13 +149,20 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 // Logout handles user logout by blacklisting the JWT token
 func (h *AuthHandler) Logout(c *gin.Context) {
+	tokenString := ""
 	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
+	if authHeader != "" {
+		tokenString = strings.Replace(authHeader, "Bearer ", "", 1)
+	}
+	if tokenString == "" {
+		if ck, err := c.Cookie("token"); err == nil {
+			tokenString = ck
+		}
+	}
+	if tokenString == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header required"})
 		return
 	}
-
-	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 	if err := h.authUsecase.Logout(tokenString); err != nil {
 		if errors.Is(err, usecase.ErrMissingJTI) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Token has no JTI; cannot revoke — please log in again"})
@@ -162,5 +172,6 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
+	c.SetCookie("token", "", -1, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
