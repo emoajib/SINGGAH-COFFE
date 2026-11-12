@@ -31,15 +31,28 @@ export const OfflineQueue = {
     let ok = 0, fail = 0
     const items = this.list()
     for (const it of items) {
+      if (it.attempts >= 5) continue // dead-letter
+      const backoff = Math.min(1000 * Math.pow(2, it.attempts), 30000)
+      await new Promise((r) => setTimeout(r, backoff))
       try {
         await api.post('/orders', it.payload, { headers: { 'Idempotency-Key': it.idempotencyKey } })
         this.remove(it.id)
         ok++
-      } catch {
+      } catch (e: any) {
         fail++
         const q = this.list()
         const idx = q.findIndex((x) => x.id === it.id)
-        if (idx >= 0) { q[idx].attempts += 1; localStorage.setItem(KEY, JSON.stringify(q)) }
+        if (idx >= 0) {
+          q[idx].attempts += 1
+          if (q[idx].attempts >= 5) {
+            // dead-letter: move to separate key
+            const dl = JSON.parse(localStorage.getItem(KEY + '_dead') || '[]')
+            dl.push(q[idx])
+            localStorage.setItem(KEY + '_dead', JSON.stringify(dl))
+            q.splice(idx, 1)
+          }
+          localStorage.setItem(KEY, JSON.stringify(q))
+        }
       }
       await new Promise((r) => setTimeout(r, 200))
     }
