@@ -44,9 +44,10 @@ func (h *ReportHandler) GetProfitLoss(c *gin.Context) {
 	start := c.Query("start")
 	end := c.Query("end")
 
+	wib := time.FixedZone("WIB", 7*60*60)
 	if start == "" || end == "" {
-		now := time.Now()
-		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
+		now := time.Now().In(wib)
+		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, wib).Format("2006-01-02")
 		end = now.Format("2006-01-02")
 	}
 
@@ -64,9 +65,10 @@ func (h *ReportHandler) ExportProfitLossCSV(c *gin.Context) {
 	start := c.Query("start")
 	end := c.Query("end")
 
+	wib := time.FixedZone("WIB", 7*60*60)
 	if start == "" || end == "" {
-		now := time.Now()
-		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
+		now := time.Now().In(wib)
+		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, wib).Format("2006-01-02")
 		end = now.Format("2006-01-02")
 	}
 
@@ -88,7 +90,7 @@ func (h *ReportHandler) ExportProfitLossCSV(c *gin.Context) {
 	// Header Perusahaan & Dokumen
 	writer.Write([]string{"SINGGAH COFFEE - LAPORAN LABA RUGI & KEUANGAN RESMI"})
 	writer.Write([]string{"Periode Pembukuan:", fmt.Sprintf("%s s/d %s", start, end)})
-	writer.Write([]string{"Tanggal Unduh:", time.Now().Format("02/01/2006 15:04:05 WIB")})
+	writer.Write([]string{"Tanggal Unduh:", time.Now().In(time.FixedZone("WIB", 7*60*60)).Format("02/01/2006 15:04:05 WIB")})
 	writer.Write([]string{"Standar:", "SAK EMKM / PSAK - Akuntansi POS"})
 	writer.Write([]string{}) // Baris kosong
 
@@ -141,9 +143,10 @@ func (h *ReportHandler) ExportProfitLossPDF(c *gin.Context) {
 	start := c.Query("start")
 	end := c.Query("end")
 
+	wib := time.FixedZone("WIB", 7*60*60)
 	if start == "" || end == "" {
-		now := time.Now()
-		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
+		now := time.Now().In(wib)
+		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, wib).Format("2006-01-02")
 		end = now.Format("2006-01-02")
 	}
 
