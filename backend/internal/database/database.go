@@ -138,6 +138,11 @@ func Connect(cfg config.Config) *gorm.DB {
 		}
 	}
 
+	// DB-01: versioned migrations (opt-in via RUN_MIGRATIONS=1).
+	if runMigrate {
+		runVersionedMigrations(db)
+	}
+
 	// Seed Default Owner hanya jika operator menyediakan kredensial bootstrap
 	// via environment (BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD).
 	// Tidak ada lagi password tetap yang dibuat otomatis (SEC-01).
@@ -524,5 +529,39 @@ func ensureColumn(db *gorm.DB, table, column, definition string) {
 		}
 	} else {
 		log.Printf("ensureColumn: column %s.%s already exists", table, column)
+	}
+}
+
+// runVersionedMigrations adalah scaffold DB-01: mencatat versi migrasi yang
+// sudah diterapkan di tabel schema_migrations agar tidak dijalankan ulang.
+// Migrasi baru ditambahkan sebagai entri di slice migrations.
+func runVersionedMigrations(db *gorm.DB) {
+	db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version INT PRIMARY KEY,
+		name VARCHAR(255) NOT NULL,
+		applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`)
+
+	type migration struct {
+		version int
+		name    string
+		up      func(*gorm.DB) error
+	}
+	migrations := []migration{
+		{version: 1, name: "init", up: func(db *gorm.DB) error { return nil }},
+	}
+
+	for _, m := range migrations {
+		var count int64
+		db.Raw("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", m.version).Scan(&count)
+		if count > 0 {
+			continue
+		}
+		if err := m.up(db); err != nil {
+			log.Printf("Migration %d (%s) failed: %v", m.version, m.name, err)
+			continue
+		}
+		db.Exec("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, NOW())", m.version, m.name)
+		log.Printf("Migration %d (%s) applied", m.version, m.name)
 	}
 }
