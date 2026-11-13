@@ -308,7 +308,18 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 // Vetted by AI - Manual Review Required by Senior Engineer/Manager
 func hasShiftAssignedBarista(people []entity.ProfitSharingPerson) bool {
 	for _, p := range people {
-		if p.Role != "owner" && len(p.ShiftIDs) > 0 {
+		if p.Role == "owner" {
+			continue
+		}
+		// Barista yang di-assign ke shift tertentu.
+		if len(p.ShiftIDs) > 0 {
+			return true
+		}
+		// Staf all-day (tanpa shift default) tetap mengaktifkan mode multi-shift
+		// agar ikut pool di semua shift sesuai catatan UI — hanya jika ada data
+		// kehadiran (attendance) yang tercatat, agar periode tanpa attendance
+		// tetap fallback ke single-pool mode (kompatibel dengan test/legacy).
+		if len(p.ShiftIDs) == 0 && p.Attendance != "" && p.Attendance != "{}" {
 			return true
 		}
 	}
