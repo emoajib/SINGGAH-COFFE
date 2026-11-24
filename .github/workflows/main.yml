@@ -29,12 +29,13 @@ jobs:
             RANGE="HEAD~1..HEAD"
           fi
           BAD=0
-          for msg in $(git log --format=%s "$RANGE"); do
+          while IFS= read -r msg; do
+            [ -z "$msg" ] && continue
             if ! echo "$msg" | grep -qE '^(feat|fix|chore|docs|refactor|test|ci|perf|style|build|revert)(\(.+\))?!?: .+'; then
               echo "BAD: $msg"
               BAD=1
             fi
-          done
+          done < <(git log --format=%s "$RANGE")
           if [ "$BAD" -ne 0 ]; then exit 1; fi
           echo "OK: all commit messages conventional"
 
