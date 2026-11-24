@@ -76,14 +76,14 @@ export default function StockOpname() {
                         </div>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm table-fixed">
                             <thead>
                                 <tr className="border-b">
-                                    <th className="text-left p-2">Bahan</th>
-                                    <th className="text-right p-2">Stok Sistem</th>
-                                    <th className="text-right p-2">Stok Fisik</th>
-                                    <th className="text-right p-2">Selisih</th>
-                                    <th className="text-left p-2">Catatan</th>
+                                    <th className="text-left p-2 w-2/5">Bahan</th>
+                                    <th className="text-right p-2 w-1/6">Stok Sistem</th>
+                                    <th className="text-right p-2 w-1/6">Stok Fisik</th>
+                                    <th className="text-right p-2 w-1/6">Selisih</th>
+                                    <th className="text-left p-2 w-1/5">Catatan</th>
                                 </tr>
                             </thead>
                             <tbody>
