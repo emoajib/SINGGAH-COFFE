@@ -14,6 +14,29 @@ permissions:
   contents: write
 
 jobs:
+  security-scan:
+    name: Security Scan (govulncheck + npm audit)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: backend/go.sum
+      - name: Go vulnerability check
+        run: |
+          cd backend
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./... || true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: npm audit
+        run: |
+          cd web-dashboard
+          npm audit --audit-level=high || true
+
   commit-lint:
     name: Conventional Commit Lint
     runs-on: ubuntu-latest
