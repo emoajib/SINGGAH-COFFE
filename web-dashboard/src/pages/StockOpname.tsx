@@ -13,7 +13,7 @@ export default function StockOpname() {
     const [periodFrom, setPeriodFrom] = useState(new Date().toISOString().slice(0, 10));
     const [periodTo, setPeriodTo] = useState(new Date().toISOString().slice(0, 10));
     const [notes, setNotes] = useState("");
-    const [history, setHistory] = useState<any[]>([]);
+    const [history, setHistory] = useState<{ id: number; period_from: string; period_to: string; notes: string }[]>([]);
     const [saving, setSaving] = useState(false);
 
     const load = async () => {
@@ -126,7 +126,7 @@ export default function StockOpname() {
                             </tr>
                         </thead>
                         <tbody>
-                            {history.map((h: any) => (
+                            {history.map((h) => (
                                 <tr key={h.id} className="border-b">
                                     <td className="p-2">{h.id}</td>
                                     <td className="p-2">{h.period_from?.slice(0,10)} - {h.period_to?.slice(0,10)}</td>
