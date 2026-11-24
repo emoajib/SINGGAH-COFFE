@@ -18,7 +18,7 @@ Last synced commit: (isi manual per rilis)
 | ID | Severity | Gejala / Temuan | Root cause (file:line) | Fix commit | Test regresi | Guardrail | Status |
 |---|---|---|---|---|---|---|---|
 | A1 | Kritis | Ganti password UI selalu gagal (405/404) | `web-dashboard/src/hooks/useAuth.ts:44` (PUT vs POST) | AUDIT_REPORT sesi | `useAuth` (tsc) | tsc/build | Fixed |
-| A2 | Kritis | OutletID tidak dipersist/dibaca di user repo → multi-outlet mati | `backend/internal/repository/postgres/user_repo.go:73-90` | `1d2ac18` + `6597da3` | auth usecase tests | go test | Fixed (parsial → A9) |
+| A2 | Kritis | OutletID tidak dipersist/dibaca di user repo → multi-outlet mati | `backend/internal/repository/postgres/user_repo.go:73-90` | `1d2ac18` + `6597da3` | `TestAuthUsecase_RegisterSuccess`, `TestAuthMiddleware_*` | go test | Fixed (parsial → A9) |
 | A3 | Tinggi | Blacklist token fail-open pada error repo | `backend/internal/delivery/middleware/auth_middleware.go:34-43` | AUDIT_REPORT sesi | middleware tests | go test | Fixed |
 | A4 | Tinggi | Webhook callback-token fail-open | `backend/internal/usecase/webhook_usecase.go:48-53` | AUDIT_REPORT sesi | webhook tests | go test | Fixed |
 | A5 | Sedang | Cache dashboard global → bocor antar-outlet | `backend/internal/usecase/report_usecase.go:19-23,97-100` | AUDIT_REPORT sesi | report tests | go test | Fixed |
