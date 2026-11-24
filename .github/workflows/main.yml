@@ -250,6 +250,8 @@ jobs:
           cp api-proxy.php deploy/
           cp .htaccess deploy/
           cp scripts/*.sh deploy/scripts/ 2>/dev/null || true
+          mkdir -p deploy/scripts/migrations
+          cp scripts/migrations/*.sql deploy/scripts/migrations/ 2>/dev/null || true
           # CATATAN: backend/.env TIDAK disertakan (repo & release publik — bocor kredensial).
           # Operator mengisi backend/.env di server sendiri (lihat deploy-manual / update-webhosting).
           tar -czf deploy.tar.gz -C deploy .

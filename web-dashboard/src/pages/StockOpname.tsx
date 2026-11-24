@@ -51,7 +51,9 @@ export default function StockOpname() {
             StockOpnameService.downloadPdf(opname.id);
             await load();
         } catch (e: unknown) {
-            toast({ title: "Gagal", description: "Gagal simpan", variant: "error" });
+            const err = e as { response?: { data?: { detail?: string; error?: string } } };
+            const msg = err?.response?.data?.detail || err?.response?.data?.error || "Gagal simpan";
+            toast({ title: "Gagal", description: msg, variant: "error" });
         } finally {
             setSaving(false);
         }
