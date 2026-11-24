@@ -95,7 +95,9 @@ export default function StockOpname() {
                                             <td className="p-2">{ing.name} ({ing.unit})</td>
                                             <td className="p-2 text-center">{ing.kedai_stock}</td>
                                             <td className="p-2 text-center">
-                                                <Input type="number" placeholder="0" className="w-28 text-center border border-gray-300 bg-white" value={items[ing.id]?.physical || ""} onChange={e => setPhysical(ing.id, e.target.value)} />
+                                                <div className="flex justify-center">
+                                                    <Input type="number" placeholder="0" className="w-24 text-center border border-gray-300 bg-white" value={items[ing.id]?.physical || ""} onChange={e => setPhysical(ing.id, e.target.value)} />
+                                                </div>
                                             </td>
                                             <td className={`p-2 text-center ${diff !== 0 ? "text-red-600 font-bold" : ""}`}>{diff.toFixed(2)}</td>
                                             <td className="p-2 text-center">
