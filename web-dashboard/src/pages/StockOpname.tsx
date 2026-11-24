@@ -49,8 +49,8 @@ export default function StockOpname() {
             toast({ title: "Berhasil", description: "Stok opname disimpan", variant: "success" });
             StockOpnameService.downloadPdf(opname.id);
             await load();
-        } catch (e: any) {
-            toast({ title: "Gagal", description: e?.response?.data?.error || "Gagal simpan", variant: "error" });
+        } catch (e: unknown) {
+            toast({ title: "Gagal", description: "Gagal simpan", variant: "error" });
         } finally {
             setSaving(false);
         }

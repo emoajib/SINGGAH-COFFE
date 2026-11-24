@@ -98,7 +98,7 @@ export default function KebutuhanStok() {
                 toast({ title: "Import", description: "Tidak ada baris valid", variant: "warning" })
                 return
             }
-            await RequirementService.confirmImport(valid.map((v: any) => ({ product_id: v.product_id, target_cup: v.target_cup })))
+            await RequirementService.confirmImport(valid.map((v: { product_id: number; target_cup: number }) => ({ product_id: v.product_id, target_cup: v.target_cup })))
             toast({ title: "Berhasil", description: `${valid.length} target diimport`, variant: "success" })
             await loadAll()
         } catch (err) {
