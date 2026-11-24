@@ -23,7 +23,7 @@ func NewStockOpnameHandler(uc *usecase.StockOpnameUsecase) *StockOpnameHandler {
 func (h *StockOpnameHandler) Create(c *gin.Context) {
 	var req request.CreateStockOpnameRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "detail": err.Error()})
 		return
 	}
 	userID, ok := getUserID(c)
