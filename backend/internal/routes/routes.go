@@ -23,6 +23,7 @@ type Handlers struct {
 	Backup           *handler.BackupHandler
 	Sync             *handler.SyncHandler
 	ProductionTarget *handler.ProductionTargetHandler
+	StockOpname      *handler.StockOpnameHandler
 	CashBook         *handler.CashBookHandler
 	ProfitSharing    *handler.ProfitSharingHandler
 	ShiftConfig      *handler.ShiftConfigHandler
@@ -209,6 +210,12 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.PUT("/production-targets", middleware.RoleMiddleware("owner"), h.ProductionTarget.SaveTargets)
 			protected.GET("/inventory/requirements", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.GetRequirements)
 			protected.GET("/reports/daily-target", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.GetDailyTarget)
+
+			// Stock Opname
+			protected.POST("/inventory/opname", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.Create)
+			protected.GET("/inventory/opname", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.List)
+			protected.GET("/inventory/opname/:id", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.Get)
+			protected.GET("/inventory/opname/:id/pdf", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.ExportPDF)
 			protected.GET("/backup/download/:name", middleware.RoleMiddleware("owner"), h.Backup.DownloadBackup)
 			protected.POST("/backup/upload", middleware.RoleMiddleware("owner"), h.Backup.UploadBackup)
 

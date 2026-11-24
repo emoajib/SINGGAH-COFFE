@@ -56,6 +56,7 @@ func main() {
 		cashRegisterUsecase := usecase.NewCashRegisterUsecase(db)
 		cashBookUsecase := usecase.NewCashBookUsecase(db)
 		productionTargetUsecase := usecase.NewProductionTargetUsecase(db)
+		stockOpnameUsecase := usecase.NewStockOpnameUsecase(db)
 		profitSharingUsecase := usecase.NewProfitSharingUsecase(db)
 	accountUsecase := usecase.NewAccountUsecase(db)
 	journalUsecase := usecase.NewJournalUsecase(db)
@@ -121,6 +122,7 @@ func main() {
 		Backup:        handler.NewBackupHandler(db, &cfg),
 		Sync:          handler.NewSyncHandler(&cfg),
 		ProductionTarget: handler.NewProductionTargetHandler(productionTargetUsecase),
+		StockOpname:      handler.NewStockOpnameHandler(stockOpnameUsecase),
 		ProfitSharing:    handler.NewProfitSharingHandler(profitSharingUsecase),
 		Account:          handler.NewAccountHandler(accountUsecase),
 		Journal:          handler.NewJournalHandler(journalUsecase),

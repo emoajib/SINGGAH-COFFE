@@ -1,5 +1,7 @@
 package request
 
+import "time"
+
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -198,6 +200,19 @@ type ProductionTargetInput struct {
 type SaveProductionTargetsRequest struct {
 	PeriodDays int                     `json:"period_days"`
 	Targets    []ProductionTargetInput `json:"targets"`
+}
+
+type StockOpnameItemInput struct {
+	IngredientID  uint    `json:"ingredient_id" binding:"required"`
+	PhysicalStock float64 `json:"physical_stock" binding:"gte=0"`
+	Note          string  `json:"note"`
+}
+
+type CreateStockOpnameRequest struct {
+	PeriodFrom time.Time              `json:"period_from" binding:"required"`
+	PeriodTo   time.Time              `json:"period_to" binding:"required"`
+	Notes      string                 `json:"notes"`
+	Items      []StockOpnameItemInput `json:"items" binding:"required,min=1"`
 }
 
 // PSAK — Chart of Accounts

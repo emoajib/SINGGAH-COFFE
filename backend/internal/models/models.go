@@ -78,13 +78,14 @@ type StockOpname struct {
 
 type StockOpnameItem struct {
 	BaseModel
-	OpnameID      uint    `json:"opname_id" gorm:"index"`
-	IngredientID  uint    `json:"ingredient_id" gorm:"index"`
-	SystemStock   float64 `json:"system_stock"`
-	PhysicalStock float64 `json:"physical_stock"`
-	Difference    float64 `json:"difference"`
-	Unit          string  `json:"unit"`
-	Note          string  `json:"note"`
+	OpnameID     uint       `json:"opname_id" gorm:"index"`
+	IngredientID uint       `json:"ingredient_id" gorm:"index"`
+	Ingredient   Ingredient `json:"ingredient" gorm:"foreignKey:IngredientID"`
+	SystemStock   float64   `json:"system_stock"`
+	PhysicalStock float64   `json:"physical_stock"`
+	Difference    float64   `json:"difference"`
+	Unit          string    `json:"unit"`
+	Note          string    `json:"note"`
 }
 
 type RecipeItem struct {

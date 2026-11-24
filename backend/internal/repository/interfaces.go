@@ -163,6 +163,13 @@ type ProductionTargetRepository interface {
 	ReplaceAll(targets []entity.ProductionTarget, outletID uint) error
 }
 
+// StockOpnameRepository defines data access for stock opname
+type StockOpnameRepository interface {
+	Create(opname *entity.StockOpname) error
+	FindByID(id uint) (*entity.StockOpname, error)
+	FindAll(outletID ...uint) ([]entity.StockOpname, error)
+}
+
 // TokenBlacklistRepository defines data access for token blacklist
 type TokenBlacklistRepository interface {
 	Create(blacklist *entity.TokenBlacklist) error
