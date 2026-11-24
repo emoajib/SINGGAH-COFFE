@@ -46,15 +46,13 @@ export default function StockOpname() {
                     note: items[ing.id]?.note || ""
                 }))
             };
-            let opname;
             if (editingId) {
-                opname = await StockOpnameService.update(editingId, payload);
+                await StockOpnameService.update(editingId, payload);
                 toast({ title: "Berhasil", description: "Stok opname diperbarui", variant: "success" });
             } else {
-                opname = await StockOpnameService.create(payload);
+                await StockOpnameService.create(payload);
                 toast({ title: "Berhasil", description: "Stok opname disimpan", variant: "success" });
             }
-            await StockOpnameService.downloadPdf(opname.id);
             setEditingId(null);
             await load();
         } catch (e: unknown) {
