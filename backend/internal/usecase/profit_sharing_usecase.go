@@ -95,6 +95,13 @@ func validateRatio(ownerPct float64) (float64, error) {
 	return poolPct, nil
 }
 
+// maxCashbonDeductionPct adalah batas maksimal potongan kasbon terhadap bagi
+// hasil barista dalam satu periode, sesuai Pasal 13 Ayat 2 Perjanjian Kerja
+// Sama: "paling banyak 50% dari bagian Bagi Hasil barista". Sisa yang belum
+// terpotong diangsur ke periode berikutnya via RemainingBalance.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+const maxCashbonDeductionPct = 0.50
+
 // roundIDR membulatkan ke rupiah penuh (keputusan terkunci #2).
 // Aturan lama Rp250 dihapus: sisa yang tak habis dibagi dicatat sebagai
 // sisa kas, bukan dibulatkan ke barista/owner tertentu.
@@ -274,8 +281,13 @@ func calcFinancials(basis, cogs, expenses, ratio float64, products []entity.Prod
 				}
 
 				// Kurangi potongan kasbon barista (jika ada)
+				// Pasal 13 Ayat 2: potongan kasbon maks 50% dari bagi hasil.
 				subtotal := share - people[i].LeaveReduction
 				cashbon := people[i].CashbonReduction
+				maxDeduction := roundIDR(subtotal * maxCashbonDeductionPct)
+				if cashbon > maxDeduction {
+					cashbon = maxDeduction
+				}
 				if cashbon > subtotal {
 					cashbon = subtotal
 				}
@@ -589,8 +601,13 @@ func (uc *ProfitSharingUsecase) calcMultiShift(shifts []entity.ShiftConfig, star
 		people[j].LeaveReduction = 0
 		// B6: potongan kasbon dibatasi pada hak yang tersedia; sisa saldo
 		// dibawa ke periode berikut (RemainingBalance diisi caller).
+		// Pasal 13 Ayat 2: potongan kasbon maks 50% dari bagi hasil.
 		subtotal := grossAccum[j]
 		cashbon := people[j].CashbonReduction
+		maxDeduction := roundIDR(subtotal * maxCashbonDeductionPct)
+		if cashbon > maxDeduction {
+			cashbon = maxDeduction
+		}
 		if cashbon > subtotal {
 			cashbon = subtotal
 		}

@@ -33,7 +33,7 @@ func (h *StockOpnameHandler) Create(c *gin.Context) {
 	}
 	opname, err := h.uc.Create(req, getOutletID(c), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create stock opname"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create stock opname", "detail": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"opname": opname})
