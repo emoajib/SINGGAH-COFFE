@@ -49,6 +49,49 @@ func (r *stockOpnameRepository) Create(opname *entity.StockOpname) error {
 	return nil
 }
 
+func (r *stockOpnameRepository) Update(opname *entity.StockOpname) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var m models.StockOpname
+		if err := tx.First(&m, opname.ID).Error; err != nil {
+			return err
+		}
+		m.PeriodFrom = opname.PeriodFrom
+		m.PeriodTo = opname.PeriodTo
+		m.Notes = opname.Notes
+		if err := tx.Save(&m).Error; err != nil {
+			return err
+		}
+		// Hapus item lama, masukkan item baru
+		if err := tx.Where("opname_id = ?", opname.ID).Delete(&models.StockOpnameItem{}).Error; err != nil {
+			return err
+		}
+		for _, it := range opname.Items {
+			itemModel := models.StockOpnameItem{
+				OpnameID:      opname.ID,
+				IngredientID:  it.IngredientID,
+				SystemStock:   it.SystemStock,
+				PhysicalStock: it.PhysicalStock,
+				Difference:    it.Difference,
+				Unit:          it.Unit,
+				Note:          it.Note,
+			}
+			if err := tx.Create(&itemModel).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *stockOpnameRepository) Delete(id uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("opname_id = ?", id).Delete(&models.StockOpnameItem{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.StockOpname{}, id).Error
+	})
+}
+
 func (r *stockOpnameRepository) FindByID(id uint) (*entity.StockOpname, error) {
 	var m models.StockOpname
 	if err := r.db.Preload("Items.Ingredient").First(&m, id).Error; err != nil {

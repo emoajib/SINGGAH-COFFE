@@ -58,6 +58,30 @@ func (h *StockOpnameHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"opname": opname})
 }
 
+func (h *StockOpnameHandler) Update(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req request.CreateStockOpnameRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+	opname, err := h.uc.Update(uint(id), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stock opname", "detail": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"opname": opname})
+}
+
+func (h *StockOpnameHandler) Delete(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := h.uc.Delete(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete stock opname", "detail": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Deleted"})
+}
+
 func (h *StockOpnameHandler) ExportPDF(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	opname, err := h.uc.Get(uint(id))

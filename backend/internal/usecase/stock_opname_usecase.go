@@ -90,6 +90,53 @@ func (uc *StockOpnameUsecase) Create(req request.CreateStockOpnameRequest, outle
 	return opname, nil
 }
 
+func (uc *StockOpnameUsecase) Update(id uint, req request.CreateStockOpnameRequest) (*entity.StockOpname, error) {
+	from, err := parseOpnameDate(req.PeriodFrom)
+	if err != nil {
+		return nil, err
+	}
+	to, err := parseOpnameDate(req.PeriodTo)
+	if err != nil {
+		return nil, err
+	}
+	if to.Before(from) {
+		to = from
+	}
+	existing, err := uc.opnameRepo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	existing.PeriodFrom = from
+	existing.PeriodTo = to
+	existing.Notes = req.Notes
+	existing.Items = make([]entity.StockOpnameItem, 0, len(req.Items))
+	for _, it := range req.Items {
+		ing, err := uc.ingredientRepo.FindByID(it.IngredientID)
+		if err != nil {
+			return nil, err
+		}
+		sys := ing.KedaiStock
+		existing.Items = append(existing.Items, entity.StockOpnameItem{
+			OpnameID:       id,
+			IngredientID:   it.IngredientID,
+			IngredientName: ing.Name,
+			Unit:           ing.Unit,
+			SystemStock:    sys,
+			PhysicalStock:  it.PhysicalStock,
+			Difference:     it.PhysicalStock - sys,
+			Note:           it.Note,
+		})
+	}
+	if err := uc.opnameRepo.Update(existing); err != nil {
+		return nil, err
+	}
+	return existing, nil
+}
+
+func (uc *StockOpnameUsecase) Delete(id uint) error {
+	return uc.opnameRepo.Delete(id)
+}
+
 func (uc *StockOpnameUsecase) List(outletID uint) ([]entity.StockOpname, error) {
 	return uc.opnameRepo.FindAll(outletID)
 }

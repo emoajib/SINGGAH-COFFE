@@ -166,6 +166,8 @@ type ProductionTargetRepository interface {
 // StockOpnameRepository defines data access for stock opname
 type StockOpnameRepository interface {
 	Create(opname *entity.StockOpname) error
+	Update(opname *entity.StockOpname) error
+	Delete(id uint) error
 	FindByID(id uint) (*entity.StockOpname, error)
 	FindAll(outletID ...uint) ([]entity.StockOpname, error)
 }

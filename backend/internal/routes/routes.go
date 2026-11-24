@@ -225,6 +225,8 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.POST("/inventory/opname", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.Create)
 			protected.GET("/inventory/opname", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.List)
 			protected.GET("/inventory/opname/:id", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.Get)
+			protected.PUT("/inventory/opname/:id", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.Update)
+			protected.DELETE("/inventory/opname/:id", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.Delete)
 			protected.GET("/inventory/opname/:id/pdf", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.ExportPDF)
 			protected.GET("/backup/download/:name", middleware.RoleMiddleware("owner"), h.Backup.DownloadBackup)
 			protected.POST("/backup/upload", middleware.RoleMiddleware("owner"), h.Backup.UploadBackup)

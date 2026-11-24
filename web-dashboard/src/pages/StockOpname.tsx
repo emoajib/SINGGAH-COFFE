@@ -15,6 +15,7 @@ export default function StockOpname() {
     const [notes, setNotes] = useState("");
     const [history, setHistory] = useState<{ id: number; period_from: string; period_to: string; notes: string }[]>([]);
     const [saving, setSaving] = useState(false);
+    const [editingId, setEditingId] = useState<number | null>(null);
 
     const load = async () => {
         const ings = await InventoryService.getAll();
@@ -45,10 +46,16 @@ export default function StockOpname() {
                     note: items[ing.id]?.note || ""
                 }))
             };
-            console.log('OPNAME PAYLOAD', payload);
-            const opname = await StockOpnameService.create(payload);
-            toast({ title: "Berhasil", description: "Stok opname disimpan", variant: "success" });
-            StockOpnameService.downloadPdf(opname.id);
+            let opname;
+            if (editingId) {
+                opname = await StockOpnameService.update(editingId, payload);
+                toast({ title: "Berhasil", description: "Stok opname diperbarui", variant: "success" });
+            } else {
+                opname = await StockOpnameService.create(payload);
+                toast({ title: "Berhasil", description: "Stok opname disimpan", variant: "success" });
+            }
+            await StockOpnameService.downloadPdf(opname.id);
+            setEditingId(null);
             await load();
         } catch (e: unknown) {
             const err = e as { response?: { data?: { detail?: string; error?: string } } };
@@ -112,7 +119,8 @@ export default function StockOpname() {
                             </tbody>
                         </table>
                     </div>
-                    <Button onClick={save} disabled={saving}>{saving ? "Menyimpan..." : "Simpan & Generate PDF"}</Button>
+                    <Button onClick={save} disabled={saving}>{saving ? "Menyimpan..." : (editingId ? "Update & Generate PDF" : "Simpan & Generate PDF")}</Button>
+                    {editingId && <Button variant="outline" onClick={() => setEditingId(null)}>Batal Edit</Button>}
                 </CardContent>
             </Card>
 
@@ -134,8 +142,24 @@ export default function StockOpname() {
                                     <td className="p-2">{h.id}</td>
                                     <td className="p-2">{h.period_from?.slice(0,10)} - {h.period_to?.slice(0,10)}</td>
                                     <td className="p-2">{h.notes}</td>
-                                    <td className="p-2">
+                                    <td className="p-2 flex gap-2">
                                         <Button size="sm" variant="outline" onClick={() => StockOpnameService.downloadPdf(h.id)}>Download PDF</Button>
+                                        <Button size="sm" variant="outline" onClick={async () => {
+                                            const op = await StockOpnameService.get(h.id);
+                                            setPeriodFrom(op.period_from?.slice(0,10) || periodFrom);
+                                            setPeriodTo(op.period_to?.slice(0,10) || periodTo);
+                                            setNotes(op.notes || "");
+                                            const m: Record<number, { physical: string; note: string }> = {};
+                                            (op.items || []).forEach((it: any) => { m[it.ingredient_id] = { physical: String(it.physical_stock ?? 0), note: it.note || "" }; });
+                                            setItems(m);
+                                            setEditingId(h.id);
+                                        }}>Edit</Button>
+                                        <Button size="sm" variant="destructive" onClick={async () => {
+                                            if (!confirm("Hapus opname ini?")) return;
+                                            await StockOpnameService.delete(h.id);
+                                            toast({ title: "Berhasil", description: "Opname dihapus", variant: "success" });
+                                            await load();
+                                        }}>Hapus</Button>
                                     </td>
                                 </tr>
                             ))}

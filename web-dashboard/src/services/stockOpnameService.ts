@@ -26,7 +26,22 @@ export const StockOpnameService = {
         const res = await api.post('/inventory/opname', data);
         return res.data.opname;
     },
-    downloadPdf: (id: number) => {
-        window.open(`/api/inventory/opname/${id}/pdf`, '_blank');
+    update: async (id: number, data: CreateStockOpnameRequest) => {
+        const res = await api.put(`/inventory/opname/${id}`, data);
+        return res.data.opname;
+    },
+    delete: async (id: number) => {
+        await api.delete(`/inventory/opname/${id}`);
+    },
+    downloadPdf: async (id: number) => {
+        const res = await api.get(`/inventory/opname/${id}/pdf`, { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `stock-opname-${id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
     }
 };
