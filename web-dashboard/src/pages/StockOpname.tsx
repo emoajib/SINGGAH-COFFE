@@ -119,7 +119,7 @@ export default function StockOpname() {
                             </tbody>
                         </table>
                     </div>
-                    <Button onClick={save} disabled={saving}>{saving ? "Menyimpan..." : (editingId ? "Update & Generate PDF" : "Simpan & Generate PDF")}</Button>
+                    <Button onClick={save} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
                     {editingId && <Button variant="outline" onClick={() => setEditingId(null)}>Batal Edit</Button>}
                 </CardContent>
             </Card>
