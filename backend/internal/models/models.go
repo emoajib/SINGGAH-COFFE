@@ -66,6 +66,27 @@ type ProductionTarget struct {
 	OutletID  uint    `json:"outlet_id" gorm:"uniqueIndex:uq_product_outlet;default:1"`
 }
 
+type StockOpname struct {
+	BaseModel
+	OutletID   uint              `json:"outlet_id" gorm:"index"`
+	PeriodFrom time.Time         `json:"period_from"`
+	PeriodTo   time.Time         `json:"period_to"`
+	Notes      string            `json:"notes"`
+	CreatedBy  uint              `json:"created_by"`
+	Items      []StockOpnameItem `json:"items" gorm:"foreignKey:OpnameID"`
+}
+
+type StockOpnameItem struct {
+	BaseModel
+	OpnameID      uint    `json:"opname_id" gorm:"index"`
+	IngredientID  uint    `json:"ingredient_id" gorm:"index"`
+	SystemStock   float64 `json:"system_stock"`
+	PhysicalStock float64 `json:"physical_stock"`
+	Difference    float64 `json:"difference"`
+	Unit          string  `json:"unit"`
+	Note          string  `json:"note"`
+}
+
 type RecipeItem struct {
 	BaseModel
 	ProductID    uint       `json:"product_id"`

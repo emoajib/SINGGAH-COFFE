@@ -109,6 +109,8 @@ func Connect(cfg config.Config) *gorm.DB {
 			&models.CashRegister{},
 			&models.CashBook{},
 			&models.ProductionTarget{},
+		&models.StockOpname{},
+		&models.StockOpnameItem{},
 			&models.ProfitSharingPeriod{},
 			&models.PSAKAccount{},
 			&models.PSAKJournalEntry{},
