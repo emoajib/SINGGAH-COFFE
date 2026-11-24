@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, AlertTriangle, Warehouse, ArrowLeftRight, ArrowUpCircle, Package, ShoppingBag, Receipt } from 'lucide-react';
+import { Plus, AlertTriangle, Warehouse, ArrowLeftRight, ArrowUpCircle, Package, ShoppingBag, Receipt, ClipboardCheck } from 'lucide-react';
 import api from '../lib/api';
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ProductCard } from '../components/products/ProductCard';
 import { IngredientFormModal } from '../components/products/IngredientFormModal';
 import { IngredientsTable } from '../components/products/IngredientsTable';
+import StockOpname from "./StockOpname";
 import { ProductFormModal } from '../components/products/ProductFormModal';
 
 interface Ingredient {
@@ -31,7 +32,7 @@ interface Product {
 }
 
 const ProductManagement: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'warehouse' | 'ingredients' | 'products'>('ingredients');
+    const [activeTab, setActiveTab] = useState<'warehouse' | 'ingredients' | 'products' | 'stok-opname'>('ingredients');
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
     const [isIngModalOpen, setIsIngModalOpen] = useState(false);
@@ -107,8 +108,19 @@ const ProductManagement: React.FC = () => {
                         <Receipt size={15} />
                         Menu & Resep
                     </button>
+                    <button
+                        onClick={() => setActiveTab('stok-opname')}
+                        className={`px-6 py-3 font-bold text-sm uppercase tracking-widest whitespace-nowrap transition-all flex items-center gap-2 border-b-4 ${
+                            activeTab === 'stok-opname' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-gray-700'
+                        }`}
+                    >
+                        <ClipboardCheck size={15} />
+                        Stok Opname
+                    </button>
                 </div>
             </div>
+
+            {activeTab === 'stok-opname' && <StockOpname />}
 
             {/* ─── TAB GUDANG ─── */}
             {activeTab === 'warehouse' && (
