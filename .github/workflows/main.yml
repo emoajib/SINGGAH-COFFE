@@ -54,7 +54,7 @@ jobs:
           BAD=0
           while IFS= read -r msg; do
             [ -z "$msg" ] && continue
-            if ! echo "$msg" | grep -qE '^(feat|fix|chore|docs|refactor|test|ci|perf|style|build|revert)(\(.+\))?!?: .+'; then
+            if ! echo "$msg" | grep -qE '^(feat|fix|chore|docs|refactor|test|ci|perf|style|build|revert|debug)(\(.+\))?!?: .+'; then
               echo "BAD: $msg"
               BAD=1
             fi
