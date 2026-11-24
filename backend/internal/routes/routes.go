@@ -211,6 +211,11 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.GET("/inventory/requirements", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.GetRequirements)
 			protected.GET("/reports/daily-target", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.GetDailyTarget)
 
+			// Production target import/export (CSV template)
+			protected.GET("/production-targets/template", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.DownloadTemplate)
+			protected.POST("/production-targets/import", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.ImportPreview)
+			protected.POST("/production-targets/import/confirm", middleware.RoleMiddleware("owner", "manager"), h.ProductionTarget.ImportConfirm)
+
 			// Stock Opname
 			protected.POST("/inventory/opname", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.Create)
 			protected.GET("/inventory/opname", middleware.RoleMiddleware("owner", "manager"), h.StockOpname.List)

@@ -16,5 +16,20 @@ export const RequirementService = {
     getRequirements: async (): Promise<RequirementResponse> => {
         const response = await api.get('/inventory/requirements');
         return response.data.requirements;
+    },
+
+    downloadTemplate: () => {
+        window.open('/api/production-targets/template', '_blank');
+    },
+
+    importPreview: async (file: File) => {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await api.post('/production-targets/import', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+        return response.data.preview;
+    },
+
+    confirmImport: async (targets: { product_id: number; target_cup: number }[]) => {
+        await api.post('/production-targets/import/confirm', { targets });
     }
 };

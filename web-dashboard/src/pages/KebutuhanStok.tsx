@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "../store"
 import type { ProductionTarget, RequirementResponse } from "../types"
@@ -20,6 +20,8 @@ export default function KebutuhanStok() {
     const [periodDays, setPeriodDays] = useState(10)
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
+    const [isImporting, setIsImporting] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
     const { toast } = useToast()
 
     const loadAll = async () => {
@@ -81,6 +83,32 @@ export default function KebutuhanStok() {
         }
     }
 
+    const handleDownloadTemplate = () => {
+        RequirementService.downloadTemplate()
+    }
+
+    const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        setIsImporting(true)
+        try {
+            const preview = await RequirementService.importPreview(file)
+            const valid = preview?.valid ?? []
+            if (valid.length === 0) {
+                toast({ title: "Import", description: "Tidak ada baris valid", variant: "warning" })
+                return
+            }
+            await RequirementService.confirmImport(valid.map((v: any) => ({ product_id: v.product_id, target_cup: v.target_cup })))
+            toast({ title: "Berhasil", description: `${valid.length} target diimport`, variant: "success" })
+            await loadAll()
+        } catch (err) {
+            toast({ title: "Error", description: "Gagal import", variant: "error" })
+        } finally {
+            setIsImporting(false)
+            if (fileInputRef.current) fileInputRef.current.value = ""
+        }
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -104,6 +132,14 @@ export default function KebutuhanStok() {
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Simpan
                         </Button>
+                        <Button size="sm" variant="outline" onClick={handleDownloadTemplate} className="gap-1.5">
+                            Download Template
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="gap-1.5">
+                            {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                            Import CSV
+                        </Button>
+                        <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportFile} />
                     </div>
                 ) : (
                     <div className="flex items-center gap-1.5 rounded-md bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs text-blue-700">

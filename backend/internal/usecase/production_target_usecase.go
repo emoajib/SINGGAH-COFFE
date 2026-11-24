@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strconv"
@@ -356,4 +357,44 @@ func (uc *ProductionTargetUsecase) finalizeRequirements(menus []entity.Requireme
 		Menus:              menus,
 		Ingredients:        ingResults,
 	}
+}
+
+// Production target import helpers (CSV/XLSX template)
+type ProductionTargetImportRow struct {
+	ProductID   uint    `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	TargetCup   float64 `json:"target_cup"`
+}
+
+type ProductionTargetImportPreview struct {
+	Valid   []entity.ProductionTarget `json:"valid"`
+	Invalid []string                  `json:"invalid"`
+}
+
+func (uc *ProductionTargetUsecase) GetTemplateProducts() ([]entity.Product, error) {
+	return uc.productRepo.FindAll(1000, 0)
+}
+
+func (uc *ProductionTargetUsecase) PreviewImport(rows []ProductionTargetImportRow) (ProductionTargetImportPreview, error) {
+	preview := ProductionTargetImportPreview{Valid: []entity.ProductionTarget{}, Invalid: []string{}}
+	for _, r := range rows {
+		prod, err := uc.productRepo.FindByID(r.ProductID)
+		if err != nil || prod == nil {
+			preview.Invalid = append(preview.Invalid, fmt.Sprintf("product_id %d tidak ditemukan", r.ProductID))
+			continue
+		}
+		if r.TargetCup < 0 {
+			preview.Invalid = append(preview.Invalid, fmt.Sprintf("product_id %d target tidak boleh negatif", r.ProductID))
+			continue
+		}
+		preview.Valid = append(preview.Valid, entity.ProductionTarget{
+			ProductID: r.ProductID,
+			TargetCup: r.TargetCup,
+		})
+	}
+	return preview, nil
+}
+
+func (uc *ProductionTargetUsecase) ConfirmImport(targets []entity.ProductionTarget, outletID uint) error {
+	return uc.productionTargetRepo.ReplaceAll(targets, outletID)
 }

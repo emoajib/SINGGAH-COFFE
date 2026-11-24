@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/csv"
 	"net/http"
+	"strconv"
 
 	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
@@ -68,4 +70,94 @@ func (h *ProductionTargetHandler) GetDailyTarget(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"daily_target": resp})
+}
+
+
+// DownloadTemplate returns a CSV template for production targets.
+func (h *ProductionTargetHandler) DownloadTemplate(c *gin.Context) {
+	products, err := h.uc.GetTemplateProducts()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load products"})
+		return
+	}
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", "attachment; filename=production-targets-template.csv")
+	w := csv.NewWriter(c.Writer)
+	_ = w.Write([]string{"product_id", "product_name", "target_cup"})
+	for _, p := range products {
+		_ = w.Write([]string{strconv.Itoa(int(p.ID)), p.Name, "0"})
+	}
+	w.Flush()
+}
+
+// ImportPreview parses an uploaded CSV and returns valid/invalid rows.
+func (h *ProductionTargetHandler) ImportPreview(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		return
+	}
+	f, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot open file"})
+		return
+	}
+	defer f.Close()
+	reader := csv.NewReader(f)
+	rows, err := reader.ReadAll()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid csv"})
+		return
+	}
+	if len(rows) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty file"})
+		return
+	}
+	// skip header
+	start := 0
+	if len(rows[0]) >= 3 && rows[0][0] == "product_id" {
+		start = 1
+	}
+	var parsed []usecase.ProductionTargetImportRow
+	for i := start; i < len(rows); i++ {
+		if len(rows[i]) < 3 {
+			continue
+		}
+		pid, _ := strconv.Atoi(rows[i][0])
+		target, _ := strconv.ParseFloat(rows[i][2], 64)
+		parsed = append(parsed, usecase.ProductionTargetImportRow{
+			ProductID:   uint(pid),
+			ProductName: rows[i][1],
+			TargetCup:   target,
+		})
+	}
+	preview, err := h.uc.PreviewImport(parsed)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to validate"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"preview": preview})
+}
+
+// ImportConfirm saves validated targets.
+func (h *ProductionTargetHandler) ImportConfirm(c *gin.Context) {
+	var req struct {
+		Targets []struct {
+			ProductID uint    `json:"product_id"`
+			TargetCup float64 `json:"target_cup"`
+		} `json:"targets"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+	targets := make([]entity.ProductionTarget, len(req.Targets))
+	for i, t := range req.Targets {
+		targets[i] = entity.ProductionTarget{ProductID: t.ProductID, TargetCup: t.TargetCup}
+	}
+	if err := h.uc.ConfirmImport(targets, getOutletID(c)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save targets"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Imported"})
 }
