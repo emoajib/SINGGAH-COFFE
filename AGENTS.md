@@ -25,6 +25,11 @@ and makes file uploads fail (api-proxy.php). These were hard-won production inci
    `cp api-proxy.php .htaccess ~/public_html/`, restart via `start.sh`,
    verify `/health` AND a real file upload.
 
+## Bug Registry (WAJIB)
+
+Sebelum memodifikasi kode, baca `docs/BUG_REGISTRY.md` untuk menghindari regresi bug lama.
+Setiap fix bug wajib menambah/memperbarui entri registry (ID, fix commit, test regresi, guardrail).
+
 ## Deploy Rule
 
 Commits land on `main` and auto-deploy via GitHub Actions. If CI fails, fix and re-push — never bypass.

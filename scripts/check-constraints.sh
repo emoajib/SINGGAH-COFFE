@@ -77,6 +77,13 @@ else
   p "  [PASS] deploy.tar.gz tidak tracked"
 fi
 
+p "-- Bug registry --"
+check "docs/BUG_REGISTRY.md ada" "test -f '$ROOT/docs/BUG_REGISTRY.md'"
+
+p "-- TypeScript 'any' (informasi, bukan gate) --"
+ANY_COUNT=$(grep -RInE ': any\\b|any\\[\\]|<any>' "$ROOT/web-dashboard/src" 2>/dev/null | wc -l | tr -d ' ')
+p "  [INFO] jumlah 'any' di web-dashboard/src: ${ANY_COUNT} (target 0 untuk kode baru)"
+
 p ""
 if [ "$FAIL" -ne 0 ]; then
   p "RESULT: GAGAL — constraint shared hosting diregresi. JANGAN deploy."

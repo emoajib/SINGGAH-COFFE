@@ -3,7 +3,7 @@
 ## Prasyarat
 
 - Akses SSH ke server shared hosting
-- Go 1.23+ terinstal di komputer lokal (untuk cross-compile)
+- Go 1.25+ terinstal di komputer lokal (untuk cross-compile)
 - Node.js 20+ terinstal di komputer lokal (untuk build frontend)
 - Git terinstal
 

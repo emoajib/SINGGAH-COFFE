@@ -59,8 +59,8 @@
 
 **CI workflow details:**
 - `test.yml` — Go tests on push/PR to `main`
-- `main.yml` — Backend build (Go 1.23), Frontend npm build, Integration test with MySQL 8 container
-- Go version mismatch: local dev uses Go 1.25, CI uses Go 1.23 — build is compatible but always verify locally
+- `main.yml` — Backend build (Go 1.25), Frontend npm build, Integration test with MySQL 8 container
+- Go version: local dev dan CI sama-sama Go 1.25 — selalu verifikasi lokal sebelum push
 
 ## Frontend
 

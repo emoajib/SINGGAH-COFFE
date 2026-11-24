@@ -20,13 +20,13 @@ Sistem telah melewati fase **Production Hardening** secara menyeluruh. Seluruh *
 - **JWT Secret**: Cryptographically secure 32-byte key — tidak lagi menggunakan string statis.
 
 #### **B. Backend Core**
-- **Go version**: Turun dari 1.25 ke 1.23 (stable, teruji).
+- **Go version**: 1.25 (sesuai `go.mod` dan CI).
 - **Settings API**: Backend mengembalikan array of objects, frontend mengonversi ke map — format konsisten.
 - **Image Upload**: Field name `image` diselaraskan antara frontend dan backend.
 - **Login Flow**: Fetch settings dipindah setelah autentikasi berhasil — menghindari error tidak perlu.
 - **Dead Code Removal**: Stale `PurchaseOrder` struct dihapus, direktori `auth/` kosong dibersihkan.
 - **.gitignore**: Referensi Flutter dihapus — tidak relevan dengan stack saat ini.
-- **Multi-stage Dockerfile**: `golang:1.23-alpine` → `alpine:3.19` — image size ~15MB.
+- **Multi-stage Dockerfile**: `golang:1.25-alpine` → `alpine:3.19` — image size ~15MB.
 - **CSV Export**: Endpoint `GET /api/reports/profit-loss/export` untuk ekspor laporan laba rugi.
 
 #### **C. Unit Testing (42 tests)**
@@ -50,7 +50,7 @@ Sistem telah melewati fase **Production Hardening** secara menyeluruh. Seluruh *
 - **`run_backend_tests.sh`**: Path diperbaiki (`./services/` → `./internal/...`), referensi sqlite dihapus.
 - **`loadtest/load_test.sh`**: Bash-based load testing tool — zero dependencies (cukup `curl` + `bash`).
 - **CI/CD (GitHub Actions)**: 2 jobs — both green.
-  - Backend Build Check (Go 1.23)
+  - Backend Build Check (Go 1.25)
   - Web Dashboard Build Check (Node 20, `npm run build`)
 - **Web-dashboard Dockerfile**: Node 18 → Node 20 (sinkron dengan CI).
 
@@ -82,7 +82,7 @@ graph TD
         CORS["🌐 CORS Middleware"]
     end
 
-    subgraph Backend ["Backend Layer (Golang 1.23 - Gin)"]
+    subgraph Backend ["Backend Layer (Golang 1.25 - Gin)"]
         ROUTER["🚦 Gin Router"]
         SERVICES["🧠 Services (Inventory, Order, Report)"]
         USECASE["⚙️ Usecases (Business Logic)"]

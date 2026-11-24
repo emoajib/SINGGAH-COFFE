@@ -18,11 +18,11 @@ stack:
     language: Go (Golang) 1.25
     framework: Gin v1.9.1
     orm: GORM v1.31.1
-    database: MySQL 8 (Dockerized)
+    database: MySQL 8 / MariaDB (produksi: shared hosting)
     auth: JWT (golang-jwt/jwt v5)
     payment: Xendit SDK v3.7.0
-    build_system: Bazel
-    test_framework: pytest (Go equivalent: go test)
+    build_system: go build ./cmd/server
+    test_framework: go test ./...
 
   web_dashboard:
     framework: React 18 + TypeScript 5.3

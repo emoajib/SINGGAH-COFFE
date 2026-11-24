@@ -98,6 +98,7 @@ NODE_ENV=production
 - Frontend hooks: `web-dashboard/src/hooks/`
 - Frontend services: `web-dashboard/src/services/`
 - DB migrations: SQL files in root (run manually with `mysql -u root -ppassword singgah_pos < file.sql`)
+- Bug registry: `docs/BUG_REGISTRY.md` (baca sebelum perubahan, update saat fix)
 - Data seed: `import_excel_baseline.sql`, `migrate_stock_requirements.sql`, `setup_recipes.sql`
 
 ### 7. Shared Hosting Constraints (MANDATORY — architecturally enforced)
