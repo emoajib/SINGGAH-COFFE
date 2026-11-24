@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -33,6 +34,14 @@ func LoadConfig() Config {
 		JWTSecret:   secret,
 		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8081,http://localhost:5173,http://localhost:8080"),
 	}
+}
+
+// UploadsDir returns the uploads directory, unified via UPLOADS_DIR env with fallback.
+func UploadsDir() string {
+	if v := os.Getenv("UPLOADS_DIR"); strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
+	}
+	return "./uploads"
 }
 
 func getEnv(key, fallback string) string {

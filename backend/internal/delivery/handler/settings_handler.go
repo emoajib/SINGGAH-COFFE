@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"singgah-pos-backend/internal/config"
 	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/usecase"
@@ -153,7 +154,7 @@ func (h *SettingsHandler) UploadLogo(c *gin.Context) {
 	}
 
 	newFilename := fmt.Sprintf("logo_%d%s", time.Now().Unix(), ext)
-	savePath := filepath.Join("uploads/logo", newFilename)
+	savePath := filepath.Join(config.UploadsDir(), "logo", newFilename)
 
 	if err := c.SaveUploadedFile(file, savePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
@@ -168,7 +169,7 @@ func (h *SettingsHandler) UploadLogo(c *gin.Context) {
 	if bgHex == "" {
 		bgHex = "#4B3621"
 	}
-	if err := generatePWAIconFile(savePath, "uploads/logo/pwa-icon.png", bgHex); err != nil {
+	if err := generatePWAIconFile(savePath, filepath.Join(config.UploadsDir(), "logo", "pwa-icon.png"), bgHex); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process logo"})
 		return
 	}
