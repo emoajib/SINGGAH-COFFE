@@ -1,6 +1,10 @@
 package usecase
 
 import (
+	"fmt"
+	"strings"
+	"time"
+
 	"singgah-pos-backend/internal/delivery/request"
 	"singgah-pos-backend/internal/domain/entity"
 	"singgah-pos-backend/internal/repository"
@@ -23,14 +27,43 @@ func NewStockOpnameUsecase(db *gorm.DB) *StockOpnameUsecase {
 	}
 }
 
+// parseOpnameDate mengurai string tanggal baik "2006-01-02" maupun RFC3339.
+// Vetted by AI - Manual Review Required by Senior Engineer/Manager
+func parseOpnameDate(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Now(), nil
+	}
+	// Coba format YYYY-MM-DD
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t, nil
+	}
+	// Coba format RFC3339 (dengan waktu / T)
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05", s); err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("format tanggal tidak valid: %s", s)
+}
+
 func (uc *StockOpnameUsecase) Create(req request.CreateStockOpnameRequest, outletID, userID uint) (*entity.StockOpname, error) {
-	if req.PeriodTo.Before(req.PeriodFrom) {
-		return nil, nil
+	from, err := parseOpnameDate(req.PeriodFrom)
+	if err != nil {
+		return nil, err
+	}
+	to, err := parseOpnameDate(req.PeriodTo)
+	if err != nil {
+		return nil, err
+	}
+	if to.Before(from) {
+		to = from
 	}
 	opname := &entity.StockOpname{
 		OutletID:   outletID,
-		PeriodFrom: req.PeriodFrom,
-		PeriodTo:   req.PeriodTo,
+		PeriodFrom: from,
+		PeriodTo:   to,
 		Notes:      req.Notes,
 		CreatedBy:  userID,
 		Items:      make([]entity.StockOpnameItem, 0, len(req.Items)),

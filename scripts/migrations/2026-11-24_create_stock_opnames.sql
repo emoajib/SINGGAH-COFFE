@@ -44,3 +44,4 @@ CREATE TABLE IF NOT EXISTS `stock_opname_items` (
   INDEX `idx_stock_opname_items_created_at`    (`created_at`),
   INDEX `idx_stock_opname_items_deleted_at`    (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

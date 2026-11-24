@@ -1,7 +1,5 @@
 package request
 
-import "time"
-
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -209,8 +207,8 @@ type StockOpnameItemInput struct {
 }
 
 type CreateStockOpnameRequest struct {
-	PeriodFrom time.Time              `json:"period_from" binding:"required"`
-	PeriodTo   time.Time              `json:"period_to" binding:"required"`
+	PeriodFrom string                 `json:"period_from" binding:"required"`
+	PeriodTo   string                 `json:"period_to" binding:"required"`
 	Notes      string                 `json:"notes"`
 	Items      []StockOpnameItemInput `json:"items" binding:"required,min=1"`
 }

@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
@@ -30,8 +29,8 @@ func TestStockOpnameUsecase_CreateSuccess(t *testing.T) {
 	db.Create(ing)
 
 	req := request.CreateStockOpnameRequest{
-		PeriodFrom: time.Now(),
-		PeriodTo:   time.Now(),
+		PeriodFrom: "2026-11-24",
+		PeriodTo:   "2026-11-24",
 		Notes:      "test",
 		Items: []request.StockOpnameItemInput{
 			{IngredientID: ing.ID, PhysicalStock: 45, Note: "ok"},
