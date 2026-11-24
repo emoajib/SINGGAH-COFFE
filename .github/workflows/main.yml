@@ -14,6 +14,30 @@ permissions:
   contents: write
 
 jobs:
+  commit-lint:
+    name: Conventional Commit Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check commit messages
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            RANGE="HEAD~1..HEAD"
+          fi
+          BAD=0
+          for msg in $(git log --format=%s "$RANGE"); do
+            if ! echo "$msg" | grep -qE '^(feat|fix|chore|docs|refactor|test|ci|perf|style|build|revert)(\(.+\))?!?: .+'; then
+              echo "BAD: $msg"
+              BAD=1
+            fi
+          done
+          if [ "$BAD" -ne 0 ]; then exit 1; fi
+          echo "OK: all commit messages conventional"
+
   shared-hosting-constraints:
     name: Shared Hosting Constraint Guard
     runs-on: ubuntu-latest
@@ -55,6 +79,13 @@ jobs:
       run: |
         cd backend
         go test -v -coverprofile=coverage.out ./...
+
+    - name: Coverage threshold (usecase >= 40%)
+      run: |
+        cd backend
+        COV=$(go test -cover ./internal/usecase/... 2>&1 | grep -oE 'coverage: [0-9.]+' | grep -oE '[0-9.]+' | head -1)
+        echo "Usecase coverage: ${COV}%"
+        awk -v c="$COV" 'BEGIN { if (c+0 < 40) { print "FAIL: below 40%"; exit 1 } else { print "OK" } }'
 
     - name: Upload coverage artifact
       if: always()
@@ -157,7 +188,7 @@ jobs:
   publish-deploy-package:
     name: Build & Publish deploy.tar.gz
     runs-on: ubuntu-latest
-    needs: [shared-hosting-constraints, backend-check, web-dashboard-check]
+    needs: [commit-lint, shared-hosting-constraints, backend-check, web-dashboard-check]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
