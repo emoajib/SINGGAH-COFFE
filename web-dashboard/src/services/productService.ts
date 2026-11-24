@@ -27,6 +27,24 @@ export const ProductService = {
         await api.delete(`/products/${id}`);
     },
 
+    // Download recipe template
+    downloadRecipeTemplate: () => {
+        window.open('/api/products/recipe-template', '_blank');
+    },
+
+    // Import recipe preview
+    importRecipePreview: async (file: File) => {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await api.post('/products/recipe-import', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+        return response.data.preview;
+    },
+
+    // Confirm recipe import
+    confirmRecipeImport: async (rows: any[]) => {
+        await api.post('/products/recipe-import/confirm', { rows });
+    },
+
     // Upload product image
     uploadImage: async (file: File): Promise<string> => {
         const formData = new FormData();

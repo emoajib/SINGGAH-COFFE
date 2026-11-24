@@ -97,6 +97,11 @@ func SetupRoutes(r *gin.Engine, h *Handlers, db *gorm.DB) {
 			protected.DELETE("/products/:id", middleware.RoleMiddleware("owner", "manager"), h.Product.DeleteProduct)
 			protected.POST("/products/upload-image", middleware.RoleMiddleware("owner", "manager"), h.Product.UploadProductImage)
 
+			// Recipe import/export (CSV template)
+			protected.GET("/products/recipe-template", middleware.RoleMiddleware("owner", "manager"), h.Product.DownloadRecipeTemplate)
+			protected.POST("/products/recipe-import", middleware.RoleMiddleware("owner", "manager"), h.Product.ImportRecipePreview)
+			protected.POST("/products/recipe-import/confirm", middleware.RoleMiddleware("owner", "manager"), h.Product.ImportRecipeConfirm)
+
 			// Orders & Kitchen Display System (KDS) - Vetted by AI
 			protected.GET("/orders", h.Order.GetOrders)
 			protected.POST("/orders", h.Order.CreateOrder)

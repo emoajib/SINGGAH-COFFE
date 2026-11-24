@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Plus, AlertTriangle, Warehouse, ArrowLeftRight, ArrowUpCircle, Package, ShoppingBag, Receipt, ClipboardCheck } from 'lucide-react';
 import api from '../lib/api';
+import { ProductService } from '../services/productService';
 import { Badge } from "../components/ui/badge"
 import { Dialog } from "../components/ui/dialog"
 import { Button } from "../components/ui/button"
@@ -37,6 +38,8 @@ const ProductManagement: React.FC = () => {
     const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
     const [isIngModalOpen, setIsIngModalOpen] = useState(false);
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+    const [isImportingRecipe, setIsImportingRecipe] = useState(false);
+    const recipeFileRef = useRef<HTMLInputElement>(null);
     const [restockModal, setRestockModal] = useState<{ isOpen: boolean; itemId: number; type: 'IN' | 'OUT' | 'AUDIT'; location?: 'warehouse' | 'kedai' }>({ isOpen: false, itemId: 0, type: 'IN', location: undefined });
     const [historyModal, setHistoryModal] = useState({ isOpen: false, ingredient: null as Ingredient | null, history: [] as any[] });
     const [transferIngredient, setTransferIngredient] = useState<Ingredient | null>(null);
@@ -74,6 +77,32 @@ const ProductManagement: React.FC = () => {
             setHistoryModal({ isOpen: true, ingredient: ing, history: data as any[] });
         } catch { alert('Gagal mengambil riwayat stok'); }
         finally { setLoading(false); }
+    };
+
+
+    const handleDownloadRecipeTemplate = () => {
+        ProductService.downloadRecipeTemplate();
+    };
+
+    const handleImportRecipeFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setIsImportingRecipe(true);
+        try {
+            const preview = await ProductService.importRecipePreview(file);
+            const valid = preview?.valid ?? [];
+            if (valid.length === 0) {
+                alert("Tidak ada baris valid");
+                return;
+            }
+            await ProductService.confirmRecipeImport(valid);
+            alert(`${valid.length} resep diimport`);
+        } catch (err) {
+            alert("Gagal import resep");
+        } finally {
+            setIsImportingRecipe(false);
+            if (recipeFileRef.current) recipeFileRef.current.value = "";
+        }
     };
 
     return (
@@ -306,6 +335,13 @@ const ProductManagement: React.FC = () => {
                         <Button onClick={() => { setEditingProduct(null); setIsProductModalOpen(true); }} className="bg-primary hover:bg-primary/90 shadow-lg w-full md:w-auto">
                             <Plus className="mr-2 h-4 w-4" /> Tambah Menu Baru
                         </Button>
+                        <Button variant="outline" onClick={handleDownloadRecipeTemplate} className="w-full md:w-auto">
+                            Download Template Resep
+                        </Button>
+                        <Button variant="outline" onClick={() => recipeFileRef.current?.click()} disabled={isImportingRecipe} className="w-full md:w-auto">
+                            {isImportingRecipe ? "Mengimport..." : "Import Resep CSV"}
+                        </Button>
+                        <input ref={recipeFileRef} type="file" accept=".csv" className="hidden" onChange={handleImportRecipeFile} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {products.map(product => (

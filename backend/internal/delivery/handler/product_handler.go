@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/csv"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -186,4 +187,98 @@ func (h *ProductHandler) UploadProductImage(c *gin.Context) {
 		"message": "Image uploaded successfully",
 		"url":     url,
 	})
+}
+
+// DownloadRecipeTemplate returns CSV template of products with recipes.
+func (h *ProductHandler) DownloadRecipeTemplate(c *gin.Context) {
+	products, err := h.productUsecase.GetRecipeTemplate()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load recipes"})
+		return
+	}
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", "attachment; filename=recipes-template.csv")
+	w := csv.NewWriter(c.Writer)
+	_ = w.Write([]string{"product_id", "product_name", "ingredient_id", "ingredient_name", "quantity", "unit"})
+	for _, p := range products {
+		if len(p.Recipe) == 0 {
+			_ = w.Write([]string{strconv.Itoa(int(p.ID)), p.Name, "", "", "0", ""})
+			continue
+		}
+		for _, r := range p.Recipe {
+			_ = w.Write([]string{
+				strconv.Itoa(int(p.ID)),
+				p.Name,
+				strconv.Itoa(int(r.IngredientID)),
+				r.Ingredient.Name,
+				fmt.Sprintf("%g", r.Quantity),
+				r.Ingredient.Unit,
+			})
+		}
+	}
+	w.Flush()
+}
+
+// ImportRecipePreview parses uploaded CSV and validates.
+func (h *ProductHandler) ImportRecipePreview(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		return
+	}
+	f, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot open file"})
+		return
+	}
+	defer f.Close()
+	reader := csv.NewReader(f)
+	rows, err := reader.ReadAll()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid csv"})
+		return
+	}
+	start := 0
+	if len(rows) > 0 && rows[0][0] == "product_id" {
+		start = 1
+	}
+	var parsed []usecase.RecipeImportRow
+	for i := start; i < len(rows); i++ {
+		if len(rows[i]) < 5 {
+			continue
+		}
+		pid, _ := strconv.Atoi(rows[i][0])
+		iid, _ := strconv.Atoi(rows[i][2])
+		qty, _ := strconv.ParseFloat(rows[i][4], 64)
+		parsed = append(parsed, usecase.RecipeImportRow{
+			ProductID:      uint(pid),
+			ProductName:    rows[i][1],
+			IngredientID:   uint(iid),
+			IngredientName: rows[i][3],
+			Quantity:       qty,
+			Unit:           rows[i][5],
+		})
+	}
+	preview, err := h.productUsecase.PreviewRecipeImport(parsed)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to validate"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"preview": preview})
+}
+
+// ImportRecipeConfirm saves validated recipes.
+func (h *ProductHandler) ImportRecipeConfirm(c *gin.Context) {
+	var req struct {
+		Rows []usecase.RecipeImportRow `json:"rows"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+	if err := h.productUsecase.ConfirmRecipeImport(req.Rows); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save recipes"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Imported"})
 }

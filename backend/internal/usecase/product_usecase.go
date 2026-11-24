@@ -295,3 +295,79 @@ func (uc *ProductUsecase) GetPublicMenu(outletID ...uint) (*PublicMenuResponse, 
 		Items:            publicProducts,
 	}, nil
 }
+
+// Recipe import/export helpers (CSV template)
+type RecipeImportRow struct {
+	ProductID      uint    `json:"product_id"`
+	ProductName    string  `json:"product_name"`
+	IngredientID   uint    `json:"ingredient_id"`
+	IngredientName string  `json:"ingredient_name"`
+	Quantity       float64 `json:"quantity"`
+	Unit           string  `json:"unit"`
+}
+
+type RecipeImportPreview struct {
+	Valid   []RecipeImportRow `json:"valid"`
+	Invalid []string          `json:"invalid"`
+}
+
+func (uc *ProductUsecase) GetRecipeTemplate() ([]entity.Product, error) {
+	products, err := uc.productRepo.FindAll(1000, 0)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]entity.Product, 0, len(products))
+	for _, p := range products {
+		prod, err := uc.productRepo.FindByIDWithRecipe(p.ID)
+		if err != nil {
+			continue
+		}
+		res = append(res, *prod)
+	}
+	return res, nil
+}
+
+func (uc *ProductUsecase) PreviewRecipeImport(rows []RecipeImportRow) (RecipeImportPreview, error) {
+	preview := RecipeImportPreview{Valid: []RecipeImportRow{}, Invalid: []string{}}
+	for _, r := range rows {
+		prod, err := uc.productRepo.FindByID(r.ProductID)
+		if err != nil || prod == nil {
+			preview.Invalid = append(preview.Invalid, fmt.Sprintf("product_id %d tidak ditemukan", r.ProductID))
+			continue
+		}
+		ing, err := uc.ingredientRepo.FindByID(r.IngredientID)
+		if err != nil || ing == nil {
+			preview.Invalid = append(preview.Invalid, fmt.Sprintf("ingredient_id %d tidak ditemukan", r.IngredientID))
+			continue
+		}
+		if r.Quantity < 0 {
+			preview.Invalid = append(preview.Invalid, fmt.Sprintf("product_id %d qty negatif", r.ProductID))
+			continue
+		}
+		preview.Valid = append(preview.Valid, r)
+	}
+	return preview, nil
+}
+
+func (uc *ProductUsecase) ConfirmRecipeImport(rows []RecipeImportRow) error {
+	// group by product
+	grouped := map[uint][]entity.RecipeItem{}
+	for _, r := range rows {
+		grouped[r.ProductID] = append(grouped[r.ProductID], entity.RecipeItem{
+			ProductID:    r.ProductID,
+			IngredientID: r.IngredientID,
+			Quantity:     r.Quantity,
+		})
+	}
+	for pid, items := range grouped {
+		if err := uc.productRepo.DeleteRecipeByProductID(pid); err != nil {
+			return err
+		}
+		if len(items) > 0 {
+			if err := uc.productRepo.CreateRecipeItems(items); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
