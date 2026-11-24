@@ -89,11 +89,11 @@ export default function StockOpname() {
                             <tbody>
                                 {ingredients.map(ing => {
                                     const phys = Number(items[ing.id]?.physical || 0);
-                                    const diff = phys - (ing.current_stock || 0);
+                                    const diff = phys - (ing.kedai_stock || 0);
                                     return (
                                         <tr key={ing.id} className="border-b">
                                             <td className="p-2">{ing.name} ({ing.unit})</td>
-                                            <td className="p-2 text-right">{ing.current_stock}</td>
+                                            <td className="p-2 text-right">{ing.kedai_stock}</td>
                                             <td className="p-2 text-right">
                                                 <Input type="number" className="w-24 text-right" value={items[ing.id]?.physical || ""} onChange={e => setPhysical(ing.id, e.target.value)} />
                                             </td>

@@ -40,7 +40,7 @@ func (uc *StockOpnameUsecase) Create(req request.CreateStockOpnameRequest, outle
 		if err != nil {
 			return nil, err
 		}
-		sys := ing.CurrentStock
+		sys := ing.KedaiStock
 		opname.Items = append(opname.Items, entity.StockOpnameItem{
 			IngredientID:   it.IngredientID,
 			IngredientName: ing.Name,
