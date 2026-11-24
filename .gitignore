@@ -64,3 +64,4 @@ backend/go.mod.backup
 
 # Local env (dev only)
 backend/.env.local
+backend/migrate
