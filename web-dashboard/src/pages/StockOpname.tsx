@@ -45,6 +45,7 @@ export default function StockOpname() {
                     note: items[ing.id]?.note || ""
                 }))
             };
+            console.log('OPNAME PAYLOAD', payload);
             const opname = await StockOpnameService.create(payload);
             toast({ title: "Berhasil", description: "Stok opname disimpan", variant: "success" });
             StockOpnameService.downloadPdf(opname.id);
