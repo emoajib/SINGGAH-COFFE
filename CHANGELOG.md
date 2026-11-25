@@ -10,6 +10,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Sinkronisasi versi Go (1.25) dan referensi usang di `AGENT.md`, `PROJECT_STATUS.md`, `known-issues.md`, `DEPLOY.md`.
+- CI: lint workflow (actionlint) dijalankan di job backend; tag rilis memakai output step
+  (`steps.sha.outputs.short`) alih-alih `env.SHORT_SHA` agar lolos validasi workflow.
+- CI: hapus `setup-node` yang tidak terpakai di job constraint & backend (lebih cepat, tanpa noise).
 
 ## [2026-11] - Profit sharing multi-shift
 ### Fixed

@@ -67,9 +67,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '24'
     - name: Run constraint guard
       run: ./scripts/check-constraints.sh
     - name: Validate deploy artifact not tracked
@@ -84,15 +81,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '24'
 
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.25'
         cache-dependency-path: backend/go.sum
+
+    # Lint workflow YAML secara lokal agar kesalahan sintaks/konteks tertangkap
+    # di CI, bukan hanya oleh validator editor (yang butuh akses jaringan).
+    - name: Lint GitHub Actions workflows
+      run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -no-color
 
     - name: Build Backend
       run: |
@@ -241,10 +240,13 @@ jobs:
           npm run build
           cp -r dist/* ../deploy/web/
 
+      - name: Compute short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
       - name: Bundle deploy package
         run: |
           cd "$GITHUB_WORKSPACE"
-          echo "SHORT_SHA=$(cut -c1-8 <<< "${GITHUB_SHA}")" >> "$GITHUB_ENV"
           cp backend/start.sh deploy/start.sh
           cp update-webhosting.sh deploy/update-webhosting.sh
           cp api-proxy.php deploy/
@@ -259,8 +261,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: deploy-${{ env.SHORT_SHA }}
-          name: "Deploy package ${{ env.SHORT_SHA }} (${{ github.sha }})"
+          tag_name: deploy-${{ steps.sha.outputs.short }}
+          name: "Deploy package ${{ steps.sha.outputs.short }} (${{ github.sha }})"
           body: |
             Auto-generated deploy package from CI.
 
